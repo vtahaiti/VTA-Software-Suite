@@ -244,3 +244,113 @@ Gestion des fichiers.
 ### API
 
 Tous les modules communiqueront avec le Core Platform via une API interne.
+---
+
+# Tenant Management
+
+## Définition
+
+Le Tenant Management est le système qui permet à plusieurs entreprises d'utiliser la même plateforme VTA Software Suite tout en gardant leurs données totalement séparées.
+
+Chaque entreprise est appelée un **Tenant**.
+
+Le Tenant est l'unité principale de la plateforme.
+
+---
+
+## Objectifs
+
+Le Tenant Management permet de :
+
+- Isoler les données de chaque entreprise.
+- Gérer plusieurs entreprises sur une seule plateforme.
+- Permettre à un utilisateur d'accéder à une ou plusieurs entreprises selon ses autorisations.
+- Préparer l'ajout de nouveaux modules sans modifier l'architecture.
+
+---
+
+## Structure
+
+Chaque Tenant possède :
+
+- Nom de l'entreprise
+- Logo
+- Adresse
+- Pays
+- Devise
+- Langue
+- Fuseau horaire
+- Paramètres
+- Utilisateurs
+- Rôles
+- Permissions
+- Modules actifs
+- Plan d'abonnement
+
+---
+
+## Isolation des données
+
+Toutes les données de la plateforme appartiennent à un Tenant.
+
+Exemples :
+
+- Produits
+- Clients
+- Fournisseurs
+- Employés
+- Factures
+- Stocks
+- Paiements
+- Rapports
+
+Chaque donnée sera automatiquement liée à un **Tenant ID**.
+
+Aucun utilisateur ne pourra accéder aux données d'un autre Tenant.
+
+---
+
+## Utilisateurs
+
+Un utilisateur peut appartenir à :
+
+- Une seule entreprise
+- Plusieurs entreprises (avec les autorisations appropriées)
+
+Lors de la connexion, le système déterminera automatiquement les entreprises auxquelles l'utilisateur a accès.
+
+Si plusieurs entreprises sont disponibles, l'utilisateur choisira celle dans laquelle il souhaite travailler.
+
+---
+
+## Modules
+
+Chaque Tenant pourra activer uniquement les modules dont il a besoin.
+
+Exemples :
+
+- POS
+- School
+- Hotel
+- Pharmacy
+- Garage
+
+Les modules inutilisés resteront désactivés.
+
+---
+
+## Sécurité
+
+Toutes les requêtes de la plateforme devront vérifier automatiquement le Tenant actif avant d'accéder aux données.
+
+Cette règle est obligatoire pour tous les modules.
+
+---
+
+## Principe fondamental
+
+Une seule plateforme.
+
+Des milliers d'entreprises.
+
+Des données totalement isolées.
