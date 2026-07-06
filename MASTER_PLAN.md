@@ -38,3 +38,26 @@ Le développement suivra une approche "Architecture First" : aucune fonctionnali
 - Performance
 - Documentation complète
 - Modules réutilisables
+---
+
+# Architecture Technique Officielle
+
+VTA Software Suite utilisera une architecture moderne, modulaire et évolutive.
+
+## Stack Technique
+
+| Élément | Technologie |
+|--------|-------------|
+| Frontend | Next.js + React + TypeScript |
+| Backend | NestJS + TypeScript |
+| Base de données | PostgreSQL |
+| ORM | Prisma |
+| Déploiement | Docker |
+| Cache | Redis |
+| Stockage fichiers | S3 Compatible |
+
+## Principe fondamental
+
+Le projet suivra une approche **Architecture First**.
+
+Aucune fonctionnalité ne sera développée avant d'avoir été conçue, documentée et validée.
