@@ -2,6 +2,9 @@ FROM node:20-alpine AS deps
 
 WORKDIR /app
 
+ARG BUILD_CACHE_BUST=local
+RUN echo "Build cache bust: ${BUILD_CACHE_BUST}"
+
 COPY package*.json ./
 COPY apps ./apps
 COPY packages ./packages
