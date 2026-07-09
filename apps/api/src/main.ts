@@ -5,6 +5,28 @@ import express from "express";
 import { join } from "path";
 import { AppModule } from "./app.module";
 
+function buildCorsOrigins() {
+  const configuredOrigins = [
+    process.env.WEB_URL,
+    process.env.ADMIN_WEB_URL,
+    process.env.CORS_ORIGINS
+  ]
+    .filter(Boolean)
+    .flatMap((value) => String(value).split(","))
+    .map((value) => value.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+
+  return Array.from(
+    new Set([
+      "http://localhost:3000",
+      "https://vtaerp.com",
+      "https://www.vtaerp.com",
+      "https://admin.vtaerp.com",
+      ...configuredOrigins
+    ])
+  );
+}
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
@@ -19,7 +41,7 @@ async function bootstrap() {
   );
 
   app.enableCors({
-    origin: process.env.WEB_URL ?? "http://localhost:3000",
+    origin: buildCorsOrigins(),
     credentials: true
   });
 
