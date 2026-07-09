@@ -14,6 +14,7 @@ enum TenantStatus {
   EXPIRED
   TRIAL
   CANCELLED
+  DELETED
 }
 enum SubscriptionPlan {
   FREE
@@ -281,6 +282,7 @@ model Tenant {
   status TenantStatus @default(TRIAL)
   lastLoginAt DateTime?
   lastSeenAt DateTime?
+  deletedAt DateTime?
   users User[]
   roles Role[]
   products Product[]

@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getCurrentUser, login } from "@/lib/auth";
+import { clearSession, getCurrentUser, login } from "@/lib/auth";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -13,7 +13,7 @@ export default function AdminLoginPage() {
 
   useEffect(() => {
     const user = getCurrentUser();
-    if (user?.roles?.includes("PlatformAdmin") || user?.role === "PlatformAdmin") router.replace("/admin/dashboard");
+    if (user?.roles?.some((role) => role === "SUPER_ADMIN" || role === "PlatformAdmin") || user?.role === "SUPER_ADMIN" || user?.role === "PlatformAdmin") router.replace("/admin/dashboard");
   }, [router]);
 
   async function submit(event: FormEvent) {
@@ -22,8 +22,9 @@ export default function AdminLoginPage() {
     setIsLoading(true);
     try {
       const user = await login({ email, password, rememberMe: true });
-      const isPlatformAdmin = user.roles?.includes("PlatformAdmin") || user.role === "PlatformAdmin";
+      const isPlatformAdmin = user.roles?.some((role) => role === "SUPER_ADMIN" || role === "PlatformAdmin") || user.role === "SUPER_ADMIN" || user.role === "PlatformAdmin";
       if (!isPlatformAdmin) {
+        clearSession();
         setError("Acces reserve aux administrateurs VTA ERP.");
         return;
       }
@@ -40,7 +41,7 @@ export default function AdminLoginPage() {
     <section className="w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.05] p-6 shadow-2xl shadow-black/30">
       <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">VTA ERP</p>
       <h1 className="mt-2 text-3xl font-black text-white">Control Center</h1>
-      <p className="mt-2 text-sm text-slate-400">Connexion reservee aux PlatformAdmin VTA.</p>
+      <p className="mt-2 text-sm text-slate-400">Connexion reservee au SUPER_ADMIN VTA.</p>
       <form onSubmit={submit} className="mt-6 space-y-4">
         <label className="grid gap-2 text-sm font-semibold">Email
           <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-cyan-300" />

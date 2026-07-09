@@ -42,7 +42,8 @@ export class AuthService {
       throw new UnauthorizedException("Compte temporairement bloque apres plusieurs echecs. Reessayez plus tard.");
     }
 
-    const user = await this.findUserByEmail(email);
+    let user = await this.findUserByEmail(email);
+    user ??= await this.ensureConfiguredSuperAdmin(email, loginDto.password);
     if (!user) {
       const passwordMatchesDemo = await bcrypt.compare(loginDto.password, demoPasswordHash);
       if (email !== adminEmail || !passwordMatchesDemo) {
@@ -167,7 +168,55 @@ export class AuthService {
   }
 
   private isPlatformAdmin(user: AuthUser) {
-    return user.roles?.includes("PlatformAdmin") || user.role === "PlatformAdmin";
+    return user.roles?.some((role) => role === "SUPER_ADMIN" || role === "PlatformAdmin") || user.role === "SUPER_ADMIN" || user.role === "PlatformAdmin";
+  }
+
+  private async ensureConfiguredSuperAdmin(email: string, password: string) {
+    const superAdminEmail = (process.env.SUPER_ADMIN_EMAIL ?? "admin@vtaerp.com").trim().toLowerCase();
+    const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD ?? "Admin@123456";
+    if (email !== superAdminEmail || password !== superAdminPassword) return null;
+
+    const tenant = await this.prisma.tenant.upsert({
+      where: { slug: "vta-platform" },
+      update: { name: "VTA ERP Platform", status: TenantStatus.ACTIVE },
+      create: {
+        id: "tenant_vta_platform",
+        name: "VTA ERP Platform",
+        slug: "vta-platform",
+        email: superAdminEmail,
+        currency: "HTG",
+        timezone: "America/Port-au-Prince",
+        language: "fr",
+        status: TenantStatus.ACTIVE
+      }
+    });
+
+    const role = await this.prisma.role.upsert({
+      where: { tenantId_name: { tenantId: tenant.id, name: "SUPER_ADMIN" } },
+      update: { description: "Super administrateur global VTA ERP", isSystem: true },
+      create: { tenantId: tenant.id, name: "SUPER_ADMIN", description: "Super administrateur global VTA ERP", isSystem: true }
+    });
+
+    const user = await this.prisma.user.upsert({
+      where: { tenantId_email: { tenantId: tenant.id, email: superAdminEmail } },
+      update: { name: "Super Admin VTA ERP", password: await bcrypt.hash(superAdminPassword, 12), isActive: true },
+      create: {
+        id: "usr_super_admin_vta_erp",
+        tenantId: tenant.id,
+        name: "Super Admin VTA ERP",
+        email: superAdminEmail,
+        password: await bcrypt.hash(superAdminPassword, 12),
+        isActive: true
+      }
+    });
+
+    await this.prisma.userRole.upsert({
+      where: { userId_roleId: { userId: user.id, roleId: role.id } },
+      update: {},
+      create: { userId: user.id, roleId: role.id }
+    });
+
+    return this.findUserByEmail(superAdminEmail);
   }
 
   private async assertUserActive(userId: string) {
@@ -191,6 +240,7 @@ export class AuthService {
     if (!tenant) throw new UnauthorizedException("Entreprise introuvable");
     if (tenant.status === TenantStatus.PAUSED) throw new UnauthorizedException("Votre compte est en pause. Contactez VTA ERP.");
     if (tenant.status === TenantStatus.SUSPENDED) throw new UnauthorizedException("Votre compte est suspendu. Contactez VTA ERP.");
+    if (tenant.status === TenantStatus.DELETED) throw new UnauthorizedException("Votre compte a ete supprime. Contactez VTA ERP.");
     if (tenant.status === TenantStatus.EXPIRED || tenant.status === TenantStatus.CANCELLED) throw new UnauthorizedException("Votre abonnement est expire. Contactez VTA ERP.");
     if (tenant.status === TenantStatus.TRIAL && tenant.subscription?.endsAt && tenant.subscription.endsAt.getTime() < Date.now()) {
       await this.prisma.tenant.update({ where: { id: tenantId }, data: { status: TenantStatus.EXPIRED } });

@@ -7,7 +7,7 @@ const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001").repl
 export function isPlatformAdmin() {
   const user = getCurrentUser();
   const token = getAccessToken();
-  return Boolean(token && (user?.roles?.includes("PlatformAdmin") || user?.role === "PlatformAdmin"));
+  return Boolean(token && (user?.roles?.some((role) => role === "SUPER_ADMIN" || role === "PlatformAdmin") || user?.role === "SUPER_ADMIN" || user?.role === "PlatformAdmin"));
 }
 
 export async function platformFetch<T>(path: string, init: RequestInit = {}) {

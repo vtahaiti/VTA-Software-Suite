@@ -12,7 +12,10 @@ type Stats = {
   suspendedTenants: number;
   pausedTenants: number;
   expiredTenants: number;
+  deletedTenants: number;
   monthlyRevenue: number;
+  globalSalesTotal: number;
+  globalSalesCount: number;
   newTenantsToday: number;
   newSubscriptions: number;
   cancellations: number;
@@ -42,7 +45,10 @@ export default function AdminPage() {
     { label: "En pause", value: stats?.pausedTenants ?? 0, tone: "blue" },
     { label: "Suspendues", value: stats?.suspendedTenants ?? 0, tone: "orange" },
     { label: "Expirees", value: stats?.expiredTenants ?? 0, tone: "red" },
+    { label: "Supprimees", value: stats?.deletedTenants ?? 0, tone: "red" },
     { label: "Revenus mensuels", value: formatMoney(stats?.monthlyRevenue ?? 0), tone: "green" },
+    { label: "Ventes globales", value: stats?.globalSalesCount ?? 0, tone: "green" },
+    { label: "CA global reel", value: formatMoney(stats?.globalSalesTotal ?? 0), tone: "green" },
     { label: "Nouvelles aujourd'hui", value: stats?.newTenantsToday ?? 0, tone: "cyan" },
     { label: "Nouveaux abonnements", value: stats?.newSubscriptions ?? 0, tone: "cyan" },
     { label: "Annulations", value: stats?.cancellations ?? 0, tone: "red" },

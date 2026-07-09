@@ -21,6 +21,7 @@ type TenantDetail = {
   subscription: { plan: string; status: string; startedAt?: string | null; endsAt?: string | null; monthlyPrice: number; price?: number; currency?: string; paymentStatus?: string; paymentReceived: boolean; paymentPending: boolean; autoRenew: boolean; trial: boolean };
   users: Array<{ id: string; name: string; email: string; roles: string[]; createdAt: string }>;
   licenses: { users: number; stores: number; warehouses: number; modulesActive: number; modulesDisabled: number };
+  statistics: { users: number; products: number; sales: number; invoices: number; payments: number; revenueTotal: number; revenueMonth: number; paymentsTotal: number };
   modules: Array<{ key: string; name: string; category: string; isActive: boolean }>;
   lastLogins: Array<{ id: string; email?: string | null; status: string; ipAddress?: string | null; userAgent?: string | null; createdAt: string }>;
   security: Array<{ id: string; event: string; status: string; email?: string | null; ipAddress?: string | null; userAgent?: string | null; createdAt: string }>;
@@ -52,7 +53,7 @@ export default function AdminTenantDetailPage({ params }: { params: { id: string
       <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-xl shadow-black/10">
         <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-center">
           <div className="flex items-center gap-4"><Logo tenant={tenant} /><div><p className="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">Entreprise cliente</p><h2 className="mt-1 text-3xl font-black text-white">{tenant.name}</h2><p className="mt-1 text-sm text-slate-400">{tenant.primaryActivity ?? "Activite non definie"} · {tenant.country ?? "Pays non defini"} · {tenant.city ?? "Ville non definie"}</p></div></div>
-          <div className="flex flex-wrap gap-2"><Button onClick={() => action(() => platformFetch(`/platform/tenants/${tenant.id}/status`, { method: "PATCH", body: JSON.stringify({ status: "ACTIVE" }) }), "Entreprise activee.")}>Activer</Button><Button onClick={() => action(() => platformFetch(`/platform/tenants/${tenant.id}/status`, { method: "PATCH", body: JSON.stringify({ status: "PAUSED" }) }), "Entreprise mise en pause.")}>Mettre en pause</Button><Button onClick={() => action(() => platformFetch(`/platform/tenants/${tenant.id}/status`, { method: "PATCH", body: JSON.stringify({ status: "TRIAL" }) }), "Entreprise mise en essai.")}>Mettre en essai</Button><Button onClick={() => action(() => platformFetch(`/platform/tenants/${tenant.id}/status`, { method: "PATCH", body: JSON.stringify({ status: "SUSPENDED" }) }), "Entreprise suspendue.")}>Suspendre</Button><Button danger onClick={() => action(() => platformFetch(`/platform/tenants/${tenant.id}/status`, { method: "PATCH", body: JSON.stringify({ status: "EXPIRED" }) }), "Entreprise expiree.")}>Expirer</Button></div>
+          <div className="flex flex-wrap gap-2"><Button onClick={() => action(() => platformFetch(`/platform/tenants/${tenant.id}/status`, { method: "PATCH", body: JSON.stringify({ status: "ACTIVE" }) }), "Entreprise activee.")}>Activer</Button><Button onClick={() => action(() => platformFetch(`/platform/tenants/${tenant.id}/status`, { method: "PATCH", body: JSON.stringify({ status: "PAUSED" }) }), "Entreprise mise en pause.")}>Mettre en pause</Button><Button onClick={() => action(() => platformFetch(`/platform/tenants/${tenant.id}/status`, { method: "PATCH", body: JSON.stringify({ status: "TRIAL" }) }), "Entreprise mise en essai.")}>Mettre en essai</Button><Button onClick={() => action(() => platformFetch(`/platform/tenants/${tenant.id}/status`, { method: "PATCH", body: JSON.stringify({ status: "SUSPENDED" }) }), "Entreprise suspendue.")}>Suspendre</Button><Button danger onClick={() => action(() => platformFetch(`/platform/tenants/${tenant.id}`, { method: "DELETE" }), "Entreprise supprimee proprement.")}>Supprimer</Button></div>
         </div>
       </section>
 
@@ -62,6 +63,16 @@ export default function AdminTenantDetailPage({ params }: { params: { id: string
         <Metric label="Licences utilisateurs" value={tenant.licenses.users} />
         <Metric label="Magasins" value={tenant.licenses.stores} />
         <Metric label="Modules actifs" value={tenant.licenses.modulesActive} />
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Metric label="Produits" value={tenant.statistics.products} />
+        <Metric label="Ventes" value={tenant.statistics.sales} />
+        <Metric label="Factures" value={tenant.statistics.invoices} />
+        <Metric label="Paiements" value={`${tenant.statistics.payments}`} />
+        <Metric label="CA total" value={formatMoney(tenant.statistics.revenueTotal, tenant.subscription.currency ?? "HTG")} />
+        <Metric label="CA du mois" value={formatMoney(tenant.statistics.revenueMonth, tenant.subscription.currency ?? "HTG")} />
+        <Metric label="Paiements recus" value={formatMoney(tenant.statistics.paymentsTotal, tenant.subscription.currency ?? "HTG")} />
       </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-2">
@@ -91,3 +102,4 @@ function Info({ label, value }: { label: string; value: string | number }) { ret
 function Button({ children, onClick, danger = false }: { children: React.ReactNode; onClick: () => void; danger?: boolean }) { return <button onClick={onClick} className={`rounded-xl px-4 py-2 text-sm font-bold ${danger ? "bg-red-400/20 text-red-100 hover:bg-red-400/30" : "bg-cyan-400/15 text-cyan-100 hover:bg-cyan-400/25"}`}>{children}</button>; }
 function Alert({ tone, children }: { tone: "red" | "green"; children: React.ReactNode }) { return <div className={`mb-4 rounded-xl border p-3 text-sm ${tone === "red" ? "border-red-400/30 bg-red-400/10 text-red-100" : "border-emerald-400/30 bg-emerald-400/10 text-emerald-100"}`}>{children}</div>; }
 function addDays(days: number) { const date = new Date(); date.setDate(date.getDate() + days); return date.toISOString(); }
+function formatMoney(value: number, currency: string) { return new Intl.NumberFormat("fr-HT", { style: "currency", currency: currency === "USD" ? "USD" : "HTG", maximumFractionDigits: 0 }).format(value); }
