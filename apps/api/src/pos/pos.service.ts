@@ -149,7 +149,7 @@ export class PosService {
 
   async calculateCart(tenantId: string, dto: PosCartDto) {
     if (!dto.items.length) return this.emptyCart(dto.taxRate ?? 0, dto.discount ?? 0);
-    const productIds = dto.items.map((item) => item.productId);
+    const productIds = dto.items.map((item) => item.productId).filter((productId): productId is string => Boolean(productId));
     const products = await this.prisma.product.findMany({
       where: { tenantId, id: { in: productIds }, isActive: true },
       include: { barcodes: true, stocks: true }
@@ -161,6 +161,39 @@ export class PosService {
     let tax = 0;
 
     const items = dto.items.map((item) => {
+      if (!item.productId) {
+        const customName = item.customName?.trim();
+        const unitPrice = Number(item.unitPrice ?? NaN);
+        if (!customName) throw new BadRequestException("Le nom de l'article personnalise est obligatoire");
+        if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new BadRequestException("Le prix de l'article personnalise est obligatoire");
+        const discount = item.discount ?? 0;
+        const base = unitPrice * item.quantity;
+        const taxable = base - discount;
+        if (taxable < 0) throw new BadRequestException("Remise superieure au montant de la ligne");
+        const lineTax = taxable * taxRate;
+        const total = taxable + lineTax;
+        subtotal += base;
+        itemDiscount += discount;
+        tax += lineTax;
+        return {
+          customId: item.customId ?? `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          productId: null,
+          sku: "PERSONNALISE",
+          name: customName,
+          unitPrice,
+          quantity: item.quantity,
+          discount,
+          tax: this.round(lineTax),
+          total: this.round(total),
+          availableStock: 0,
+          primaryBarcode: null,
+          hasEnoughStock: true,
+          isCustom: true,
+          customName,
+          customType: item.customType ?? "OTHER",
+          customNote: item.customNote
+        };
+      }
       const product = productMap.get(item.productId);
       if (!product) throw new NotFoundException("Produit introuvable");
       const availableStock = this.availableStock(product.stocks, dto.warehouseId);
@@ -185,7 +218,8 @@ export class PosService {
         total: this.round(total),
         availableStock,
         primaryBarcode: product.barcodes.find((barcode) => barcode.isPrimary)?.value ?? product.barcodes[0]?.value ?? null,
-        hasEnoughStock: availableStock >= item.quantity
+        hasEnoughStock: availableStock >= item.quantity,
+        isCustom: false
       };
     });
 
@@ -268,7 +302,10 @@ export class PosService {
         createdById: userId,
         items: {
           create: cart.items.map((item) => ({
-            productId: item.productId,
+            productId: item.productId ?? undefined,
+            customName: item.customName,
+            customType: item.customType,
+            customNote: item.customNote,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             discount: item.discount,

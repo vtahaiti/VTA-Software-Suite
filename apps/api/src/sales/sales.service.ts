@@ -1,5 +1,5 @@
 ﻿import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { InventoryMovementType, Prisma, SaleStatus, SalesDocumentStatus } from "@prisma/client";
+import { InventoryMovementType, Prisma, Product, SaleStatus, SalesDocumentStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { StockService } from "../stock/stock.service";
 import { CreateSaleDto } from "./dto/create-sale.dto";
@@ -69,7 +69,7 @@ export class SalesService {
         if (!session) throw new BadRequestException("Session caisse fermee ou introuvable");
       }
 
-      const productIds = [...new Set(dto.items.map((item) => item.productId))];
+      const productIds = [...new Set(dto.items.map((item) => item.productId).filter((productId): productId is string => Boolean(productId)))];
       const products = await tx.product.findMany({ where: { tenantId, id: { in: productIds }, isActive: true } });
       const productMap = new Map(products.map((product) => [product.id, product]));
       const taxRate = dto.taxRate ?? 0;
@@ -78,9 +78,18 @@ export class SalesService {
       let itemTax = 0;
 
       const saleItems = dto.items.map((item) => {
-        const product = productMap.get(item.productId);
-        if (!product) throw new NotFoundException("Produit introuvable");
-        const unitPrice = Number(product.salePrice);
+        let product: Product | null = null;
+        let unitPrice = Number(item.unitPrice ?? NaN);
+        let customName: string | undefined;
+        if (item.productId) {
+          product = productMap.get(item.productId) ?? null;
+          if (!product) throw new NotFoundException("Produit introuvable");
+          unitPrice = Number(product.salePrice);
+        } else {
+          customName = item.customName?.trim();
+          if (!customName) throw new BadRequestException("Le nom de l'article personnalise est obligatoire");
+          if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new BadRequestException("Le prix de l'article personnalise est obligatoire");
+        }
         const lineSubtotal = unitPrice * item.quantity;
         const discount = item.discount ?? 0;
         const taxable = lineSubtotal - discount;
@@ -89,7 +98,18 @@ export class SalesService {
         const total = this.round(taxable + tax);
         subtotal += lineSubtotal;
         itemTax += tax;
-        return { product, productId: item.productId, quantity: item.quantity, unitPrice, discount, tax, total };
+        return {
+          product,
+          productId: item.productId,
+          customName,
+          customType: item.customType,
+          customNote: item.customNote,
+          quantity: item.quantity,
+          unitPrice,
+          discount,
+          tax,
+          total
+        };
       });
 
       const grossTotal = saleItems.reduce((sum, item) => sum + item.total, 0);
@@ -106,6 +126,7 @@ export class SalesService {
       }
 
       for (const item of saleItems) {
+        if (!item.productId || !item.product) continue;
         const stock = await tx.stock.findUnique({ where: { tenantId_productId_warehouseId: { tenantId, productId: item.productId, warehouseId: dto.warehouseId } } });
         const available = (stock?.quantity ?? 0) - (stock?.reserved ?? 0);
         if (!stock || available < item.quantity) throw new BadRequestException(`Stock insuffisant pour ${item.product.name}`);
@@ -123,7 +144,7 @@ export class SalesService {
           total,
           note: dto.note,
           status: SaleStatus.COMPLETED,
-          items: { create: saleItems.map((item) => ({ productId: item.productId, quantity: item.quantity, unitPrice: item.unitPrice, discount: item.discount, tax: item.tax, total: item.total })) }
+          items: { create: saleItems.map((item) => this.saleLineData(item)) }
         }
       });
 
@@ -142,7 +163,7 @@ export class SalesService {
           notes: dto.note,
           createdById: userId,
           issuedAt: new Date(),
-          items: { create: saleItems.map((item) => ({ productId: item.productId, quantity: item.quantity, unitPrice: item.unitPrice, discount: item.discount, tax: item.tax, total: item.total })) }
+          items: { create: saleItems.map((item) => this.saleLineData(item)) }
         }
       });
 
@@ -164,6 +185,7 @@ export class SalesService {
       }
 
       for (const item of saleItems) {
+        if (!item.productId || !item.product) continue;
         const stock = await tx.stock.findUniqueOrThrow({ where: { tenantId_productId_warehouseId: { tenantId, productId: item.productId, warehouseId: dto.warehouseId } } });
         const afterQty = stock.quantity - item.quantity;
         if (afterQty < 0) throw new BadRequestException(`Stock insuffisant pour ${item.product.name}`);
@@ -236,13 +258,32 @@ export class SalesService {
     const sale = await this.findOne(tenantId, id);
     if (sale.status === SaleStatus.RETURNED) throw new BadRequestException("Vente deja retournee");
     for (const item of sale.items) {
+      if (!item.productId) continue;
       await this.stock.returnStock(tenantId, { productId: item.productId, warehouseId, quantity: item.quantity, reference: sale.id, note: "Retour produit", userId, storeId: sale.storeId ?? undefined });
     }
     return this.prisma.sale.update({ where: { id }, data: { status: SaleStatus.RETURNED, returnedAt: new Date() } });
   }
 
-  private receiptContent(saleId: string, items: Array<{ product: { name: string }; quantity: number; total: number }>, total: number, paidAmount: number) {
-    const lines = items.map((item) => `${item.product.name} x${item.quantity} ${item.total.toFixed(2)}`).join("\n");
+  private saleLineData(item: { productId?: string; customName?: string; customType?: string; customNote?: string; quantity: number; unitPrice: number; discount: number; tax: number; total: number }) {
+    return {
+      productId: item.productId,
+      customName: item.customName,
+      customType: item.customType,
+      customNote: item.customNote,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      discount: item.discount,
+      tax: item.tax,
+      total: item.total
+    };
+  }
+
+  private receiptContent(saleId: string, items: Array<{ product: { name: string } | null; customName?: string; productId?: string; quantity: number; total: number }>, total: number, paidAmount: number) {
+    const lines = items.map((item) => {
+      const name = item.product?.name ?? item.customName ?? "Article personnalise";
+      const suffix = item.productId ? "" : " (Article personnalise)";
+      return `${name}${suffix} x${item.quantity} ${item.total.toFixed(2)}`;
+    }).join("\n");
     const balance = Math.max(0, total - paidAmount);
     const change = Math.max(0, paidAmount - total);
     return `Ticket de vente\nVente ${saleId}\n${lines}\nTotal: ${total.toFixed(2)}\nPaye: ${paidAmount.toFixed(2)}\nMonnaie: ${change.toFixed(2)}\nBalance: ${balance.toFixed(2)}`;

@@ -31,7 +31,7 @@ export class InvoicePrintService {
       <div class="line"></div>
       <table><tr><td>Ticket</td><td class="right">${this.escape(sale.receipt?.number ?? sale.id)}</td></tr><tr><td>Date</td><td class="right">${this.date(sale.createdAt)}</td></tr><tr><td>Caissier</td><td class="right">${this.escape(sale.cashSession?.cashRegister?.name ?? "Caisse")}</td></tr><tr><td>Client</td><td class="right">${this.escape(sale.customer?.displayName ?? "Client comptoir")}</td></tr></table>
       <div class="line"></div>
-      <table>${sale.items.map((item) => `<tr><td>${this.escape(item.product.name)}<br/><span class="muted">${item.quantity} x ${this.money(item.unitPrice)} remise ${this.money(item.discount)}</span></td><td class="right">${this.money(item.total)}</td></tr>`).join("")}</table>
+      <table>${sale.items.map((item) => `<tr><td>${this.escape(this.itemName(item))}${item.productId ? "" : `<br/><span class="muted">Article personnalise</span>`}<br/><span class="muted">${item.quantity} x ${this.money(item.unitPrice)} remise ${this.money(item.discount)}</span></td><td class="right">${this.money(item.total)}</td></tr>`).join("")}</table>
       <div class="line"></div>
       <table><tr><td>Sous-total</td><td class="right">${this.money(sale.subtotal)}</td></tr><tr><td>Remise</td><td class="right">${this.money(sale.discount)}</td></tr><tr><td>Taxes</td><td class="right">${this.money(sale.tax)}</td></tr><tr><td><strong>Total</strong></td><td class="right"><strong>${this.money(sale.total)}</strong></td></tr><tr><td>Montant paye</td><td class="right">${this.money(paid)}</td></tr><tr><td>Monnaie rendue</td><td class="right">${this.money(change)}</td></tr></table>
       <div class="line"></div><div class="center">Merci pour votre achat<br/><span class="muted">QR Code prepare</span><div class="qr">QR</div></div>
@@ -55,7 +55,7 @@ export class InvoicePrintService {
       </style>
       <div class="top"><div><div class="logo">${this.logoContent(tenant)}</div><strong>${this.escape(this.companyName(tenant))}</strong><br/><span class="muted">${this.escape(this.companyAddress(tenant) || "Adresse non definie")}</span><br/><span class="muted">${this.escape(this.companyPhone(tenant) || "Telephone non defini")}</span><br/><span class="muted">${this.escape(this.companyEmail(tenant) || "Email non defini")}</span>${this.companyTax(tenant) ? `<br/><span class="muted">NIF: ${this.escape(this.companyTax(tenant))}</span>` : ""}</div><div class="right"><h1>FACTURE</h1><p><strong>${this.escape(invoice.documentNumber)}</strong></p><p>Date: ${this.date(invoice.createdAt)}<br/>Echeance: ${this.date(invoice.issuedAt ?? invoice.createdAt)}</p></div></div>
       <div class="box" style="margin-top:24px"><strong>Client</strong><br/>${this.escape(invoice.customer?.displayName ?? "Client comptoir")}<br/><span class="muted">${this.escape(invoice.customer?.address ?? "Adresse client non definie")}</span><br/><span class="muted">${this.escape(invoice.customer?.email ?? "Email client non defini")}</span></div>
-      <table><thead><tr><th>Produits / services</th><th class="right">Qte</th><th class="right">Prix</th><th class="right">Remise</th><th class="right">Taxes</th><th class="right">Total</th></tr></thead><tbody>${invoice.items.map((item) => `<tr><td>${this.escape(item.product.name)}</td><td class="right">${item.quantity}</td><td class="right">${this.money(item.unitPrice)}</td><td class="right">${this.money(item.discount)}</td><td class="right">${this.money(item.tax)}</td><td class="right">${this.money(item.total)}</td></tr>`).join("")}</tbody></table>
+      <table><thead><tr><th>Produits / services</th><th class="right">Qte</th><th class="right">Prix</th><th class="right">Remise</th><th class="right">Taxes</th><th class="right">Total</th></tr></thead><tbody>${invoice.items.map((item) => `<tr><td>${this.escape(this.itemName(item))}${item.productId ? "" : `<br/><span class="muted">Article personnalise</span>`}</td><td class="right">${item.quantity}</td><td class="right">${this.money(item.unitPrice)}</td><td class="right">${this.money(item.discount)}</td><td class="right">${this.money(item.tax)}</td><td class="right">${this.money(item.total)}</td></tr>`).join("")}</tbody></table>
       <table class="summary"><tr><td>Sous-total</td><td class="right">${this.money(invoice.subtotal)}</td></tr><tr><td>Remise</td><td class="right">${this.money(invoice.discount)}</td></tr><tr><td>Taxes</td><td class="right">${this.money(invoice.tax)}</td></tr><tr><td><strong>Total</strong></td><td class="right"><strong>${this.money(invoice.total)}</strong></td></tr><tr><td>Montant paye</td><td class="right">${this.money(paid)}</td></tr><tr><td>Solde</td><td class="right">${this.money(invoice.balance)}</td></tr></table>
       <p><strong>Notes</strong><br/>${this.escape(invoice.notes ?? "Aucune note")}</p><div class="signature">Signature preparee</div>
     `);
@@ -74,7 +74,7 @@ export class InvoicePrintService {
       `Facture: ${invoice.documentNumber}`,
       `Client: ${invoice.customer?.displayName ?? "Client comptoir"}`,
       `Date: ${this.date(invoice.createdAt)}`,
-      ...invoice.items.map((item) => `${item.product.name} x${item.quantity} ${this.money(item.total)}`),
+      ...invoice.items.map((item) => `${this.itemName(item)}${item.productId ? "" : " (Article personnalise)"} x${item.quantity} ${this.money(item.total)}`),
       `Total: ${this.money(invoice.total)}`,
       `Paye: ${this.money(invoice.paidAmount)}`,
       `Solde: ${this.money(invoice.balance)}`
@@ -89,6 +89,7 @@ export class InvoicePrintService {
   private companyTax(tenant: BrandedTenant) { return tenant.companyProfile?.taxNumber ?? ""; }
   private logoUrl(tenant: BrandedTenant) { return tenant.companyProfile?.logoUrl ?? tenant.logo?.url ?? ""; }
   private logoContent(tenant: BrandedTenant) { const logo = this.logoUrl(tenant); return logo ? `<img src="${this.escape(logo)}" alt="Logo"/>` : this.escape(this.initials(this.companyName(tenant))); }
+  private itemName(item: { product?: { name?: string | null } | null; customName?: string | null }) { return item.product?.name ?? item.customName ?? "Article personnalise"; }
   private initials(name: string) { return name.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "ME"; }
   private page(title: string, body: string) { return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${this.escape(title)}</title></head><body>${body}<script>window.addEventListener('load',()=>document.body.dataset.ready='true')</script></body></html>`; }
   private money(value: unknown) { return new Intl.NumberFormat("fr-HT", { style: "currency", currency: "HTG", maximumFractionDigits: 2 }).format(Number(value ?? 0)); }

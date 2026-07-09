@@ -1,9 +1,32 @@
 import { Type } from "class-transformer";
-import { IsArray, IsInt, IsNumber, IsOptional, IsString, Min, ValidateNested } from "class-validator";
+import { IsArray, IsIn, IsInt, IsNumber, IsOptional, IsString, Min, ValidateNested } from "class-validator";
 
 export class PosCartItemDto {
+  @IsOptional()
   @IsString()
-  productId!: string;
+  productId?: string;
+
+  @IsOptional()
+  @IsString()
+  customId?: string;
+
+  @IsOptional()
+  @IsString()
+  customName?: string;
+
+  @IsOptional()
+  @IsIn(["OUT_OF_STOCK_PRODUCT", "SERVICE", "CUSTOM_WORK", "OTHER"])
+  customType?: "OUT_OF_STOCK_PRODUCT" | "SERVICE" | "CUSTOM_WORK" | "OTHER";
+
+  @IsOptional()
+  @IsString()
+  customNote?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  unitPrice?: number;
 
   @Type(() => Number)
   @IsInt()

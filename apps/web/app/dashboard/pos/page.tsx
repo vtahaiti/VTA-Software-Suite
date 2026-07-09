@@ -14,16 +14,20 @@ type Store = { id: string; name: string; code: string };
 type Warehouse = { id: string; name: string; code: string; storeId?: string | null };
 type CashSession = { id: string; status: string; cashRegister?: { name: string } };
 type Customer = { id: string; displayName?: string | null; phone?: string | null; mobile?: string | null; whatsapp?: string | null };
-type CartLine = { productId: string; sku: string; name: string; unitPrice: number; quantity: number; discount: number; tax: number; total: number; availableStock: number; hasEnoughStock: boolean };
+type CustomItemType = "OUT_OF_STOCK_PRODUCT" | "SERVICE" | "CUSTOM_WORK" | "OTHER";
+type CartPayloadItem = { productId?: string | null; customId?: string; customName?: string; customType?: CustomItemType; customNote?: string; unitPrice?: number; quantity: number; discount?: number };
+type CartLine = { productId?: string | null; customId?: string; sku: string; name: string; unitPrice: number; quantity: number; discount: number; tax: number; total: number; availableStock: number; hasEnoughStock: boolean; isCustom?: boolean; customName?: string; customType?: CustomItemType; customNote?: string };
 type Cart = { items: CartLine[]; subtotal: number; itemDiscount: number; discount: number; tax: number; total: number; taxRate: number; canCheckout: boolean };
 type SaleHistory = { id: string; total: string | number; createdAt: string; receipt?: { number: string } | null; invoice?: { documentNumber: string } | null };
 type SaleResponse = { id: string; total: string | number; receipt?: { number: string; content: string } | null; invoice?: { documentNumber: string; total: string | number } | null };
 type PaymentLine = { method: string; amount: string; reference: string };
 type CustomerForm = { name: string; phone: string; address: string; email: string; notes: string };
+type CustomItemForm = { name: string; price: string; quantity: string; discount: string; note: string; type: CustomItemType };
 type PosDraft = { cart: Cart; customerId: string; payments: PaymentLine[]; orderDiscount: string; taxRate: string; storeId: string; warehouseId: string; cashSessionId: string; updatedAt: string };
 
 const emptyCart: Cart = { items: [], subtotal: 0, itemDiscount: 0, discount: 0, tax: 0, total: 0, taxRate: 0, canCheckout: false };
 const emptyCustomerForm: CustomerForm = { name: "", phone: "", address: "", email: "", notes: "" };
+const emptyCustomItemForm: CustomItemForm = { name: "", price: "", quantity: "1", discount: "0", note: "", type: "SERVICE" };
 
 export default function PosPage() {
   const { isOnline } = useNetworkStatus();
@@ -55,7 +59,9 @@ export default function PosPage() {
   const [branding, setBranding] = useState<CompanyBranding | null>(null);
   const [business, setBusiness] = useState<TenantBusinessConfiguration | null>(null);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [showCustomItemModal, setShowCustomItemModal] = useState(false);
   const [customerForm, setCustomerForm] = useState<CustomerForm>(emptyCustomerForm);
+  const [customItemForm, setCustomItemForm] = useState<CustomItemForm>(emptyCustomItemForm);
   const scanInputRef = useRef<HTMLInputElement | null>(null);
 
   const authHeaders = useCallback(() => ({ Authorization: `Bearer ${getAccessToken()}` }), []);
@@ -64,7 +70,7 @@ export default function PosPage() {
     warehouseId: warehouseId || undefined,
     taxRate: Number(taxRate || 0),
     discount: Number(orderDiscount || 0),
-    items: cart.items.map((item) => ({ productId: item.productId, quantity: item.quantity, discount: item.discount }))
+    items: cart.items.map(cartLineToPayload)
   }), [cart.items, orderDiscount, storeId, taxRate, warehouseId]);
 
   const loadProducts = useCallback(async () => {
@@ -147,11 +153,11 @@ export default function PosPage() {
   useEffect(() => { void refreshPendingCount(); }, []);
   useEffect(() => { if (isOnline) void synchronizeOfflineSales(false); }, [isOnline]);
 
-  async function syncCart(endpoint: "add" | "update" | "remove" | "calculate", extra: Record<string, string | number> = {}) {
+  async function syncCart(endpoint: "add" | "update" | "remove" | "calculate", extra: Record<string, unknown> = {}) {
     setError("");
     const payload = { ...cartPayload(), ...extra };
     if (!isOnline) {
-      setCart(calculateLocalCart(payload.items as Array<{ productId: string; quantity: number; discount?: number }>, products, Number(payload.taxRate ?? 0), Number(payload.discount ?? 0)));
+      setCart(calculateLocalCart(payload.items as CartPayloadItem[], products, Number(payload.taxRate ?? 0), Number(payload.discount ?? 0)));
       return;
     }
     try {
@@ -166,7 +172,7 @@ export default function PosPage() {
       }
       setCart(await response.json() as Cart);
     } catch {
-      setCart(calculateLocalCart(payload.items as Array<{ productId: string; quantity: number; discount?: number }>, products, Number(payload.taxRate ?? 0), Number(payload.discount ?? 0)));
+      setCart(calculateLocalCart(payload.items as CartPayloadItem[], products, Number(payload.taxRate ?? 0), Number(payload.discount ?? 0)));
       setMessage("Mode hors ligne active. Le panier utilise le stock local.");
     }
   }
@@ -175,12 +181,17 @@ export default function PosPage() {
     await syncCart("add", { productId, quantity: 1 });
   }
 
-  async function updateQuantity(productId: string, quantity: number) {
-    await syncCart("update", { productId, quantity: Math.max(0, quantity) });
+  async function updateQuantity(lineId: string, quantity: number) {
+    const nextItems = cart.items
+      .map((item) => lineKey(item) === lineId ? { ...item, quantity: Math.max(0, quantity) } : item)
+      .filter((item) => item.quantity > 0)
+      .map(cartLineToPayload);
+    await syncCart("calculate", { items: nextItems });
   }
 
-  async function removeProduct(productId: string) {
-    await syncCart("remove", { productId });
+  async function removeProduct(lineId: string) {
+    const nextItems = cart.items.filter((item) => lineKey(item) !== lineId).map(cartLineToPayload);
+    await syncCart("calculate", { items: nextItems });
   }
 
   function updatePayment(index: number, changes: Partial<PaymentLine>) {
@@ -269,7 +280,7 @@ export default function PosPage() {
       customerId: customerId || undefined,
       taxRate: Number(taxRate || 0),
       discount: Number(orderDiscount || 0),
-      items: cart.items.map((item) => ({ productId: item.productId, quantity: item.quantity, discount: item.discount })),
+      items: cart.items.map(cartLineToPayload),
       payments: paymentPayload
     };
     if (!isOnline) {
@@ -323,7 +334,7 @@ export default function PosPage() {
         taxRate: Number(taxRate || 0),
         discount: Number(orderDiscount || 0),
         note: label,
-        items: cart.items.map((item) => ({ productId: item.productId, quantity: item.quantity, discount: item.discount }))
+        items: cart.items.map(cartLineToPayload)
       })
     }).catch(() => null);
     if (!response?.ok) {
@@ -337,12 +348,13 @@ export default function PosPage() {
     setCustomerId("");
   }
 
-  async function saveLocalSale(payload: { storeId: string; warehouseId: string; cashSessionId: string; customerId?: string; taxRate: number; discount: number; items: Array<{ productId: string; quantity: number; discount: number }>; payments: Array<{ method: string; amount: number }> }, amount: number) {
+  async function saveLocalSale(payload: { storeId: string; warehouseId: string; cashSessionId: string; customerId?: string; taxRate: number; discount: number; items: CartPayloadItem[]; payments: Array<{ method: string; amount: number }> }, amount: number) {
     if (amount < cart.total) {
       setError(insufficientPaymentMessage(cart.total, amount));
       return;
     }
     for (const item of cart.items) {
+      if (item.isCustom) continue;
       if (item.availableStock < item.quantity) {
         setError("Stock local insuffisant");
         return;
@@ -350,7 +362,7 @@ export default function PosPage() {
     }
     const localId = `offline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     await saveOfflineSale({ localId, status: "PENDING", createdOfflineAt: new Date().toISOString(), payload, total: cart.total, message: "Vente en attente de synchronisation" });
-    for (const item of cart.items) await updateOfflineProductStock(item.productId, -item.quantity);
+    for (const item of cart.items) if (item.productId) await updateOfflineProductStock(item.productId, -item.quantity);
     setProducts((current) => current.map((product) => {
       const line = cart.items.find((item) => item.productId === product.id);
       return line ? { ...product, availableStock: Math.max(0, product.availableStock - line.quantity) } : product;
@@ -421,6 +433,39 @@ export default function PosPage() {
     setMessage("Client créé et sélectionné.");
   }
 
+  async function addCustomItem() {
+    setError("");
+    setMessage("");
+    const name = customItemForm.name.trim();
+    const price = Number(customItemForm.price);
+    const quantity = Math.max(1, Number(customItemForm.quantity || 1));
+    const discount = Math.max(0, Number(customItemForm.discount || 0));
+    if (!name) {
+      setError("Le nom ou la description est obligatoire.");
+      return;
+    }
+    if (customItemForm.price.trim() === "" || !Number.isFinite(price) || price < 0) {
+      setError("Le prix réel est obligatoire et doit être supérieur ou égal à 0.");
+      return;
+    }
+    const nextItems = [
+      ...cart.items.map(cartLineToPayload),
+      {
+        customId: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        customName: name,
+        customType: customItemForm.type,
+        customNote: customItemForm.note.trim() || undefined,
+        unitPrice: price,
+        quantity,
+        discount
+      }
+    ];
+    await syncCart("calculate", { items: nextItems });
+    setCustomItemForm(emptyCustomItemForm);
+    setShowCustomItemModal(false);
+    setMessage("Article personnalisé ajouté au panier.");
+  }
+
   const activeSession = sessions.find((session) => session.id === cashSessionId);
   const activeStore = stores.find((store) => store.id === storeId);
   const selectedCustomer = customers.find((customer) => customer.id === customerId);
@@ -475,10 +520,15 @@ export default function PosPage() {
               <h2 className="text-lg font-black">Produits disponibles</h2>
               <p className="text-sm text-slate-500">{visibleProducts.length} produit(s) affiché(s)</p>
             </div>
-            <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold dark:border-slate-700 dark:bg-slate-900">
-              <option value="">Toutes les catégories</option>
-              {categories.map((category) => <option key={category} value={category}>{category}</option>)}
-            </select>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button type="button" onClick={() => setShowCustomItemModal(true)} className="rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-amber-600">
+                Ajouter article personnalisé
+              </button>
+              <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold dark:border-slate-700 dark:bg-slate-900">
+                <option value="">Toutes les catégories</option>
+                {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+              </select>
+            </div>
           </section>
 
           {visibleProducts.length ? (
@@ -625,6 +675,49 @@ export default function PosPage() {
           </div>
         </div>
       ) : null}
+      {showCustomItemModal ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold">Article personnalisé</h2>
+                <p className="text-sm text-slate-500">Ajoutez un service ou un produit hors stock uniquement pour cette vente.</p>
+              </div>
+              <button onClick={() => setShowCustomItemModal(false)} className="rounded-md border border-slate-200 px-3 py-1 text-sm font-semibold dark:border-slate-700">Fermer</button>
+            </div>
+            <div className="mt-4 grid gap-3">
+              <label className="grid gap-1 text-sm font-semibold">Nom ou description *
+                <input value={customItemForm.name} onChange={(event) => setCustomItemForm((current) => ({ ...current, name: event.target.value }))} className="rounded-md border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-950" />
+              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1 text-sm font-semibold">Prix réel *
+                  <input type="number" min={0} step="0.01" value={customItemForm.price} onChange={(event) => setCustomItemForm((current) => ({ ...current, price: event.target.value }))} className="rounded-md border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-950" />
+                </label>
+                <label className="grid gap-1 text-sm font-semibold">Quantité
+                  <input type="number" min={1} value={customItemForm.quantity} onChange={(event) => setCustomItemForm((current) => ({ ...current, quantity: event.target.value }))} className="rounded-md border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-950" />
+                </label>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1 text-sm font-semibold">Type
+                  <select value={customItemForm.type} onChange={(event) => setCustomItemForm((current) => ({ ...current, type: event.target.value as CustomItemType }))} className="rounded-md border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-950">
+                    <option value="OUT_OF_STOCK_PRODUCT">Produit hors stock</option>
+                    <option value="SERVICE">Service</option>
+                    <option value="CUSTOM_WORK">Travail personnalisé</option>
+                    <option value="OTHER">Autre</option>
+                  </select>
+                </label>
+                <label className="grid gap-1 text-sm font-semibold">Remise
+                  <input type="number" min={0} step="0.01" value={customItemForm.discount} onChange={(event) => setCustomItemForm((current) => ({ ...current, discount: event.target.value }))} className="rounded-md border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-950" />
+                </label>
+              </div>
+              <label className="grid gap-1 text-sm font-semibold">Note
+                <textarea value={customItemForm.note} onChange={(event) => setCustomItemForm((current) => ({ ...current, note: event.target.value }))} rows={3} className="rounded-md border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-950" />
+              </label>
+              <button onClick={() => void addCustomItem()} className="rounded-md bg-amber-500 px-4 py-3 text-sm font-bold text-white">Ajouter au panier</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -686,7 +779,7 @@ function ProductCard({ product, onAdd }: { product: Product; onAdd: () => void }
         </div>
         <div className="flex items-end justify-between gap-3">
           <p className="text-xl font-black text-brand-700 dark:text-brand-300">{formatMoney(product.salePrice)}</p>
-          <span className="rounded-full bg-slate-950 px-3 py-1.5 text-xs font-bold text-white opacity-90 transition group-hover:opacity-100 dark:bg-white dark:text-slate-950">Ajouter</span>
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-slate-950 text-xl font-black leading-none text-white opacity-90 transition group-hover:opacity-100 dark:bg-white dark:text-slate-950" aria-label="Ajouter">+</span>
         </div>
       </div>
     </button>
@@ -766,7 +859,7 @@ function CartPanel(props: CartPanelProps) {
 
       <div className="flex-1 space-y-3 overflow-auto p-4">
         {props.cart.items.length ? props.cart.items.map((item) => (
-          <CartLineItem key={item.productId} item={item} updateQuantity={props.updateQuantity} removeProduct={props.removeProduct} />
+          <CartLineItem key={lineKey(item)} item={item} updateQuantity={props.updateQuantity} removeProduct={props.removeProduct} />
         )) : <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">{props.emptyCart}</div>}
 
         {props.lastSale ? (
@@ -784,21 +877,23 @@ function CartPanel(props: CartPanelProps) {
   );
 }
 
-function CartLineItem({ item, updateQuantity, removeProduct }: { item: CartLine; updateQuantity: (productId: string, quantity: number) => void; removeProduct: (productId: string) => void }) {
+function CartLineItem({ item, updateQuantity, removeProduct }: { item: CartLine; updateQuantity: (lineId: string, quantity: number) => void; removeProduct: (lineId: string) => void }) {
+  const id = lineKey(item);
   return (
     <div className={`rounded-2xl border p-3 ${item.hasEnoughStock ? "border-slate-200 dark:border-slate-800" : "border-red-300 bg-red-50 dark:border-red-900 dark:bg-red-950"}`}>
       <div className="flex justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate font-black">{item.name}</p>
-          <p className="text-xs text-slate-500">{item.sku} · stock {item.availableStock}</p>
+          <p className="text-xs text-slate-500">{item.isCustom ? customTypeLabel(item.customType) : `${item.sku} · stock ${item.availableStock}`}</p>
+          {item.isCustom ? <span className="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-black text-amber-700 dark:bg-amber-950 dark:text-amber-200">Personnalisé</span> : null}
         </div>
-        <button onClick={() => removeProduct(item.productId)} className="shrink-0 text-sm font-bold text-red-600">Retirer</button>
+        <button onClick={() => removeProduct(id)} className="shrink-0 text-sm font-bold text-red-600">Retirer</button>
       </div>
       <div className="mt-3 flex items-center justify-between gap-3">
         <div className="inline-flex items-center overflow-hidden rounded-xl border border-slate-300 dark:border-slate-700">
-          <button onClick={() => updateQuantity(item.productId, Math.max(0, item.quantity - 1))} className="h-10 w-10 text-lg font-black">-</button>
-          <input aria-label={`Quantité ${item.name}`} type="number" min={0} value={item.quantity} onChange={(event) => updateQuantity(item.productId, Number(event.target.value))} className="h-10 w-16 border-x border-slate-300 bg-white text-center font-bold outline-none dark:border-slate-700 dark:bg-slate-950" />
-          <button onClick={() => updateQuantity(item.productId, item.quantity + 1)} className="h-10 w-10 text-lg font-black">+</button>
+          <button onClick={() => updateQuantity(id, Math.max(0, item.quantity - 1))} className="h-10 w-10 text-lg font-black">-</button>
+          <input aria-label={`Quantité ${item.name}`} type="number" min={0} value={item.quantity} onChange={(event) => updateQuantity(id, Number(event.target.value))} className="h-10 w-16 border-x border-slate-300 bg-white text-center font-bold outline-none dark:border-slate-700 dark:bg-slate-950" />
+          <button onClick={() => updateQuantity(id, item.quantity + 1)} className="h-10 w-10 text-lg font-black">+</button>
         </div>
         <div className="text-right text-sm">
           <p className="text-slate-500">{formatMoney(item.unitPrice)}</p>

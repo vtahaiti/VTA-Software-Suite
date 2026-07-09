@@ -1,6 +1,14 @@
 import { IsArray, IsIn, IsInt, IsNumber, IsOptional, IsString, Min, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
-class SaleItemDto { @IsString() productId!: string; @IsInt() @Min(1) quantity!: number; @IsOptional() @IsNumber() @Min(0) discount?: number; }
+export class SaleItemDto {
+  @IsOptional() @IsString() productId?: string;
+  @IsOptional() @IsString() customName?: string;
+  @IsOptional() @IsIn(["OUT_OF_STOCK_PRODUCT", "SERVICE", "CUSTOM_WORK", "OTHER"]) customType?: "OUT_OF_STOCK_PRODUCT" | "SERVICE" | "CUSTOM_WORK" | "OTHER";
+  @IsOptional() @IsString() customNote?: string;
+  @IsOptional() @IsNumber() @Min(0) unitPrice?: number;
+  @IsInt() @Min(1) quantity!: number;
+  @IsOptional() @IsNumber() @Min(0) discount?: number;
+}
 class PaymentDto { @IsIn(["CASH", "CARD", "BANK_TRANSFER", "MIXED"]) method!: "CASH" | "CARD" | "BANK_TRANSFER" | "MIXED"; @IsNumber() @Min(0) amount!: number; @IsOptional() @IsString() reference?: string; }
 export class CreateSaleDto {
   @IsOptional() @IsString() customerId?: string;

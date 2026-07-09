@@ -16,7 +16,7 @@ export class ReceiptService {
     const address = sale.tenant.companyProfile?.address ?? sale.tenant.address ?? "";
     const taxNumber = sale.tenant.companyProfile?.taxNumber ?? "";
     const number = `RCT-${Date.now().toString(36).toUpperCase()}`;
-    const lines = sale.items.map((item) => `${item.product.name} x${item.quantity} ${item.total}`).join("\n");
+    const lines = sale.items.map((item) => `${item.product?.name ?? item.customName ?? "Article personnalise"}${item.productId ? "" : " (Article personnalise)"} x${item.quantity} ${item.total}`).join("\n");
     const content = `${companyName}\n${phone}\n${address}\n${taxNumber ? `NIF: ${taxNumber}\n` : ""}Recu ${number}\n${lines}\nTotal: ${sale.total}`;
     return this.prisma.receipt.create({ data: { saleId, number, content } });
   }
