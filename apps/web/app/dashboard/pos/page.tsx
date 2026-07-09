@@ -102,7 +102,8 @@ export default function PosPage() {
         setMessage("Mode hors ligne: magasin, dépôt, caisse et clients restaurés depuis ce téléphone.");
         return;
       }
-      setError("Impossible de charger le magasin, le dépôt et la caisse active. Ouvrez le POS une fois avec internet avant d'utiliser le mode hors ligne.");
+      const apiMessage = response ? await readError(response) : "";
+      setError(apiMessage || "Impossible de charger le magasin, le dépôt et la caisse active. Reconnectez-vous ou ouvrez le POS une fois avec internet avant d'utiliser le mode hors ligne.");
       return;
     }
     const data = await response.json() as { stores: Store[]; warehouses: Warehouse[]; sessions: CashSession[]; history: SaleHistory[]; customers: Customer[] };
@@ -450,8 +451,8 @@ export default function PosPage() {
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{posTemplate.description}</p>
               </div>
               <div className="grid gap-2 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-slate-950 sm:grid-cols-3 xl:min-w-[520px]">
-                <MetaPill label="Magasin" value={activeStore?.name ?? "Magasin principal"} />
-                <MetaPill label="Caisse" value={activeSession?.cashRegister?.name ?? "Caisse active"} />
+                <MetaPill label="Magasin" value={activeStore?.name ?? "Non chargé"} />
+                <MetaPill label="Caisse" value={activeSession?.cashRegister?.name ?? "Non chargée"} />
                 <MetaPill label="Utilisateur" value={cashierName} />
               </div>
             </div>
