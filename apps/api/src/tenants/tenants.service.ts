@@ -1,5 +1,5 @@
 ﻿import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { Prisma, SubscriptionStatus } from "@prisma/client";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateTenantDto } from "./dto/create-tenant.dto";
@@ -64,7 +64,7 @@ export class TenantsService {
           subscription: {
             create: {
               plan: createTenantDto.subscriptionPlan ?? "FREE",
-              status: "TRIALING"
+              status: SubscriptionStatus.TRIALING
             }
           }
         },
@@ -120,7 +120,7 @@ export class TenantsService {
     return { success: true };
   }
 
-  private buildSettingsUpdate(updateTenantDto: UpdateTenantDto): Prisma.TenantSettingsUpdateOneWithoutTenantNestedInput | undefined {
+  private buildSettingsUpdate(updateTenantDto: UpdateTenantDto) {
     if (!updateTenantDto.currency && !updateTenantDto.timezone && !updateTenantDto.language) {
       return undefined;
     }
@@ -141,7 +141,7 @@ export class TenantsService {
     };
   }
 
-  private buildLogoUpdate(updateTenantDto: UpdateTenantDto): Prisma.TenantLogoUpdateOneWithoutTenantNestedInput | undefined {
+  private buildLogoUpdate(updateTenantDto: UpdateTenantDto) {
     if (!updateTenantDto.logoUrl && !updateTenantDto.logoAlt) {
       return undefined;
     }
@@ -160,7 +160,7 @@ export class TenantsService {
     };
   }
 
-  private buildSubscriptionUpdate(updateTenantDto: UpdateTenantDto): Prisma.TenantSubscriptionUpdateOneWithoutTenantNestedInput | undefined {
+  private buildSubscriptionUpdate(updateTenantDto: UpdateTenantDto) {
     if (!updateTenantDto.subscriptionPlan) {
       return undefined;
     }
@@ -169,7 +169,7 @@ export class TenantsService {
       upsert: {
         create: {
           plan: updateTenantDto.subscriptionPlan,
-          status: "TRIALING"
+          status: SubscriptionStatus.TRIALING
         },
         update: {
           plan: updateTenantDto.subscriptionPlan
