@@ -98,7 +98,13 @@ export function getCurrentUser() {
   }
 
   const value = window.localStorage.getItem(userKey);
-  return value ? (JSON.parse(value) as AuthUser) : null;
+  if (!value) return null;
+  try {
+    return JSON.parse(value) as AuthUser;
+  } catch {
+    clearSession();
+    return null;
+  }
 }
 
 export function getAccessToken() {

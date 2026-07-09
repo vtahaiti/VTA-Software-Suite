@@ -6,9 +6,18 @@ import { canManageUsers } from "@/lib/role-access";
 type UserRow = { id: string; name: string; email: string; phone?: string; role: string; roles: string[]; isActive: boolean; createdAt: string };
 type RoleRow = { id: string; name: string; description?: string };
 type StoreRow = { id: string; name: string };
+type PaginatedStores = { items?: StoreRow[] };
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 const roleLabels: Record<string, string> = { OWNER: "Proprietaire", ADMIN: "Administrateur", CAISSIER: "Caissier", STOCK: "Stock", COMPTABLE: "Comptable", MANAGER: "Manager", Owner: "Proprietaire" };
+const defaultRoles: RoleRow[] = [
+  { id: "OWNER", name: "OWNER" },
+  { id: "ADMIN", name: "ADMIN" },
+  { id: "CAISSIER", name: "CAISSIER" },
+  { id: "STOCK", name: "STOCK" },
+  { id: "COMPTABLE", name: "COMPTABLE" },
+  { id: "MANAGER", name: "MANAGER" }
+];
 
 export default function UsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -22,16 +31,38 @@ export default function UsersPage() {
   useEffect(() => { void load(); }, []);
 
   async function load() {
-    const token = getAccessToken();
-    const headers = { Authorization: `Bearer ${token}` };
-    const [usersResponse, rolesResponse, storesResponse] = await Promise.all([
-      fetch(`${apiUrl}/users`, { headers }),
-      fetch(`${apiUrl}/users/roles`, { headers }),
-      fetch(`${apiUrl}/stores`, { headers }).catch(() => null)
-    ]);
-    if (usersResponse.ok) setUsers(await usersResponse.json());
-    if (rolesResponse.ok) setRoles((await rolesResponse.json()).filter((role: RoleRow) => ["OWNER", "ADMIN", "CAISSIER", "STOCK", "COMPTABLE", "MANAGER", "Owner"].includes(role.name)));
-    if (storesResponse?.ok) setStores(await storesResponse.json());
+    try {
+      const token = getAccessToken();
+      const headers = { Authorization: `Bearer ${token}` };
+      const [usersResponse, rolesResponse, storesResponse] = await Promise.all([
+        fetch(`${apiUrl}/users`, { headers }),
+        fetch(`${apiUrl}/users/roles`, { headers }),
+        fetch(`${apiUrl}/stores`, { headers }).catch(() => null)
+      ]);
+
+      if (usersResponse.ok) {
+        const data = await usersResponse.json();
+        setUsers(Array.isArray(data) ? data : []);
+      }
+
+      if (rolesResponse.ok) {
+        const data = await rolesResponse.json();
+        const nextRoles = Array.isArray(data) ? data.filter((role: RoleRow) => ["OWNER", "ADMIN", "CAISSIER", "STOCK", "COMPTABLE", "MANAGER", "Owner"].includes(role.name)) : [];
+        setRoles(nextRoles.length ? nextRoles : defaultRoles);
+      } else {
+        setRoles(defaultRoles);
+      }
+
+      if (storesResponse?.ok) {
+        const data = await storesResponse.json() as StoreRow[] | PaginatedStores;
+        setStores(Array.isArray(data) ? data : Array.isArray(data.items) ? data.items : []);
+      }
+    } catch {
+      setUsers([]);
+      setRoles(defaultRoles);
+      setStores([]);
+      setMessage("Impossible de charger les utilisateurs pour le moment.");
+    }
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -97,7 +128,7 @@ export default function UsersPage() {
           <input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="Telephone" className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
           <input required type="password" minLength={8} value={form.temporaryPassword} onChange={(event) => setForm({ ...form, temporaryPassword: event.target.value })} placeholder="Mot de passe temporaire" className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
           <select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })} className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
-            {roles.filter((role) => role.name !== "Owner").map((role) => <option key={role.id} value={role.name}>{roleLabels[role.name] ?? role.name}</option>)}
+            {availableRoles(roles).map((role) => <option key={role.id} value={role.name}>{roleLabels[role.name] ?? role.name}</option>)}
           </select>
           <select value={form.storeId} onChange={(event) => setForm({ ...form, storeId: event.target.value })} className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
             <option value="">Tous les magasins autorises</option>
@@ -118,7 +149,7 @@ export default function UsersPage() {
               {users.map((user) => <tr key={user.id}>
                 <td className="px-4 py-3"><p className="font-semibold text-slate-950 dark:text-white">{user.name}</p><p className="text-xs text-slate-500">{user.email}</p></td>
                 <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{user.phone || "-"}</td>
-                <td className="px-4 py-3"><select value={normalizeRole(user.role)} onChange={(event) => updateRole(user.id, event.target.value)} className="rounded-lg border border-slate-300 px-2 py-1 dark:border-slate-700 dark:bg-slate-950">{roles.filter((role) => role.name !== "Owner").map((role) => <option key={role.id} value={role.name}>{roleLabels[role.name] ?? role.name}</option>)}</select></td>
+                <td className="px-4 py-3"><select value={normalizeRole(user.role)} onChange={(event) => updateRole(user.id, event.target.value)} className="rounded-lg border border-slate-300 px-2 py-1 dark:border-slate-700 dark:bg-slate-950">{availableRoles(roles, user.role).map((role) => <option key={role.id} value={role.name}>{roleLabels[role.name] ?? role.name}</option>)}</select></td>
                 <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${user.isActive ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{user.isActive ? "Actif" : "Desactive"}</span></td>
                 <td className="px-4 py-3"><button disabled={!user.isActive || user.id === currentUser?.id} onClick={() => disableUser(user.id)} className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300">Desactiver</button></td>
               </tr>)}
@@ -135,8 +166,16 @@ export default function UsersPage() {
   </div>;
 }
 
-function normalizeRole(role: string) {
+function availableRoles(roles: RoleRow[], currentRole?: string) {
+  const normalizedCurrent = normalizeRole(currentRole);
+  const base = (roles.length ? roles : defaultRoles).filter((role) => role.name !== "Owner");
+  if (base.some((role) => role.name === normalizedCurrent)) return base;
+  return normalizedCurrent ? [{ id: normalizedCurrent, name: normalizedCurrent }, ...base] : base;
+}
+
+function normalizeRole(role?: string | null) {
   const map: Record<string, string> = { Owner: "OWNER", Administrator: "ADMIN", Cashier: "CAISSIER", Inventory: "STOCK", Accountant: "COMPTABLE", Manager: "MANAGER" };
+  if (!role) return "CAISSIER";
   return map[role] ?? role;
 }
 
