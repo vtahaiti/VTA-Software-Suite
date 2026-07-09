@@ -12,17 +12,21 @@ export class SalesService {
   async findAll(tenantId: string, query: SaleQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const where: Prisma.SaleWhereInput = { tenantId, status: query.status as never };
-    const [items, total] = await this.prisma.$transaction([
+    const where = this.saleWhere(tenantId, query);
+    const include = { items: { include: { product: true } }, payments: { include: { invoice: true } }, receipt: true, customer: true, cashSession: { include: { cashRegister: true } } };
+    const [rawItems, rawTotal] = await this.prisma.$transaction([
       this.prisma.sale.findMany({
         where,
-        include: { items: { include: { product: true } }, payments: { include: { invoice: true } }, receipt: true, customer: true, cashSession: { include: { cashRegister: true } } },
-        skip: (page - 1) * limit,
-        take: limit,
+        include,
+        skip: query.status === SaleStatus.COMPLETED ? 0 : (page - 1) * limit,
+        take: query.status === SaleStatus.COMPLETED ? Math.max(limit * page * 3, 100) : limit,
         orderBy: { createdAt: "desc" }
       }),
       this.prisma.sale.count({ where })
     ]);
+    const normalized = this.uniqueSales(query.status === SaleStatus.COMPLETED ? rawItems.filter((sale) => this.isCompletedPaidSale(sale)) : rawItems);
+    const items = query.status === SaleStatus.COMPLETED ? normalized.slice((page - 1) * limit, page * limit) : normalized;
+    const total = query.status === SaleStatus.COMPLETED ? normalized.length : rawTotal;
     return { items, meta: { page, limit, total, pageCount: Math.ceil(total / limit) } };
   }
 
@@ -94,6 +98,9 @@ export class SalesService {
 
       const payments = dto.payments ?? [];
       const paidAmount = this.round(payments.reduce((sum, payment) => sum + payment.amount, 0));
+      if (paidAmount < total) {
+        throw new BadRequestException(this.insufficientPaymentMessage(total, paidAmount));
+      }
       if (paidAmount > total && payments.some((payment) => payment.method !== "CASH")) {
         throw new BadRequestException("Le trop-percu est autorise uniquement en especes");
       }
@@ -247,5 +254,44 @@ export class SalesService {
 
   private round(value: number) {
     return Math.round((value + Number.EPSILON) * 100) / 100;
+  }
+
+  private insufficientPaymentMessage(total: number, paidAmount: number) {
+    const missing = this.round(total - paidAmount);
+    return `Montant insuffisant. Le client doit payer au minimum ${this.formatAmount(total)} HTG. Il manque ${this.formatAmount(missing)} HTG.`;
+  }
+
+  private formatAmount(value: number) {
+    return new Intl.NumberFormat("fr-HT", { maximumFractionDigits: 2 }).format(this.round(value));
+  }
+
+  private saleWhere(tenantId: string, query: SaleQueryDto): Prisma.SaleWhereInput {
+    const status = query.status as SaleStatus | undefined;
+    const where: Prisma.SaleWhereInput = { tenantId, status };
+    if (status === SaleStatus.COMPLETED) {
+      where.cancelledAt = null;
+      where.returnedAt = null;
+      where.payments = { some: { invoice: { status: SalesDocumentStatus.PAID } } };
+      if (query.excludeTestData ?? true) where.NOT = this.testDataFilters();
+    }
+    return where;
+  }
+
+  private isCompletedPaidSale(sale: Prisma.SaleGetPayload<{ include: { items: { include: { product: true } }; payments: { include: { invoice: true } }; receipt: true; customer: true; cashSession: { include: { cashRegister: true } } } }>) {
+    if (sale.status !== SaleStatus.COMPLETED || sale.cancelledAt || sale.returnedAt) return false;
+    const paid = sale.payments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
+    return paid >= Number(sale.total ?? 0) && sale.payments.some((payment) => payment.invoice?.status === SalesDocumentStatus.PAID);
+  }
+
+  private uniqueSales<T extends { id: string }>(sales: T[]) {
+    return [...new Map(sales.map((sale) => [sale.id, sale])).values()];
+  }
+
+  private testDataFilters(): Prisma.SaleWhereInput[] {
+    const markers = ["test", "qa", "seed", "demo", "import", "smoke", "pos link", "scan test", "no cash", "nocash", "ui qa", "core logic"];
+    return markers.flatMap((marker) => [
+      { items: { some: { product: { name: { contains: marker, mode: "insensitive" } } } } },
+      { items: { some: { product: { sku: { contains: marker, mode: "insensitive" } } } } }
+    ]);
   }
 }

@@ -37,13 +37,16 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
       return;
     }
     const status = type === "cancelled" ? "CANCELLED" : "COMPLETED";
-    const response = await fetch(`${apiUrl}/sales?status=${status}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } }).catch(() => null);
+    const params = new URLSearchParams({ status, limit: "50" });
+    if (type === "completed") params.set("excludeTestData", "true");
+    const response = await fetch(`${apiUrl}/sales?${params.toString()}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } }).catch(() => null);
     if (!response?.ok) {
       setMessage("Impossible de charger les ventes.");
       return;
     }
     const data = await response.json();
-    setSales(data.items ?? []);
+    const items = uniqueSales(data.items ?? []);
+    setSales(type === "completed" ? items.filter(isPaidCompletedSale) : items);
   }
 
   const title = type === "in-progress" ? "Ventes en cours" : type === "completed" ? "Ventes terminées" : "Ventes annulées";
@@ -129,6 +132,15 @@ function SaleList({ sales, type }: { sales: Sale[]; type: "completed" | "cancell
     </table>
     {!sales.length ? <p className="p-5 text-sm text-slate-500">Aucune vente.</p> : null}
   </section>;
+}
+
+function uniqueSales(sales: Sale[]) {
+  return [...new Map(sales.map((sale) => [sale.id, sale])).values()];
+}
+
+function isPaidCompletedSale(sale: Sale) {
+  const paid = (sale.payments ?? []).reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
+  return sale.status === "COMPLETED" && paid >= Number(sale.total ?? 0);
 }
 
 function loadDrafts() {

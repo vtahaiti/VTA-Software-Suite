@@ -238,6 +238,10 @@ export default function PosPage() {
       setError("Entrez le montant reçu avant d encaisser.");
       return;
     }
+    if (paidAmount < cart.total) {
+      setError(insufficientPaymentMessage(cart.total, paidAmount));
+      return;
+    }
     setIsLoading(true);
     const paymentPayload = payments
       .map((payment) => ({ method: payment.method, amount: Number(payment.amount || 0), reference: payment.reference || undefined }))
@@ -318,6 +322,10 @@ export default function PosPage() {
   }
 
   async function saveLocalSale(payload: { storeId: string; warehouseId: string; cashSessionId: string; customerId?: string; taxRate: number; discount: number; items: Array<{ productId: string; quantity: number; discount: number }>; payments: Array<{ method: string; amount: number }> }, amount: number) {
+    if (amount < cart.total) {
+      setError(insufficientPaymentMessage(cart.total, amount));
+      return;
+    }
     for (const item of cart.items) {
       if (item.availableStock < item.quantity) {
         setError("Stock local insuffisant");
@@ -405,7 +413,7 @@ export default function PosPage() {
   const cashierName = branding?.userName ?? currentUser?.name ?? "Utilisateur";
   const canCheckout = useMemo(() => cart.items.length > 0 && cart.canCheckout && Boolean(storeId) && Boolean(warehouseId) && Boolean(cashSessionId) && !isLoading, [cart.canCheckout, cart.items.length, cashSessionId, isLoading, storeId, warehouseId]);
   const paidAmount = useMemo(() => roundMoney(payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0)), [payments]);
-  const canReceivePayment = useMemo(() => canCheckout && paidAmount > 0, [canCheckout, paidAmount]);
+  const canReceivePayment = useMemo(() => canCheckout && paidAmount >= cart.total && cart.total > 0, [canCheckout, cart.total, paidAmount]);
   const changeDue = useMemo(() => roundMoney(Math.max(0, paidAmount - cart.total)), [cart.total, paidAmount]);
   const balanceDue = useMemo(() => roundMoney(Math.max(0, cart.total - paidAmount)), [cart.total, paidAmount]);
   const posTemplate = getPosTemplate(business?.businessProfileType, business?.primaryActivity);
@@ -564,6 +572,11 @@ export default function PosPage() {
             <TotalLine label="Montant reçu" value={paidAmount} />
             <TotalLine label="Monnaie rendue" value={changeDue} />
             {balanceDue > 0 ? <TotalLine label="Balance" value={balanceDue} /> : null}
+            {cart.items.length > 0 && paidAmount > 0 && paidAmount < cart.total ? (
+              <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 dark:bg-red-950 dark:text-red-200">
+                {insufficientPaymentMessage(cart.total, paidAmount)}
+              </p>
+            ) : null}
             <button onClick={() => void checkout()} disabled={!canReceivePayment} className="w-full rounded-md bg-brand-600 px-4 py-4 text-lg font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{isLoading ? "Validation..." : "Encaisser"}</button>
             <div className="grid gap-2 sm:grid-cols-2">
               <button onClick={() => void createPosDocument("orders", posTemplate.pendingLabel)} disabled={!cart.items.length} className="rounded-md border border-slate-300 px-4 py-3 text-sm font-semibold disabled:opacity-50 dark:border-slate-700">{posTemplate.pendingLabel}</button>
@@ -623,6 +636,11 @@ function customerLabel(customer: Customer) {
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("fr-HT", { style: "currency", currency: "HTG", maximumFractionDigits: 2 }).format(value || 0);
+}
+
+function insufficientPaymentMessage(total: number, paidAmount: number) {
+  const missing = roundMoney(total - paidAmount);
+  return `Montant insuffisant. Le client doit payer au minimum ${formatMoney(total)}. Il manque ${formatMoney(missing)}.`;
 }
 
 function getPosTemplate(profileType?: string, primaryActivity?: string | null) {
