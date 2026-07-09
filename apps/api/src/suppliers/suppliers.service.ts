@@ -1,5 +1,6 @@
 ﻿import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateSupplierDto } from "./dto/create-supplier.dto";
 import { SupplierQueryDto } from "./dto/supplier-query.dto";
@@ -35,7 +36,7 @@ export class SuppliersService {
 
   async create(tenantId: string, dto: CreateSupplierDto) {
     try { return await this.prisma.supplier.create({ data: { tenantId, code: dto.code ?? this.generateCode(), name: dto.name, company: dto.company, logoUrl: dto.logoUrl, phone: dto.phone, whatsapp: dto.whatsapp, email: dto.email, address: dto.address, city: dto.city, country: dto.country, taxNumber: dto.taxNumber, primaryContact: dto.primaryContact, paymentTerms: dto.paymentTerms, currency: dto.currency ?? "HTG", status: dto.status ?? "ACTIVE", balance: dto.balance ?? 0, notes: dto.notes } }); }
-    catch (error) { if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException("Code fournisseur deja existant"); throw error; }
+    catch (error) { if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException("Code fournisseur deja existant"); throw error; }
   }
 
   async update(tenantId: string, id: string, dto: UpdateSupplierDto) { await this.findOne(tenantId, id); return this.prisma.supplier.update({ where: { id }, data: dto }); }
@@ -46,3 +47,5 @@ export class SuppliersService {
   async exportPdf(tenantId: string) { const suppliers = await this.prisma.supplier.findMany({ where: { tenantId }, orderBy: { name: "asc" }, take: 500 }); return `Rapport fournisseurs VTA Commerce\n\n${suppliers.map((s)=>`${s.code} - ${s.name} - ${s.phone??""}`).join("\n")}`; }
   private generateCode() { return `SUP-${Date.now().toString(36).toUpperCase()}`; }
 }
+
+

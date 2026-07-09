@@ -1,5 +1,6 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+﻿import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { PermissionsService } from "../permissions/permissions.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { defaultRoles } from "../rbac/default-roles";
@@ -12,7 +13,7 @@ export class RolesService {
   async findAll(tenantId: string) { await this.ensureDefaultRoles(tenantId); return this.prisma.role.findMany({ where: { tenantId }, include: roleInclude, orderBy: { name: "asc" } }); }
   async create(tenantId: string, dto: CreateRoleDto) {
     try { return await this.prisma.role.create({ data: { tenantId, name: dto.name, description: dto.description, permissions: this.permissionCreate(dto.permissionIds) }, include: roleInclude }); }
-    catch (error) { if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException("Role deja existant"); throw error; }
+    catch (error) { if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException("Role deja existant"); throw error; }
   }
   async update(tenantId: string, id: string, dto: UpdateRoleDto) {
     await this.findOneOrFail(tenantId, id);
@@ -43,3 +44,4 @@ export class RolesService {
     await this.prisma.tenant.upsert({ where: { id: tenantId }, update: {}, create: { id: tenantId, name: "VTA Commerce", slug: "vta-commerce", status: "ACTIVE", settings: { create: {} }, logo: { create: { alt: "VTA Commerce" } }, subscription: { create: { plan: "FREE", status: "TRIALING" } } } });
   }
 }
+

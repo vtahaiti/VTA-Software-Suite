@@ -1,5 +1,6 @@
 ﻿import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { CreateReferenceDto } from "./dto/create-reference.dto";
@@ -120,7 +121,7 @@ export class ProductsService {
         return tx.product.findUniqueOrThrow({ where: { id: product.id }, include: productInclude });
       }));
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException("Produit ou code-barres deja existant");
+      if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException("Produit ou code-barres deja existant");
       throw error;
     }
   }
@@ -241,3 +242,5 @@ export class ProductsService {
   private generateQrCode(sku: string) { return `VTA:${sku}:${Date.now().toString(36)}`; }
   private slug(value: string) { return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""); }
 }
+
+

@@ -1,5 +1,6 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+﻿import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateTenantDto } from "./dto/create-tenant.dto";
 import { UpdateTenantDto } from "./dto/update-tenant.dto";
@@ -182,6 +183,7 @@ export class TenantsService {
   }
 
   private isUniqueConstraintError(error: unknown) {
-    return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+    return error instanceof PrismaClientKnownRequestError && error.code === "P2002";
   }
 }
+

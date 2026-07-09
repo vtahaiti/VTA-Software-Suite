@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { CustomerStatus, Prisma } from "@prisma/client";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateCustomerDto } from "./dto/create-customer.dto";
 import { CustomerQueryDto } from "./dto/customer-query.dto";
@@ -77,7 +78,7 @@ export class CustomersService {
     try {
       return this.withCompatibilityAliases(await this.prisma.customer.create({ data: this.buildCreateData(tenantId, dto) }));
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException("Code client deja existant");
+      if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException("Code client deja existant");
       throw error;
     }
   }
@@ -92,7 +93,7 @@ export class CustomersService {
     try {
       return await this.prisma.customer.delete({ where: { id } });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") throw new ConflictException("Client lie a des documents. Utilisez l'archivage.");
+      if (error instanceof PrismaClientKnownRequestError && error.code === "P2003") throw new ConflictException("Client lie a des documents. Utilisez l'archivage.");
       throw error;
     }
   }

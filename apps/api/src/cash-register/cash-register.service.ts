@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { CashMovementType, CashSessionStatus, PaymentMethod, Prisma } from "@prisma/client";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { PrismaService } from "../prisma/prisma.service";
 import { CloseCashSessionDto, CreateCashMovementDto, CreateCashRegisterDto, OpenCashSessionDto } from "./dto/create-cash-register.dto";
 
@@ -15,7 +16,7 @@ export class CashRegisterService {
     try {
       return await this.prisma.cashRegister.create({ data: { tenantId, name: dto.name, code: dto.code ?? this.code(dto.name), isActive: dto.isActive ?? true } });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") throw new BadRequestException("Code caisse deja existant");
+      if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") throw new BadRequestException("Code caisse deja existant");
       throw error;
     }
   }

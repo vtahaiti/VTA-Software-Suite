@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, StoreStatus, StoreTransferStatus, WarehouseStatus } from "@prisma/client";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { PrismaService } from "../prisma/prisma.service";
 
 type PageQuery = { search?: string; page?: string; limit?: string };
@@ -34,7 +35,7 @@ export class StoresService {
 
   async createStore(tenantId: string, dto: any) {
     try { return await this.prisma.store.create({ data: { tenantId, code: dto.code ?? this.code(dto.name), name: dto.name, phone: dto.phone, email: dto.email, country: dto.country, city: dto.city, address: dto.address, status: dto.status ?? StoreStatus.ACTIVE } }); }
-    catch (error) { if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException("Code magasin deja existant"); throw error; }
+    catch (error) { if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException("Code magasin deja existant"); throw error; }
   }
 
   async updateStore(tenantId: string, id: string, dto: any) { await this.ensureStore(tenantId, id); return this.prisma.store.update({ where: { id }, data: dto }); }
@@ -50,7 +51,7 @@ export class StoresService {
   async createWarehouse(tenantId: string, dto: any) {
     await this.ensureStore(tenantId, dto.storeId);
     try { return await this.prisma.warehouse.create({ data: { tenantId, storeId: dto.storeId, code: dto.code ?? this.code(dto.name), name: dto.name, description: dto.description, address: dto.address, status: dto.status ?? WarehouseStatus.ACTIVE, isActive: dto.status !== WarehouseStatus.INACTIVE } }); }
-    catch (error) { if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException("Code depot deja existant"); throw error; }
+    catch (error) { if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException("Code depot deja existant"); throw error; }
   }
 
   async updateWarehouse(tenantId: string, id: string, dto: any) { await this.ensureWarehouse(tenantId, id); return this.prisma.warehouse.update({ where: { id }, data: dto }); }
