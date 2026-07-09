@@ -1,4 +1,4 @@
-const CACHE_NAME = "vta-commerce-pos-shell-v2";
+const CACHE_NAME = "vta-commerce-pos-shell-v3";
 const APP_SHELL = [
   "/",
   "/login",
@@ -20,6 +20,15 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
   );
   self.clients.claim();
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "VTA_SKIP_WAITING") {
+    self.skipWaiting();
+  }
+  if (event.data?.type === "VTA_CLEAR_CACHE") {
+    event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key.startsWith("vta-commerce-")).map((key) => caches.delete(key)))));
+  }
 });
 
 self.addEventListener("fetch", (event) => {
