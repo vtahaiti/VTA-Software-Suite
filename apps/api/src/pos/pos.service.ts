@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, SalesDocumentStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { CreateCustomerDto } from "../customers/dto/create-customer.dto";
 import { ProductQueryDto } from "../products/dto/product-query.dto";
 import { CreateSaleDto } from "../sales/dto/create-sale.dto";
 import { PosCartAddDto, PosCartDto, PosCartRemoveDto, PosCartUpdateDto } from "./dto/pos-cart.dto";
@@ -189,6 +190,33 @@ export class PosService {
     return this.createCommercialDocument(tenantId, dto, userId, "COMMANDE POS");
   }
 
+  async createCustomer(tenantId: string, dto: CreateCustomerDto) {
+    const displayName = dto.displayName?.trim() || [dto.firstName, dto.lastName].filter(Boolean).join(" ").trim() || dto.company?.trim();
+    if (!displayName || displayName.length < 2) throw new BadRequestException("Le nom du client est obligatoire");
+
+    return this.prisma.customer.create({
+      data: {
+        tenantId,
+        customerCode: dto.customerCode ?? this.customerCode(),
+        displayName,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        company: dto.company,
+        phone: dto.phone,
+        mobile: dto.mobile,
+        whatsapp: dto.whatsapp,
+        email: dto.email,
+        address: dto.address,
+        notes: dto.notes,
+        customerType: dto.customerType ?? "INDIVIDUAL",
+        status: dto.status ?? "ACTIVE",
+        creditLimit: dto.creditLimit ?? 0,
+        currentBalance: dto.currentBalance ?? 0
+      },
+      select: { id: true, displayName: true, phone: true, mobile: true, whatsapp: true }
+    });
+  }
+
   private async createCommercialDocument(tenantId: string, dto: CreateSaleDto, userId: string | undefined, label: string) {
     if (!dto.items?.length) throw new BadRequestException("Panier vide");
     const cart = await this.calculateCart(tenantId, {
@@ -263,5 +291,9 @@ export class PosService {
 
   private documentNumber(prefix: string) {
     return `${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+  }
+
+  private customerCode() {
+    return `CUST-${Date.now().toString(36).toUpperCase()}`;
   }
 }

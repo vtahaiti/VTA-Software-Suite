@@ -381,7 +381,7 @@ export default function PosPage() {
       setError("Nom et téléphone sont obligatoires.");
       return;
     }
-    const response = await fetch(`${apiUrl}/customers`, {
+    const response = await fetch(`${apiUrl}/pos/customers`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({

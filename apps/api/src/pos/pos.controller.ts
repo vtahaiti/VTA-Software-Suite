@@ -3,6 +3,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { ProductQueryDto } from "../products/dto/product-query.dto";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
+import { CreateCustomerDto } from "../customers/dto/create-customer.dto";
 import { CreateSaleDto } from "../sales/dto/create-sale.dto";
 import { SaleQueryDto } from "../sales/dto/sale-query.dto";
 import { SalesService } from "../sales/sales.service";
@@ -75,6 +76,12 @@ export class PosController {
   @Permissions("pos.sell")
   createOrder(@Req() req: AuthenticatedRequest, @Body() dto: CreateSaleDto) {
     return this.pos.createOrderFromCart(req.user.tenantId, dto, req.user.id);
+  }
+
+  @Post("customers")
+  @Permissions("pos.sell")
+  createCustomer(@Req() req: AuthenticatedRequest, @Body() dto: CreateCustomerDto) {
+    return this.pos.createCustomer(req.user.tenantId, dto);
   }
 
   @Post("sync-offline-sales")
