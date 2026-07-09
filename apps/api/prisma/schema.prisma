@@ -416,6 +416,7 @@ model User {
   email String
   name String
   password String
+  isActive Boolean @default(true)
   roles UserRole[]
   profile UserProfile?
   onboardingStates OnboardingState[]

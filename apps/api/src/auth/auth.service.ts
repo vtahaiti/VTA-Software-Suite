@@ -55,6 +55,11 @@ export class AuthService {
       return session;
     }
 
+    if (user.isActive === false) {
+      await this.security.recordLoginFailure(email, meta);
+      throw new UnauthorizedException("Compte utilisateur desactive. Contactez votre administrateur.");
+    }
+
     const passwordMatches = await bcrypt.compare(loginDto.password, user.password);
     if (!passwordMatches) {
       await this.security.recordLoginFailure(email, meta);
@@ -81,6 +86,7 @@ export class AuthService {
     const payload = await this.verifyRefreshToken(refreshToken);
     const session = this.sessions.get(payload.sessionId);
     if (!session || session.expiresAt.getTime() < Date.now()) throw new UnauthorizedException("Session expiree");
+    await this.assertUserActive(session.user.id);
     const tokenMatches = await bcrypt.compare(refreshToken, session.refreshTokenHash);
     if (!tokenMatches) {
       this.sessions.delete(payload.sessionId);
@@ -103,6 +109,7 @@ export class AuthService {
       throw new UnauthorizedException("Token invalide");
     }
     if (!this.sessions.has(payload.sessionId)) throw new UnauthorizedException("Session invalide");
+    await this.assertUserActive(payload.id);
     await this.assertTenantCanRequest(payload);
     await this.touchTenantSeen(payload.tenantId);
     return payload;
@@ -161,6 +168,12 @@ export class AuthService {
 
   private isPlatformAdmin(user: AuthUser) {
     return user.roles?.includes("PlatformAdmin") || user.role === "PlatformAdmin";
+  }
+
+  private async assertUserActive(userId: string) {
+    if (userId === demoUser.id) return;
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { isActive: true } });
+    if (!user || !user.isActive) throw new UnauthorizedException("Compte utilisateur desactive. Contactez votre administrateur.");
   }
 
   private async assertTenantCanLogin(user: AuthUser) {

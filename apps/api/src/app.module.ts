@@ -38,6 +38,7 @@ import { SuppliersModule } from "./suppliers/suppliers.module";
 import { TenantContextMiddleware } from "./tenants/middleware/tenant-context.middleware";
 import { TenantsModule } from "./tenants/tenants.module";
 import { UserRolesModule } from "./user-roles/user-roles.module";
+import { UsersModule } from "./users/users.module";
 import { WarehouseModule } from "./warehouses/warehouse.module";
 
 @Module({
@@ -59,6 +60,7 @@ import { WarehouseModule } from "./warehouses/warehouse.module";
     PlatformModule,
     RolesModule,
     UserRolesModule,
+    UsersModule,
     ProductsModule,
     InventoryModule,
     ImportExportModule,

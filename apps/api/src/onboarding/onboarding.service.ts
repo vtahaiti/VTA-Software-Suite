@@ -193,7 +193,7 @@ export class OnboardingService {
         });
       }
 
-      const role = await tx.role.create({ data: { tenantId: tenant.id, name: "Owner", description: "Proprietaire de l entreprise", isSystem: true } });
+      const role = await tx.role.create({ data: { tenantId: tenant.id, name: "OWNER", description: "Proprietaire de l entreprise", isSystem: true } });
       await tx.rolePermission.createMany({ data: permissions.map((permission) => ({ roleId: role.id, permissionId: permission.id })), skipDuplicates: true });
       await tx.userRole.create({ data: { userId: user.id, roleId: role.id } });
       const businessProfileId = savedBusinessProfiles.get(selectedBusinessProfile.slug);

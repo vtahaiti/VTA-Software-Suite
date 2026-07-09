@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { fallbackMenuSections, getTenantBusinessConfiguration, type BusinessMenuSection } from "@/lib/business-profiles";
 import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
+import { canAccessHref, canManageUsers } from "@/lib/role-access";
 
 type MenuMode = "simple" | "expert";
 
@@ -38,8 +39,8 @@ export function Sidebar() {
     window.localStorage.setItem("vta_menu_mode", next);
   }
 
-  const sections = decorateMenuSections(mode === "simple" ? simpleSections : expertSections);
   const currentUser = getCurrentUser();
+  const sections = filterMenuSections(decorateMenuSections(mode === "simple" ? simpleSections : expertSections), currentUser);
   const companyName = branding?.companyName ?? currentUser?.tenant ?? "Mon entreprise";
   const companyInitials = branding?.companyInitials ?? initials(companyName);
   const primaryColor = branding?.primaryColor ?? "#2563eb";
@@ -56,7 +57,7 @@ export function Sidebar() {
 }
 
 function decorateMenuSections(sections: BusinessMenuSection[]) {
-  return sections.map((section) => ({
+  const decorated = sections.map((section) => ({
     ...section,
     items: section.items.flatMap((item) => {
       if (item.href === "/dashboard/products") {
@@ -77,6 +78,20 @@ function decorateMenuSections(sections: BusinessMenuSection[]) {
       return [item];
     })
   }));
+  return decorated;
+}
+
+function filterMenuSections(sections: BusinessMenuSection[], user: ReturnType<typeof getCurrentUser>) {
+  const filtered = sections.map((section) => ({
+    ...section,
+    items: section.items.filter((item) => canAccessHref(user, item.href))
+  })).filter((section) => section.items.length > 0);
+
+  if (canManageUsers(user) && !filtered.some((section) => section.items.some((item) => item.href === "/dashboard/users"))) {
+    filtered.push({ title: "Administration", items: [{ label: "👤 Roles & Utilisateurs", href: "/dashboard/users" }] });
+  }
+
+  return filtered;
 }
 
 function initials(name: string) {
