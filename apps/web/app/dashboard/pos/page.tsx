@@ -9,7 +9,7 @@ import { getTenantBusinessConfiguration, type TenantBusinessConfiguration } from
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-type Product = { id: string; name: string; sku: string; salePrice: number; availableStock: number; primaryBarcode?: string | null; category?: string | null };
+type Product = { id: string; name: string; sku: string; salePrice: number; availableStock: number; image?: string | null; primaryBarcode?: string | null; category?: string | null };
 type Store = { id: string; name: string; code: string };
 type Warehouse = { id: string; name: string; code: string; storeId?: string | null };
 type CashSession = { id: string; status: string; cashRegister?: { name: string } };
@@ -44,6 +44,8 @@ export default function PosPage() {
   const [orderDiscount, setOrderDiscount] = useState("0");
   const [taxRate, setTaxRate] = useState("0");
   const [showExpertOptions, setShowExpertOptions] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [showCartDrawer, setShowCartDrawer] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -430,189 +432,167 @@ export default function PosPage() {
   const changeDue = useMemo(() => roundMoney(Math.max(0, paidAmount - cart.total)), [cart.total, paidAmount]);
   const balanceDue = useMemo(() => roundMoney(Math.max(0, cart.total - paidAmount)), [cart.total, paidAmount]);
   const posTemplate = getPosTemplate(business?.businessProfileType, business?.primaryActivity);
+  const categories = useMemo(() => Array.from(new Set(products.map((product) => product.category).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)), [products]);
+  const visibleProducts = useMemo(() => categoryFilter ? products.filter((product) => product.category === categoryFilter) : products, [categoryFilter, products]);
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-950 dark:bg-slate-950 dark:text-white lg:-m-6">
-      <div className="grid min-h-screen lg:grid-cols-[1fr_430px]">
-        <main className="min-h-0 overflow-auto p-4 lg:p-6">
-          <div className="mb-5 flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 xl:flex-row xl:items-center">
-            <div>
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <p className="text-sm font-semibold text-brand-600">{posTemplate.eyebrow}</p>
-                <span className={`rounded-full px-2 py-1 text-xs font-semibold ${isOnline ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-200" : "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-200"}`}>{isOnline ? "En ligne" : "Hors ligne"}</span>
-              </div>
-              <h1 className="text-2xl font-bold">{posTemplate.title} - {companyName}</h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">{posTemplate.description}</p><p className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">Local: {activeStore?.name ?? "Aucun"} · Caisse: {activeSession?.cashRegister?.name ?? "Aucune"} · Utilisateur: {cashierName}</p>
-              {!isOnline ? <p className="mt-1 text-xs font-semibold text-orange-700 dark:text-orange-200">Mode hors ligne: le stock local sera confirmé à la synchronisation.</p> : null}
-            </div>
-          </div>
-
-          <div className="mb-5 grid gap-3 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900 sm:p-4 xl:grid-cols-[2fr_1fr]">
-            <div className="flex gap-2">
-              <input ref={scanInputRef} autoFocus value={query} onChange={(event) => { setQuery(event.target.value); setBarcode(event.target.value); }} onKeyDown={(event) => { if (event.key === "Enter") void scanBarcode(query); }} placeholder={posTemplate.searchPlaceholder} className="min-w-0 flex-1 rounded-md border border-slate-300 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-950" />
-              <button aria-label="Rechercher un produit" title="Rechercher" onClick={() => void scanBarcode(query)} className="grid h-12 w-12 shrink-0 place-items-center rounded-md bg-slate-950 text-xl font-semibold text-white dark:bg-white dark:text-slate-950">
-                <span aria-hidden="true">🔍</span>
-              </button>
-            </div>
-            <div className="flex gap-2">
-              <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
-                <option value="">{posTemplate.defaultCustomer}</option>
-                {customers.map((customer) => <option key={customer.id} value={customer.id}>{customerLabel(customer)}</option>)}
-              </select>
-              <button type="button" aria-label="Ajouter un client" title="Ajouter client" onClick={() => setShowCustomerModal(true)} className="grid h-12 w-12 shrink-0 place-items-center rounded-md border border-slate-300 text-2xl font-bold dark:border-slate-700">
-                <span aria-hidden="true">+</span>
-              </button>
-            </div>
-          </div>
-
-          {error ? <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{error}</div> : null}
-          {message ? <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700 dark:border-green-900 dark:bg-green-950 dark:text-green-200">{message}</div> : null}
-          {syncMessage ? <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">{syncMessage}</div> : null}
-
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            {products.map((product) => (
-              <button key={product.id} onClick={() => void addProduct(product.id)} className="rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-brand-600 dark:border-slate-800 dark:bg-slate-900">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">{product.name}</p>
-                    <p className="text-xs text-slate-500">{product.category ?? product.sku}</p>
-                  </div>
-                  <span className="rounded-full bg-slate-100 px-2 py-1 text-xs dark:bg-slate-800">Stock {product.availableStock}</span>
+      <div className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_420px]">
+        <main className="min-h-0 overflow-auto px-3 pb-28 pt-3 sm:px-4 lg:p-6">
+          <section className="mb-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div className="min-w-0">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-bold text-brand-700 dark:bg-brand-950 dark:text-brand-200">{posTemplate.eyebrow}</span>
+                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${isOnline ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200" : "bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-200"}`}>{isOnline ? "En ligne" : "Hors ligne"}</span>
                 </div>
-                <p className="mt-3 text-lg font-bold text-brand-600">{formatMoney(product.salePrice)}</p>
-              </button>
-            ))}
-          </div>
+                <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Nouvelle vente</h1>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{posTemplate.description}</p>
+              </div>
+              <div className="grid gap-2 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-slate-950 sm:grid-cols-3 xl:min-w-[520px]">
+                <MetaPill label="Magasin" value={activeStore?.name ?? "Magasin principal"} />
+                <MetaPill label="Caisse" value={activeSession?.cashRegister?.name ?? "Caisse active"} />
+                <MetaPill label="Utilisateur" value={cashierName} />
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.6fr)_minmax(260px,0.8fr)]">
+              <div className="flex min-w-0 gap-2">
+                <input ref={scanInputRef} autoFocus value={query} onChange={(event) => { setQuery(event.target.value); setBarcode(event.target.value); }} onKeyDown={(event) => { if (event.key === "Enter") void scanBarcode(query); }} placeholder={posTemplate.searchPlaceholder} className="min-w-0 flex-1 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-base outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-brand-950" />
+                <button aria-label="Rechercher un produit" title="Rechercher" onClick={() => void scanBarcode(query)} className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-slate-950 text-lg font-black text-white shadow-sm transition hover:-translate-y-0.5 dark:bg-white dark:text-slate-950">
+                  <span aria-hidden="true">🔍</span>
+                </button>
+              </div>
+              <CustomerSelector customers={customers} customerId={customerId} defaultLabel={posTemplate.defaultCustomer} onChange={setCustomerId} onCreate={() => setShowCustomerModal(true)} />
+            </div>
+          </section>
+
+          <StatusMessages error={error} message={message} syncMessage={syncMessage} />
+
+          <section className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-black">Produits disponibles</h2>
+              <p className="text-sm text-slate-500">{visibleProducts.length} produit(s) affiché(s)</p>
+            </div>
+            <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold dark:border-slate-700 dark:bg-slate-900">
+              <option value="">Toutes les catégories</option>
+              {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+            </select>
+          </section>
+
+          {visibleProducts.length ? (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              {visibleProducts.map((product) => (
+                <ProductCard key={product.id} product={product} onAdd={() => void addProduct(product.id)} />
+              ))}
+            </div>
+          ) : (
+            <EmptyProductsState />
+          )}
         </main>
 
-        <aside className="flex min-h-0 flex-col border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:border-l lg:border-t-0">
-          <div className="border-b border-slate-200 p-4 dark:border-slate-800">
-            <h2 className="text-xl font-bold">{posTemplate.cartTitle}</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">{cart.items.length} ligne(s) · {selectedCustomer ? customerLabel(selectedCustomer) : posTemplate.defaultCustomer}</p>
-          </div>
-
-          <div className="flex-1 space-y-3 overflow-auto p-4">
-            {cart.items.length ? cart.items.map((item) => (
-              <div key={item.productId} className={`rounded-lg border p-3 ${item.hasEnoughStock ? "border-slate-200 dark:border-slate-800" : "border-red-300 bg-red-50 dark:border-red-900 dark:bg-red-950"}`}>
-                <div className="flex justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">{item.name}</p>
-                    <p className="text-xs text-slate-500">{item.sku} - stock dispo {item.availableStock}</p>
-                  </div>
-                  <button onClick={() => void removeProduct(item.productId)} className="text-sm font-semibold text-red-600">Retirer</button>
-                </div>
-                <div className="mt-3 grid grid-cols-[100px_1fr] items-center gap-3">
-                  <input type="number" min={0} value={item.quantity} onChange={(event) => void updateQuantity(item.productId, Number(event.target.value))} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-                  <div className="text-right text-sm">
-                    <p>{formatMoney(item.unitPrice)} / unite</p>
-                    <p className="font-bold">{formatMoney(item.total)}</p>
-                  </div>
-                </div>
-              </div>
-            )) : <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">{posTemplate.emptyCart}</div>}
-
-            {lastSale ? (
-              <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-200">
-                <p className="font-semibold">Derniere vente confirmee</p>
-                <p>Recu: {lastSale.receipt?.number ?? "--"}</p>
-                <p>Facture: {lastSale.invoice?.documentNumber ?? "--"}</p>
-                <a href={receiptPreviewUrl(lastSale, companyName, cashierName)} className="mt-2 inline-flex rounded-md bg-green-700 px-3 py-2 text-xs font-semibold text-white">Imprimer ticket</a>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="space-y-3 border-t border-slate-200 p-4 dark:border-slate-800">
-            <div className="grid gap-2 text-sm">
-              <label className="grid gap-1">Remise globale
-                <input value={orderDiscount} onChange={(event) => setOrderDiscount(event.target.value)} onBlur={() => void syncCart("calculate")} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-              </label>
-            </div>
-            <div className="flex justify-between text-xl font-bold"><span>Total</span><span>{formatMoney(cart.total)}</span></div>
-            <div className="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-              <p className="text-sm font-semibold">Paiement</p>
-              <div className="grid gap-2 sm:grid-cols-[1fr_1.2fr]">
-                <select value={payments[0]?.method ?? "CASH"} onChange={(event) => updatePayment(0, { method: event.target.value })} className="rounded-md border border-slate-300 px-3 py-3 dark:border-slate-700 dark:bg-slate-950">
-                  <option value="CASH">Espèces</option>
-                  <option value="CARD">Carte</option>
-                  <option value="BANK_TRANSFER">Virement</option>
-                </select>
-                <input value={payments[0]?.amount ?? ""} onChange={(event) => setCashPayment(event.target.value)} placeholder="Montant reçu" className="rounded-md border border-slate-300 px-3 py-3 text-lg font-semibold dark:border-slate-700 dark:bg-slate-950" />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => setCashPayment(String(cart.total))} className="rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-slate-950">Paiement exact</button>
-              </div>
-              <button type="button" onClick={() => setShowExpertOptions((current) => !current)} className="text-xs font-semibold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">Mode expert</button>
-              {showExpertOptions ? (
-                <div className="space-y-2 rounded-md bg-slate-50 p-3 dark:bg-slate-950">
-                  <TotalLine label="Sous-total" value={cart.subtotal} />
-                  <TotalLine label="Remises" value={cart.itemDiscount + cart.discount} />
-                  {cart.tax > 0 ? <TotalLine label="Taxes" value={cart.tax} /> : null}
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    <select value={storeId} onChange={(event) => setStoreId(event.target.value)} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
-                      <option value="">Magasin actif</option>
-                      {stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}
-                    </select>
-                    <select value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
-                      <option value="">Dépôt</option>
-                      {warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>)}
-                    </select>
-                    <select value={cashSessionId} onChange={(event) => setCashSessionId(event.target.value)} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
-                      <option value="">Caisse active</option>
-                      {sessions.map((session) => <option key={session.id} value={session.id}>{session.cashRegister?.name ?? "Caisse"}</option>)}
-                    </select>
-                  </div>
-                  <label className="grid gap-1 text-sm">Taxe
-                    <select value={taxRate} onChange={(event) => { setTaxRate(event.target.value); void syncCart("calculate", { taxRate: Number(event.target.value) }); }} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
-                      <option value="0">Aucune taxe</option>
-                      <option value="0.1">10%</option>
-                      <option value="0.15">15%</option>
-                    </select>
-                  </label>
-                  <button type="button" onClick={() => setPayments((current) => [...current, { method: "CASH", amount: "", reference: "" }])} className="text-xs font-semibold text-brand-600">+ Ajouter un autre paiement</button>
-                  {payments.slice(1).map((payment, index) => {
-                    const paymentIndex = index + 1;
-                    return (
-                      <div key={paymentIndex} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-                        <select value={payment.method} onChange={(event) => updatePayment(paymentIndex, { method: event.target.value })} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
-                          <option value="CASH">Espèces</option>
-                          <option value="CARD">Carte</option>
-                          <option value="BANK_TRANSFER">Virement</option>
-                          <option value="MIXED">Mixte</option>
-                        </select>
-                        <input value={payment.amount} onChange={(event) => updatePayment(paymentIndex, { amount: event.target.value })} placeholder="Montant" className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-                        <button type="button" onClick={() => removePayment(paymentIndex)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">Retirer</button>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : null}
-            </div>
-            <TotalLine label="Montant reçu" value={paidAmount} />
-            <TotalLine label="Monnaie rendue" value={changeDue} />
-            {balanceDue > 0 ? <TotalLine label="Balance" value={balanceDue} /> : null}
-            {cart.items.length > 0 && paidAmount > 0 && paidAmount < cart.total ? (
-              <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 dark:bg-red-950 dark:text-red-200">
-                {insufficientPaymentMessage(cart.total, paidAmount)}
-              </p>
-            ) : null}
-            <button onClick={() => void checkout()} disabled={!canReceivePayment} className="w-full rounded-md bg-brand-600 px-4 py-4 text-lg font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{isLoading ? "Validation..." : "Encaisser"}</button>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <button onClick={() => void createPosDocument("orders", posTemplate.pendingLabel)} disabled={!cart.items.length} className="rounded-md border border-slate-300 px-4 py-3 text-sm font-semibold disabled:opacity-50 dark:border-slate-700">{posTemplate.pendingLabel}</button>
-              {lastSale ? (
-                <a href={receiptPreviewUrl(lastSale, companyName, cashierName)} className="rounded-md border border-slate-300 px-4 py-3 text-center text-sm font-semibold dark:border-slate-700">Imprimer</a>
-              ) : (
-                <button disabled className="rounded-md border border-slate-300 px-4 py-3 text-sm font-semibold opacity-50 dark:border-slate-700">Imprimer</button>
-              )}
-            </div>
-            {showExpertOptions ? (
-              <div className="grid gap-2 sm:grid-cols-2">
-                <button onClick={() => void createPosDocument("quotes", "Devis POS")} disabled={!cart.items.length} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-50 dark:border-slate-700">Créer devis</button>
-                <button onClick={() => void createPosDocument("orders", "Commande POS")} disabled={!cart.items.length} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-50 dark:border-slate-700">Créer commande</button>
-              </div>
-            ) : null}
-          </div>
-        </aside>
+        <div className="hidden min-h-0 lg:block">
+          <CartPanel
+            cart={cart}
+            selectedCustomerLabel={selectedCustomer ? customerLabel(selectedCustomer) : posTemplate.defaultCustomer}
+            cartTitle={posTemplate.cartTitle}
+            emptyCart={posTemplate.emptyCart}
+            lastSale={lastSale}
+            companyName={companyName}
+            cashierName={cashierName}
+            orderDiscount={orderDiscount}
+            setOrderDiscount={setOrderDiscount}
+            syncCart={() => void syncCart("calculate")}
+            payments={payments}
+            updatePayment={updatePayment}
+            setCashPayment={setCashPayment}
+            paidAmount={paidAmount}
+            changeDue={changeDue}
+            balanceDue={balanceDue}
+            canReceivePayment={canReceivePayment}
+            isLoading={isLoading}
+            showExpertOptions={showExpertOptions}
+            setShowExpertOptions={setShowExpertOptions}
+            stores={stores}
+            warehouses={warehouses}
+            sessions={sessions}
+            storeId={storeId}
+            warehouseId={warehouseId}
+            cashSessionId={cashSessionId}
+            setStoreId={setStoreId}
+            setWarehouseId={setWarehouseId}
+            setCashSessionId={setCashSessionId}
+            taxRate={taxRate}
+            setTaxRate={setTaxRate}
+            removePayment={removePayment}
+            addExtraPayment={() => setPayments((current) => [...current, { method: "CASH", amount: "", reference: "" }])}
+            pendingLabel={posTemplate.pendingLabel}
+            checkout={() => void checkout()}
+            holdSale={() => void createPosDocument("orders", posTemplate.pendingLabel)}
+            createQuote={() => void createPosDocument("quotes", "Devis POS")}
+            createOrder={() => void createPosDocument("orders", "Commande POS")}
+            updateQuantity={(productId, quantity) => void updateQuantity(productId, quantity)}
+            removeProduct={(productId) => void removeProduct(productId)}
+          />
+        </div>
       </div>
+
+      <MobileCartBar cart={cart} paidAmount={paidAmount} onOpen={() => setShowCartDrawer(true)} />
+      {showCartDrawer ? (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 lg:hidden">
+          <div className="ml-auto flex h-full w-full max-w-md flex-col bg-white shadow-2xl dark:bg-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-800">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-brand-600">Ticket</p>
+                <h2 className="text-xl font-black">{formatMoney(cart.total)}</h2>
+              </div>
+              <button onClick={() => setShowCartDrawer(false)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold dark:border-slate-700">Fermer</button>
+            </div>
+            <CartPanel
+              cart={cart}
+              selectedCustomerLabel={selectedCustomer ? customerLabel(selectedCustomer) : posTemplate.defaultCustomer}
+              cartTitle={posTemplate.cartTitle}
+              emptyCart={posTemplate.emptyCart}
+              lastSale={lastSale}
+              companyName={companyName}
+              cashierName={cashierName}
+              orderDiscount={orderDiscount}
+              setOrderDiscount={setOrderDiscount}
+              syncCart={() => void syncCart("calculate")}
+              payments={payments}
+              updatePayment={updatePayment}
+              setCashPayment={setCashPayment}
+              paidAmount={paidAmount}
+              changeDue={changeDue}
+              balanceDue={balanceDue}
+              canReceivePayment={canReceivePayment}
+              isLoading={isLoading}
+              showExpertOptions={showExpertOptions}
+              setShowExpertOptions={setShowExpertOptions}
+              stores={stores}
+              warehouses={warehouses}
+              sessions={sessions}
+              storeId={storeId}
+              warehouseId={warehouseId}
+              cashSessionId={cashSessionId}
+              setStoreId={setStoreId}
+              setWarehouseId={setWarehouseId}
+              setCashSessionId={setCashSessionId}
+              taxRate={taxRate}
+              setTaxRate={setTaxRate}
+              removePayment={removePayment}
+              addExtraPayment={() => setPayments((current) => [...current, { method: "CASH", amount: "", reference: "" }])}
+              pendingLabel={posTemplate.pendingLabel}
+              checkout={() => { void checkout().then(() => setShowCartDrawer(false)); }}
+              holdSale={() => void createPosDocument("orders", posTemplate.pendingLabel)}
+              createQuote={() => void createPosDocument("quotes", "Devis POS")}
+              createOrder={() => void createPosDocument("orders", "Commande POS")}
+              updateQuantity={(productId, quantity) => void updateQuantity(productId, quantity)}
+              removeProduct={(productId) => void removeProduct(productId)}
+            />
+          </div>
+        </div>
+      ) : null}
       {showCustomerModal ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4">
           <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900">
@@ -648,6 +628,299 @@ export default function PosPage() {
   );
 }
 
+function MetaPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-xl bg-white px-3 py-2 shadow-sm dark:bg-slate-900">
+      <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="truncate text-sm font-bold text-slate-800 dark:text-slate-100">{value}</p>
+    </div>
+  );
+}
+
+function CustomerSelector({ customers, customerId, defaultLabel, onChange, onCreate }: { customers: Customer[]; customerId: string; defaultLabel: string; onChange: (value: string) => void; onCreate: () => void }) {
+  return (
+    <div className="flex min-w-0 gap-2">
+      <select value={customerId} onChange={(event) => onChange(event.target.value)} className="min-w-0 flex-1 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-brand-950">
+        <option value="">{defaultLabel}</option>
+        {customers.map((customer) => <option key={customer.id} value={customer.id}>{customerLabel(customer)}</option>)}
+      </select>
+      <button type="button" aria-label="Ajouter un client" title="Ajouter client" onClick={onCreate} className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-slate-300 bg-white text-2xl font-black text-slate-800 shadow-sm transition hover:-translate-y-0.5 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
+        <span aria-hidden="true">+</span>
+      </button>
+    </div>
+  );
+}
+
+function StatusMessages({ error, message, syncMessage }: { error: string; message: string; syncMessage: string }) {
+  return (
+    <>
+      {error ? <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{error}</div> : null}
+      {message ? <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">{message}</div> : null}
+      {syncMessage ? <div className="mb-4 rounded-2xl border border-blue-200 bg-blue-50 p-3 text-sm font-semibold text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">{syncMessage}</div> : null}
+    </>
+  );
+}
+
+function ProductCard({ product, onAdd }: { product: Product; onAdd: () => void }) {
+  const isLowStock = product.availableStock > 0 && product.availableStock <= 3;
+  const isOut = product.availableStock <= 0;
+  return (
+    <button onClick={onAdd} disabled={isOut} className="group overflow-hidden rounded-3xl border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-1 hover:border-brand-500 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900">
+      <div className="aspect-[4/3] bg-slate-100 dark:bg-slate-800">
+        {product.image ? (
+          <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
+        ) : (
+          <ProductPlaceholder name={product.name} />
+        )}
+      </div>
+      <div className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-base font-black text-slate-950 dark:text-white">{product.name}</p>
+            <p className="truncate text-xs font-semibold text-slate-500">{product.category ?? product.sku}</p>
+          </div>
+          <span className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-black ${isOut ? "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-200" : isLowStock ? "bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-200" : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200"}`}>
+            {isOut ? "Rupture" : `Stock ${product.availableStock}`}
+          </span>
+        </div>
+        <div className="flex items-end justify-between gap-3">
+          <p className="text-xl font-black text-brand-700 dark:text-brand-300">{formatMoney(product.salePrice)}</p>
+          <span className="rounded-full bg-slate-950 px-3 py-1.5 text-xs font-bold text-white opacity-90 transition group-hover:opacity-100 dark:bg-white dark:text-slate-950">Ajouter</span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function ProductPlaceholder({ name }: { name: string }) {
+  return (
+    <div className="grid h-full w-full place-items-center bg-gradient-to-br from-brand-50 via-emerald-50 to-orange-50 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800">
+      <div className="grid h-20 w-20 place-items-center rounded-3xl bg-white/85 text-2xl font-black text-brand-700 shadow-lg shadow-brand-900/10 ring-1 ring-white/70 dark:bg-slate-950/80 dark:text-brand-200 dark:ring-slate-700">
+        {productInitials(name)}
+      </div>
+    </div>
+  );
+}
+
+function EmptyProductsState() {
+  return (
+    <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <p className="text-lg font-black">Aucun produit disponible</p>
+      <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">Ajoutez vos produits pour commencer à vendre. Les ventes utilisent uniquement les données réelles de votre entreprise.</p>
+      <a href="/dashboard/products/create" className="mt-5 inline-flex rounded-2xl bg-brand-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-brand-700">Ajouter un produit</a>
+    </div>
+  );
+}
+
+type CartPanelProps = {
+  cart: Cart;
+  selectedCustomerLabel: string;
+  cartTitle: string;
+  emptyCart: string;
+  lastSale: SaleResponse | null;
+  companyName: string;
+  cashierName: string;
+  orderDiscount: string;
+  setOrderDiscount: (value: string) => void;
+  syncCart: () => void;
+  payments: PaymentLine[];
+  updatePayment: (index: number, changes: Partial<PaymentLine>) => void;
+  setCashPayment: (amount: string) => void;
+  paidAmount: number;
+  changeDue: number;
+  balanceDue: number;
+  canReceivePayment: boolean;
+  isLoading: boolean;
+  showExpertOptions: boolean;
+  setShowExpertOptions: (value: boolean | ((current: boolean) => boolean)) => void;
+  stores: Store[];
+  warehouses: Warehouse[];
+  sessions: CashSession[];
+  storeId: string;
+  warehouseId: string;
+  cashSessionId: string;
+  setStoreId: (value: string) => void;
+  setWarehouseId: (value: string) => void;
+  setCashSessionId: (value: string) => void;
+  taxRate: string;
+  setTaxRate: (value: string) => void;
+  removePayment: (index: number) => void;
+  addExtraPayment: () => void;
+  pendingLabel: string;
+  checkout: () => void;
+  holdSale: () => void;
+  createQuote: () => void;
+  createOrder: () => void;
+  updateQuantity: (productId: string, quantity: number) => void;
+  removeProduct: (productId: string) => void;
+};
+
+function CartPanel(props: CartPanelProps) {
+  return (
+    <aside className="flex h-full min-h-0 flex-col border-l border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <div className="border-b border-slate-200 p-4 dark:border-slate-800">
+        <h2 className="text-xl font-black">{props.cartTitle}</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{props.cart.items.length} ligne(s) · {props.selectedCustomerLabel}</p>
+      </div>
+
+      <div className="flex-1 space-y-3 overflow-auto p-4">
+        {props.cart.items.length ? props.cart.items.map((item) => (
+          <CartLineItem key={item.productId} item={item} updateQuantity={props.updateQuantity} removeProduct={props.removeProduct} />
+        )) : <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">{props.emptyCart}</div>}
+
+        {props.lastSale ? (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
+            <p className="font-black">Dernière vente confirmée</p>
+            <p>Reçu: {props.lastSale.receipt?.number ?? "--"}</p>
+            <p>Facture: {props.lastSale.invoice?.documentNumber ?? "--"}</p>
+            <a href={receiptPreviewUrl(props.lastSale, props.companyName, props.cashierName)} className="mt-2 inline-flex rounded-xl bg-emerald-700 px-3 py-2 text-xs font-bold text-white">Imprimer ticket</a>
+          </div>
+        ) : null}
+      </div>
+
+      <PaymentPanel {...props} />
+    </aside>
+  );
+}
+
+function CartLineItem({ item, updateQuantity, removeProduct }: { item: CartLine; updateQuantity: (productId: string, quantity: number) => void; removeProduct: (productId: string) => void }) {
+  return (
+    <div className={`rounded-2xl border p-3 ${item.hasEnoughStock ? "border-slate-200 dark:border-slate-800" : "border-red-300 bg-red-50 dark:border-red-900 dark:bg-red-950"}`}>
+      <div className="flex justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate font-black">{item.name}</p>
+          <p className="text-xs text-slate-500">{item.sku} · stock {item.availableStock}</p>
+        </div>
+        <button onClick={() => removeProduct(item.productId)} className="shrink-0 text-sm font-bold text-red-600">Retirer</button>
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <div className="inline-flex items-center overflow-hidden rounded-xl border border-slate-300 dark:border-slate-700">
+          <button onClick={() => updateQuantity(item.productId, Math.max(0, item.quantity - 1))} className="h-10 w-10 text-lg font-black">-</button>
+          <input aria-label={`Quantité ${item.name}`} type="number" min={0} value={item.quantity} onChange={(event) => updateQuantity(item.productId, Number(event.target.value))} className="h-10 w-16 border-x border-slate-300 bg-white text-center font-bold outline-none dark:border-slate-700 dark:bg-slate-950" />
+          <button onClick={() => updateQuantity(item.productId, item.quantity + 1)} className="h-10 w-10 text-lg font-black">+</button>
+        </div>
+        <div className="text-right text-sm">
+          <p className="text-slate-500">{formatMoney(item.unitPrice)}</p>
+          <p className="text-base font-black">{formatMoney(item.total)}</p>
+        </div>
+      </div>
+      {!item.hasEnoughStock ? <p className="mt-2 text-xs font-bold text-red-700 dark:text-red-200">Stock insuffisant pour cette quantité.</p> : null}
+    </div>
+  );
+}
+
+function PaymentPanel(props: CartPanelProps) {
+  return (
+    <div className="space-y-3 border-t border-slate-200 p-4 dark:border-slate-800">
+      <SaleSummary cart={props.cart} paidAmount={props.paidAmount} changeDue={props.changeDue} balanceDue={props.balanceDue} />
+      <label className="grid gap-1 text-sm font-bold">Remise globale
+        <input value={props.orderDiscount} onChange={(event) => props.setOrderDiscount(event.target.value)} onBlur={props.syncCart} className="rounded-2xl border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-950" />
+      </label>
+      <div className="rounded-2xl border border-slate-200 p-3 dark:border-slate-800">
+        <p className="mb-2 text-sm font-black">Paiement</p>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            ["CASH", "Cash"],
+            ["CARD", "Carte"],
+            ["BANK_TRANSFER", "Virement"]
+          ].map(([method, label]) => (
+            <button key={method} type="button" onClick={() => props.updatePayment(0, { method })} className={`rounded-xl px-3 py-2 text-sm font-bold ${props.payments[0]?.method === method ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200"}`}>{label}</button>
+          ))}
+        </div>
+        <input value={props.payments[0]?.amount ?? ""} onChange={(event) => props.setCashPayment(event.target.value)} placeholder="Montant reçu" className="mt-3 w-full rounded-2xl border border-slate-300 px-4 py-3 text-lg font-black outline-none focus:border-brand-600 focus:ring-4 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-brand-950" />
+        <button type="button" onClick={() => props.setCashPayment(String(props.cart.total))} className="mt-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white dark:bg-white dark:text-slate-950">Paiement exact</button>
+      </div>
+      {props.cart.items.length > 0 && props.paidAmount > 0 && props.paidAmount < props.cart.total ? (
+        <p className="rounded-2xl bg-red-50 px-3 py-2 text-sm font-bold text-red-700 dark:bg-red-950 dark:text-red-200">
+          {insufficientPaymentMessage(props.cart.total, props.paidAmount)}
+        </p>
+      ) : null}
+      <button onClick={props.checkout} disabled={!props.canReceivePayment} className="w-full rounded-2xl bg-emerald-600 px-4 py-4 text-lg font-black text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">{props.isLoading ? "Validation..." : "Encaisser"}</button>
+      <div className="grid grid-cols-2 gap-2">
+        <button onClick={props.holdSale} disabled={!props.cart.items.length} className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-bold disabled:opacity-50 dark:border-slate-700">{props.pendingLabel}</button>
+        {props.lastSale ? <a href={receiptPreviewUrl(props.lastSale, props.companyName, props.cashierName)} className="rounded-2xl border border-slate-300 px-4 py-3 text-center text-sm font-bold dark:border-slate-700">Imprimer</a> : <button disabled className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-bold opacity-50 dark:border-slate-700">Imprimer</button>}
+      </div>
+      <button type="button" onClick={() => props.setShowExpertOptions((current) => !current)} className="text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">Mode expert</button>
+      {props.showExpertOptions ? <ExpertOptions {...props} /> : null}
+    </div>
+  );
+}
+
+function SaleSummary({ cart, paidAmount, changeDue, balanceDue }: { cart: Cart; paidAmount: number; changeDue: number; balanceDue: number }) {
+  return (
+    <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-950">
+      <TotalLine label="Sous-total" value={cart.subtotal} />
+      {cart.discount + cart.itemDiscount > 0 ? <TotalLine label="Remises" value={cart.discount + cart.itemDiscount} /> : null}
+      {cart.tax > 0 ? <TotalLine label="Taxe" value={cart.tax} /> : null}
+      <div className="mt-2 flex justify-between border-t border-slate-200 pt-3 text-2xl font-black dark:border-slate-800"><span>Total</span><span>{formatMoney(cart.total)}</span></div>
+      <div className="mt-2 space-y-1">
+        <TotalLine label="Montant reçu" value={paidAmount} />
+        <TotalLine label="Monnaie rendue" value={changeDue} />
+        {balanceDue > 0 ? <TotalLine label="Balance" value={balanceDue} /> : null}
+      </div>
+    </div>
+  );
+}
+
+function ExpertOptions(props: CartPanelProps) {
+  return (
+    <div className="space-y-2 rounded-2xl bg-slate-50 p-3 dark:bg-slate-950">
+      <div className="grid gap-2">
+        <select value={props.storeId} onChange={(event) => props.setStoreId(event.target.value)} className="rounded-xl border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+          <option value="">Magasin actif</option>
+          {props.stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}
+        </select>
+        <select value={props.warehouseId} onChange={(event) => props.setWarehouseId(event.target.value)} className="rounded-xl border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+          <option value="">Dépôt</option>
+          {props.warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>)}
+        </select>
+        <select value={props.cashSessionId} onChange={(event) => props.setCashSessionId(event.target.value)} className="rounded-xl border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+          <option value="">Caisse active</option>
+          {props.sessions.map((session) => <option key={session.id} value={session.id}>{session.cashRegister?.name ?? "Caisse"}</option>)}
+        </select>
+        <select value={props.taxRate} onChange={(event) => props.setTaxRate(event.target.value)} onBlur={props.syncCart} className="rounded-xl border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+          <option value="0">Aucune taxe</option>
+          <option value="0.1">10%</option>
+          <option value="0.15">15%</option>
+        </select>
+      </div>
+      <button type="button" onClick={props.addExtraPayment} className="text-xs font-bold text-brand-600">+ Ajouter un paiement</button>
+      {props.payments.slice(1).map((payment, index) => {
+        const paymentIndex = index + 1;
+        return (
+          <div key={paymentIndex} className="grid gap-2">
+            <select value={payment.method} onChange={(event) => props.updatePayment(paymentIndex, { method: event.target.value })} className="rounded-xl border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+              <option value="CASH">Cash</option>
+              <option value="CARD">Carte</option>
+              <option value="BANK_TRANSFER">Virement</option>
+            </select>
+            <input value={payment.amount} onChange={(event) => props.updatePayment(paymentIndex, { amount: event.target.value })} placeholder="Montant" className="rounded-xl border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+            <button type="button" onClick={() => props.removePayment(paymentIndex)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-bold dark:border-slate-700">Retirer</button>
+          </div>
+        );
+      })}
+      <div className="grid grid-cols-2 gap-2">
+        <button onClick={props.createQuote} disabled={!props.cart.items.length} className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-bold disabled:opacity-50 dark:border-slate-700">Créer devis</button>
+        <button onClick={props.createOrder} disabled={!props.cart.items.length} className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-bold disabled:opacity-50 dark:border-slate-700">Créer commande</button>
+      </div>
+    </div>
+  );
+}
+
+function MobileCartBar({ cart, paidAmount, onOpen }: { cart: Cart; paidAmount: number; onOpen: () => void }) {
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 p-3 shadow-2xl backdrop-blur lg:hidden dark:border-slate-800 dark:bg-slate-900/95">
+      <button onClick={onOpen} className="flex w-full items-center justify-between rounded-2xl bg-slate-950 px-4 py-3 text-left text-white dark:bg-white dark:text-slate-950">
+        <span>
+          <span className="block text-xs font-bold opacity-70">{cart.items.length} article(s) · Reçu {formatMoney(paidAmount)}</span>
+          <span className="block text-lg font-black">Voir panier</span>
+        </span>
+        <span className="text-xl font-black">{formatMoney(cart.total)}</span>
+      </button>
+    </div>
+  );
+}
+
 function TotalLine({ label, value }: { label: string; value: number }) {
   return <div className="flex justify-between text-sm"><span>{label}</span><b>{formatMoney(value)}</b></div>;
 }
@@ -658,6 +931,12 @@ function customerLabel(customer: Customer) {
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("fr-HT", { style: "currency", currency: "HTG", maximumFractionDigits: 2 }).format(value || 0);
+}
+
+function productInitials(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const initials = words.slice(0, 2).map((word) => word[0]?.toUpperCase()).join("");
+  return initials || "P";
 }
 
 function insufficientPaymentMessage(total: number, paidAmount: number) {
