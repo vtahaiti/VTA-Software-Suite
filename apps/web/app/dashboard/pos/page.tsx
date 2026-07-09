@@ -445,8 +445,8 @@ export default function PosPage() {
                 <option value="">{posTemplate.defaultCustomer}</option>
                 {customers.map((customer) => <option key={customer.id} value={customer.id}>{customerLabel(customer)}</option>)}
               </select>
-              <button type="button" aria-label="Rechercher ou ajouter un client" title="Client" onClick={() => setShowCustomerModal(true)} className="grid h-12 w-12 shrink-0 place-items-center rounded-md border border-slate-300 text-xl font-semibold dark:border-slate-700">
-                <span aria-hidden="true">🔍</span>
+              <button type="button" aria-label="Ajouter un client" title="Ajouter client" onClick={() => setShowCustomerModal(true)} className="grid h-12 w-12 shrink-0 place-items-center rounded-md border border-slate-300 text-2xl font-bold dark:border-slate-700">
+                <span aria-hidden="true">+</span>
               </button>
             </div>
           </div>
