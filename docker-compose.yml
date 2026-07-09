@@ -1,0 +1,21 @@
+﻿services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vta-commerce-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vta_commerce
+      POSTGRES_USER: vta
+      POSTGRES_PASSWORD: vta_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - vta-commerce-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vta -d vta_commerce"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  vta-commerce-postgres-data:

@@ -1,0 +1,1 @@
+import { ReferenceManager } from "../reference-manager"; export default function UnitsPage(){return <ReferenceManager title="Unites" endpoint="units" withSymbol/>}

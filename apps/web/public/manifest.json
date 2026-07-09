@@ -1,0 +1,11 @@
+﻿{
+  "name": "VTA ERP",
+  "short_name": "VTA ERP",
+  "description": "Plateforme SaaS de gestion commerciale VTA ERP",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "lang": "fr",
+  "icons": []
+}

@@ -1,0 +1,2 @@
+import { SalesDocumentPage } from "../sales-document-page";
+export default function ProformasPage() { return <SalesDocumentPage type="proformas" title="Proformas" eyebrow="Ventes" createLabel="Nouvelle proforma" transformLabel="Transformer en facture" transformAction="to-invoice" />; }
