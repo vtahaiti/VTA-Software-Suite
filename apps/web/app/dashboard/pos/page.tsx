@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
-import { getOfflineProducts, getPendingOfflineSales, saveOfflineProducts, saveOfflineSale, updateOfflineProductStock } from "@/lib/offline-db";
+import { getOfflinePosContext, getOfflineProducts, getPendingOfflineSales, saveOfflinePosContext, saveOfflineProducts, saveOfflineSale, updateOfflineProductStock } from "@/lib/offline-db";
 import { syncOfflineSalesNow } from "@/lib/offline-sync";
 import { useNetworkStatus } from "@/lib/network-status";
 import { getTenantBusinessConfiguration, type TenantBusinessConfiguration } from "@/lib/business-profiles";
@@ -87,7 +87,20 @@ export default function PosPage() {
   const loadRefs = useCallback(async () => {
     const response = await fetch(`${apiUrl}/pos/context`, { headers: authHeaders() }).catch(() => null);
     if (!response?.ok) {
-      setError("Impossible de charger le magasin, le depot et la caisse active.");
+      const cachedContext = await getOfflinePosContext();
+      if (cachedContext) {
+        setStores(cachedContext.stores ?? []);
+        setStoreId((current) => current || cachedContext.stores?.[0]?.id || "");
+        setWarehouses(cachedContext.warehouses ?? []);
+        setWarehouseId((current) => current || cachedContext.warehouses?.[0]?.id || "");
+        const openSessions = (cachedContext.sessions ?? []).filter((session) => session.status === "OPEN");
+        setSessions(openSessions);
+        setCashSessionId((current) => current || openSessions[0]?.id || "");
+        setCustomers(cachedContext.customers ?? []);
+        setMessage("Mode hors ligne: magasin, dépôt, caisse et clients restaurés depuis ce téléphone.");
+        return;
+      }
+      setError("Impossible de charger le magasin, le dépôt et la caisse active. Ouvrez le POS une fois avec internet avant d'utiliser le mode hors ligne.");
       return;
     }
     const data = await response.json() as { stores: Store[]; warehouses: Warehouse[]; sessions: CashSession[]; history: SaleHistory[]; customers: Customer[] };
@@ -100,6 +113,7 @@ export default function PosPage() {
     setCashSessionId((current) => current || openSessions[0]?.id || "");
     setHistory(data.history ?? []);
     setCustomers(data.customers ?? []);
+    await saveOfflinePosContext({ stores: data.stores ?? [], warehouses: data.warehouses ?? [], sessions: openSessions, customers: data.customers ?? [] });
   }, [authHeaders]);
 
   useEffect(() => { void loadRefs(); }, [loadRefs]);

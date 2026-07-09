@@ -24,6 +24,9 @@
                     "local:stop":  "powershell -ExecutionPolicy Bypass -File scripts/stop-local.ps1",
                     "local:check":  "powershell -ExecutionPolicy Bypass -File scripts/check-local.ps1",
                     "prod:check":  "powershell -ExecutionPolicy Bypass -File scripts/production-health-check.ps1",
+                    "mobile:add:android":  "npm run mobile:add:android --workspace=@vta/web",
+                    "mobile:sync":  "npm run mobile:sync --workspace=@vta/web",
+                    "mobile:open":  "npm run mobile:open --workspace=@vta/web",
                     "test:core-logic":  "node scripts/core-logic-smoke.cjs",
                     "test:qa:functional":  "node scripts/qa-functional-smoke.cjs"
                 },

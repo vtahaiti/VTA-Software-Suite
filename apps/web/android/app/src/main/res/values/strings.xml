@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">VTA Commerce</string>
+    <string name="title_activity_main">VTA Commerce</string>
+    <string name="package_name">com.vtaerp.commerce</string>
+    <string name="custom_url_scheme">com.vtaerp.commerce</string>
+</resources>

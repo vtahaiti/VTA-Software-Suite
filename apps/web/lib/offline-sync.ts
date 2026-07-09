@@ -14,7 +14,7 @@ type SyncResult = {
 
 export async function syncOfflineSalesNow() {
   const token = getAccessToken();
-  if (!token) throw new Error("Session expirée. Connectez-vous avant de synchroniser.");
+  if (!token) throw new Error("Session expiree. Connectez-vous avant de synchroniser.");
 
   const pendingSales = await getPendingOfflineSales();
   if (!pendingSales.length) return { synced: 0, conflicts: 0, errors: 0 };
@@ -41,14 +41,18 @@ export async function syncOfflineSalesNow() {
   for (const result of body.results) {
     if (result.status === "SYNCED") {
       synced += 1;
-      await updateOfflineSale(result.localId, { status: "SYNCED", saleId: result.saleId, message: "Synchronisée" });
+      await updateOfflineSale(result.localId, { status: "SYNCED", saleId: result.saleId, message: "Synchronisee" });
     } else if (result.status === "CONFLICT") {
       conflicts += 1;
-      await updateOfflineSale(result.localId, { status: "CONFLICT", message: result.message ?? "Conflit à vérifier" });
+      await updateOfflineSale(result.localId, { status: "CONFLICT", message: result.message ?? "Conflit a verifier" });
     } else {
       errors += 1;
       await updateOfflineSale(result.localId, { status: "ERROR", message: result.message ?? "Erreur de synchronisation" });
     }
+  }
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("vta:offline-sync-complete", { detail: { synced, conflicts, errors } }));
   }
 
   return { synced, conflicts, errors };
