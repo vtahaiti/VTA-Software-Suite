@@ -11,7 +11,7 @@ $ErrorActionPreference = "Stop"
 function Test-HttpOk {
   param([string]$Url)
   try {
-    $response = Invoke-WebRequest -Uri $Url -Method Head -TimeoutSec 20
+    $response = Invoke-WebRequest -Uri $Url -Method Get -TimeoutSec 20 -UseBasicParsing
     return [pscustomobject]@{ url = $Url; ok = $response.StatusCode -ge 200 -and $response.StatusCode -lt 400; status = $response.StatusCode }
   } catch {
     return [pscustomobject]@{ url = $Url; ok = $false; status = $_.Exception.Message }
