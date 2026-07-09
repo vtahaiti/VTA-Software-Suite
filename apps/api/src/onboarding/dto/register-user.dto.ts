@@ -3,7 +3,7 @@
 export class RegisterUserDto {
   @IsString() @IsNotEmpty() firstName!: string;
   @IsString() @IsNotEmpty() lastName!: string;
-  @IsEmail() email!: string;
+  @IsEmail({}, { message: "Veuillez saisir une adresse email valide." }) email!: string;
   @IsOptional() @IsString() phone?: string;
   @IsString() @MinLength(8) password!: string;
   @IsString() @MinLength(8) confirmPassword!: string;

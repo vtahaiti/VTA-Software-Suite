@@ -25,6 +25,11 @@ export class OnboardingService {
     const existingUser = await this.prisma.user.findFirst({ where: { email } });
     if (existingUser) throw new BadRequestException("Un compte existe deja avec cet email.");
 
+    const existingPending = await this.prisma.pendingRegistration.findUnique({ where: { email } });
+    if (existingPending && existingPending.expiresAt.getTime() > Date.now()) {
+      throw new BadRequestException("Un compte est deja en cours de creation avec cet email.");
+    }
+
     const token = randomUUID();
     await this.prisma.pendingRegistration.upsert({
       where: { email },
