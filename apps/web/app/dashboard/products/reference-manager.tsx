@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
 
-type Item = { id: string; name: string; symbol?: string; icon?: string | null; isActive: boolean };
+type Item = { id: string; name: string; symbol?: string; isActive: boolean };
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 export function ReferenceManager({ title, endpoint, withSymbol = false }: { title: string; endpoint: string; withSymbol?: boolean }) {
@@ -11,9 +11,7 @@ export function ReferenceManager({ title, endpoint, withSymbol = false }: { titl
   const [editingId, setEditingId] = useState("");
   const [name, setName] = useState("");
   const [symbol, setSymbol] = useState("");
-  const [icon, setIcon] = useState("");
   const [message, setMessage] = useState<string | null>(null);
-  const isCategory = endpoint === "categories";
 
   useEffect(() => { void load(); }, []);
 
@@ -28,7 +26,7 @@ export function ReferenceManager({ title, endpoint, withSymbol = false }: { titl
     const response = await fetch(`${apiUrl}/products/${endpoint}${editingId ? `/${editingId}` : ""}`, {
       method: editingId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
-      body: JSON.stringify({ name, symbol: symbol || undefined, icon: icon || undefined })
+      body: JSON.stringify({ name, symbol: symbol || undefined })
     });
     setMessage(response.ok ? (editingId ? "Categorie modifiee." : "Categorie creee.") : await readError(response));
     if (response.ok) {
@@ -48,14 +46,12 @@ export function ReferenceManager({ title, endpoint, withSymbol = false }: { titl
     setEditingId(item.id);
     setName(item.name);
     setSymbol(item.symbol ?? "");
-    setIcon(item.icon ?? "");
   }
 
   function resetForm() {
     setEditingId("");
     setName("");
     setSymbol("");
-    setIcon("");
   }
 
   return (
@@ -66,7 +62,6 @@ export function ReferenceManager({ title, endpoint, withSymbol = false }: { titl
         <form onSubmit={submit} className="mt-5 space-y-3">
           <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Nom" className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
           {withSymbol ? <input value={symbol} onChange={(event) => setSymbol(event.target.value)} placeholder="Symbole" className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /> : null}
-          {isCategory ? <input value={icon} onChange={(event) => setIcon(event.target.value)} placeholder="Icone facultative" className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /> : null}
           <button className="w-full rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">{editingId ? "Modifier" : "Creer"}</button>
           {editingId ? <button type="button" onClick={resetForm} className="w-full rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">Annuler</button> : null}
           {message ? <p className="text-sm text-slate-500">{message}</p> : null}
@@ -77,13 +72,10 @@ export function ReferenceManager({ title, endpoint, withSymbol = false }: { titl
         <div className="grid gap-3 md:grid-cols-2">
           {items.map((item) => (
             <div key={item.id} className="rounded-md border border-slate-200 p-4 dark:border-slate-800">
-              <div className="flex items-start gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-slate-100 text-lg dark:bg-slate-800">{item.icon || item.name.slice(0, 1)}</div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-slate-950 dark:text-white">{item.name}</p>
-                  {item.symbol ? <p className="text-sm text-slate-500">{item.symbol}</p> : null}
-                  <p className="mt-2 text-xs text-brand-600">{item.isActive ? "Actif" : "Inactif"}</p>
-                </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-slate-950 dark:text-white">{item.name}</p>
+                {item.symbol ? <p className="text-sm text-slate-500">{item.symbol}</p> : null}
+                <p className="mt-2 text-xs text-brand-600">{item.isActive ? "Actif" : "Inactif"}</p>
               </div>
               <div className="mt-4 flex gap-2">
                 <button onClick={() => edit(item)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">Modifier</button>
