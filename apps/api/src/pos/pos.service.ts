@@ -11,7 +11,7 @@ export class PosService {
   constructor(private readonly prisma: PrismaService) {}
 
   async context(tenantId: string) {
-    await this.ensureOpenCashSession(tenantId);
+    await this.ensurePosContext(tenantId);
     const [stores, warehouses, sessions, history, customers] = await this.prisma.$transaction([
       this.prisma.store.findMany({ where: { tenantId, status: "ACTIVE" }, orderBy: { createdAt: "asc" } }),
       this.prisma.warehouse.findMany({ where: { tenantId, isActive: true }, orderBy: { createdAt: "asc" } }),
@@ -32,7 +32,35 @@ export class PosService {
     return { stores, warehouses, sessions, history, customers };
   }
 
-  private async ensureOpenCashSession(tenantId: string) {
+  private async ensurePosContext(tenantId: string) {
+    const store = await this.ensureDefaultStore(tenantId);
+    await this.ensureDefaultWarehouse(tenantId, store.id);
+    return this.ensureOpenCashSession(tenantId, store.id);
+  }
+
+  private async ensureDefaultStore(tenantId: string) {
+    const activeStore = await this.prisma.store.findFirst({ where: { tenantId, status: "ACTIVE" }, orderBy: { createdAt: "asc" } });
+    if (activeStore) return activeStore;
+
+    return this.prisma.store.upsert({
+      where: { tenantId_code: { tenantId, code: "MAIN" } },
+      update: { status: "ACTIVE" },
+      create: { tenantId, code: "MAIN", name: "Magasin principal", status: "ACTIVE" }
+    });
+  }
+
+  private async ensureDefaultWarehouse(tenantId: string, storeId: string) {
+    const activeWarehouse = await this.prisma.warehouse.findFirst({ where: { tenantId, isActive: true }, orderBy: { createdAt: "asc" } });
+    if (activeWarehouse) return activeWarehouse;
+
+    return this.prisma.warehouse.upsert({
+      where: { tenantId_code: { tenantId, code: "DEPOT-PRINCIPAL" } },
+      update: { storeId, status: "ACTIVE", isActive: true },
+      create: { tenantId, storeId, code: "DEPOT-PRINCIPAL", name: "Depot principal", description: "Depot principal", status: "ACTIVE", isActive: true }
+    });
+  }
+
+  private async ensureOpenCashSession(tenantId: string, storeId?: string) {
     const existingSession = await this.prisma.cashSession.findFirst({ where: { tenantId, status: "OPEN" } });
     if (existingSession) return existingSession;
 
@@ -42,15 +70,10 @@ export class PosService {
     });
 
     if (!cashRegister) {
-      const store = await this.prisma.store.findFirst({ where: { tenantId, status: "ACTIVE" }, orderBy: { createdAt: "asc" } });
-      cashRegister = await this.prisma.cashRegister.create({
-        data: {
-          tenantId,
-          storeId: store?.id,
-          code: "CAISSE-01",
-          name: "Caisse principale",
-          isActive: true
-        }
+      cashRegister = await this.prisma.cashRegister.upsert({
+        where: { tenantId_code: { tenantId, code: "CAISSE-01" } },
+        update: { storeId, isActive: true },
+        create: { tenantId, storeId, code: "CAISSE-01", name: "Caisse principale", isActive: true }
       });
     }
 
