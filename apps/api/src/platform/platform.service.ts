@@ -62,7 +62,7 @@ export class PlatformService {
     const monthlyRevenue = subscriptions.reduce((sum, subscription) => subscription.status === SubscriptionStatus.ACTIVE || subscription.status === SubscriptionStatus.TRIALING ? sum + Number(subscription.price || PLAN_PRICES[subscription.plan]) : sum, 0);
     const newSubscriptions = subscriptions.filter((subscription) => subscription.startedAt >= thirtyDaysAgo).length;
     const cancellations = subscriptions.filter((subscription) => subscription.status === SubscriptionStatus.CANCELLED).length;
-    const storageUsedMb = tenants.reduce((sum, tenant) => sum + 25 + tenant._count.users * 2 + tenant._count.stores * 8 + tenant._count.warehouses * 4, 0);
+    const storageUsedMb = 0;
     const expiringSubscriptions = subscriptions.filter((subscription) => subscription.endsAt && subscription.endsAt >= now && subscription.endsAt <= sevenDaysFromNow).length;
     const expiredSubscriptions = subscriptions.filter((subscription) => this.isExpired(subscription.endsAt)).length;
 
