@@ -5,7 +5,6 @@ import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
 import { getOfflineProducts, getPendingOfflineSales, saveOfflineProducts, saveOfflineSale, updateOfflineProductStock } from "@/lib/offline-db";
 import { syncOfflineSalesNow } from "@/lib/offline-sync";
 import { useNetworkStatus } from "@/lib/network-status";
-import { openPrintPreview } from "@/lib/print";
 import { getTenantBusinessConfiguration, type TenantBusinessConfiguration } from "@/lib/business-profiles";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -498,7 +497,8 @@ export default function PosPage() {
               <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-200">
                 <p className="font-semibold">Derniere vente confirmee</p>
                 <p>Recu: {lastSale.receipt?.number ?? "--"}</p>
-                <p>Facture: {lastSale.invoice?.documentNumber ?? "--"}</p><button onClick={() => lastSale.id.startsWith("offline-") ? window.print() : void openPrintPreview(`/sales/${lastSale.id}/receipt?width=80`)} className="mt-2 rounded-md bg-green-700 px-3 py-2 text-xs font-semibold text-white">Imprimer ticket</button>
+                <p>Facture: {lastSale.invoice?.documentNumber ?? "--"}</p>
+                <a href={receiptPreviewUrl(lastSale, companyName, cashierName)} className="mt-2 inline-flex rounded-md bg-green-700 px-3 py-2 text-xs font-semibold text-white">Imprimer ticket</a>
               </div>
             ) : null}
           </div>
@@ -580,7 +580,11 @@ export default function PosPage() {
             <button onClick={() => void checkout()} disabled={!canReceivePayment} className="w-full rounded-md bg-brand-600 px-4 py-4 text-lg font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{isLoading ? "Validation..." : "Encaisser"}</button>
             <div className="grid gap-2 sm:grid-cols-2">
               <button onClick={() => void createPosDocument("orders", posTemplate.pendingLabel)} disabled={!cart.items.length} className="rounded-md border border-slate-300 px-4 py-3 text-sm font-semibold disabled:opacity-50 dark:border-slate-700">{posTemplate.pendingLabel}</button>
-              <button onClick={() => lastSale ? void openPrintPreview(`/sales/${lastSale.id}/receipt?width=80`) : undefined} disabled={!lastSale} className="rounded-md border border-slate-300 px-4 py-3 text-sm font-semibold disabled:opacity-50 dark:border-slate-700">Imprimer</button>
+              {lastSale ? (
+                <a href={receiptPreviewUrl(lastSale, companyName, cashierName)} className="rounded-md border border-slate-300 px-4 py-3 text-center text-sm font-semibold dark:border-slate-700">Imprimer</a>
+              ) : (
+                <button disabled className="rounded-md border border-slate-300 px-4 py-3 text-sm font-semibold opacity-50 dark:border-slate-700">Imprimer</button>
+              )}
             </div>
             {showExpertOptions ? (
               <div className="grid gap-2 sm:grid-cols-2">
@@ -641,6 +645,21 @@ function formatMoney(value: number) {
 function insufficientPaymentMessage(total: number, paidAmount: number) {
   const missing = roundMoney(total - paidAmount);
   return `Montant insuffisant. Le client doit payer au minimum ${formatMoney(total)}. Il manque ${formatMoney(missing)}.`;
+}
+
+function receiptPreviewUrl(sale: SaleResponse, companyName: string, cashierName: string) {
+  const receiptText = sale.receipt?.content ?? `Ticket de vente\nRecu: ${sale.receipt?.number ?? sale.id}\nTotal: ${formatMoney(Number(sale.total ?? 0))}`;
+  const params = new URLSearchParams({
+    companyName: companyName || "Mon entreprise",
+    cashierName: cashierName || "Utilisateur",
+    receiptNumber: sale.receipt?.number ?? sale.id,
+    content: receiptText
+  });
+  return `/dashboard/pos/print?${params.toString()}`;
+}
+
+function escapeHtml(value: string) {
+  return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 function getPosTemplate(profileType?: string, primaryActivity?: string | null) {

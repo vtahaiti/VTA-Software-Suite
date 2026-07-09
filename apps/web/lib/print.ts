@@ -6,11 +6,10 @@ export async function openPrintPreview(path: string) {
   const response = await fetch(`${apiUrl}${path}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
   if (!response.ok) throw new Error("Apercu impression impossible");
   const html = await response.text();
-  const popup = window.open("", "_blank", "width=900,height=700");
-  if (!popup) throw new Error("Le navigateur a bloque la fenetre d impression");
-  popup.document.open();
-  popup.document.write(html);
-  popup.document.close();
+  const printableHtml = html.replace("</body>", "<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),300))</script></body>");
+  const previewUrl = window.URL.createObjectURL(new Blob([printableHtml], { type: "text/html;charset=utf-8" }));
+  window.location.href = previewUrl;
+  window.setTimeout(() => window.URL.revokeObjectURL(previewUrl), 60_000);
 }
 
 export async function printHtml(path: string) {

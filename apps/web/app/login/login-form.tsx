@@ -6,7 +6,7 @@ import { getOnboardingStatus, login } from "@/lib/auth";
 
 export function LoginForm() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@vta.ht");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);

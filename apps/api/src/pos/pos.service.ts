@@ -10,6 +10,7 @@ export class PosService {
   constructor(private readonly prisma: PrismaService) {}
 
   async context(tenantId: string) {
+    await this.ensureOpenCashSession(tenantId);
     const [stores, warehouses, sessions, history, customers] = await this.prisma.$transaction([
       this.prisma.store.findMany({ where: { tenantId, status: "ACTIVE" }, orderBy: { createdAt: "asc" } }),
       this.prisma.warehouse.findMany({ where: { tenantId, isActive: true }, orderBy: { createdAt: "asc" } }),
@@ -28,6 +29,39 @@ export class PosService {
       })
     ]);
     return { stores, warehouses, sessions, history, customers };
+  }
+
+  private async ensureOpenCashSession(tenantId: string) {
+    const existingSession = await this.prisma.cashSession.findFirst({ where: { tenantId, status: "OPEN" } });
+    if (existingSession) return existingSession;
+
+    let cashRegister = await this.prisma.cashRegister.findFirst({
+      where: { tenantId, isActive: true },
+      orderBy: { createdAt: "asc" }
+    });
+
+    if (!cashRegister) {
+      const store = await this.prisma.store.findFirst({ where: { tenantId, status: "ACTIVE" }, orderBy: { createdAt: "asc" } });
+      cashRegister = await this.prisma.cashRegister.create({
+        data: {
+          tenantId,
+          storeId: store?.id,
+          code: "CAISSE-01",
+          name: "Caisse principale",
+          isActive: true
+        }
+      });
+    }
+
+    return this.prisma.cashSession.create({
+      data: {
+        tenantId,
+        cashRegisterId: cashRegister.id,
+        openingAmount: 0,
+        status: "OPEN"
+      },
+      include: { cashRegister: true }
+    });
   }
 
   async searchProducts(tenantId: string, query: ProductQueryDto) {

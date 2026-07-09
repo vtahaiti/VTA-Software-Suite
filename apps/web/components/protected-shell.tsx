@@ -42,11 +42,11 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white lg:grid lg:grid-cols-[270px_1fr]">
+    <div className="grid min-h-screen grid-cols-[68px_minmax(0,1fr)] bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white lg:grid-cols-[270px_1fr]">
       <Sidebar />
       <div className="min-w-0">
         <Header user={user} />
-        <main className="px-6 py-8 lg:px-10">
+        <main className="px-3 py-4 sm:px-4 sm:py-5 lg:px-10 lg:py-8">
           {typeof children === "function" ? children(user) : children}
         </main>
       </div>

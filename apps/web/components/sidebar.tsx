@@ -44,14 +44,14 @@ export function Sidebar() {
   const companyInitials = branding?.companyInitials ?? initials(companyName);
   const primaryColor = branding?.primaryColor ?? "#2563eb";
 
-  return <aside className="border-b border-slate-200 bg-white px-4 py-5 dark:border-slate-800 dark:bg-slate-950 lg:min-h-screen lg:border-b-0 lg:border-r">
-    <Link href="/dashboard" className="flex items-center gap-3 rounded-lg px-3 py-2 text-lg font-bold text-slate-950 transition hover:bg-slate-50 dark:text-white dark:hover:bg-slate-900">
+  return <aside className="sticky top-0 h-screen overflow-y-auto border-r border-slate-200 bg-white px-2 py-3 dark:border-slate-800 dark:bg-slate-950 lg:px-4 lg:py-5">
+    <Link href="/dashboard" className="flex items-center justify-center gap-3 rounded-lg px-1 py-2 text-lg font-bold text-slate-950 transition hover:bg-slate-50 dark:text-white dark:hover:bg-slate-900 lg:justify-start lg:px-3">
       {branding?.logoUrl ? <img src={branding.logoUrl} alt={`Logo ${companyName}`} className="h-10 w-10 rounded-md object-cover shadow-sm" /> : <span className="flex h-10 w-10 items-center justify-center rounded-md text-sm text-white shadow-sm" style={{ backgroundColor: primaryColor }}>{companyInitials}</span>}
-      <span className="min-w-0 truncate">{companyName}</span>
+      <span className="hidden min-w-0 truncate lg:block">{companyName}</span>
     </Link>
-    <div className="mt-4 rounded-lg bg-brand-50 px-3 py-2 text-xs font-medium text-brand-700 dark:bg-slate-900 dark:text-brand-200">{activity || "Interface simple"}</div>
-    <button onClick={toggleMode} className="mt-3 w-full rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-900">{mode === "simple" ? "Passer en mode expert" : "Revenir au mode simple"}</button>
-    <nav className="mt-6 space-y-5">{sections.map((section)=><div key={section.title}><p className="px-3 text-xs font-semibold uppercase tracking-wide text-slate-400">{section.title}</p><div className="mt-2 grid gap-1">{section.items.map((item)=>{const isActive=pathname===item.href;return <Link key={`${section.title}-${item.href}-${item.label}`} href={item.href} className={`rounded-md px-3 py-2 text-sm font-medium transition ${isActive?"bg-brand-50 text-brand-700 dark:bg-slate-900 dark:text-white":"text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white"}`}>{item.label}</Link>})}</div></div>)}</nav>
+    <div className="mt-4 hidden rounded-lg bg-brand-50 px-3 py-2 text-xs font-medium text-brand-700 dark:bg-slate-900 dark:text-brand-200 lg:block">{activity || "Interface simple"}</div>
+    <button onClick={toggleMode} className="mt-3 hidden w-full rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-900 lg:block">{mode === "simple" ? "Passer en mode expert" : "Revenir au mode simple"}</button>
+    <nav className="mt-4 space-y-2 lg:mt-6 lg:space-y-5">{sections.map((section)=><div key={section.title}><p className="hidden px-3 text-xs font-semibold uppercase tracking-wide text-slate-400 lg:block">{section.title}</p><div className="grid gap-1 lg:mt-2">{section.items.map((item)=>{const isActive=pathname===item.href;const isSubItem=item.label.startsWith("   ");return <Link key={`${section.title}-${item.href}-${item.label}`} href={item.href} title={item.label.trim()} className={`${isSubItem ? "hidden lg:flex" : "flex"} items-center justify-center rounded-xl px-2 py-2.5 text-sm font-medium transition lg:justify-start lg:rounded-md lg:px-3 lg:py-2 ${isActive?"bg-brand-50 text-brand-700 dark:bg-slate-900 dark:text-white":"text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white"}`}><span className="text-xl leading-none lg:hidden" aria-hidden="true">{mobileMenuIcon(item.label)}</span><span className="hidden lg:inline">{item.label}</span><span className="sr-only">{item.label.trim()}</span></Link>})}</div></div>)}</nav>
   </aside>;
 }
 
@@ -81,4 +81,10 @@ function decorateMenuSections(sections: BusinessMenuSection[]) {
 
 function initials(name: string) {
   return name.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "ME";
+}
+
+function mobileMenuIcon(label: string) {
+  const value = label.trim();
+  const first = value.split(" ")[0] ?? "";
+  return first.length <= 3 ? first : value[0]?.toUpperCase() ?? "•";
 }
