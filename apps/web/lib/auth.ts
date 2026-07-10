@@ -145,6 +145,26 @@ export async function registerUser(payload: { firstName: string; lastName: strin
   return response.json() as Promise<{ pendingToken: string; email: string; message: string }>;
 }
 
+export async function requestPasswordReset(payload: { email: string }) {
+  const response = await fetch(`${apiUrl}/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) throw new Error(await readApiError(response));
+  return response.json() as Promise<{ message: string }>;
+}
+
+export async function resetPassword(payload: { token: string; password: string; confirmPassword: string }) {
+  const response = await fetch(`${apiUrl}/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) throw new Error(await readApiError(response));
+  return response.json() as Promise<{ message: string }>;
+}
+
 export async function createCompany(payload: Record<string, unknown>) {
   const response = await fetch(`${apiUrl}/onboarding/company`, {
     method: "POST",

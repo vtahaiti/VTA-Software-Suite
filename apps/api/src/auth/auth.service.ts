@@ -2,11 +2,14 @@ import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { TenantStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { randomUUID } from "crypto";
+import { createHash, randomBytes, randomUUID } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { SecurityService } from "../security/security.service";
 import { defaultPermissions } from "../rbac/default-permissions";
+import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
+import { ResetPasswordDto } from "./dto/reset-password.dto";
+import { isPasswordStrong, passwordPolicyMessage } from "./password-policy";
 import type { AuthUser } from "./types/auth-user";
 
 const accessTokenTtl = "15m";
@@ -26,6 +29,7 @@ const demoUser = {
   permissions: defaultPermissions.map((permission) => permission.key),
   createdAt: "2026-07-06T00:00:00.000Z"
 };
+const passwordResetMessage = "Si cette adresse email est associée à un compte, vous recevrez les instructions de réinitialisation.";
 
 type SessionRecord = { user: AuthUser; refreshTokenHash: string; rememberMe: boolean; expiresAt: Date };
 
@@ -72,6 +76,53 @@ export class AuthService {
     const session = await this.createSession(authUser, Boolean(loginDto.rememberMe));
     await this.security.recordLoginSuccess(authUser, meta);
     return session;
+  }
+
+  async requestPasswordReset(dto: ForgotPasswordDto) {
+    const email = dto.email.trim().toLowerCase();
+    const user = await this.findUserByEmail(email);
+
+    if (user) {
+      const rawToken = randomBytes(32).toString("base64url");
+      await this.prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: this.hashPasswordResetToken(rawToken),
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000)
+        }
+      });
+    }
+
+    return { message: passwordResetMessage };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    if (dto.password !== dto.confirmPassword) {
+      throw new UnauthorizedException("Les mots de passe ne correspondent pas.");
+    }
+    if (!isPasswordStrong(dto.password)) {
+      throw new UnauthorizedException(passwordPolicyMessage);
+    }
+
+    const token = await this.prisma.passwordResetToken.findFirst({
+      where: {
+        tokenHash: this.hashPasswordResetToken(dto.token),
+        usedAt: null,
+        expiresAt: { gt: new Date() }
+      },
+      include: { user: true }
+    });
+
+    if (!token || token.user.isActive === false) {
+      throw new UnauthorizedException("Lien de réinitialisation invalide ou expiré.");
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id: token.userId }, data: { password: await bcrypt.hash(dto.password, 12) } }),
+      this.prisma.passwordResetToken.update({ where: { id: token.id }, data: { usedAt: new Date() } })
+    ]);
+
+    return { message: "Mot de passe réinitialisé. Vous pouvez maintenant vous connecter." };
   }
 
 
@@ -262,5 +313,9 @@ export class AuthService {
 
   private get refreshTokenSecret() {
     return process.env.JWT_REFRESH_SECRET ?? process.env.JWT_SECRET ?? "change-me-refresh";
+  }
+
+  private hashPasswordResetToken(token: string) {
+    return createHash("sha256").update(token).digest("hex");
   }
 }

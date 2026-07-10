@@ -1,8 +1,10 @@
 import { Body, Controller, Get, Post, Req, Res, UnauthorizedException, UseGuards } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { AuthService } from "./auth.service";
+import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
+import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "./types/authenticated-request";
 
@@ -15,6 +17,16 @@ export class AuthController {
     const result = await this.authService.login(loginDto);
     this.setRefreshCookie(response, result.refreshToken, loginDto.rememberMe);
     return result;
+  }
+
+  @Post("forgot-password")
+  forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.requestPasswordReset(forgotPasswordDto);
+  }
+
+  @Post("reset-password")
+  resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(resetPasswordDto);
   }
 
   @Post("refresh")

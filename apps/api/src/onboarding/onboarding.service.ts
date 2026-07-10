@@ -1,9 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Injectable, UnauthorizedException } from "@nestjs/common";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { defaultPermissions } from "../rbac/default-permissions";
 import { businessModules, businessProfiles, findActivityTemplate, resolveBusinessProfileSlug } from "../business-profiles/business-catalog";
 import { AuthService } from "../auth/auth.service";
+import { isPasswordStrong, passwordPolicyMessage } from "../auth/password-policy";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
 import { CreateCompanyDto } from "./dto/create-company.dto";
@@ -20,14 +21,15 @@ export class OnboardingService {
   async register(dto: RegisterUserDto) {
     const email = dto.email.trim().toLowerCase();
     if (dto.password !== dto.confirmPassword) throw new BadRequestException("Les mots de passe ne correspondent pas.");
-    if (!dto.acceptedTerms) throw new BadRequestException("Vous devez accepter les conditions d utilisation.");
+    if (!isPasswordStrong(dto.password)) throw new BadRequestException(passwordPolicyMessage);
+    if (!dto.acceptedTerms) throw new BadRequestException("Vous devez accepter les conditions d’utilisation et la politique de confidentialité.");
 
     const existingUser = await this.prisma.user.findFirst({ where: { email } });
-    if (existingUser) throw new BadRequestException("Un compte existe deja avec cet email.");
+    if (existingUser) throw new BadRequestException("Un compte existe déjà avec cet email.");
 
     const existingPending = await this.prisma.pendingRegistration.findUnique({ where: { email } });
     if (existingPending && existingPending.expiresAt.getTime() > Date.now()) {
-      throw new BadRequestException("Un compte est deja en cours de creation avec cet email.");
+      throw new BadRequestException("Un compte est déjà en cours de création avec cet email.");
     }
 
     const token = randomUUID();
@@ -54,7 +56,7 @@ export class OnboardingService {
       }
     });
 
-    return { pendingToken: token, email, message: "Compte prepare. Completez maintenant votre entreprise." };
+    return { pendingToken: token, email, message: "Compte préparé. Complétez maintenant votre entreprise." };
   }
 
   async createCompany(dto: CreateCompanyDto) {

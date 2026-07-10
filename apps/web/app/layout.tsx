@@ -3,8 +3,8 @@ import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Mon entreprise",
-  description: "Plateforme de gestion commerciale",
+  title: "VTA Commerce",
+  description: "Plateforme moderne de gestion commerciale pour les entreprises.",
   manifest: "/manifest.json"
 };
 

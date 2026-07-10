@@ -5,10 +5,10 @@ export class LoginDto {
   email!: string;
 
   @IsString({ message: "Le mot de passe est obligatoire" })
-  @MinLength(8, { message: "Le mot de passe doit contenir au moins 8 caracteres" })
+  @MinLength(8, { message: "Le mot de passe doit contenir au moins 8 caractères" })
   password!: string;
 
   @IsOptional()
-  @IsBoolean({ message: "Remember me doit etre un booleen" })
+  @IsBoolean({ message: "Remember me doit être un booléen" })
   rememberMe?: boolean;
 }

@@ -2,7 +2,8 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getOnboardingStatus, login } from "@/lib/auth";
+import Link from "next/link";
+import { login } from "@/lib/auth";
 
 export function LoginForm() {
   const router = useRouter();
@@ -22,7 +23,7 @@ export function LoginForm() {
     }
 
     if (password.length < 8) {
-      setError("Le mot de passe doit contenir au moins 8 caracteres.");
+      setError("Le mot de passe doit contenir au moins 8 caractères.");
       return;
     }
 
@@ -41,7 +42,7 @@ export function LoginForm() {
   }
 
   return (
-    <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
+    <form method="post" className="mt-8 space-y-5" onSubmit={handleSubmit}>
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-200">
           Email
@@ -50,6 +51,7 @@ export function LoginForm() {
           id="email"
           name="email"
           type="email"
+          required
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           autoComplete="email"
@@ -65,6 +67,7 @@ export function LoginForm() {
           id="password"
           name="password"
           type="password"
+          required
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           autoComplete="current-password"
@@ -76,15 +79,16 @@ export function LoginForm() {
         <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
           <input
             type="checkbox"
+            name="rememberMe"
             checked={rememberMe}
             onChange={(event) => setRememberMe(event.target.checked)}
             className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-600"
           />
           Se souvenir de moi
         </label>
-        <a href="#" className="text-sm font-medium text-brand-600 hover:text-brand-700">
-          Mot de passe oublie ?
-        </a>
+        <Link href="/forgot-password" className="text-sm font-medium text-brand-600 hover:text-brand-700">
+          Mot de passe oublié ?
+        </Link>
       </div>
 
       {error ? (
@@ -100,7 +104,9 @@ export function LoginForm() {
       >
         {isLoading ? "Connexion..." : "Se connecter"}
       </button>
-          <div className="text-center text-sm text-slate-600 dark:text-slate-300">Pas encore de compte ? <a href="/signup" className="font-semibold text-brand-600">Creer un compte</a></div>
+      <div className="text-center text-sm text-slate-600 dark:text-slate-300">
+        Pas encore de compte ? <Link href="/signup" className="font-semibold text-brand-600">Créer un compte</Link>
+      </div>
     </form>
   );
 }
