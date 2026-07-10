@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { clearSession, getAccessToken, getCurrentUser, refreshSession } from "@/lib/auth";
-import { openPrintPreview } from "@/lib/print";
+import { getReceiptPrintSettings, openPrintPreview } from "@/lib/print";
 import { summarizePayments } from "@/lib/payment-summary";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -142,7 +142,7 @@ function SaleList({ sales, type }: { sales: Sale[]; type: "completed" | "cancell
         const received = paymentSummary.receivedAmount;
         const change = paymentSummary.changeAmount;
         const total = paymentSummary.total;
-        return <tr key={sale.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3">{new Date(sale.createdAt).toLocaleString("fr-HT")}</td><td className="p-3">{sale.customer?.displayName ?? sale.customer?.phone ?? "Client comptoir"}</td><td className="p-3">{type === "cancelled" ? "Annulée" : paid >= total ? "Payée" : "Partiellement payée"}</td><td className="p-3 font-bold">{formatMoney(total)}</td><td className="p-3">{formatMoney(paid)}</td><td className="p-3">{formatMoney(received)}</td><td className="p-3">{paymentSummary.historicalDataUnavailable ? "Donnée historique indisponible" : formatMoney(change)}</td><td className="p-3"><div className="flex gap-3"><button onClick={() => window.alert(`Vente ${sale.id}\nTotal: ${formatMoney(total)}\nMontant réglé: ${formatMoney(paid)}\nMontant reçu: ${formatMoney(received)}\nMonnaie rendue: ${formatMoney(change)}`)} className="text-slate-700 dark:text-slate-200">Voir détail</button><button onClick={() => void openPrintPreview(`/sales/${sale.id}/receipt?width=80`)} className="text-brand-600 disabled:text-slate-400" disabled={type === "cancelled"}>Imprimer</button></div></td></tr>;
+        return <tr key={sale.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3">{new Date(sale.createdAt).toLocaleString("fr-HT")}</td><td className="p-3">{sale.customer?.displayName ?? sale.customer?.phone ?? "Client comptoir"}</td><td className="p-3">{type === "cancelled" ? "Annulée" : paid >= total ? "Payée" : "Partiellement payée"}</td><td className="p-3 font-bold">{formatMoney(total)}</td><td className="p-3">{formatMoney(paid)}</td><td className="p-3">{formatMoney(received)}</td><td className="p-3">{paymentSummary.historicalDataUnavailable ? "Donnée historique indisponible" : formatMoney(change)}</td><td className="p-3"><div className="flex gap-3"><button onClick={() => window.alert(`Vente ${sale.id}\nTotal: ${formatMoney(total)}\nMontant réglé: ${formatMoney(paid)}\nMontant reçu: ${formatMoney(received)}\nMonnaie rendue: ${formatMoney(change)}`)} className="text-slate-700 dark:text-slate-200">Voir détail</button><button onClick={() => void printSale(sale.id)} className="text-brand-600 disabled:text-slate-400" disabled={type === "cancelled"}>Imprimer</button></div></td></tr>;
       })}</tbody>
     </table>
     {!sales.length ? <p className="p-5 text-sm text-slate-500">Aucune vente.</p> : null}

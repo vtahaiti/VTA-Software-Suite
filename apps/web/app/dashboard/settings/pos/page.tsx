@@ -1,7 +1,64 @@
-"use client";
-import { FormEvent,useEffect,useState } from "react";
+﻿"use client";
+
+import { FormEvent, useEffect, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
-const apiUrl=process.env.NEXT_PUBLIC_API_URL??"http://localhost:3001";
-export default function PosSettingsPage(){const[form,setForm]=useState<any>({allowNegativeStock:false,allowDiscount:true,requireCustomer:false,autoPrintReceipt:false,openCashDrawer:false});const[msg,setMsg]=useState("");useEffect(()=>{fetch(`${apiUrl}/settings/pos`,{headers:{Authorization:`Bearer ${getAccessToken()}`}}).then(r=>r.ok?r.json():null).then(d=>d&&setForm(d))},[]);function update(k:string,v:boolean){setForm((f:any)=>({...f,[k]:v}))}async function submit(e:FormEvent){e.preventDefault();const payload={allowNegativeStock:form.allowNegativeStock,allowDiscount:form.allowDiscount,requireCustomer:form.requireCustomer,autoPrintReceipt:form.autoPrintReceipt,openCashDrawer:form.openCashDrawer};const r=await fetch(`${apiUrl}/settings/pos`,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${getAccessToken()}`},body:JSON.stringify(payload)});setMsg(r.ok?"Paramètres POS sauvegardés.":"Sauvegarde impossible.");if(r.ok)setForm(await r.json())}return <div className="space-y-5"><Header/><form onSubmit={submit} className="space-y-3 rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><Toggle label="Autoriser vente sans stock" checked={form.allowNegativeStock} onChange={v=>update("allowNegativeStock",v)}/><Toggle label="Autoriser remise" checked={form.allowDiscount} onChange={v=>update("allowDiscount",v)}/><Toggle label="Client obligatoire" checked={form.requireCustomer} onChange={v=>update("requireCustomer",v)}/><Toggle label="Imprimer automatiquement après vente" checked={form.autoPrintReceipt} onChange={v=>update("autoPrintReceipt",v)}/><Toggle label="Ouvrir tiroir-caisse préparé" checked={form.openCashDrawer} onChange={v=>update("openCashDrawer",v)}/><div className="flex items-center gap-3 pt-3"><button className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Sauvegarder</button>{msg&&<p className="text-sm text-slate-500">{msg}</p>}</div></form></div>}
-function Header(){return <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm font-medium text-brand-600">Paramètres</p><h1 className="text-2xl font-bold">Paramètres POS</h1><div className="mt-4 flex flex-wrap gap-2"><a href="/dashboard/settings/company" className="rounded-md border px-3 py-2 text-sm">Entreprise</a><a href="/dashboard/settings/pos" className="rounded-md bg-brand-600 px-3 py-2 text-sm text-white">POS</a><a href="/dashboard/settings/invoicing" className="rounded-md border px-3 py-2 text-sm">Facturation</a></div></div>}
-function Toggle({label,checked,onChange}:{label:string;checked:boolean;onChange:(v:boolean)=>void}){return <label className="flex items-center justify-between rounded-md border p-3 dark:border-slate-800"><span className="font-medium">{label}</span><input type="checkbox" checked={Boolean(checked)} onChange={e=>onChange(e.target.checked)} /></label>}
+import { getReceiptPrintSettings, openThermalDemoPreview } from "@/lib/print";
+
+const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+
+type PosForm = {
+  allowNegativeStock: boolean;
+  allowDiscount: boolean;
+  requireCustomer: boolean;
+  autoPrintReceipt: boolean;
+  openCashDrawer: boolean;
+};
+
+export default function PosSettingsPage() {
+  const [form, setForm] = useState<PosForm>({ allowNegativeStock: false, allowDiscount: true, requireCustomer: false, autoPrintReceipt: false, openCashDrawer: false });
+  const [receiptWidth, setReceiptWidth] = useState<"58" | "80">("80");
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    fetch(`${apiUrl}/settings/pos`, { headers: { Authorization: `Bearer ${getAccessToken()}` } })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => data && setForm(data));
+    void getReceiptPrintSettings().then((settings) => setReceiptWidth(settings.width)).catch(() => undefined);
+  }, []);
+
+  function update(key: keyof PosForm, value: boolean) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    const payload = {
+      allowNegativeStock: form.allowNegativeStock,
+      allowDiscount: form.allowDiscount,
+      requireCustomer: form.requireCustomer,
+      autoPrintReceipt: form.autoPrintReceipt,
+      openCashDrawer: form.openCashDrawer
+    };
+    const response = await fetch(`${apiUrl}/settings/pos`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` }, body: JSON.stringify(payload) });
+    setMsg(response.ok ? "Paramètres POS sauvegardés." : "Sauvegarde impossible.");
+    if (response.ok) setForm(await response.json());
+  }
+
+  function previewTicket() {
+    try {
+      openThermalDemoPreview(receiptWidth);
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : "Aperçu du ticket impossible.");
+    }
+  }
+
+  return <div className="space-y-5"><Header/><form onSubmit={submit} className="space-y-3 rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><Toggle label="Autoriser vente sans stock" checked={form.allowNegativeStock} onChange={(value)=>update("allowNegativeStock",value)}/><Toggle label="Autoriser remise" checked={form.allowDiscount} onChange={(value)=>update("allowDiscount",value)}/><Toggle label="Client obligatoire" checked={form.requireCustomer} onChange={(value)=>update("requireCustomer",value)}/><Toggle label="Imprimer automatiquement après vente" checked={form.autoPrintReceipt} onChange={(value)=>update("autoPrintReceipt",value)}/><Toggle label="Ouvrir tiroir-caisse préparé" checked={form.openCashDrawer} onChange={(value)=>update("openCashDrawer",value)}/><div className="rounded-lg border border-dashed border-slate-300 p-4 dark:border-slate-700"><p className="text-sm font-semibold">Test imprimante thermique</p><p className="mt-1 text-sm text-slate-500">Format actuel : {receiptWidth} mm. Le bouton ouvre un ticket de test sans créer de vente.</p><button type="button" onClick={previewTicket} className="mt-3 rounded-md border px-4 py-2 text-sm font-semibold">Aperçu du ticket</button></div><div className="flex flex-wrap items-center gap-3 pt-3"><button className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Sauvegarder</button>{msg ? <p className="text-sm text-slate-500">{msg}</p> : null}</div></form></div>;
+}
+
+function Header() {
+  return <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm font-medium text-brand-600">Paramètres</p><h1 className="text-2xl font-bold">Paramètres POS</h1><div className="mt-4 flex flex-wrap gap-2"><a href="/dashboard/settings/company" className="rounded-md border px-3 py-2 text-sm">Entreprise</a><a href="/dashboard/settings/pos" className="rounded-md bg-brand-600 px-3 py-2 text-sm text-white">POS</a><a href="/dashboard/settings/invoicing" className="rounded-md border px-3 py-2 text-sm">Facturation</a></div></div>;
+}
+
+function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
+  return <label className="flex items-center justify-between gap-4 rounded-md border p-3 dark:border-slate-800"><span className="font-medium">{label}</span><input type="checkbox" checked={Boolean(checked)} onChange={(event)=>onChange(event.target.checked)} /></label>;
+}

@@ -6,6 +6,7 @@ import { getOfflinePosContext, getOfflineProducts, getPendingOfflineSales, saveO
 import { syncOfflineSalesNow } from "@/lib/offline-sync";
 import { useNetworkStatus } from "@/lib/network-status";
 import { getTenantBusinessConfiguration, type TenantBusinessConfiguration } from "@/lib/business-profiles";
+import { getReceiptPrintSettings, openPrintPreview } from "@/lib/print";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -57,6 +58,8 @@ export default function PosPage() {
   const [pendingOfflineSales, setPendingOfflineSales] = useState(0);
   const [lastSale, setLastSale] = useState<SaleResponse | null>(null);
   const [branding, setBranding] = useState<CompanyBranding | null>(null);
+  const [receiptFormat, setReceiptFormat] = useState<"58" | "80">("80");
+  const [autoPrintReceipt, setAutoPrintReceipt] = useState(false);
   const [business, setBusiness] = useState<TenantBusinessConfiguration | null>(null);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [showCustomItemModal, setShowCustomItemModal] = useState(false);
@@ -130,7 +133,7 @@ export default function PosPage() {
   }, [authHeaders]);
 
   useEffect(() => { void loadRefs(); }, [loadRefs]);
-  useEffect(() => { const token = getAccessToken(); if (token) void getCompanyBranding(token).then(setBranding).catch(() => undefined); void getTenantBusinessConfiguration().then(setBusiness).catch(() => undefined); }, []);
+  useEffect(() => { const token = getAccessToken(); if (token) void getCompanyBranding(token).then(setBranding).catch(() => undefined); void getTenantBusinessConfiguration().then(setBusiness).catch(() => undefined); void getReceiptPrintSettings().then((settings) => { setReceiptFormat(settings.width); setAutoPrintReceipt(settings.autoPrintReceipt); }).catch(() => undefined); }, []);
   useEffect(() => {
     const draft = loadPosDraft();
     if (!draft) return;
@@ -308,7 +311,15 @@ export default function PosPage() {
     }
     const sale = await response.json() as SaleResponse;
     setLastSale(sale);
-    setMessage("Vente finalisee avec succes.");
+    let successMessage = "Vente finalisée avec succès.";
+    if (autoPrintReceipt) {
+      try {
+        await openPrintPreview(`/sales/${sale.id}/receipt?width=${receiptFormat}`, { autoPrint: true, width: receiptFormat });
+      } catch (printError) {
+        successMessage = printError instanceof Error ? `Vente finalisée. ${printError.message}` : "Vente finalisée. Réimpression disponible.";
+      }
+    }
+    setMessage(successMessage);
     clearPosDraft();
     setCart(emptyCart);
     setPayments([{ method: "CASH", amount: "", reference: "" }]);
@@ -345,7 +356,7 @@ export default function PosPage() {
       setError(response ? await readError(response) : "Action impossible hors ligne pour ce document.");
       return;
     }
-    setMessage(`${label} cree avec succes.`);
+    setMessage(`${label} cree avec succès.`);
     clearPosDraft();
     setCart(emptyCart);
     setOrderDiscount("0");
@@ -556,6 +567,8 @@ export default function PosPage() {
             branding={branding}
             companyName={companyName}
             cashierName={cashierName}
+            receiptFormat={receiptFormat}
+            printSale={(sale) => void printSaleReceipt(sale)}
             orderDiscount={orderDiscount}
             setOrderDiscount={setOrderDiscount}
             syncCart={() => void syncCart("calculate")}
@@ -613,6 +626,8 @@ export default function PosPage() {
               branding={branding}
               companyName={companyName}
               cashierName={cashierName}
+            receiptFormat={receiptFormat}
+            printSale={(sale) => void printSaleReceipt(sale)}
               orderDiscount={orderDiscount}
               setOrderDiscount={setOrderDiscount}
               syncCart={() => void syncCart("calculate")}
@@ -854,6 +869,8 @@ type CartPanelProps = {
   createOrder: () => void;
   updateQuantity: (productId: string, quantity: number) => void;
   removeProduct: (productId: string) => void;
+  receiptFormat: "58" | "80";
+  printSale: (sale: SaleResponse) => void;
 };
 
 function CartPanel(props: CartPanelProps) {
@@ -874,7 +891,7 @@ function CartPanel(props: CartPanelProps) {
             <p className="font-black">Dernière vente confirmée</p>
             <p>Reçu: {props.lastSale.receipt?.number ?? "--"}</p>
             <p>Facture: {props.lastSale.invoice?.documentNumber ?? "--"}</p>
-            <a href={receiptPreviewUrl(props.lastSale, props.branding, props.companyName, props.cashierName)} className="mt-2 inline-flex rounded-xl bg-emerald-700 px-3 py-2 text-xs font-bold text-white">Imprimer ticket</a>
+            <button type="button" onClick={() => props.printSale(props.lastSale!)} className="mt-2 inline-flex rounded-xl bg-emerald-700 px-3 py-2 text-xs font-bold text-white">Imprimer ticket</button>
           </div>
         ) : null}
       </div>
@@ -941,7 +958,7 @@ function PaymentPanel(props: CartPanelProps) {
       <button onClick={props.checkout} disabled={!props.canReceivePayment} className="w-full rounded-2xl bg-emerald-600 px-4 py-4 text-lg font-black text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">{props.isLoading ? "Validation..." : "Encaisser"}</button>
       <div className="grid grid-cols-2 gap-2">
         <button onClick={props.holdSale} disabled={!props.cart.items.length} className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-bold disabled:opacity-50 dark:border-slate-700">{props.pendingLabel}</button>
-        {props.lastSale ? <a href={receiptPreviewUrl(props.lastSale, props.branding, props.companyName, props.cashierName)} className="rounded-2xl border border-slate-300 px-4 py-3 text-center text-sm font-bold dark:border-slate-700">Imprimer</a> : <button disabled className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-bold opacity-50 dark:border-slate-700">Imprimer</button>}
+        {props.lastSale ? <button type="button" onClick={() => props.printSale(props.lastSale!)} className="rounded-2xl border border-slate-300 px-4 py-3 text-center text-sm font-bold dark:border-slate-700">Imprimer</button> : <button disabled className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-bold opacity-50 dark:border-slate-700">Imprimer</button>}
       </div>
       <button type="button" onClick={() => props.setShowExpertOptions((current) => !current)} className="text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">Mode expert</button>
       {props.showExpertOptions ? <ExpertOptions {...props} /> : null}
@@ -1083,21 +1100,13 @@ function customTypeLabel(type?: CustomItemType) {
   return "Article personnalisé";
 }
 
-function receiptPreviewUrl(sale: SaleResponse, branding: CompanyBranding | null, companyName: string, cashierName: string) {
-  const receiptText = sale.receipt?.content ?? `Ticket de vente\nRecu: ${sale.receipt?.number ?? sale.id}\nTotal: ${formatMoney(parseMoney(sale.total))}`;
-  const params = new URLSearchParams({
-    companyName: companyName || "Mon entreprise",
-    cashierName: cashierName || "Utilisateur",
-    receiptNumber: sale.receipt?.number ?? sale.id,
-    content: receiptText,
-    width: "80"
-  });
-  if (branding?.logoUrl) params.set("logoUrl", branding.logoUrl);
-  if (branding?.phone) params.set("phone", branding.phone);
-  if (branding?.address) params.set("address", branding.address);
-  if (branding?.email) params.set("email", branding.email);
-  if (branding?.taxNumber) params.set("taxNumber", branding.taxNumber);
-  return `/dashboard/pos/print?${params.toString()}`;
+async function printSaleReceipt(sale: SaleResponse) {
+  try {
+    const settings = await getReceiptPrintSettings();
+    await openPrintPreview(`/sales/${sale.id}/receipt?width=${settings.width}`, { width: settings.width });
+  } catch (error) {
+    window.alert(error instanceof Error ? error.message : "Aperçu du ticket impossible.");
+  }
 }
 
 function escapeHtml(value: string) {
