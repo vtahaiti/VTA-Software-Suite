@@ -103,10 +103,10 @@ export class DashboardService {
       const salesByCategory = this.salesByCategory(saleItems);
       const paymentMethods = this.paymentMethods(payments);
       const stockValueByCategory = this.stockValueByCategory(products);
-      const monthlyGrowth = revenueLastMonth > 0 ? ((revenueMonth - revenueLastMonth) / revenueLastMonth) * 100 : revenueMonth > 0 ? 100 : 0;
+      const monthlyGrowth = this.growthValue(revenueMonth, revenueLastMonth);
       const revenueThisYear = this.money(salesThisYearAggregate._sum.total);
       const revenueLastYear = this.money(salesLastYearAggregate._sum.total);
-      const annualGrowth = revenueLastYear > 0 ? ((revenueThisYear - revenueLastYear) / revenueLastYear) * 100 : revenueThisYear > 0 ? 100 : 0;
+      const annualGrowth = this.growthValue(revenueThisYear, revenueLastYear);
       const marginAverage = profitMonth !== null && revenueMonth > 0 ? (profitMonth / revenueMonth) * 100 : null;
 
       const result = {
@@ -141,8 +141,10 @@ export class DashboardService {
           averageMargin: marginAverage === null ? null : this.round(marginAverage),
           averageOrderValue,
           averageDailySales: this.round(averageDailySales),
-          monthlyGrowth: this.round(monthlyGrowth),
-          annualGrowth: this.round(annualGrowth)
+          monthlyGrowth: monthlyGrowth.value,
+          monthlyGrowthLabel: monthlyGrowth.label,
+          annualGrowth: annualGrowth.value,
+          annualGrowthLabel: annualGrowth.label
         },
         charts: {
           trend30Days,
@@ -303,12 +305,22 @@ export class DashboardService {
       databaseAvailable: false,
       generatedAt: new Date().toISOString(),
       kpis: { revenueToday: 0, revenueMonth: 0, profitMonth: null, profitReliable: false, costIncompleteMessage: "Données de coût incomplètes", salesToday: 0, salesTotal: 0, customersTotal: 0, productsTotal: 0, outOfStock: 0, lowStock: 0, invoicesPaid: 0, invoicesUnpaid: 0, pendingOrders: 0 },
-      performance: { stockValue: 0, businessValue: 0, estimatedProfit: null, profitReliable: false, missingCostSaleLines: 0, revenueWithoutCost: 0, costCoverageRate: 0, averageMargin: null, averageOrderValue: 0, averageDailySales: 0, monthlyGrowth: 0, annualGrowth: 0 },
+      performance: { stockValue: 0, businessValue: 0, estimatedProfit: null, profitReliable: false, missingCostSaleLines: 0, revenueWithoutCost: 0, costCoverageRate: 0, averageMargin: null, averageOrderValue: 0, averageDailySales: 0, monthlyGrowth: 0, monthlyGrowthLabel: "0 %", annualGrowth: 0, annualGrowthLabel: "0 %" },
       charts: { trend30Days: [], profitEvolution: [], revenueEvolution: [], weeklySales: [], topProducts: [], salesByCategory: [], paymentMethods: [], customerEvolution: [], stockValueByCategory: [] },
       recentActivity: [],
       alerts: [{ type: "Base de données", message: "Impossible de charger les données du tableau de bord.", severity: "critical" }],
       topSalesTable: []
     };
+  }
+
+  private growthValue(current: number, previous: number) {
+    if (previous > 0) {
+      const value = this.round(((current - previous) / previous) * 100);
+      return { value, label: `${value} %` };
+    }
+    if (current > 0) return { value: null, label: "Nouvelle activit\u00e9" };
+    if (current === 0 && previous === 0) return { value: 0, label: "0 %" };
+    return { value: null, label: "Non calculable" };
   }
 
   private startOfDay(date: Date) { const value = new Date(date); value.setHours(0, 0, 0, 0); return value; }

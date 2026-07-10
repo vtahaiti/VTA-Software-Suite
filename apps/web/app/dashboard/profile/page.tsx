@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
 import { initials, resolveAssetUrl } from "@/lib/company-branding";
+import { formatRole } from "@/lib/format";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 const roleLabels: Record<string, string> = { OWNER: "Propriétaire", Owner: "Propriétaire", ADMIN: "Administrateur", CAISSIER: "Caissier", STOCK: "Stock", COMPTABLE: "Comptable", MANAGER: "Manager" };
@@ -53,7 +54,7 @@ export default function DashboardProfilePage() {
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <Input label="Nom complet" value={profile.name} onChange={(value) => setProfile({ ...profile, name: value })} />
-          <Input label="Fonction" value={profile.profile?.jobTitle ?? ""} onChange={(value) => setProfile({ ...profile, profile: { ...profile.profile, jobTitle: value } })} />
+          <Input label="Fonction" value={formatProfileJobTitle(profile.profile?.jobTitle)} onChange={(value) => setProfile({ ...profile, profile: { ...profile.profile, jobTitle: value } })} />
           <Input label="Téléphone" value={profile.profile?.phone ?? ""} onChange={(value) => setProfile({ ...profile, profile: { ...profile.profile, phone: value } })} />
           <Input label="Email" value={profile.email} disabled onChange={() => undefined} />
           <Input label="Langue" value={profile.profile?.language ?? "fr"} onChange={(value) => setProfile({ ...profile, profile: { ...profile.profile, language: value } })} />
@@ -71,6 +72,11 @@ function Input({ label, value, onChange, disabled = false }: { label: string; va
   return <label className="grid gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">{label}<input disabled={disabled} value={value} onChange={(event) => onChange(event.target.value)} className="rounded-md border border-slate-300 px-3 py-2.5 disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:disabled:bg-slate-800" /></label>;
 }
 
+function formatProfileJobTitle(jobTitle: string | null | undefined) {
+  const value = formatRole(jobTitle);
+  return value === "Session" ? "" : value;
+}
+
 function displayRole(role: string) {
-  return roleLabels[role] ?? role;
+  return formatRole(role);
 }

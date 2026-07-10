@@ -63,6 +63,49 @@ function profitSummary(items) {
   return { revenue, knownCost, missingCostLines, reliable: missingCostLines === 0, profit: missingCostLines === 0 ? revenue - knownCost : null, margin: missingCostLines === 0 && revenue > 0 ? ((revenue - knownCost) / revenue) * 100 : null };
 }
 
+function reportProfitSummary(items) {
+  let revenue = 0;
+  let knownRevenue = 0;
+  let revenueWithoutCost = 0;
+  let costUnknownItems = 0;
+  let costOfGoods = 0;
+  for (const item of items) {
+    revenue += item.revenue;
+    const cost = knownUnitCost(item.product ?? {});
+    if (!cost.known) {
+      revenueWithoutCost += item.revenue;
+      costUnknownItems += 1;
+      continue;
+    }
+    knownRevenue += item.revenue;
+    costOfGoods += cost.amount * item.quantity;
+  }
+  const grossProfit = knownRevenue > 0 ? knownRevenue - costOfGoods : null;
+  const costCoverageRate = revenue > 0 ? Number(((knownRevenue / revenue) * 100).toFixed(2)) : 100;
+  return {
+    revenue,
+    knownRevenue,
+    revenueWithoutCost,
+    revenueExcludedFromProfit: revenueWithoutCost,
+    costUnknownItems,
+    costOfGoods,
+    grossProfit,
+    costCoverageRate,
+    profitScope: costUnknownItems === 0 ? "COMPLETE" : knownRevenue > 0 ? "PARTIAL" : "UNKNOWN"
+  };
+}
+
+function growthValue(current, previous, hasHistory = true) {
+  if (!hasHistory) return { value: null, label: "Non calculable" };
+  if (previous > 0) {
+    const value = Math.round((((current - previous) / previous) * 100 + Number.EPSILON) * 100) / 100;
+    return { value, label: value + " %" };
+  }
+  if (current > 0) return { value: null, label: "Nouvelle activite" };
+  if (current === 0 && previous === 0) return { value: 0, label: "0 %" };
+  return { value: null, label: "Non calculable" };
+}
+
 function paymentRows(payments, total) {
   let remaining = total;
   let overpaymentAssigned = false;
@@ -125,6 +168,25 @@ const partialMissingProfit = profitSummary([{ revenue: 500, quantity: 1, product
 assert.equal(partialMissingProfit.profit, null, "Couts partiels manquants doivent rendre le profit global non calculable.");
 const zeroCostProfit = profitSummary([{ revenue: 500, quantity: 1, product: { averageCost: 0, purchasePrice: 0 } }]);
 assert.equal(zeroCostProfit.reliable, false, "Un cout nul non qualifie reste inconnu dans la regle actuelle.");
+
+const reportComplete = reportProfitSummary([{ revenue: 1000, quantity: 2, product: { averageCost: 200 } }]);
+assert.equal(reportComplete.grossProfit, 600, "Rapports: profit complet invalide.");
+assert.equal(reportComplete.costCoverageRate, 100, "Rapports: couverture complete invalide.");
+assert.equal(reportComplete.profitScope, "COMPLETE", "Rapports: statut complet invalide.");
+const reportPartial = reportProfitSummary([{ revenue: 500, quantity: 1, product: { averageCost: 100 } }, { revenue: 500, quantity: 1, product: { averageCost: 0, purchasePrice: 0 } }]);
+assert.equal(reportPartial.grossProfit, 400, "Rapports: profit connu partiel invalide.");
+assert.equal(reportPartial.revenueExcludedFromProfit, 500, "Rapports: revenu exclu du calcul invalide.");
+assert.equal(reportPartial.costCoverageRate, 50, "Rapports: taux de couverture partielle invalide.");
+assert.equal(reportPartial.profitScope, "PARTIAL", "Rapports: statut partiel invalide.");
+const reportUnknown = reportProfitSummary([{ revenue: 1000, quantity: 1, product: { averageCost: 0, purchasePrice: 0 } }]);
+assert.equal(reportUnknown.grossProfit, null, "Rapports: tout cout manquant doit rendre le profit non calculable.");
+assert.equal(reportUnknown.costCoverageRate, 0, "Rapports: couverture nulle invalide.");
+assert.equal(reportUnknown.profitScope, "UNKNOWN", "Rapports: statut cout inconnu invalide.");
+
+assert.deepEqual(growthValue(100, 0), { value: null, label: "Nouvelle activite" }, "Croissance: nouvelle activite invalide.");
+assert.deepEqual(growthValue(0, 0), { value: 0, label: "0 %" }, "Croissance: periode vide invalide.");
+assert.deepEqual(growthValue(100, 50), { value: 100, label: "100 %" }, "Croissance: calcul classique invalide.");
+assert.deepEqual(growthValue(100, 0, false), { value: null, label: "Non calculable" }, "Croissance: historique insuffisant invalide.");
 
 const archivedCategory = { archivedAt: new Date().toISOString(), products: 0 };
 assert.equal(Boolean(archivedCategory.archivedAt), true, "Une categorie archivee reste restaurable et cachee des selecteurs standards.");

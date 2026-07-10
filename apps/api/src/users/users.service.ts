@@ -44,7 +44,7 @@ export class UsersService {
         password: await bcrypt.hash(dto.temporaryPassword, 12),
         isActive: true,
         roles: { create: { roleId: role.id } },
-        profile: { create: { phone: dto.phone, jobTitle: dto.role, language: "fr" } }
+        profile: { create: { phone: dto.phone, jobTitle: this.roleJobTitle(dto.role), language: "fr" } }
       },
       include: { roles: { include: { role: true } } }
     });
@@ -70,8 +70,8 @@ export class UsersService {
     await this.prisma.userRole.create({ data: { userId: user.id, roleId: role.id } });
     await this.prisma.userProfile.upsert({
       where: { userId: user.id },
-      update: { jobTitle: roleName },
-      create: { userId: user.id, jobTitle: roleName, language: "fr" }
+      update: { jobTitle: this.roleJobTitle(roleName) },
+      create: { userId: user.id, jobTitle: this.roleJobTitle(roleName), language: "fr" }
     });
     return { success: true };
   }
@@ -131,5 +131,9 @@ export class UsersService {
     const role = await this.prisma.role.findFirst({ where: { tenantId, name: roleName } });
     if (!role) throw new NotFoundException("Rôle introuvable");
     return role;
+  }
+
+  private roleJobTitle(roleName: string) {
+    return roleName === "OWNER" || roleName === "Owner" ? "Propriétaire" : roleName;
   }
 }

@@ -305,16 +305,29 @@ export class ReportsService {
     const revenue = this.money(salesAggregate._sum.total);
     const tax = this.money(salesAggregate._sum.tax);
     const discount = this.money(salesAggregate._sum.discount);
-    const costUnknownItems = saleItems.filter((item) => item.product && !knownUnitCost(item.product).known).length;
+    let knownRevenue = 0;
+    let revenueWithoutCost = 0;
+    let costUnknownItems = 0;
     const costOfGoods = saleItems.reduce((sum, item) => {
-      if (!item.product) return sum;
+      const lineRevenue = this.money(item.total);
+      if (!item.product) {
+        revenueWithoutCost += lineRevenue;
+        costUnknownItems += 1;
+        return sum;
+      }
       const cost = knownUnitCost(item.product);
-      if (!cost.known || cost.amount === null) return sum;
+      if (!cost.known || cost.amount === null) {
+        revenueWithoutCost += lineRevenue;
+        costUnknownItems += 1;
+        return sum;
+      }
+      knownRevenue += lineRevenue;
       return sum + cost.amount * item.quantity;
     }, 0);
     const returns = this.money(returnsAggregate._sum.total);
     const purchases = this.money(purchaseAggregate._sum.total);
-    const grossProfit = costUnknownItems > 0 ? null : revenue - costOfGoods - returns;
+    const grossProfit = knownRevenue > 0 ? knownRevenue - costOfGoods : null;
+    const costCoverageRate = revenue > 0 ? Number(((knownRevenue / revenue) * 100).toFixed(2)) : 100;
 
     return {
       summary: {
@@ -323,11 +336,16 @@ export class ReportsService {
         discount,
         costOfGoods,
         costUnknownItems,
+        knownRevenue,
+        revenueWithoutCost,
+        revenueExcludedFromProfit: revenueWithoutCost,
+        costCoverageRate,
         returns,
         purchases,
         grossProfit,
-        marginRate: grossProfit === null ? null : revenue > 0 ? Number(((grossProfit / revenue) * 100).toFixed(2)) : 0,
-        marginReliable: costUnknownItems === 0
+        marginRate: grossProfit === null ? null : knownRevenue > 0 ? Number(((grossProfit / knownRevenue) * 100).toFixed(2)) : null,
+        marginReliable: costUnknownItems === 0,
+        profitScope: costUnknownItems === 0 ? "COMPLETE" : knownRevenue > 0 ? "PARTIAL" : "UNKNOWN"
       },
       items: saleItems.map((item) => {
         const cost = item.product ? knownUnitCost(item.product) : { known: false, amount: null };

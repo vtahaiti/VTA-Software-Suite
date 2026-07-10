@@ -122,7 +122,7 @@ export default function PosTicketPrintPage() {
         )}
       </section>
       <section className="no-print mx-auto mt-4 max-w-3xl rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">
-        <strong>Note impression silencieuse :</strong> les navigateurs demandent normalement une action utilisateur. Pour une impression sans dialogue, utilisez un mode kiosque contrôlé, une application locale, ou QZ Tray / service d'impression local sécurisé.
+        <strong>Note impression silencieuse :</strong> les navigateurs demandent normalement une action utilisateur. Pour une impression sans dialogue, utilisez un mode kiosque contrôlé, une application locale, ou QZ Tray / service d&apos;impression local sécurisé.
       </section>
     </main>
   );
@@ -158,3 +158,4 @@ function buildDemoTicket(width: ReceiptWidth) {
     .center { text-align: center; } .line { border-top: 1px dashed #111; margin: 7px 0; } .row { display: flex; justify-content: space-between; gap: 8px; } .name { font-weight: 700; overflow-wrap: anywhere; } .total { border-top: 1px solid #111; padding-top: 5px; font-size: 1.15em; font-weight: 900; }
   </style></head><body><div class="center"><strong>MON ENTREPRISE</strong><br>Adresse principale<br>Tel: 0000-0000</div><div class="line"></div><div class="row"><span>Ticket</span><strong>TEST-001</strong></div><div class="row"><span>Date</span><strong>${new Date().toLocaleString("fr-HT")}</strong></div><div class="row"><span>Caissier</span><strong>Test</strong></div><div class="line"></div><div><div class="name">Produit avec nom très long qui doit passer sur plusieurs lignes</div><div class="row"><span>2 x 125,00 G</span><strong>250,00 G</strong></div></div><div><div class="name">Service personnalisé</div><div class="row"><span>1 x 500,00 G</span><strong>500,00 G</strong></div></div><div class="line"></div><div class="row"><span>Sous-total</span><strong>750,00 G</strong></div><div class="row"><span>Remise</span><strong>0,00 G</strong></div><div class="row"><span>Taxe</span><strong>0,00 G</strong></div><div class="row total"><span>Total</span><strong>750,00 G</strong></div><div class="row"><span>Cash</span><strong>750,00 G</strong></div><div class="row"><span>Montant reçu</span><strong>1 000,00 G</strong></div><div class="row"><span>Monnaie rendue</span><strong>250,00 G</strong></div><div class="line"></div><div class="center"><strong>Merci pour votre achat</strong><br>Conservez ce ticket.</div></body></html>`;
 }
+

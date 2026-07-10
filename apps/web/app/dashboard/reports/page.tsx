@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
+import { pluralize } from "@/lib/format";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -36,7 +37,7 @@ const sections: SectionConfig[] = [
     key: "sales",
     title: "Rapport des ventes",
     description: "Suivi des ventes, taxes, remises et paiements.",
-    emptyText: "Aucune vente pour cette période.",
+    emptyText: "Aucune vente pour cette p\u00e9riode.",
     columns: [
       { key: "customer", label: "Client" },
       { key: "status", label: "Statut", format: "status" },
@@ -48,12 +49,12 @@ const sections: SectionConfig[] = [
   {
     key: "products",
     title: "Rapport produits",
-    description: "Catalogue, prix, stock et activité produits.",
-    emptyText: "Aucun produit trouvé.",
+    description: "Catalogue, prix, stock et activit\u00e9 produits.",
+    emptyText: "Aucun produit trouv\u00e9.",
     columns: [
       { key: "sku", label: "SKU" },
       { key: "name", label: "Produit" },
-      { key: "category", label: "Catégorie" },
+      { key: "category", label: "Cat\u00e9gorie" },
       { key: "brand", label: "Marque" },
       { key: "stock", label: "Stock" },
       { key: "salePrice", label: "Prix", format: "money" },
@@ -63,13 +64,13 @@ const sections: SectionConfig[] = [
   {
     key: "inventory",
     title: "Rapport inventaire",
-    description: "Quantités, réservations, dépôts et alertes de stock.",
+    description: "Quantit\u00e9s, r\u00e9servations, d\u00e9p\u00f4ts et alertes de stock.",
     emptyText: "Aucune ligne de stock disponible.",
     columns: [
       { key: "product", label: "Produit" },
-      { key: "warehouse", label: "Dépôt" },
-      { key: "quantity", label: "Quantité" },
-      { key: "reserved", label: "Réservé" },
+      { key: "warehouse", label: "D\u00e9p\u00f4t" },
+      { key: "quantity", label: "Quantit\u00e9" },
+      { key: "reserved", label: "R\u00e9serv\u00e9" },
       { key: "available", label: "Disponible" },
       { key: "minimumStock", label: "Stock min." },
       { key: "isLowStock", label: "Alerte", format: "boolean" }
@@ -78,13 +79,13 @@ const sections: SectionConfig[] = [
   {
     key: "customers",
     title: "Rapport clients",
-    description: "Clients, soldes, limites de crédit et statuts.",
-    emptyText: "Aucun client pour cette période.",
+    description: "Clients, soldes, limites de cr\u00e9dit et statuts.",
+    emptyText: "Aucun client pour cette p\u00e9riode.",
     columns: [
       { key: "code", label: "Code" },
       { key: "name", label: "Client" },
       { key: "company", label: "Entreprise" },
-      { key: "phone", label: "Téléphone" },
+      { key: "phone", label: "T\u00e9l\u00e9phone" },
       { key: "city", label: "Ville" },
       { key: "currentBalance", label: "Solde", format: "money" },
       { key: "status", label: "Statut", format: "status" }
@@ -93,14 +94,14 @@ const sections: SectionConfig[] = [
   {
     key: "purchases",
     title: "Rapport achats",
-    description: "Bons de commande, réceptions et volumes fournisseurs.",
-    emptyText: "Aucun achat pour cette période.",
+    description: "Bons de commande, r\u00e9ceptions et volumes fournisseurs.",
+    emptyText: "Aucun achat pour cette p\u00e9riode.",
     columns: [
-      { key: "number", label: "Numéro" },
+      { key: "number", label: "Num\u00e9ro" },
       { key: "supplier", label: "Fournisseur" },
       { key: "status", label: "Statut", format: "status" },
       { key: "items", label: "Articles" },
-      { key: "receipts", label: "Réceptions" },
+      { key: "receipts", label: "R\u00e9ceptions" },
       { key: "total", label: "Total", format: "money" },
       { key: "createdAt", label: "Date", format: "date" }
     ]
@@ -108,14 +109,14 @@ const sections: SectionConfig[] = [
   {
     key: "profit",
     title: "Rapport profits",
-    description: "Marge brute, coûts, retours et performance commerciale.",
+    description: "Marge brute, co\u00fbts, retours et performance commerciale.",
     emptyText: "Aucune ligne de profit disponible.",
     columns: [
       { key: "product", label: "Produit" },
       { key: "sku", label: "SKU" },
-      { key: "quantity", label: "Quantité" },
+      { key: "quantity", label: "Quantit\u00e9" },
       { key: "revenue", label: "Revenu", format: "money" },
-      { key: "cost", label: "Coût", format: "money" },
+      { key: "cost", label: "Co\u00fbt", format: "money" },
       { key: "profit", label: "Profit", format: "money" },
       { key: "createdAt", label: "Date", format: "date" }
     ]
@@ -155,17 +156,17 @@ export default function ReportsPage() {
   }, [loadReports]);
 
   function prepareExport(format: "CSV" | "Excel") {
-    window.alert(`Export ${format} prepare pour les rapports.`);
+    window.alert(`Export ${format} pr\u00e9par\u00e9 pour les rapports.`);
   }
 
   const cards = reports
     ? [
-        { label: "Ventes", value: formatMoney(numberValue(reports.sales.summary.total)), detail: `${numberValue(reports.sales.summary.count)} ventes` },
-        { label: "Produits", value: numberValue(reports.products.summary.count).toString(), detail: `${numberValue(reports.products.summary.active)} actifs` },
-        { label: "Stock faible", value: numberValue(reports.inventory.summary.lowStock).toString(), detail: `${numberValue(reports.inventory.summary.available)} unités disponibles` },
+        { label: "Ventes", value: formatMoney(numberValue(reports.sales.summary.total)), detail: pluralize(numberValue(reports.sales.summary.count), "vente") },
+        { label: "Produits", value: numberValue(reports.products.summary.count).toString(), detail: `${pluralize(numberValue(reports.products.summary.active), "produit")} actifs` },
+        { label: "Stock faible", value: numberValue(reports.inventory.summary.lowStock).toString(), detail: `${numberValue(reports.inventory.summary.available)} unit\u00e9s disponibles` },
         { label: "Clients", value: numberValue(reports.customers.summary.count).toString(), detail: `${formatMoney(numberValue(reports.customers.summary.currentBalance))} solde` },
-        { label: "Achats", value: formatMoney(numberValue(reports.purchases.summary.total)), detail: `${numberValue(reports.purchases.summary.count)} bons` },
-        { label: "Profit brut", value: formatMoney(numberValue(reports.profit.summary.grossProfit)), detail: reports.profit.summary.marginReliable === false ? "Coût non renseigné sur certaines ventes" : `${numberValue(reports.profit.summary.marginRate)}% marge` }
+        { label: "Achats", value: formatMoney(numberValue(reports.purchases.summary.total)), detail: pluralize(numberValue(reports.purchases.summary.count), "bon") },
+        { label: "Profit brut", value: formatProfitValue(reports.profit.summary), detail: formatProfitDetail(reports.profit.summary) }
       ]
     : [];
 
@@ -189,11 +190,11 @@ export default function ReportsPage() {
 
       <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-[1fr_1fr_auto]">
         <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
-          Date début
+          <span>{"Date d\u00e9but"}</span>
           <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
         </label>
         <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
-          Date fin
+          <span>Date fin</span>
           <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
         </label>
         <button onClick={() => void loadReports()} className="self-end rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-slate-950">Filtrer</button>
@@ -225,7 +226,7 @@ export default function ReportsPage() {
 }
 
 function ReportTable({ config, report }: { config: SectionConfig; report: ReportSection }) {
-  const rows = config.key === "inventory" && report.recentMovements?.length ? report.items ?? [] : report.items ?? [];
+  const rows = report.items ?? [];
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="flex flex-col justify-between gap-3 border-b border-slate-100 p-5 dark:border-slate-800 md:flex-row md:items-center">
@@ -233,7 +234,7 @@ function ReportTable({ config, report }: { config: SectionConfig; report: Report
           <h2 className="text-lg font-bold text-slate-950 dark:text-white">{config.title}</h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{config.description}</p>
         </div>
-        <div className="text-sm font-semibold text-slate-500 dark:text-slate-400">{report.meta?.total ?? rows.length} lignes</div>
+        <div className="text-sm font-semibold text-slate-500 dark:text-slate-400">{pluralize(report.meta?.total ?? rows.length, "ligne")}</div>
       </div>
       {rows.length ? (
         <div className="overflow-x-auto">
@@ -244,7 +245,7 @@ function ReportTable({ config, report }: { config: SectionConfig; report: Report
             <tbody>
               {rows.map((row, index) => (
                 <tr key={String(row.id ?? index)} className="border-t border-slate-100 dark:border-slate-800">
-                  {config.columns.map((column) => <td key={column.key} className="p-3 text-slate-700 dark:text-slate-200">{formatCell(row[column.key], column.format)}</td>)}
+                  {config.columns.map((column) => <td key={column.key} className="p-3 text-slate-700 dark:text-slate-200">{formatCell(row[column.key], column.format, column.key)}</td>)}
                 </tr>
               ))}
             </tbody>
@@ -257,8 +258,11 @@ function ReportTable({ config, report }: { config: SectionConfig; report: Report
   );
 }
 
-function formatCell(value: Primitive, format?: Column["format"]) {
-  if (value === null || value === undefined || value === "") return format === "money" ? "Coût non renseigné" : "--";
+function formatCell(value: Primitive, format?: Column["format"], key?: string) {
+  if (value === null || value === undefined || value === "") {
+    if (format === "money") return key === "cost" ? "Co\u00fbt non renseign\u00e9" : "Non calculable";
+    return "--";
+  }
   if (format === "money") return formatMoney(Number(value));
   if (format === "date") return new Intl.DateTimeFormat("fr-HT", { dateStyle: "medium", timeStyle: "short" }).format(new Date(String(value)));
   if (format === "boolean") return value ? "Oui" : "Non";
@@ -272,4 +276,16 @@ function formatMoney(value: number) {
 
 function numberValue(value: ReportSummary[string]) {
   return typeof value === "number" ? value : 0;
+}
+
+function formatProfitValue(summary: ReportSummary) {
+  return typeof summary.grossProfit === "number" ? formatMoney(summary.grossProfit) : "Non calculable";
+}
+
+function formatProfitDetail(summary: ReportSummary) {
+  const coverage = typeof summary.costCoverageRate === "number" ? summary.costCoverageRate : 0;
+  const excluded = typeof summary.revenueExcludedFromProfit === "number" ? summary.revenueExcludedFromProfit : 0;
+  if (summary.profitScope === "UNKNOWN") return `Co\u00fbt non renseign\u00e9 sur les ventes. Couverture des co\u00fbts : ${coverage} %. Revenu exclu : ${formatMoney(excluded)}`;
+  if (summary.profitScope === "PARTIAL") return `Profit partiel. Couverture des co\u00fbts : ${coverage} %. Revenu exclu : ${formatMoney(excluded)}`;
+  return `${numberValue(summary.marginRate)}% marge`;
 }

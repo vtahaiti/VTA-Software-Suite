@@ -36,8 +36,10 @@ type Performance = {
   averageMargin: number | null;
   averageOrderValue: number;
   averageDailySales: number;
-  monthlyGrowth: number;
-  annualGrowth: number;
+  monthlyGrowth: number | null;
+  monthlyGrowthLabel?: string;
+  annualGrowth: number | null;
+  annualGrowthLabel?: string;
 };
 type TrendPoint = { date: string; sales: number; revenue: number; profit: number | null; customers: number; revenueWithoutCost?: number; missingCostLines?: number };
 type LabelValue = { label?: string; date?: string; value: number | null; reliable?: boolean; revenueWithoutCost?: number };
@@ -94,7 +96,9 @@ const emptyDashboard: DashboardSummary = {
     averageOrderValue: 0,
     averageDailySales: 0,
     monthlyGrowth: 0,
-    annualGrowth: 0
+    monthlyGrowthLabel: "0 %",
+    annualGrowth: 0,
+    annualGrowthLabel: "0 %"
   },
   charts: {
     trend30Days: buildEmptyTrend(),
@@ -399,8 +403,8 @@ function PerformancePanel({ performance }: { performance: Performance }) {
     ["Marge moyenne", performance.averageMargin === null ? "Non calculable" : `${performance.averageMargin}%`],
     ["Panier moyen", formatMoney(performance.averageOrderValue)],
     ["Ventes moyennes / jour", formatNumber(performance.averageDailySales)],
-    ["Croissance mensuelle", `${performance.monthlyGrowth}%`],
-    ["Croissance annuelle", `${performance.annualGrowth}%`]
+    ["Croissance mensuelle", performance.monthlyGrowthLabel ?? formatGrowth(performance.monthlyGrowth)],
+    ["Croissance annuelle", performance.annualGrowthLabel ?? formatGrowth(performance.annualGrowth)]
   ];
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -490,6 +494,11 @@ function formatCompact(value: number) {
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("fr-HT", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+}
+
+function formatGrowth(value: number | null | undefined) {
+  if (value === null || value === undefined) return "Non calculable";
+  return `${value} %`;
 }
 
 function formatNullableMoney(value: number | null | undefined) {

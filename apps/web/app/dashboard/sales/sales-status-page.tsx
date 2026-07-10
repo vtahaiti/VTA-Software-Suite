@@ -133,6 +133,15 @@ function DraftList({ drafts }: { drafts: Draft[] }) {
 }
 
 function SaleList({ sales, type }: { sales: Sale[]; type: "completed" | "cancelled" }) {
+  async function printSale(saleId: string) {
+    try {
+      const settings = await getReceiptPrintSettings();
+      await openPrintPreview(`/sales/${saleId}/receipt`, { width: settings.width });
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Impossible d'ouvrir l'aperçu du ticket.");
+    }
+  }
+
   return <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
     <table className="w-full min-w-[920px] text-left text-sm">
       <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">Date</th><th className="p-3">Client</th><th className="p-3">Statut</th><th className="p-3">Total</th><th className="p-3">Montant réglé</th><th className="p-3">Montant reçu</th><th className="p-3">Monnaie</th><th className="p-3">Actions</th></tr></thead>

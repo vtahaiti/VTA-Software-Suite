@@ -115,7 +115,7 @@ export class CustomersService {
 
   async exportCsv(tenantId: string, query: CustomerQueryDto) {
     const result = await this.findAll(tenantId, { ...query, page: 1, limit: 10000 });
-    const header = ["Code", "Nom", "Entreprise", "Telephone", "Mobile", "WhatsApp", "Email", "Ville", "Solde", "Statut"];
+    const header = ["Code", "Nom", "Entreprise", "Téléphone", "Mobile", "WhatsApp", "Email", "Ville", "Solde", "Statut"];
     const rows = result.items.map((customer) => [customer.customerCode, customer.displayName, customer.company ?? "", customer.phone ?? "", customer.mobile ?? "", customer.whatsapp ?? "", customer.email ?? "", customer.city ?? "", customer.currentBalance, customer.status]);
     return [header, ...rows].map((row) => row.map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
   }

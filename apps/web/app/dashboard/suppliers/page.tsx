@@ -81,7 +81,7 @@ export default function SuppliersPage() {
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <table className="w-full min-w-[680px] text-left text-sm">
-          <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">Nom</th><th className="p-3">Telephone</th><th className="p-3">Email</th><th className="p-3">Solde</th><th className="p-3">Actions</th></tr></thead>
+          <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">Nom</th><th className="p-3">Téléphone</th><th className="p-3">Email</th><th className="p-3">Solde</th><th className="p-3">Actions</th></tr></thead>
           <tbody>{items.map((supplier) => <tr key={supplier.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3"><p className="font-semibold">{supplier.name}</p><p className="font-mono text-xs text-slate-400">{supplier.code}</p></td><td className="p-3">{supplier.phone ?? "--"}</td><td className="p-3">{supplier.email ?? "--"}</td><td className="p-3">{supplier.balance}</td><td className="p-3"><Link className="text-brand-600" href={`/dashboard/suppliers/${supplier.id}/edit`}>Modifier</Link></td></tr>)}</tbody>
         </table>
       </div>
@@ -92,7 +92,7 @@ export default function SuppliersPage() {
         <Modal title="Nouveau fournisseur" onClose={() => setIsModalOpen(false)}>
           <form onSubmit={createSupplier} className="space-y-3">
             <Input required value={form.name} onChange={(value) => setForm((current) => ({ ...current, name: value }))} placeholder="Nom *" />
-            <Input required value={form.phone} onChange={(value) => setForm((current) => ({ ...current, phone: value }))} placeholder="Telephone *" />
+            <Input required value={form.phone} onChange={(value) => setForm((current) => ({ ...current, phone: value }))} placeholder="Téléphone *" />
             <Input value={form.address} onChange={(value) => setForm((current) => ({ ...current, address: value }))} placeholder="Adresse" />
             <Input value={form.email} onChange={(value) => setForm((current) => ({ ...current, email: value }))} placeholder="Email" />
             {message ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{message}</p> : null}

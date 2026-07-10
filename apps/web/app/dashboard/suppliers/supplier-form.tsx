@@ -109,14 +109,14 @@ export function SupplierForm({ supplierId }: { supplierId?: string }) {
         <input type="file" accept="image/*" onChange={(event) => void loadImage(event.target.files?.[0], (value) => update("logoUrl", value))} className="sr-only" />
         {form.logoUrl ? <span className="text-xs font-normal text-green-600">Logo selectionne</span> : <span className="text-xs font-normal text-slate-400">Facultatif</span>}
       </label>
-      <input value={form.phone} onChange={(e)=>update("phone",e.target.value)} placeholder="Telephone" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+      <input value={form.phone} onChange={(e)=>update("phone",e.target.value)} placeholder="Téléphone" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
       <input value={form.whatsapp} onChange={(e)=>update("whatsapp",e.target.value)} placeholder="WhatsApp" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
       <input value={form.email} onChange={(e)=>update("email",e.target.value)} placeholder="Email" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
       <input value={form.primaryContact} onChange={(e)=>update("primaryContact",e.target.value)} placeholder="Personne de contact" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
       <input value={form.address} onChange={(e)=>update("address",e.target.value)} placeholder="Adresse" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
       <input value={form.city} onChange={(e)=>update("city",e.target.value)} placeholder="Ville" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
       <input value={form.country} onChange={(e)=>update("country",e.target.value)} placeholder="Pays" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-      <input value={form.taxNumber} onChange={(e)=>update("taxNumber",e.target.value)} placeholder="Numero fiscal (facultatif)" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+      <input value={form.taxNumber} onChange={(e)=>update("taxNumber",e.target.value)} placeholder="Numéro fiscal (facultatif)" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
       <select value={form.paymentTerms} onChange={(e)=>update("paymentTerms",e.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option>Comptant</option><option>Credit 15 jours</option><option>Credit 30 jours</option><option>Credit 60 jours</option></select>
       <select value={form.currency} onChange={(e)=>update("currency",e.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option>HTG</option><option>USD</option><option>EUR</option><option>DOP</option><option>CAD</option></select>
       <select value={form.status} onChange={(e)=>update("status",e.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option value="ACTIVE">Actif</option><option value="INACTIVE">Inactif</option></select>
