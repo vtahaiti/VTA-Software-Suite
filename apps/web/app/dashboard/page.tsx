@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -71,7 +71,7 @@ const emptyDashboard: DashboardSummary = {
     revenueMonth: 0,
     profitMonth: null,
     profitReliable: false,
-    costIncompleteMessage: "Donn?es de co?t incompl?tes",
+    costIncompleteMessage: "Données de coût incomplètes",
     salesToday: 0,
     salesTotal: 0,
     customersTotal: 0,
@@ -173,7 +173,7 @@ export default function DashboardPage() {
   const kpiCards = useMemo(() => [
     { label: "Chiffre d'affaires du jour", value: formatMoney(summary.kpis.revenueToday), tone: "green" },
     { label: "Chiffre d'affaires du mois", value: formatMoney(summary.kpis.revenueMonth), tone: "blue" },
-    { label: "B?n?fice du mois", value: summary.kpis.profitReliable === false ? "Donn?es de co?t incompl?tes" : formatNullableMoney(summary.kpis.profitMonth), tone: "violet" },
+    { label: "Bénéfice du mois", value: summary.kpis.profitReliable === false ? "Données de coût incomplètes" : formatNullableMoney(summary.kpis.profitMonth), tone: "violet" },
     { label: "Ventes aujourd'hui", value: formatNumber(summary.kpis.salesToday), tone: "slate" },
     { label: "Total ventes", value: formatNumber(summary.kpis.salesTotal), tone: "slate" },
     { label: "Clients", value: formatNumber(summary.kpis.customersTotal), tone: "blue" },
@@ -331,7 +331,7 @@ function MiniChart({ title, data, color }: { title: string; data: LabelValue[]; 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <h3 className="text-sm font-black text-slate-950 dark:text-white">{title}</h3>
-      {hasMissingCost ? <p className="mt-2 text-xs font-semibold text-amber-600">Non calculable sur certaines p?riodes : co?t non renseign?.</p> : null}
+      {hasMissingCost ? <p className="mt-2 text-xs font-semibold text-amber-600">Non calculable sur certaines périodes : coût non renseigné.</p> : null}
       <svg viewBox="0 0 900 320" className="mt-4 h-32 w-full">
         <ChartPath data={values} max={Math.max(...values, 1)} color={color} />
       </svg>
@@ -391,11 +391,11 @@ function AlertsPanel({ alerts }: { alerts: DashboardSummary["alerts"] }) {
 function PerformancePanel({ performance }: { performance: Performance }) {
   const rows = [
     ["Valeur connue du stock", formatMoney(performance.stockValue)],
-    ["Produits sans co?t", String(performance.missingCostProducts ?? 0)],
-    ["Valeur estim?e du business", formatMoney(performance.businessValue)],
-    ["B?n?fices estim?s", performance.profitReliable === false ? "Donn?es de co?t incompl?tes" : formatNullableMoney(performance.estimatedProfit)],
-    ["Revenu sans co?t", formatMoney(performance.revenueWithoutCost ?? 0)],
-    ["Couverture des co?ts", `${performance.costCoverageRate ?? 0}%`],
+    ["Produits sans coût", String(performance.missingCostProducts ?? 0)],
+    ["Valeur estimée du business", formatMoney(performance.businessValue)],
+    ["Bénéfices estimés", performance.profitReliable === false ? "Données de coût incomplètes" : formatNullableMoney(performance.estimatedProfit)],
+    ["Revenu sans coût", formatMoney(performance.revenueWithoutCost ?? 0)],
+    ["Couverture des coûts", `${performance.costCoverageRate ?? 0}%`],
     ["Marge moyenne", performance.averageMargin === null ? "Non calculable" : `${performance.averageMargin}%`],
     ["Panier moyen", formatMoney(performance.averageOrderValue)],
     ["Ventes moyennes / jour", formatNumber(performance.averageDailySales)],
@@ -495,3 +495,5 @@ function formatDate(value: string) {
 function formatNullableMoney(value: number | null | undefined) {
   return value === null || value === undefined ? "Non calculable" : formatMoney(value);
 }
+
+

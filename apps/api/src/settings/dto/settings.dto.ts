@@ -19,8 +19,8 @@ export class UpdateCompanyProfileDto {
 }
 
 export class UpdateInvoicingSettingsDto {
-  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(1) defaultTaxRate?: number;
-  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(1) maxDiscountRate?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(100) defaultTaxRate?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(100) maxDiscountRate?: number;
   @IsOptional() @IsString() invoicePrefix?: string;
   @IsOptional() @IsString() quotePrefix?: string;
   @IsOptional() @IsString() receiptPrefix?: string;

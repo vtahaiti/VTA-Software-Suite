@@ -129,4 +129,15 @@ assert.equal(zeroCostProfit.reliable, false, "Un cout nul non qualifie reste inc
 const archivedCategory = { archivedAt: new Date().toISOString(), products: 0 };
 assert.equal(Boolean(archivedCategory.archivedAt), true, "Une categorie archivee reste restaurable et cachee des selecteurs standards.");
 
+function settingsPercentToStoredRate(percent) {
+  if (percent < 0 || percent > 100) throw new RangeError("La taxe doit etre comprise entre 0 et 100%.");
+  return percent / 100;
+}
+
+assert.equal(settingsPercentToStoredRate(0), 0, "0% doit rester 0 en base.");
+assert.equal(settingsPercentToStoredRate(10), 0.1, "10% doit etre stocke comme 0.1.");
+assert.equal(settingsPercentToStoredRate(100), 1, "100% doit etre stocke comme 1.");
+assert.throws(() => settingsPercentToStoredRate(-1), RangeError, "Taxe negative interdite.");
+assert.throws(() => settingsPercentToStoredRate(101), RangeError, "Taxe superieure a 100% interdite.");
+
 console.log("Business rules smoke tests OK");

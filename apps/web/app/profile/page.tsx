@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { ProtectedShell } from "@/components/protected-shell";
 import type { AuthUser } from "@/lib/auth";
@@ -25,7 +25,7 @@ function ProfileContent({ user }: { user: AuthUser }) {
         <dl className="mt-8 grid gap-4 sm:grid-cols-2">
           <ProfileItem label="Nom" value={user.name} />
           <ProfileItem label="Email" value={user.email} />
-          <ProfileItem label="Role" value={user.role} />
+          <ProfileItem label="Rôle" value={user.role} />
           <ProfileItem label="Tenant" value={user.tenant} />
           <ProfileItem label="Date creation" value={new Date(user.createdAt).toLocaleDateString("fr-FR")} />
         </dl>

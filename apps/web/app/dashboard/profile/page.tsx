@@ -26,7 +26,7 @@ export default function DashboardProfilePage() {
     if (!profile) return;
     const token = getAccessToken();
     await fetch(`${apiUrl}/profile/me`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ name: profile.name, jobTitle: profile.profile?.jobTitle, phone: profile.profile?.phone, language: profile.profile?.language }) });
-    setMessage("Profil mis a jour.");
+    setMessage("Profil mis ? jour.");
     await load();
   }
 
@@ -42,7 +42,7 @@ export default function DashboardProfilePage() {
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-brand-600">Profil utilisateur</p>
           <h1 className="mt-1 text-3xl font-bold text-slate-950 dark:text-white">{profile.name}</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Entreprise associee : {companyName}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Entreprise associ?e : {companyName}</p>
         </div>
       </div>
       <form onSubmit={submit} className="grid gap-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:grid-cols-[180px_1fr]">
@@ -53,12 +53,11 @@ export default function DashboardProfilePage() {
         <div className="grid gap-4 md:grid-cols-2">
           <Input label="Nom complet" value={profile.name} onChange={(value) => setProfile({ ...profile, name: value })} />
           <Input label="Fonction" value={profile.profile?.jobTitle ?? ""} onChange={(value) => setProfile({ ...profile, profile: { ...profile.profile, jobTitle: value } })} />
-          <Input label="Telephone" value={profile.profile?.phone ?? ""} onChange={(value) => setProfile({ ...profile, profile: { ...profile.profile, phone: value } })} />
+          <Input label="T?l?phone" value={profile.profile?.phone ?? ""} onChange={(value) => setProfile({ ...profile, profile: { ...profile.profile, phone: value } })} />
           <Input label="Email" value={profile.email} disabled onChange={() => undefined} />
           <Input label="Langue" value={profile.profile?.language ?? "fr"} onChange={(value) => setProfile({ ...profile, profile: { ...profile.profile, language: value } })} />
-          <Input label="Role" value={profile.role} disabled onChange={() => undefined} />
+          <Input label="R?le" value={profile.role} disabled onChange={() => undefined} />
           <Input label="Entreprise" value={companyName} disabled onChange={() => undefined} />
-          <div className="rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-500 dark:border-slate-700">Changement de mot de passe prepare pour une prochaine etape.</div>
           {message ? <p className="md:col-span-2 text-sm font-semibold text-green-600">{message}</p> : null}
           <button className="md:col-span-2 rounded-md bg-brand-600 px-4 py-3 text-sm font-semibold text-white">Sauvegarder</button>
         </div>

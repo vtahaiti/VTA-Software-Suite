@@ -23,17 +23,17 @@ export class GoodsReceiptsService {
     });
     if (!purchaseOrder) throw new NotFoundException("Bon de commande introuvable");
     if (!([PurchaseOrderStatus.APPROVED, PurchaseOrderStatus.PARTIALLY_RECEIVED] as PurchaseOrderStatus[]).includes(purchaseOrder.status)) {
-      throw new BadRequestException("Le bon de commande doit etre valide avant reception");
+      throw new BadRequestException("Le bon de commande doit ?tre valid? avant r?ception");
     }
 
     const warehouse = await this.prisma.warehouse.findFirst({ where: { id: dto.warehouseId, tenantId } });
-    if (!warehouse) throw new NotFoundException("Entrepot introuvable");
+    if (!warehouse) throw new NotFoundException("Entrep?t introuvable");
 
     const items = dto.items.map((item) => {
       const orderItem = purchaseOrder.items.find((candidate) => candidate.id === item.purchaseOrderItemId);
       if (!orderItem) throw new NotFoundException("Ligne de commande introuvable");
       const remaining = orderItem.quantity - orderItem.receivedQty;
-      if (item.quantity > remaining) throw new BadRequestException("Quantite receptionnee superieure au reste a recevoir");
+      if (item.quantity > remaining) throw new BadRequestException("Quantit? r?ceptionn?e sup?rieure au reste ? recevoir");
       return { orderItem, quantity: item.quantity };
     });
 
@@ -63,7 +63,7 @@ export class GoodsReceiptsService {
         warehouseId: dto.warehouseId,
         quantity,
         reference: receipt.number,
-        note: "Reception achat",
+        note: "R?ception achat",
         userId,
         storeId: warehouse.storeId ?? undefined
       });
@@ -75,8 +75,8 @@ export class GoodsReceiptsService {
 
   async printReceipt(tenantId: string, id: string) {
     const receipt = await this.prisma.goodsReceipt.findFirst({ where: { id, tenantId }, include: { purchaseOrder: { include: { supplier: true } }, warehouse: true, items: { include: { product: true } } } });
-    if (!receipt) throw new NotFoundException("Reception introuvable");
-    return `RECEPTION MARCHANDISES\nNumero: ${receipt.number}\nFournisseur: ${receipt.purchaseOrder.supplier.name}\nDepot: ${receipt.warehouse.name}\nDate: ${new Date().toLocaleString("fr-HT")}\nLignes: ${receipt.items.length}\n\nInformations entreprise, magasin et utilisateur preparees.`;
+    if (!receipt) throw new NotFoundException("R?ception introuvable");
+    return `R?CEPTION MARCHANDISES\nNum?ro: ${receipt.number}\nFournisseur: ${receipt.purchaseOrder.supplier.name}\nD?p?t: ${receipt.warehouse.name}\nDate: ${new Date().toLocaleString("fr-HT")}\nLignes: ${receipt.items.length}\n\nInformations entreprise, magasin et utilisateur pr?par?es.`;
   }
 
   private async refreshPurchaseOrderStatus(tenantId: string, purchaseOrderId: string) {
