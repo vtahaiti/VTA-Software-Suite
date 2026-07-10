@@ -10,7 +10,9 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 type Kpis = {
   revenueToday: number;
   revenueMonth: number;
-  profitMonth: number;
+  profitMonth: number | null;
+  profitReliable?: boolean;
+  costIncompleteMessage?: string | null;
   salesToday: number;
   salesTotal: number;
   customersTotal: number;
@@ -26,16 +28,20 @@ type Performance = {
   stockValuePartial?: boolean;
   missingCostProducts?: number;
   businessValue: number;
-  estimatedProfit: number;
-  averageMargin: number;
+  estimatedProfit: number | null;
+  profitReliable?: boolean;
+  missingCostSaleLines?: number;
+  revenueWithoutCost?: number;
+  costCoverageRate?: number;
+  averageMargin: number | null;
   averageOrderValue: number;
   averageDailySales: number;
   monthlyGrowth: number;
   annualGrowth: number;
 };
-type TrendPoint = { date: string; sales: number; revenue: number; profit: number; customers: number };
-type LabelValue = { label: string; value: number };
-type TopProduct = { product: string; sku: string; quantity: number; revenue: number; profit: number };
+type TrendPoint = { date: string; sales: number; revenue: number; profit: number | null; customers: number; revenueWithoutCost?: number; missingCostLines?: number };
+type LabelValue = { label?: string; date?: string; value: number | null; reliable?: boolean; revenueWithoutCost?: number };
+type TopProduct = { product: string; sku: string; quantity: number; revenue: number; profit: number | null; revenueWithoutCost?: number; missingCostLines?: number };
 type DashboardSummary = {
   databaseAvailable: boolean;
   generatedAt: string;
@@ -63,7 +69,9 @@ const emptyDashboard: DashboardSummary = {
   kpis: {
     revenueToday: 0,
     revenueMonth: 0,
-    profitMonth: 0,
+    profitMonth: null,
+    profitReliable: false,
+    costIncompleteMessage: "Donn?es de co?t incompl?tes",
     salesToday: 0,
     salesTotal: 0,
     customersTotal: 0,
@@ -77,8 +85,12 @@ const emptyDashboard: DashboardSummary = {
   performance: {
     stockValue: 0,
     businessValue: 0,
-    estimatedProfit: 0,
-    averageMargin: 0,
+    estimatedProfit: null,
+    profitReliable: false,
+    missingCostSaleLines: 0,
+    revenueWithoutCost: 0,
+    costCoverageRate: 0,
+    averageMargin: null,
     averageOrderValue: 0,
     averageDailySales: 0,
     monthlyGrowth: 0,
@@ -161,7 +173,7 @@ export default function DashboardPage() {
   const kpiCards = useMemo(() => [
     { label: "Chiffre d'affaires du jour", value: formatMoney(summary.kpis.revenueToday), tone: "green" },
     { label: "Chiffre d'affaires du mois", value: formatMoney(summary.kpis.revenueMonth), tone: "blue" },
-    { label: "Bénéfice du mois", value: formatMoney(summary.kpis.profitMonth), tone: "violet" },
+    { label: "B?n?fice du mois", value: summary.kpis.profitReliable === false ? "Donn?es de co?t incompl?tes" : formatNullableMoney(summary.kpis.profitMonth), tone: "violet" },
     { label: "Ventes aujourd'hui", value: formatNumber(summary.kpis.salesToday), tone: "slate" },
     { label: "Total ventes", value: formatNumber(summary.kpis.salesTotal), tone: "slate" },
     { label: "Clients", value: formatNumber(summary.kpis.customersTotal), tone: "blue" },
@@ -277,7 +289,7 @@ function MainTrendChart({ data, isLoading }: { data: TrendPoint[]; isLoading: bo
   const revenue = data.map((point) => point.revenue);
   const profit = data.map((point) => point.profit);
   const sales = data.map((point) => point.sales);
-  const max = Math.max(...revenue, ...profit, ...sales, 1);
+  const max = Math.max(...revenue, ...profit.map((value) => value ?? 0), ...sales, 1);
   return (
     <article className="rounded-[24px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -291,7 +303,7 @@ function MainTrendChart({ data, isLoading }: { data: TrendPoint[]; isLoading: bo
         <svg viewBox="0 0 900 320" className="h-80 w-full" role="img" aria-label="Tendance business des 30 derniers jours">
           {[0, 1, 2, 3].map((line) => <line key={line} x1="40" x2="870" y1={40 + line * 70} y2={40 + line * 70} stroke="currentColor" className="text-slate-200 dark:text-slate-800" />)}
           <ChartPath data={revenue} max={max} color="#2563eb" />
-          <ChartPath data={profit} max={max} color="#7c3aed" />
+          <ChartPath data={profit.map((value) => value ?? 0)} max={max} color="#7c3aed" />
           <ChartPath data={sales} max={max} color="#16a34a" />
         </svg>
       </div>
@@ -314,26 +326,29 @@ function ChartPath({ data, max, color }: { data: number[]; max: number; color: s
 }
 
 function MiniChart({ title, data, color }: { title: string; data: LabelValue[]; color: string }) {
+  const values = data.map((item) => item.value ?? 0);
+  const hasMissingCost = data.some((item) => item.value === null);
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <h3 className="text-sm font-black text-slate-950 dark:text-white">{title}</h3>
+      {hasMissingCost ? <p className="mt-2 text-xs font-semibold text-amber-600">Non calculable sur certaines p?riodes : co?t non renseign?.</p> : null}
       <svg viewBox="0 0 900 320" className="mt-4 h-32 w-full">
-        <ChartPath data={data.map((item) => item.value)} max={Math.max(...data.map((item) => item.value), 1)} color={color} />
+        <ChartPath data={values} max={Math.max(...values, 1)} color={color} />
       </svg>
     </article>
   );
 }
 
 function BarChart({ title, data, color }: { title: string; data: LabelValue[]; color: string }) {
-  const max = Math.max(...data.map((item) => item.value), 1);
+  const max = Math.max(...data.map((item) => item.value ?? 0), 1);
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <h3 className="text-sm font-black text-slate-950 dark:text-white">{title}</h3>
       <div className="mt-4 space-y-3">
         {(data.length ? data : [{ label: "Aucune donnée", value: 0 }]).slice(0, 6).map((item) => (
           <div key={item.label}>
-            <div className="mb-1 flex justify-between text-xs font-semibold text-slate-500"><span>{item.label}</span><span>{formatCompact(item.value)}</span></div>
-            <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800"><div className="h-2 rounded-full" style={{ width: `${Math.max(4, (item.value / max) * 100)}%`, backgroundColor: color }} /></div>
+            <div className="mb-1 flex justify-between text-xs font-semibold text-slate-500"><span>{item.label}</span><span>{formatCompact(item.value ?? 0)}</span></div>
+            <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800"><div className="h-2 rounded-full" style={{ width: `${Math.max(4, ((item.value ?? 0) / max) * 100)}%`, backgroundColor: color }} /></div>
           </div>
         ))}
       </div>
@@ -349,7 +364,7 @@ function DonutList({ title, items }: { title: string; items: LabelValue[] }) {
         {(items.length ? items : [{ label: "Aucune donnée", value: 0 }]).slice(0, 10).map((item) => (
           <div key={item.label} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm dark:bg-slate-950">
             <span className="font-semibold text-slate-700 dark:text-slate-200">{item.label}</span>
-            <span className="font-black text-slate-950 dark:text-white">{formatCompact(item.value)}</span>
+            <span className="font-black text-slate-950 dark:text-white">{formatCompact(item.value ?? 0)}</span>
           </div>
         ))}
       </div>
@@ -376,10 +391,12 @@ function AlertsPanel({ alerts }: { alerts: DashboardSummary["alerts"] }) {
 function PerformancePanel({ performance }: { performance: Performance }) {
   const rows = [
     ["Valeur connue du stock", formatMoney(performance.stockValue)],
-    ["Produits sans coût", String(performance.missingCostProducts ?? 0)],
-    ["Valeur estimée du business", formatMoney(performance.businessValue)],
-    ["Bénéfices estimés", formatMoney(performance.estimatedProfit)],
-    ["Marge moyenne", `${performance.averageMargin}%`],
+    ["Produits sans co?t", String(performance.missingCostProducts ?? 0)],
+    ["Valeur estim?e du business", formatMoney(performance.businessValue)],
+    ["B?n?fices estim?s", performance.profitReliable === false ? "Donn?es de co?t incompl?tes" : formatNullableMoney(performance.estimatedProfit)],
+    ["Revenu sans co?t", formatMoney(performance.revenueWithoutCost ?? 0)],
+    ["Couverture des co?ts", `${performance.costCoverageRate ?? 0}%`],
+    ["Marge moyenne", performance.averageMargin === null ? "Non calculable" : `${performance.averageMargin}%`],
     ["Panier moyen", formatMoney(performance.averageOrderValue)],
     ["Ventes moyennes / jour", formatNumber(performance.averageDailySales)],
     ["Croissance mensuelle", `${performance.monthlyGrowth}%`],
@@ -426,7 +443,7 @@ function TopSalesTable({ items }: { items: TopProduct[] }) {
                 <td className="p-4 font-bold text-slate-950 dark:text-white">{item.product}<p className="text-xs font-medium text-slate-500">{item.sku}</p></td>
                 <td className="p-4">{formatNumber(item.quantity)}</td>
                 <td className="p-4">{formatMoney(item.revenue)}</td>
-                <td className="p-4 font-bold text-emerald-600">{formatMoney(item.profit)}</td>
+                <td className="p-4 font-bold text-emerald-600">{item.profit === null ? "Non calculable" : formatMoney(item.profit)}</td>
               </tr>
             ))}
           </tbody>
@@ -446,7 +463,7 @@ function buildEmptyTrend(): TrendPoint[] {
   return Array.from({ length: 30 }, (_, index) => {
     const date = new Date(today);
     date.setDate(today.getDate() - (29 - index));
-    return { date: date.toISOString().slice(0, 10), sales: 0, revenue: 0, profit: 0, customers: 0 };
+    return { date: date.toISOString().slice(0, 10), sales: 0, revenue: 0, profit: null, customers: 0, revenueWithoutCost: 0, missingCostLines: 0 };
   });
 }
 
@@ -473,4 +490,8 @@ function formatCompact(value: number) {
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("fr-HT", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+}
+
+function formatNullableMoney(value: number | null | undefined) {
+  return value === null || value === undefined ? "Non calculable" : formatMoney(value);
 }

@@ -1,10 +1,12 @@
-import { Injectable } from "@nestjs/common";
+﻿import { Injectable } from "@nestjs/common";
 import { PaymentMethod, Prisma, PurchaseOrderStatus, SaleStatus, SalesDocumentStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { availableStock, countLowStockProducts, countOutOfStockProducts, countUnknownCostProducts, knownUnitCost, sumKnownStockValue } from "../common/stock-business-rules";
 
 type CacheEntry = { expiresAt: number; data: unknown };
-type TrendPoint = { date: string; sales: number; revenue: number; profit: number; customers: number };
+type TrendPoint = { date: string; sales: number; revenue: number; profit: number | null; customers: number; revenueWithoutCost: number; missingCostLines: number };
+type ProductCostProduct = { averageCost: Prisma.Decimal | number | string | null; purchasePrice: Prisma.Decimal | number | string | null };
+type SaleItemForProfit = { productId: string | null; quantity: number; total: Prisma.Decimal; sale: { createdAt: Date }; product: (ProductCostProduct & { name?: string; sku?: string; category?: { name: string } | null }) | null };
 
 @Injectable()
 export class DashboardService {
@@ -58,32 +60,12 @@ export class DashboardService {
           where: { sale: { tenantId, createdAt: { gte: start30Days, lt: endOfDay } } },
           select: { method: true, amount: true, createdAt: true }
         }),
-        this.prisma.customer.findMany({
-          where: { tenantId },
-          select: { id: true, displayName: true, createdAt: true },
-          orderBy: { createdAt: "desc" }
-        }),
-        this.prisma.product.findMany({
-          where: { tenantId, isActive: true },
-          include: { category: true, stocks: true }
-        }),
-        this.prisma.stock.findMany({
-          where: { tenantId },
-          include: { product: true, warehouse: true },
-          orderBy: { updatedAt: "desc" }
-        }),
-        this.prisma.invoice.findMany({
-          where: { tenantId },
-          select: { id: true, documentNumber: true, status: true, total: true, paidAmount: true, balance: true, createdAt: true, updatedAt: true },
-          orderBy: { createdAt: "desc" }
-        }),
+        this.prisma.customer.findMany({ where: { tenantId }, select: { id: true, displayName: true, createdAt: true }, orderBy: { createdAt: "desc" } }),
+        this.prisma.product.findMany({ where: { tenantId, isActive: true }, include: { category: true, stocks: true } }),
+        this.prisma.stock.findMany({ where: { tenantId }, include: { product: true, warehouse: true }, orderBy: { updatedAt: "desc" } }),
+        this.prisma.invoice.findMany({ where: { tenantId }, select: { id: true, documentNumber: true, status: true, total: true, paidAmount: true, balance: true, createdAt: true, updatedAt: true }, orderBy: { createdAt: "desc" } }),
         this.prisma.purchaseOrder.count({ where: { tenantId, status: { in: [PurchaseOrderStatus.DRAFT, PurchaseOrderStatus.SENT, PurchaseOrderStatus.APPROVED] } } }),
-        this.prisma.sale.findMany({
-          where: completedSaleWhere,
-          include: { customer: true, receipt: true },
-          orderBy: { createdAt: "desc" },
-          take: 1
-        }),
+        this.prisma.sale.findMany({ where: completedSaleWhere, include: { customer: true, receipt: true }, orderBy: { createdAt: "desc" }, take: 1 }),
         this.prisma.customer.findFirst({ where: { tenantId }, orderBy: { createdAt: "desc" } }),
         this.prisma.product.findFirst({ where: { tenantId }, orderBy: { createdAt: "desc" } }),
         this.prisma.invoice.findFirst({ where: { tenantId }, orderBy: { createdAt: "desc" } }),
@@ -94,22 +76,15 @@ export class DashboardService {
       const allTimeRevenue = await this.prisma.sale.aggregate({ where: completedSaleWhere, _sum: { total: true } });
       const salesToday = sales.filter((sale) => sale.createdAt >= startOfDay && sale.createdAt < endOfDay);
       const salesThisMonth = sales.filter((sale) => sale.createdAt >= startOfMonth && sale.createdAt < endOfDay);
-      const salesLastMonth = await this.prisma.sale.findMany({
-        where: { ...completedSaleWhere, createdAt: { gte: startOfLastMonth, lt: endOfLastMonth } },
-        select: { total: true }
-      });
+      const salesLastMonth = await this.prisma.sale.findMany({ where: { ...completedSaleWhere, createdAt: { gte: startOfLastMonth, lt: endOfLastMonth } }, select: { total: true } });
       const salesThisYearAggregate = await this.prisma.sale.aggregate({ where: { ...completedSaleWhere, createdAt: { gte: startOfYear, lt: endOfDay } }, _sum: { total: true } });
       const salesLastYearAggregate = await this.prisma.sale.aggregate({ where: { ...completedSaleWhere, createdAt: { gte: startOfLastYear, lt: endOfLastYear } }, _sum: { total: true } });
 
-      const productCost = new Map(products.map((product) => [product.id, knownUnitCost(product)]));
       const revenueToday = this.sum(salesToday.map((sale) => this.money(sale.total)));
       const revenueMonth = this.sum(salesThisMonth.map((sale) => this.money(sale.total)));
       const revenueLastMonth = this.sum(salesLastMonth.map((sale) => this.money(sale.total)));
-      const costMonth = this.sum(saleItems.filter((item) => item.sale.createdAt >= startOfMonth && item.productId).map((item) => {
-        const cost = productCost.get(item.productId ?? "");
-        return cost?.known && cost.amount !== null ? cost.amount * item.quantity : 0;
-      }));
-      const profitMonth = revenueMonth - costMonth;
+      const monthProfit = this.profitSummary(saleItems.filter((item) => item.sale.createdAt >= startOfMonth));
+      const profitMonth = monthProfit.reliable ? this.round(revenueMonth - monthProfit.knownCost) : null;
       const stockValue = sumKnownStockValue(stocks);
       const lowStockProducts = stocks.filter((stock) => availableStock(stock) <= stock.minimumStock);
       const outOfStockProducts = stocks.filter((stock) => availableStock(stock) <= 0);
@@ -132,7 +107,7 @@ export class DashboardService {
       const revenueThisYear = this.money(salesThisYearAggregate._sum.total);
       const revenueLastYear = this.money(salesLastYearAggregate._sum.total);
       const annualGrowth = revenueLastYear > 0 ? ((revenueThisYear - revenueLastYear) / revenueLastYear) * 100 : revenueThisYear > 0 ? 100 : 0;
-      const marginAverage = revenueMonth > 0 ? (profitMonth / revenueMonth) * 100 : 0;
+      const marginAverage = profitMonth !== null && revenueMonth > 0 ? (profitMonth / revenueMonth) * 100 : null;
 
       const result = {
         databaseAvailable: true,
@@ -141,6 +116,8 @@ export class DashboardService {
           revenueToday,
           revenueMonth,
           profitMonth,
+          profitReliable: monthProfit.reliable,
+          costIncompleteMessage: monthProfit.reliable ? null : "Données de coût incomplètes",
           salesToday: salesToday.length,
           salesTotal: allTimeSalesCount,
           customersTotal: customers.length,
@@ -157,7 +134,11 @@ export class DashboardService {
           missingCostProducts: missingCostProductCount,
           businessValue: stockValue + this.money(allTimeRevenue._sum.total),
           estimatedProfit: profitMonth,
-          averageMargin: this.round(marginAverage),
+          profitReliable: monthProfit.reliable,
+          missingCostSaleLines: monthProfit.missingCostLines,
+          revenueWithoutCost: monthProfit.revenueWithoutCost,
+          costCoverageRate: revenueMonth > 0 ? this.round(((revenueMonth - monthProfit.revenueWithoutCost) / revenueMonth) * 100) : 100,
+          averageMargin: marginAverage === null ? null : this.round(marginAverage),
           averageOrderValue,
           averageDailySales: this.round(averageDailySales),
           monthlyGrowth: this.round(monthlyGrowth),
@@ -165,7 +146,7 @@ export class DashboardService {
         },
         charts: {
           trend30Days,
-          profitEvolution: trend30Days.map((point) => ({ date: point.date, value: point.profit })),
+          profitEvolution: trend30Days.map((point) => ({ date: point.date, value: point.profit, reliable: point.profit !== null, revenueWithoutCost: point.revenueWithoutCost })),
           revenueEvolution: trend30Days.map((point) => ({ date: point.date, value: point.revenue })),
           weeklySales,
           topProducts,
@@ -175,16 +156,17 @@ export class DashboardService {
           stockValueByCategory
         },
         recentActivity: [
-          recentSales[0] ? { type: "Derniere vente", label: recentSales[0].receipt?.number ?? recentSales[0].id, amount: this.money(recentSales[0].total), createdAt: recentSales[0].createdAt } : null,
+          recentSales[0] ? { type: "Dernière vente", label: recentSales[0].receipt?.number ?? recentSales[0].id, amount: this.money(recentSales[0].total), createdAt: recentSales[0].createdAt } : null,
           recentCustomer ? { type: "Dernier client", label: recentCustomer.displayName, amount: 0, createdAt: recentCustomer.createdAt } : null,
           recentProduct ? { type: "Dernier produit", label: recentProduct.name, amount: this.money(recentProduct.salePrice), createdAt: recentProduct.createdAt } : null,
-          recentInvoice ? { type: "Derniere facture", label: recentInvoice.documentNumber, amount: this.money(recentInvoice.total), createdAt: recentInvoice.createdAt } : null,
+          recentInvoice ? { type: "Dernière facture", label: recentInvoice.documentNumber, amount: this.money(recentInvoice.total), createdAt: recentInvoice.createdAt } : null,
           recentPayment ? { type: "Dernier paiement", label: recentPayment.method, amount: this.money(recentPayment.amount), createdAt: recentPayment.createdAt } : null
         ].filter(Boolean),
         alerts: [
           ...outOfStockProducts.slice(0, 4).map((stock) => ({ type: "Rupture", message: `${stock.product.name} est en rupture`, severity: "critical" })),
           ...lowStockProducts.slice(0, 4).map((stock) => ({ type: "Stock faible", message: `${stock.product.name} arrive au seuil minimum`, severity: "warning" })),
-          ...overdueInvoices.slice(0, 3).map((invoice) => ({ type: "Facture en retard", message: `${invoice.documentNumber} reste impayee`, severity: "warning" })),
+          ...(missingCostProductCount > 0 ? [{ type: "Coûts manquants", message: `${missingCostProductCount} produit(s) ont un coût non renseigné`, severity: "warning" }] : []),
+          ...overdueInvoices.slice(0, 3).map((invoice) => ({ type: "Facture en retard", message: `${invoice.documentNumber} reste impayée`, severity: "warning" })),
           ...(pendingOrders > 0 ? [{ type: "Commandes", message: `${pendingOrders} commande(s) en attente`, severity: "info" }] : [])
         ],
         topSalesTable: topProducts
@@ -197,12 +179,34 @@ export class DashboardService {
     }
   }
 
-  private buildTrend(startDate: Date, sales: Array<{ id: string; total: Prisma.Decimal; createdAt: Date }>, saleItems: Array<{ productId: string | null; quantity: number; total: Prisma.Decimal; sale: { createdAt: Date }; product: { averageCost: Prisma.Decimal; purchasePrice: Prisma.Decimal } | null }>, customers: Array<{ createdAt: Date }>): TrendPoint[] {
+  private profitSummary(items: SaleItemForProfit[]) {
+    let knownCost = 0;
+    let revenueWithoutCost = 0;
+    let missingCostLines = 0;
+    for (const item of items) {
+      const revenue = this.money(item.total);
+      if (!item.product) {
+        revenueWithoutCost += revenue;
+        missingCostLines += 1;
+        continue;
+      }
+      const cost = knownUnitCost(item.product);
+      if (!cost.known || cost.amount === null) {
+        revenueWithoutCost += revenue;
+        missingCostLines += 1;
+        continue;
+      }
+      knownCost += cost.amount * item.quantity;
+    }
+    return { knownCost: this.round(knownCost), revenueWithoutCost: this.round(revenueWithoutCost), missingCostLines, reliable: missingCostLines === 0 };
+  }
+
+  private buildTrend(startDate: Date, sales: Array<{ id: string; total: Prisma.Decimal; createdAt: Date }>, saleItems: SaleItemForProfit[], customers: Array<{ createdAt: Date }>): TrendPoint[] {
     const days = new Map<string, TrendPoint>();
     for (let index = 0; index < 30; index += 1) {
       const date = this.addDays(startDate, index);
       const key = this.dateKey(date);
-      days.set(key, { date: key, sales: 0, revenue: 0, profit: 0, customers: 0 });
+      days.set(key, { date: key, sales: 0, revenue: 0, profit: 0, customers: 0, revenueWithoutCost: 0, missingCostLines: 0 });
     }
     for (const sale of sales) {
       const point = days.get(this.dateKey(sale.createdAt));
@@ -212,15 +216,27 @@ export class DashboardService {
     }
     for (const item of saleItems) {
       const point = days.get(this.dateKey(item.sale.createdAt));
-      if (!point || !item.product) continue;
+      if (!point) continue;
+      const revenue = this.money(item.total);
+      if (!item.product) {
+        point.revenueWithoutCost += revenue;
+        point.missingCostLines += 1;
+        continue;
+      }
       const cost = knownUnitCost(item.product);
-      point.profit += this.money(item.total) - (cost.known && cost.amount !== null ? cost.amount * item.quantity : 0);
+      if (!cost.known || cost.amount === null) {
+        point.revenueWithoutCost += revenue;
+        point.missingCostLines += 1;
+        continue;
+      }
+      point.profit = (point.profit ?? 0) + revenue - cost.amount * item.quantity;
     }
+    for (const point of days.values()) if (point.missingCostLines > 0) point.profit = null;
     for (const customer of customers) {
       const point = days.get(this.dateKey(customer.createdAt));
       if (point) point.customers += 1;
     }
-    return Array.from(days.values()).map((point) => ({ ...point, revenue: this.round(point.revenue), profit: this.round(point.profit) }));
+    return Array.from(days.values()).map((point) => ({ ...point, revenue: this.round(point.revenue), profit: point.profit === null ? null : this.round(point.profit), revenueWithoutCost: this.round(point.revenueWithoutCost) }));
   }
 
   private buildWeeklyTrend(points: TrendPoint[]) {
@@ -235,21 +251,28 @@ export class DashboardService {
     return Array.from(weeks.values()).map((week) => ({ ...week, revenue: this.round(week.revenue) }));
   }
 
-  private topProducts(items: Array<{ productId: string | null; quantity: number; total: Prisma.Decimal; customName?: string | null; product: { name: string; sku: string; averageCost: Prisma.Decimal; purchasePrice: Prisma.Decimal } | null }>) {
-    const rows = new Map<string, { product: string; sku: string; quantity: number; revenue: number; profit: number }>();
+  private topProducts(items: SaleItemForProfit[]) {
+    const rows = new Map<string, { product: string; sku: string; quantity: number; revenue: number; profit: number | null; revenueWithoutCost: number; missingCostLines: number }>();
     for (const item of items) {
       if (!item.productId || !item.product) continue;
-      const cost = knownUnitCost(item.product);
-      const current = rows.get(item.productId) ?? { product: item.product.name, sku: item.product.sku, quantity: 0, revenue: 0, profit: 0 };
+      const current = rows.get(item.productId) ?? { product: item.product.name ?? "Produit", sku: item.product.sku ?? "-", quantity: 0, revenue: 0, profit: 0, revenueWithoutCost: 0, missingCostLines: 0 };
+      const revenue = this.money(item.total);
       current.quantity += item.quantity;
-      current.revenue += this.money(item.total);
-      current.profit += this.money(item.total) - (cost.known && cost.amount !== null ? cost.amount * item.quantity : 0);
+      current.revenue += revenue;
+      const cost = knownUnitCost(item.product);
+      if (!cost.known || cost.amount === null) {
+        current.profit = null;
+        current.revenueWithoutCost += revenue;
+        current.missingCostLines += 1;
+      } else if (current.profit !== null) {
+        current.profit += revenue - cost.amount * item.quantity;
+      }
       rows.set(item.productId, current);
     }
-    return Array.from(rows.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 10).map((row) => ({ ...row, revenue: this.round(row.revenue), profit: this.round(row.profit) }));
+    return Array.from(rows.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 10).map((row) => ({ ...row, revenue: this.round(row.revenue), profit: row.profit === null ? null : this.round(row.profit), revenueWithoutCost: this.round(row.revenueWithoutCost) }));
   }
 
-  private salesByCategory(items: Array<{ total: Prisma.Decimal; product: { category?: { name: string } | null } | null }>) {
+  private salesByCategory(items: SaleItemForProfit[]) {
     const rows = new Map<string, number>();
     for (const item of items) {
       const category = item.product?.category?.name ?? "Articles personnalisés";
@@ -267,7 +290,7 @@ export class DashboardService {
   private stockValueByCategory(products: Array<{ category?: { name: string } | null; purchasePrice: Prisma.Decimal; averageCost: Prisma.Decimal; stocks: Array<{ quantity: number; reserved?: number | null }> }>) {
     const rows = new Map<string, number>();
     for (const product of products) {
-      const category = product.category?.name ?? "Sans categorie";
+      const category = product.category?.name ?? "Sans catégorie";
       const quantity = product.stocks.reduce((sum, stock) => sum + availableStock(stock), 0);
       const cost = knownUnitCost(product);
       rows.set(category, (rows.get(category) ?? 0) + (cost.known && cost.amount !== null ? quantity * cost.amount : 0));
@@ -279,43 +302,19 @@ export class DashboardService {
     return {
       databaseAvailable: false,
       generatedAt: new Date().toISOString(),
-      kpis: {
-        revenueToday: 0, revenueMonth: 0, profitMonth: 0, salesToday: 0, salesTotal: 0, customersTotal: 0, productsTotal: 0,
-        outOfStock: 0, lowStock: 0, invoicesPaid: 0, invoicesUnpaid: 0, pendingOrders: 0
-      },
-      performance: { stockValue: 0, businessValue: 0, estimatedProfit: 0, averageMargin: 0, averageOrderValue: 0, averageDailySales: 0, monthlyGrowth: 0, annualGrowth: 0 },
+      kpis: { revenueToday: 0, revenueMonth: 0, profitMonth: null, profitReliable: false, costIncompleteMessage: "Données de coût incomplètes", salesToday: 0, salesTotal: 0, customersTotal: 0, productsTotal: 0, outOfStock: 0, lowStock: 0, invoicesPaid: 0, invoicesUnpaid: 0, pendingOrders: 0 },
+      performance: { stockValue: 0, businessValue: 0, estimatedProfit: null, profitReliable: false, missingCostSaleLines: 0, revenueWithoutCost: 0, costCoverageRate: 0, averageMargin: null, averageOrderValue: 0, averageDailySales: 0, monthlyGrowth: 0, annualGrowth: 0 },
       charts: { trend30Days: [], profitEvolution: [], revenueEvolution: [], weeklySales: [], topProducts: [], salesByCategory: [], paymentMethods: [], customerEvolution: [], stockValueByCategory: [] },
       recentActivity: [],
-      alerts: [{ type: "Base de donnees", message: "Impossible de charger les donnees du tableau de bord.", severity: "critical" }],
+      alerts: [{ type: "Base de données", message: "Impossible de charger les données du tableau de bord.", severity: "critical" }],
       topSalesTable: []
     };
   }
 
-  private startOfDay(date: Date) {
-    const value = new Date(date);
-    value.setHours(0, 0, 0, 0);
-    return value;
-  }
-
-  private addDays(date: Date, days: number) {
-    const value = new Date(date);
-    value.setDate(value.getDate() + days);
-    return value;
-  }
-
-  private dateKey(value: Date) {
-    return value.toISOString().slice(0, 10);
-  }
-
-  private money(value: Prisma.Decimal | number | string | null | undefined) {
-    return Number(value ?? 0);
-  }
-
-  private sum(values: number[]) {
-    return values.reduce((total, value) => total + value, 0);
-  }
-
-  private round(value: number) {
-    return Math.round((value + Number.EPSILON) * 100) / 100;
-  }
+  private startOfDay(date: Date) { const value = new Date(date); value.setHours(0, 0, 0, 0); return value; }
+  private addDays(date: Date, days: number) { const value = new Date(date); value.setDate(value.getDate() + days); return value; }
+  private dateKey(value: Date) { return value.toISOString().slice(0, 10); }
+  private money(value: Prisma.Decimal | number | string | null | undefined) { return Number(value ?? 0); }
+  private sum(values: number[]) { return values.reduce((total, value) => total + value, 0); }
+  private round(value: number) { return Math.round((value + Number.EPSILON) * 100) / 100; }
 }

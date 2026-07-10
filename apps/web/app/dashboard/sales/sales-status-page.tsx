@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { openPrintPreview } from "@/lib/print";
+import { summarizePayments } from "@/lib/payment-summary";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -49,8 +50,8 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
     setSales(type === "completed" ? items.filter(isPaidCompletedSale) : items);
   }
 
-  const title = type === "in-progress" ? "Ventes en cours" : type === "completed" ? "Ventes terminées" : "Ventes annulées";
-  const subtitle = type === "in-progress" ? "Brouillons POS, commandes en attente et paiements partiels." : type === "completed" ? "Ventes payées ou clôturées." : "Historique des ventes annulées.";
+  const title = type === "in-progress" ? "Ventes en cours" : type === "completed" ? "Ventes terminÃ©es" : "Ventes annulÃ©es";
+  const subtitle = type === "in-progress" ? "Brouillons POS, commandes en attente et paiements partiels." : type === "completed" ? "Ventes payÃ©es ou clÃ´turÃ©es." : "Historique des ventes annulÃ©es.";
 
   return <div className="space-y-5">
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -83,12 +84,12 @@ function DraftList({ drafts }: { drafts: Draft[] }) {
         <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
           <div>
             <p className="font-semibold">Vente en cours</p>
-            <p className="text-sm text-slate-500">{draft.cart?.items.length ?? 0} article(s) - Mise à jour {draft.updatedAt ? new Date(draft.updatedAt).toLocaleString("fr-HT") : "-"}</p>
+            <p className="text-sm text-slate-500">{draft.cart?.items.length ?? 0} article(s) - Mise Ã  jour {draft.updatedAt ? new Date(draft.updatedAt).toLocaleString("fr-HT") : "-"}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <p className="mr-2 text-xl font-bold text-brand-600">{formatMoney(draft.cart?.total ?? 0)}</p>
             <button onClick={continueDraft} className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white">Continuer</button>
-            <button onClick={() => setSelectedDraft(draft)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">Voir détail</button>
+            <button onClick={() => setSelectedDraft(draft)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">Voir dÃ©tail</button>
             <button onClick={() => cancelDraft(draft.storageKey)} className="rounded-md border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 dark:border-red-900">Annuler</button>
           </div>
         </div>
@@ -99,8 +100,8 @@ function DraftList({ drafts }: { drafts: Draft[] }) {
         <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h3 className="text-xl font-bold">Détail de la vente en cours</h3>
-              <p className="text-sm text-slate-500">Cette vente sera restaurée dans le POS avec le panier, le client et les paiements.</p>
+              <h3 className="text-xl font-bold">DÃ©tail de la vente en cours</h3>
+              <p className="text-sm text-slate-500">Cette vente sera restaurÃ©e dans le POS avec le panier, le client et les paiements.</p>
             </div>
             <button onClick={() => setSelectedDraft(null)} className="rounded-md border border-slate-200 px-3 py-1 text-sm font-semibold dark:border-slate-700">Fermer</button>
           </div>
@@ -123,13 +124,14 @@ function DraftList({ drafts }: { drafts: Draft[] }) {
 function SaleList({ sales, type }: { sales: Sale[]; type: "completed" | "cancelled" }) {
   return <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
     <table className="w-full min-w-[920px] text-left text-sm">
-      <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">Date</th><th className="p-3">Client</th><th className="p-3">Statut</th><th className="p-3">Total</th><th className="p-3">Montant réglé</th><th className="p-3">Montant reçu</th><th className="p-3">Monnaie</th><th className="p-3">Actions</th></tr></thead>
+      <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">Date</th><th className="p-3">Client</th><th className="p-3">Statut</th><th className="p-3">Total</th><th className="p-3">Montant rÃ©glÃ©</th><th className="p-3">Montant reÃ§u</th><th className="p-3">Monnaie</th><th className="p-3">Actions</th></tr></thead>
       <tbody>{sales.map((sale) => {
-        const paid = (sale.payments ?? []).reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
-        const received = (sale.payments ?? []).reduce((sum, payment) => sum + Number(payment.receivedAmount ?? payment.amount ?? 0), 0);
-        const change = (sale.payments ?? []).reduce((sum, payment) => sum + Number(payment.changeAmount ?? 0), 0);
-        const total = Number(sale.total ?? 0);
-        return <tr key={sale.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3">{new Date(sale.createdAt).toLocaleString("fr-HT")}</td><td className="p-3">{sale.customer?.displayName ?? sale.customer?.phone ?? "Client comptoir"}</td><td className="p-3">{type === "cancelled" ? "Annulée" : paid >= total ? "Payée" : "Partiellement payée"}</td><td className="p-3 font-bold">{formatMoney(total)}</td><td className="p-3">{formatMoney(paid)}</td><td className="p-3">{formatMoney(received)}</td><td className="p-3">{formatMoney(change)}</td><td className="p-3"><div className="flex gap-3"><button onClick={() => window.alert(`Vente ${sale.id}\nTotal: ${formatMoney(total)}\nMontant réglé: ${formatMoney(paid)}\nMontant reçu: ${formatMoney(received)}\nMonnaie rendue: ${formatMoney(change)}`)} className="text-slate-700 dark:text-slate-200">Voir détail</button><button onClick={() => void openPrintPreview(`/sales/${sale.id}/receipt?width=80`)} className="text-brand-600 disabled:text-slate-400" disabled={type === "cancelled"}>Imprimer</button></div></td></tr>;
+        const paymentSummary = summarizePayments(sale.total, sale.payments ?? []);
+        const paid = paymentSummary.settledAmount;
+        const received = paymentSummary.receivedAmount;
+        const change = paymentSummary.changeAmount;
+        const total = paymentSummary.total;
+        return <tr key={sale.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3">{new Date(sale.createdAt).toLocaleString("fr-HT")}</td><td className="p-3">{sale.customer?.displayName ?? sale.customer?.phone ?? "Client comptoir"}</td><td className="p-3">{type === "cancelled" ? "AnnulÃ©e" : paid >= total ? "PayÃ©e" : "Partiellement payÃ©e"}</td><td className="p-3 font-bold">{formatMoney(total)}</td><td className="p-3">{formatMoney(paid)}</td><td className="p-3">{formatMoney(received)}</td><td className="p-3">{paymentSummary.historicalDataUnavailable ? "Donnée historique indisponible" : formatMoney(change)}</td><td className="p-3"><div className="flex gap-3"><button onClick={() => window.alert(`Vente ${sale.id}\nTotal: ${formatMoney(total)}\nMontant rÃ©glÃ©: ${formatMoney(paid)}\nMontant reÃ§u: ${formatMoney(received)}\nMonnaie rendue: ${formatMoney(change)}`)} className="text-slate-700 dark:text-slate-200">Voir dÃ©tail</button><button onClick={() => void openPrintPreview(`/sales/${sale.id}/receipt?width=80`)} className="text-brand-600 disabled:text-slate-400" disabled={type === "cancelled"}>Imprimer</button></div></td></tr>;
       })}</tbody>
     </table>
     {!sales.length ? <p className="p-5 text-sm text-slate-500">Aucune vente.</p> : null}
@@ -157,3 +159,5 @@ function loadDrafts() {
 function formatMoney(value: number) {
   return new Intl.NumberFormat("fr-HT", { style: "currency", currency: "HTG", maximumFractionDigits: 2 }).format(value || 0);
 }
+
+

@@ -314,7 +314,7 @@ export class ReportsService {
     }, 0);
     const returns = this.money(returnsAggregate._sum.total);
     const purchases = this.money(purchaseAggregate._sum.total);
-    const grossProfit = revenue - costOfGoods - returns;
+    const grossProfit = costUnknownItems > 0 ? null : revenue - costOfGoods - returns;
 
     return {
       summary: {
@@ -326,7 +326,7 @@ export class ReportsService {
         returns,
         purchases,
         grossProfit,
-        marginRate: costUnknownItems > 0 ? null : revenue > 0 ? Number(((grossProfit / revenue) * 100).toFixed(2)) : 0,
+        marginRate: grossProfit === null ? null : revenue > 0 ? Number(((grossProfit / revenue) * 100).toFixed(2)) : 0,
         marginReliable: costUnknownItems === 0
       },
       items: saleItems.map((item) => {

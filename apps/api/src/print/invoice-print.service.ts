@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+﻿import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { PdfService } from "./pdf.service";
+import { summarizePayments } from "../common/payment-business-rules";
 
 type PaperFormat = "a4" | "letter";
 type ReceiptWidth = "58" | "80";
@@ -18,8 +19,10 @@ export class InvoicePrintService {
     if (!sale) throw new NotFoundException("Vente introuvable");
     const tenant = sale.tenant as BrandedTenant;
     const cashier = sale.createdById ? await this.prisma.user.findFirst({ where: { id: sale.createdById, tenantId }, select: { name: true } }) : null;
-    const paid = sale.payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
-    const change = Math.max(0, paid - Number(sale.total));
+    const paymentSummary = summarizePayments(sale.total, sale.payments);
+    const paid = paymentSummary.settledAmount;
+    const received = paymentSummary.receivedAmount;
+    const change = paymentSummary.changeAmount;
     const widthMm = width === "58" ? 58 : 80;
     return this.page(`Ticket ${sale.receipt?.number ?? sale.id}`, `
       <style>
@@ -58,7 +61,7 @@ export class InvoicePrintService {
         <div class="line"></div>
         <table>${sale.items.map((item) => `<tr><td><div class="item-name">${this.escape(this.itemName(item))}</div>${item.productId ? "" : `<div class="item-note">Article personnalise</div>`}<div class="item-note">${item.quantity} x ${this.money(item.unitPrice)}${Number(item.discount) > 0 ? ` - remise ${this.money(item.discount)}` : ""}</div></td><td class="right"><strong>${this.money(item.total)}</strong></td></tr>`).join("")}</table>
         <div class="line"></div>
-        <table class="summary"><tr><td>Sous-total</td><td class="right">${this.money(sale.subtotal)}</td></tr>${Number(sale.discount) > 0 ? `<tr><td>Remise</td><td class="right">${this.money(sale.discount)}</td></tr>` : ""}${Number(sale.tax) > 0 ? `<tr><td>Taxes</td><td class="right">${this.money(sale.tax)}</td></tr>` : ""}<tr class="total-row"><td>Total</td><td class="right">${this.money(sale.total)}</td></tr><tr><td>Montant payé</td><td class="right">${this.money(paid)}</td></tr><tr><td>Monnaie rendue</td><td class="right">${this.money(change)}</td></tr></table>
+        <table class="summary"><tr><td>Sous-total</td><td class="right">${this.money(sale.subtotal)}</td></tr>${Number(sale.discount) > 0 ? `<tr><td>Remise</td><td class="right">${this.money(sale.discount)}</td></tr>` : ""}${Number(sale.tax) > 0 ? `<tr><td>Taxes</td><td class="right">${this.money(sale.tax)}</td></tr>` : ""}<tr class="total-row"><td>Total</td><td class="right">${this.money(sale.total)}</td></tr><tr><td>Montant réglé</td><td class="right">${this.money(paid)}</td></tr><tr><td>Montant reçu</td><td class="right">${this.money(received)}</td></tr><tr><td>Monnaie rendue</td><td class="right">${this.money(change)}</td></tr></table>
         <div class="line"></div>
         <div class="thanks">Merci pour votre achat</div>
         <div class="legal">Conservez ce ticket comme preuve de paiement.</div>
@@ -74,7 +77,10 @@ export class InvoicePrintService {
     });
     if (!invoice) throw new NotFoundException("Facture introuvable");
     const tenant = invoice.tenant as BrandedTenant;
-    const paid = invoice.payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+    const paymentSummary = summarizePayments(invoice.total, invoice.payments);
+    const paid = paymentSummary.settledAmount;
+    const received = paymentSummary.receivedAmount;
+    const change = paymentSummary.changeAmount;
     const pageSize = format === "a4" ? "A4" : "Letter";
     return this.page(`Facture ${invoice.documentNumber}`, `
       <style>
@@ -85,8 +91,8 @@ export class InvoicePrintService {
       <div class="top"><div><div class="logo">${this.logoContent(tenant)}</div><strong>${this.escape(this.companyName(tenant))}</strong><br/><span class="muted">${this.escape(this.companyAddress(tenant) || "Adresse non definie")}</span><br/><span class="muted">${this.escape(this.companyPhone(tenant) || "Telephone non defini")}</span><br/><span class="muted">${this.escape(this.companyEmail(tenant) || "Email non defini")}</span>${this.companyTax(tenant) ? `<br/><span class="muted">NIF: ${this.escape(this.companyTax(tenant))}</span>` : ""}</div><div class="right"><h1>FACTURE</h1><p><strong>${this.escape(invoice.documentNumber)}</strong></p><p>Date: ${this.date(invoice.createdAt)}<br/>Echeance: ${this.date(invoice.issuedAt ?? invoice.createdAt)}</p></div></div>
       <div class="box" style="margin-top:24px"><strong>Client</strong><br/>${this.escape(invoice.customer?.displayName ?? "Client comptoir")}<br/><span class="muted">${this.escape(invoice.customer?.address ?? "Adresse client non definie")}</span><br/><span class="muted">${this.escape(invoice.customer?.email ?? "Email client non defini")}</span></div>
       <table><thead><tr><th>Produits / services</th><th class="right">Qte</th><th class="right">Prix</th><th class="right">Remise</th><th class="right">Taxes</th><th class="right">Total</th></tr></thead><tbody>${invoice.items.map((item) => `<tr><td>${this.escape(this.itemName(item))}${item.productId ? "" : `<br/><span class="muted">Article personnalise</span>`}</td><td class="right">${item.quantity}</td><td class="right">${this.money(item.unitPrice)}</td><td class="right">${this.money(item.discount)}</td><td class="right">${this.money(item.tax)}</td><td class="right">${this.money(item.total)}</td></tr>`).join("")}</tbody></table>
-      <table class="summary"><tr><td>Sous-total</td><td class="right">${this.money(invoice.subtotal)}</td></tr><tr><td>Remise</td><td class="right">${this.money(invoice.discount)}</td></tr><tr><td>Taxes</td><td class="right">${this.money(invoice.tax)}</td></tr><tr><td><strong>Total</strong></td><td class="right"><strong>${this.money(invoice.total)}</strong></td></tr><tr><td>Montant payé</td><td class="right">${this.money(paid)}</td></tr><tr><td>Solde</td><td class="right">${this.money(invoice.balance)}</td></tr></table>
-      <p><strong>Notes</strong><br/>${this.escape(invoice.notes ?? "Aucune note")}</p><div class="signature">Signature préparée</div>
+      <table class="summary"><tr><td>Sous-total</td><td class="right">${this.money(invoice.subtotal)}</td></tr><tr><td>Remise</td><td class="right">${this.money(invoice.discount)}</td></tr><tr><td>Taxes</td><td class="right">${this.money(invoice.tax)}</td></tr><tr><td><strong>Total</strong></td><td class="right"><strong>${this.money(invoice.total)}</strong></td></tr><tr><td>Montant réglé</td><td class="right">${this.money(paid)}</td></tr><tr><td>Montant reçu</td><td class="right">${this.money(received)}</td></tr><tr><td>Monnaie rendue</td><td class="right">${this.money(change)}</td></tr><tr><td>Solde</td><td class="right">${this.money(invoice.balance)}</td></tr></table>
+      <p><strong>Notes</strong><br/>${this.escape(invoice.notes ?? "Aucune note")}</p><div class="signature">Signature prÃ©parÃ©e</div>
     `);
   }
 
@@ -105,7 +111,9 @@ export class InvoicePrintService {
       `Date: ${this.date(invoice.createdAt)}`,
       ...invoice.items.map((item) => `${this.itemName(item)}${item.productId ? "" : " (Article personnalise)"} x${item.quantity} ${this.money(item.total)}`),
       `Total: ${this.money(invoice.total)}`,
-      `Payé: ${this.money(invoice.paidAmount)}`,
+      `Montant réglé: ${this.money(summarizePayments(invoice.total, invoice.payments).settledAmount)}`,
+      `Montant reçu: ${this.money(summarizePayments(invoice.total, invoice.payments).receivedAmount)}`,
+      `Monnaie rendue: ${this.money(summarizePayments(invoice.total, invoice.payments).changeAmount)}`,
       `Solde: ${this.money(invoice.balance)}`
     ].filter(Boolean);
     return this.pdf.createTextPdf(`Facture ${invoice.documentNumber}`, lines);
@@ -125,3 +133,5 @@ export class InvoicePrintService {
   private date(value: Date) { return new Intl.DateTimeFormat("fr-HT", { dateStyle: "medium", timeStyle: "short" }).format(value); }
   private escape(value: string) { return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
 }
+
+
