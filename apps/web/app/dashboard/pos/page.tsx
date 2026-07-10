@@ -68,8 +68,8 @@ export default function PosPage() {
   const cartPayload = useCallback(() => ({
     storeId: storeId || undefined,
     warehouseId: warehouseId || undefined,
-    taxRate: Number(taxRate || 0),
-    discount: Number(orderDiscount || 0),
+    taxRate: parseMoney(taxRate),
+    discount: parseMoney(orderDiscount),
     items: cart.items.map(cartLineToPayload)
   }), [cart.items, orderDiscount, storeId, taxRate, warehouseId]);
 
@@ -141,7 +141,7 @@ export default function PosPage() {
     setMessage("Vente en cours restaurée.");
   }, []);
   useEffect(() => {
-    const hasDraft = cart.items.length > 0 || Boolean(customerId) || Number(orderDiscount || 0) > 0 || payments.some((payment) => Number(payment.amount || 0) > 0);
+    const hasDraft = cart.items.length > 0 || Boolean(customerId) || parseMoney(orderDiscount) > 0 || payments.some((payment) => parseMoney(payment.amount) > 0);
     if (!hasDraft) {
       clearPosDraft();
       return;
@@ -157,7 +157,7 @@ export default function PosPage() {
     setError("");
     const payload = { ...cartPayload(), ...extra };
     if (!isOnline) {
-      setCart(calculateLocalCart(payload.items as CartPayloadItem[], products, Number(payload.taxRate ?? 0), Number(payload.discount ?? 0)));
+      setCart(calculateLocalCart(payload.items as CartPayloadItem[], products, parseMoney(payload.taxRate), parseMoney(payload.discount)));
       return;
     }
     try {
@@ -172,7 +172,7 @@ export default function PosPage() {
       }
       setCart(await response.json() as Cart);
     } catch {
-      setCart(calculateLocalCart(payload.items as CartPayloadItem[], products, Number(payload.taxRate ?? 0), Number(payload.discount ?? 0)));
+      setCart(calculateLocalCart(payload.items as CartPayloadItem[], products, parseMoney(payload.taxRate), parseMoney(payload.discount)));
       setMessage("Mode hors ligne active. Le panier utilise le stock local.");
     }
   }
@@ -271,15 +271,15 @@ export default function PosPage() {
     }
     setIsLoading(true);
     const paymentPayload = payments
-      .map((payment) => ({ method: payment.method, amount: Number(payment.amount || 0), reference: payment.reference || undefined }))
+      .map((payment) => ({ method: payment.method, amount: parseMoney(payment.amount), reference: payment.reference || undefined }))
       .filter((payment) => payment.amount > 0);
     const payload = {
       storeId,
       warehouseId,
       cashSessionId,
       customerId: customerId || undefined,
-      taxRate: Number(taxRate || 0),
-      discount: Number(orderDiscount || 0),
+      taxRate: parseMoney(taxRate),
+      discount: parseMoney(orderDiscount),
       items: cart.items.map(cartLineToPayload),
       payments: paymentPayload
     };
@@ -331,8 +331,8 @@ export default function PosPage() {
         storeId: storeId || undefined,
         warehouseId,
         customerId: customerId || undefined,
-        taxRate: Number(taxRate || 0),
-        discount: Number(orderDiscount || 0),
+        taxRate: parseMoney(taxRate),
+        discount: parseMoney(orderDiscount),
         note: label,
         items: cart.items.map(cartLineToPayload)
       })
@@ -437,9 +437,9 @@ export default function PosPage() {
     setError("");
     setMessage("");
     const name = customItemForm.name.trim();
-    const price = Number(customItemForm.price);
-    const quantity = Math.max(1, Number(customItemForm.quantity || 1));
-    const discount = Math.max(0, Number(customItemForm.discount || 0));
+    const price = parseMoney(customItemForm.price);
+    const quantity = Math.max(1, Math.floor(parseMoney(customItemForm.quantity || 1)));
+    const discount = Math.max(0, parseMoney(customItemForm.discount || 0));
     if (!name) {
       setError("Le nom ou la description est obligatoire.");
       return;
@@ -473,7 +473,7 @@ export default function PosPage() {
   const companyName = branding?.companyName ?? currentUser?.tenant ?? "Mon entreprise";
   const cashierName = branding?.userName ?? currentUser?.name ?? "Utilisateur";
   const canCheckout = useMemo(() => cart.items.length > 0 && cart.canCheckout && Boolean(storeId) && Boolean(warehouseId) && Boolean(cashSessionId) && !isLoading, [cart.canCheckout, cart.items.length, cashSessionId, isLoading, storeId, warehouseId]);
-  const paidAmount = useMemo(() => roundMoney(payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0)), [payments]);
+  const paidAmount = useMemo(() => roundMoney(payments.reduce((sum, payment) => sum + parseMoney(payment.amount), 0)), [payments]);
   const canReceivePayment = useMemo(() => canCheckout && paidAmount >= cart.total && cart.total > 0, [canCheckout, cart.total, paidAmount]);
   const changeDue = useMemo(() => roundMoney(Math.max(0, paidAmount - cart.total)), [cart.total, paidAmount]);
   const balanceDue = useMemo(() => roundMoney(Math.max(0, cart.total - paidAmount)), [cart.total, paidAmount]);
@@ -549,6 +549,7 @@ export default function PosPage() {
             cartTitle={posTemplate.cartTitle}
             emptyCart={posTemplate.emptyCart}
             lastSale={lastSale}
+            branding={branding}
             companyName={companyName}
             cashierName={cashierName}
             orderDiscount={orderDiscount}
@@ -605,6 +606,7 @@ export default function PosPage() {
               cartTitle={posTemplate.cartTitle}
               emptyCart={posTemplate.emptyCart}
               lastSale={lastSale}
+              branding={branding}
               companyName={companyName}
               cashierName={cashierName}
               orderDiscount={orderDiscount}
@@ -812,6 +814,7 @@ type CartPanelProps = {
   cartTitle: string;
   emptyCart: string;
   lastSale: SaleResponse | null;
+  branding: CompanyBranding | null;
   companyName: string;
   cashierName: string;
   orderDiscount: string;
@@ -867,7 +870,7 @@ function CartPanel(props: CartPanelProps) {
             <p className="font-black">Dernière vente confirmée</p>
             <p>Reçu: {props.lastSale.receipt?.number ?? "--"}</p>
             <p>Facture: {props.lastSale.invoice?.documentNumber ?? "--"}</p>
-            <a href={receiptPreviewUrl(props.lastSale, props.companyName, props.cashierName)} className="mt-2 inline-flex rounded-xl bg-emerald-700 px-3 py-2 text-xs font-bold text-white">Imprimer ticket</a>
+            <a href={receiptPreviewUrl(props.lastSale, props.branding, props.companyName, props.cashierName)} className="mt-2 inline-flex rounded-xl bg-emerald-700 px-3 py-2 text-xs font-bold text-white">Imprimer ticket</a>
           </div>
         ) : null}
       </div>
@@ -892,7 +895,7 @@ function CartLineItem({ item, updateQuantity, removeProduct }: { item: CartLine;
       <div className="mt-3 flex items-center justify-between gap-3">
         <div className="inline-flex items-center overflow-hidden rounded-xl border border-slate-300 dark:border-slate-700">
           <button onClick={() => updateQuantity(id, Math.max(0, item.quantity - 1))} className="h-10 w-10 text-lg font-black">-</button>
-          <input aria-label={`Quantité ${item.name}`} type="number" min={0} value={item.quantity} onChange={(event) => updateQuantity(id, Number(event.target.value))} className="h-10 w-16 border-x border-slate-300 bg-white text-center font-bold outline-none dark:border-slate-700 dark:bg-slate-950" />
+          <input aria-label={`Quantité ${item.name}`} type="number" min={0} value={item.quantity} onChange={(event) => updateQuantity(id, Math.floor(parseMoney(event.target.value)))} className="h-10 w-16 border-x border-slate-300 bg-white text-center font-bold outline-none dark:border-slate-700 dark:bg-slate-950" />
           <button onClick={() => updateQuantity(id, item.quantity + 1)} className="h-10 w-10 text-lg font-black">+</button>
         </div>
         <div className="text-right text-sm">
@@ -934,7 +937,7 @@ function PaymentPanel(props: CartPanelProps) {
       <button onClick={props.checkout} disabled={!props.canReceivePayment} className="w-full rounded-2xl bg-emerald-600 px-4 py-4 text-lg font-black text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">{props.isLoading ? "Validation..." : "Encaisser"}</button>
       <div className="grid grid-cols-2 gap-2">
         <button onClick={props.holdSale} disabled={!props.cart.items.length} className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-bold disabled:opacity-50 dark:border-slate-700">{props.pendingLabel}</button>
-        {props.lastSale ? <a href={receiptPreviewUrl(props.lastSale, props.companyName, props.cashierName)} className="rounded-2xl border border-slate-300 px-4 py-3 text-center text-sm font-bold dark:border-slate-700">Imprimer</a> : <button disabled className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-bold opacity-50 dark:border-slate-700">Imprimer</button>}
+        {props.lastSale ? <a href={receiptPreviewUrl(props.lastSale, props.branding, props.companyName, props.cashierName)} className="rounded-2xl border border-slate-300 px-4 py-3 text-center text-sm font-bold dark:border-slate-700">Imprimer</a> : <button disabled className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-bold opacity-50 dark:border-slate-700">Imprimer</button>}
       </div>
       <button type="button" onClick={() => props.setShowExpertOptions((current) => !current)} className="text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">Mode expert</button>
       {props.showExpertOptions ? <ExpertOptions {...props} /> : null}
@@ -1040,6 +1043,16 @@ function insufficientPaymentMessage(total: number, paidAmount: number) {
   return `Montant insuffisant. Le client doit payer au minimum ${formatMoney(total)}. Il manque ${formatMoney(missing)}.`;
 }
 
+function parseMoney(value: unknown) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const normalized = String(value ?? "")
+    .replace(/\s/g, "")
+    .replace(/[^\d,.-]/g, "")
+    .replace(",", ".");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function lineKey(item: Pick<CartLine, "productId" | "customId" | "name">) {
   return item.productId ?? item.customId ?? item.name;
 }
@@ -1066,14 +1079,20 @@ function customTypeLabel(type?: CustomItemType) {
   return "Article personnalisé";
 }
 
-function receiptPreviewUrl(sale: SaleResponse, companyName: string, cashierName: string) {
-  const receiptText = sale.receipt?.content ?? `Ticket de vente\nRecu: ${sale.receipt?.number ?? sale.id}\nTotal: ${formatMoney(Number(sale.total ?? 0))}`;
+function receiptPreviewUrl(sale: SaleResponse, branding: CompanyBranding | null, companyName: string, cashierName: string) {
+  const receiptText = sale.receipt?.content ?? `Ticket de vente\nRecu: ${sale.receipt?.number ?? sale.id}\nTotal: ${formatMoney(parseMoney(sale.total))}`;
   const params = new URLSearchParams({
     companyName: companyName || "Mon entreprise",
     cashierName: cashierName || "Utilisateur",
     receiptNumber: sale.receipt?.number ?? sale.id,
-    content: receiptText
+    content: receiptText,
+    width: "80"
   });
+  if (branding?.logoUrl) params.set("logoUrl", branding.logoUrl);
+  if (branding?.phone) params.set("phone", branding.phone);
+  if (branding?.address) params.set("address", branding.address);
+  if (branding?.email) params.set("email", branding.email);
+  if (branding?.taxNumber) params.set("taxNumber", branding.taxNumber);
   return `/dashboard/pos/print?${params.toString()}`;
 }
 
