@@ -895,6 +895,7 @@ model Sale {
   tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   cashSessionId String?
   customerId    String?
+  createdById   String?
   cashSession   CashSession? @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
   customer      Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
   store         Store?       @relation(fields: [storeId], references: [id], onDelete: SetNull)
@@ -915,6 +916,7 @@ model Sale {
   @@index([tenantId])
   @@index([cashSessionId])
   @@index([customerId])
+  @@index([createdById])
   @@index([status])
 }
 

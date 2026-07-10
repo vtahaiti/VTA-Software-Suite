@@ -12,21 +12,22 @@ export class SalesService {
   async findAll(tenantId: string, query: SaleQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
+    const status = this.normalizeStatus(query.status);
     const where = this.saleWhere(tenantId, query);
     const include = { items: { include: { product: true } }, payments: { include: { invoice: true } }, receipt: true, customer: true, cashSession: { include: { cashRegister: true } } };
     const [rawItems, rawTotal] = await this.prisma.$transaction([
       this.prisma.sale.findMany({
         where,
         include,
-        skip: query.status === SaleStatus.COMPLETED ? 0 : (page - 1) * limit,
-        take: query.status === SaleStatus.COMPLETED ? Math.max(limit * page * 3, 100) : limit,
+        skip: status === SaleStatus.COMPLETED ? 0 : (page - 1) * limit,
+        take: status === SaleStatus.COMPLETED ? Math.max(limit * page * 3, 100) : limit,
         orderBy: { createdAt: "desc" }
       }),
       this.prisma.sale.count({ where })
     ]);
-    const normalized = this.uniqueSales(query.status === SaleStatus.COMPLETED ? rawItems.filter((sale) => this.isCompletedPaidSale(sale)) : rawItems);
-    const items = query.status === SaleStatus.COMPLETED ? normalized.slice((page - 1) * limit, page * limit) : normalized;
-    const total = query.status === SaleStatus.COMPLETED ? normalized.length : rawTotal;
+    const normalized = this.uniqueSales(status === SaleStatus.COMPLETED ? rawItems.filter((sale) => this.isCompletedPaidSale(sale)) : rawItems);
+    const items = status === SaleStatus.COMPLETED ? normalized.slice((page - 1) * limit, page * limit) : normalized;
+    const total = status === SaleStatus.COMPLETED ? normalized.length : rawTotal;
     return { items, meta: { page, limit, total, pageCount: Math.ceil(total / limit) } };
   }
 
@@ -138,6 +139,7 @@ export class SalesService {
           customerId: dto.customerId,
           storeId: dto.storeId,
           cashSessionId: dto.cashSessionId,
+          createdById: userId,
           subtotal: this.round(subtotal),
           discount: this.round(orderDiscount),
           tax: this.round(itemTax),
@@ -307,7 +309,7 @@ export class SalesService {
   }
 
   private saleWhere(tenantId: string, query: SaleQueryDto): Prisma.SaleWhereInput {
-    const status = query.status as SaleStatus | undefined;
+    const status = this.normalizeStatus(query.status);
     const where: Prisma.SaleWhereInput = { tenantId, status };
     if (status === SaleStatus.COMPLETED) {
       where.cancelledAt = null;
@@ -334,5 +336,13 @@ export class SalesService {
       { items: { some: { product: { name: { contains: marker, mode: "insensitive" } } } } },
       { items: { some: { product: { sku: { contains: marker, mode: "insensitive" } } } } }
     ]);
+  }
+
+  private normalizeStatus(status?: string) {
+    if (!status) return undefined;
+    const normalized = status.trim().toUpperCase();
+    if (normalized === "PAID") return SaleStatus.COMPLETED;
+    if (normalized in SaleStatus) return SaleStatus[normalized as keyof typeof SaleStatus];
+    return undefined;
   }
 }

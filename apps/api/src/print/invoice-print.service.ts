@@ -17,6 +17,7 @@ export class InvoicePrintService {
     });
     if (!sale) throw new NotFoundException("Vente introuvable");
     const tenant = sale.tenant as BrandedTenant;
+    const cashier = sale.createdById ? await this.prisma.user.findFirst({ where: { id: sale.createdById, tenantId }, select: { name: true } }) : null;
     const paid = sale.payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
     const change = Math.max(0, paid - Number(sale.total));
     const widthMm = width === "58" ? 58 : 80;
@@ -29,11 +30,11 @@ export class InvoicePrintService {
       </style>
       <div class="center"><div class="logo">${this.logoContent(tenant)}</div><strong>${this.escape(this.companyName(tenant))}</strong><br/><span class="muted">${this.escape(this.companyPhone(tenant) || "Telephone non defini")}</span><br/><span class="muted">${this.escape(this.companyAddress(tenant) || "Adresse non definie")}</span>${this.companyTax(tenant) ? `<br/><span class="muted">NIF: ${this.escape(this.companyTax(tenant))}</span>` : ""}</div>
       <div class="line"></div>
-      <table><tr><td>Ticket</td><td class="right">${this.escape(sale.receipt?.number ?? sale.id)}</td></tr><tr><td>Date</td><td class="right">${this.date(sale.createdAt)}</td></tr><tr><td>Caissier</td><td class="right">${this.escape(sale.cashSession?.cashRegister?.name ?? "Caisse")}</td></tr><tr><td>Client</td><td class="right">${this.escape(sale.customer?.displayName ?? "Client comptoir")}</td></tr></table>
+      <table><tr><td>Ticket</td><td class="right">${this.escape(sale.receipt?.number ?? sale.id)}</td></tr><tr><td>Date</td><td class="right">${this.date(sale.createdAt)}</td></tr><tr><td>Caissier</td><td class="right">${this.escape(cashier?.name ?? sale.cashSession?.cashRegister?.name ?? "Caisse")}</td></tr><tr><td>Client</td><td class="right">${this.escape(sale.customer?.displayName ?? "Client comptoir")}</td></tr></table>
       <div class="line"></div>
       <table>${sale.items.map((item) => `<tr><td>${this.escape(this.itemName(item))}${item.productId ? "" : `<br/><span class="muted">Article personnalise</span>`}<br/><span class="muted">${item.quantity} x ${this.money(item.unitPrice)} remise ${this.money(item.discount)}</span></td><td class="right">${this.money(item.total)}</td></tr>`).join("")}</table>
       <div class="line"></div>
-      <table><tr><td>Sous-total</td><td class="right">${this.money(sale.subtotal)}</td></tr><tr><td>Remise</td><td class="right">${this.money(sale.discount)}</td></tr><tr><td>Taxes</td><td class="right">${this.money(sale.tax)}</td></tr><tr><td><strong>Total</strong></td><td class="right"><strong>${this.money(sale.total)}</strong></td></tr><tr><td>Montant paye</td><td class="right">${this.money(paid)}</td></tr><tr><td>Monnaie rendue</td><td class="right">${this.money(change)}</td></tr></table>
+      <table><tr><td>Sous-total</td><td class="right">${this.money(sale.subtotal)}</td></tr>${Number(sale.discount) > 0 ? `<tr><td>Remise</td><td class="right">${this.money(sale.discount)}</td></tr>` : ""}${Number(sale.tax) > 0 ? `<tr><td>Taxes</td><td class="right">${this.money(sale.tax)}</td></tr>` : ""}<tr><td><strong>Total</strong></td><td class="right"><strong>${this.money(sale.total)}</strong></td></tr><tr><td>Montant paye</td><td class="right">${this.money(paid)}</td></tr><tr><td>Monnaie rendue</td><td class="right">${this.money(change)}</td></tr></table>
       <div class="line"></div><div class="center">Merci pour votre achat<br/><span class="muted">QR Code prepare</span><div class="qr">QR</div></div>
     `);
   }
