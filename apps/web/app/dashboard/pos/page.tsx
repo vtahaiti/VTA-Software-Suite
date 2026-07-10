@@ -1040,6 +1040,32 @@ function insufficientPaymentMessage(total: number, paidAmount: number) {
   return `Montant insuffisant. Le client doit payer au minimum ${formatMoney(total)}. Il manque ${formatMoney(missing)}.`;
 }
 
+function lineKey(item: Pick<CartLine, "productId" | "customId" | "name">) {
+  return item.productId ?? item.customId ?? item.name;
+}
+
+function cartLineToPayload(item: CartLine): CartPayloadItem {
+  if (item.isCustom || !item.productId) {
+    return {
+      customId: item.customId ?? lineKey(item),
+      customName: item.customName ?? item.name,
+      customType: item.customType ?? "OTHER",
+      customNote: item.customNote,
+      unitPrice: item.unitPrice,
+      quantity: item.quantity,
+      discount: item.discount
+    };
+  }
+  return { productId: item.productId, quantity: item.quantity, discount: item.discount };
+}
+
+function customTypeLabel(type?: CustomItemType) {
+  if (type === "OUT_OF_STOCK_PRODUCT") return "Produit hors stock";
+  if (type === "CUSTOM_WORK") return "Travail personnalisé";
+  if (type === "SERVICE") return "Service";
+  return "Article personnalisé";
+}
+
 function receiptPreviewUrl(sale: SaleResponse, companyName: string, cashierName: string) {
   const receiptText = sale.receipt?.content ?? `Ticket de vente\nRecu: ${sale.receipt?.number ?? sale.id}\nTotal: ${formatMoney(Number(sale.total ?? 0))}`;
   const params = new URLSearchParams({
@@ -1153,11 +1179,39 @@ function getPosTemplate(profileType?: string, primaryActivity?: string | null) {
   };
 }
 
-function calculateLocalCart(items: Array<{ productId: string; quantity: number; discount?: number }>, products: Product[], taxRate: number, discount: number): Cart {
+function calculateLocalCart(items: CartPayloadItem[], products: Product[], taxRate: number, discount: number): Cart {
   let subtotal = 0;
   let itemDiscount = 0;
   let tax = 0;
   const lines = items.map((item) => {
+    if (!item.productId) {
+      const lineDiscount = item.discount ?? 0;
+      const unitPrice = Number(item.unitPrice ?? 0);
+      const base = unitPrice * item.quantity;
+      const taxable = Math.max(0, base - lineDiscount);
+      const lineTax = roundMoney(taxable * taxRate);
+      const total = roundMoney(taxable + lineTax);
+      subtotal += base;
+      itemDiscount += lineDiscount;
+      tax += lineTax;
+      return {
+        productId: null,
+        customId: item.customId,
+        sku: "PERSONNALISE",
+        name: item.customName ?? "Article personnalisé",
+        unitPrice,
+        quantity: item.quantity,
+        discount: lineDiscount,
+        tax: lineTax,
+        total,
+        availableStock: 0,
+        hasEnoughStock: true,
+        isCustom: true,
+        customName: item.customName,
+        customType: item.customType ?? "OTHER",
+        customNote: item.customNote
+      };
+    }
     const product = products.find((entry) => entry.id === item.productId);
     if (!product) throw new Error("Produit introuvable dans le cache local");
     const lineDiscount = item.discount ?? 0;

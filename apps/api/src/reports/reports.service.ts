@@ -290,6 +290,7 @@ export class ReportsService {
     const tax = this.money(salesAggregate._sum.tax);
     const discount = this.money(salesAggregate._sum.discount);
     const costOfGoods = saleItems.reduce((sum, item) => {
+      if (!item.product) return sum;
       const cost = this.money(item.product.averageCost) || this.money(item.product.purchasePrice);
       return sum + cost * item.quantity;
     }, 0);
@@ -309,13 +310,13 @@ export class ReportsService {
         marginRate: revenue > 0 ? Number(((grossProfit / revenue) * 100).toFixed(2)) : 0
       },
       items: saleItems.map((item) => {
-        const cost = this.money(item.product.averageCost) || this.money(item.product.purchasePrice);
+        const cost = item.product ? this.money(item.product.averageCost) || this.money(item.product.purchasePrice) : 0;
         const revenueLine = this.money(item.total);
         const costLine = cost * item.quantity;
         return {
           id: item.id,
-          product: item.product.name,
-          sku: item.product.sku,
+          product: item.product?.name ?? item.customName ?? "Article personnalise",
+          sku: item.product?.sku ?? "PERSONNALISE",
           quantity: item.quantity,
           revenue: revenueLine,
           cost: costLine,

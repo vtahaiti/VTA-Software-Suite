@@ -477,7 +477,7 @@ export class PlatformService {
     });
     const map = new Map<string, number>();
     for (const item of items) {
-      const profit = Number(item.total) - Number(item.product.purchasePrice) * item.quantity;
+      const profit = Number(item.total) - Number(item.product?.purchasePrice ?? 0) * item.quantity;
       map.set(item.sale.tenantId, (map.get(item.sale.tenantId) ?? 0) + profit);
     }
     return map;

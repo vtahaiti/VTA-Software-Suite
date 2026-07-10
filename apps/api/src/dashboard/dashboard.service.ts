@@ -104,7 +104,7 @@ export class DashboardService {
       const revenueToday = this.sum(salesToday.map((sale) => this.money(sale.total)));
       const revenueMonth = this.sum(salesThisMonth.map((sale) => this.money(sale.total)));
       const revenueLastMonth = this.sum(salesLastMonth.map((sale) => this.money(sale.total)));
-      const costMonth = this.sum(saleItems.filter((item) => item.sale.createdAt >= startOfMonth).map((item) => (productCost.get(item.productId) ?? 0) * item.quantity));
+      const costMonth = this.sum(saleItems.filter((item) => item.sale.createdAt >= startOfMonth && item.productId).map((item) => (productCost.get(item.productId ?? "") ?? 0) * item.quantity));
       const profitMonth = revenueMonth - costMonth;
       const stockValue = this.sum(stocks.map((stock) => stock.quantity * (productCost.get(stock.productId) ?? this.money(stock.product.purchasePrice))));
       const lowStockProducts = stocks.filter((stock) => stock.quantity > 0 && stock.quantity <= stock.minimumStock);
@@ -188,7 +188,7 @@ export class DashboardService {
     }
   }
 
-  private buildTrend(startDate: Date, sales: Array<{ id: string; total: Prisma.Decimal; createdAt: Date }>, saleItems: Array<{ productId: string; quantity: number; total: Prisma.Decimal; sale: { createdAt: Date }; product: { averageCost: Prisma.Decimal; purchasePrice: Prisma.Decimal } }>, customers: Array<{ createdAt: Date }>): TrendPoint[] {
+  private buildTrend(startDate: Date, sales: Array<{ id: string; total: Prisma.Decimal; createdAt: Date }>, saleItems: Array<{ productId: string | null; quantity: number; total: Prisma.Decimal; sale: { createdAt: Date }; product: { averageCost: Prisma.Decimal; purchasePrice: Prisma.Decimal } | null }>, customers: Array<{ createdAt: Date }>): TrendPoint[] {
     const days = new Map<string, TrendPoint>();
     for (let index = 0; index < 30; index += 1) {
       const date = this.addDays(startDate, index);
@@ -203,7 +203,7 @@ export class DashboardService {
     }
     for (const item of saleItems) {
       const point = days.get(this.dateKey(item.sale.createdAt));
-      if (!point) continue;
+      if (!point || !item.product) continue;
       const cost = this.money(item.product.averageCost) || this.money(item.product.purchasePrice);
       point.profit += this.money(item.total) - cost * item.quantity;
     }
@@ -226,9 +226,10 @@ export class DashboardService {
     return Array.from(weeks.values()).map((week) => ({ ...week, revenue: this.round(week.revenue) }));
   }
 
-  private topProducts(items: Array<{ productId: string; quantity: number; total: Prisma.Decimal; product: { name: string; sku: string; averageCost: Prisma.Decimal; purchasePrice: Prisma.Decimal } }>) {
+  private topProducts(items: Array<{ productId: string | null; quantity: number; total: Prisma.Decimal; customName?: string | null; product: { name: string; sku: string; averageCost: Prisma.Decimal; purchasePrice: Prisma.Decimal } | null }>) {
     const rows = new Map<string, { product: string; sku: string; quantity: number; revenue: number; profit: number }>();
     for (const item of items) {
+      if (!item.productId || !item.product) continue;
       const cost = this.money(item.product.averageCost) || this.money(item.product.purchasePrice);
       const current = rows.get(item.productId) ?? { product: item.product.name, sku: item.product.sku, quantity: 0, revenue: 0, profit: 0 };
       current.quantity += item.quantity;
@@ -239,10 +240,10 @@ export class DashboardService {
     return Array.from(rows.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 10).map((row) => ({ ...row, revenue: this.round(row.revenue), profit: this.round(row.profit) }));
   }
 
-  private salesByCategory(items: Array<{ total: Prisma.Decimal; product: { category?: { name: string } | null } }>) {
+  private salesByCategory(items: Array<{ total: Prisma.Decimal; product: { category?: { name: string } | null } | null }>) {
     const rows = new Map<string, number>();
     for (const item of items) {
-      const category = item.product.category?.name ?? "Sans categorie";
+      const category = item.product?.category?.name ?? "Articles personnalisés";
       rows.set(category, (rows.get(category) ?? 0) + this.money(item.total));
     }
     return Array.from(rows.entries()).map(([label, value]) => ({ label, value: this.round(value) })).sort((a, b) => b.value - a.value).slice(0, 8);

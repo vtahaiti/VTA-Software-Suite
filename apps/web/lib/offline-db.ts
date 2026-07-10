@@ -42,7 +42,7 @@ export type OfflineSale = {
     cashSessionId?: string;
     taxRate?: number;
     discount?: number;
-    items: Array<{ productId: string; quantity: number; discount?: number }>;
+    items: Array<{ productId?: string | null; customId?: string; customName?: string; customType?: string; customNote?: string; unitPrice?: number; quantity: number; discount?: number }>;
     payments: Array<{ method: string; amount: number; reference?: string }>;
   };
   total: number;
