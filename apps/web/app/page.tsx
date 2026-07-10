@@ -1,22 +1,21 @@
-﻿import Link from "next/link";
+import { LoginActions } from "./login/login-actions";
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-white text-slate-950 dark:bg-slate-950 dark:text-white">
-      <section className="mx-auto grid min-h-screen w-full max-w-6xl items-center gap-10 px-6 py-16 lg:grid-cols-[1.1fr_0.9fr]">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-brand-600">VTA ERP</p>
-          <h1 className="mt-4 max-w-3xl text-4xl font-bold tracking-tight sm:text-6xl">Pilotez votre commerce, vos magasins et vos ventes depuis une seule plateforme.</h1>
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-300">VTA ERP est une plateforme SaaS multi-tenant pour produits, inventaire, POS, facturation, clients, achats, rapports et gestion multi-magasins.</p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/signup" className="rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-brand-700">Commencer gratuitement</Link>
-            <Link href="/login" className="rounded-md border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:border-slate-700 dark:text-white dark:hover:bg-slate-900">Se connecter</Link>
+    <main className="min-h-screen bg-gradient-to-br from-blue-700 via-blue-900 to-slate-950 px-6 py-10 text-white">
+      <section className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-5xl flex-col items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-full bg-white p-5 shadow-2xl shadow-slate-950/25 ring-1 ring-white/70">
+            <img src="/vta-commerce-logo.png" alt="Logo VTA Commerce" className="h-full w-full object-contain" />
           </div>
+          <h1 className="mt-8 text-4xl font-bold tracking-tight sm:text-5xl">VTA Commerce</h1>
+          <p className="mx-auto mt-4 max-w-2xl text-lg leading-8 text-blue-50">
+            La plateforme moderne de gestion commerciale concue pour les entreprises de toutes tailles.
+          </p>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {['POS rapide','Stock temps reel','Multi-magasins','Factures','Clients CRM','Rapports'].map((item) => <div key={item} className="rounded-md bg-white p-4 text-sm font-semibold shadow-sm dark:bg-slate-950">{item}</div>)}
-          </div>
+
+        <div className="mt-10 w-full max-w-md rounded-[2rem] border border-white/15 bg-white p-8 text-slate-950 shadow-2xl shadow-slate-950/30 dark:bg-slate-900 dark:text-white">
+          <LoginActions />
         </div>
       </section>
     </main>
