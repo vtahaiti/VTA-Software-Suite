@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PaymentMethod, Prisma, PurchaseOrderStatus, SaleStatus, SalesDocumentStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { availableStock, countLowStockProducts, countOutOfStockProducts, countUnknownCostProducts, knownUnitCost, sumKnownStockValue } from "../common/stock-business-rules";
 
 type CacheEntry = { expiresAt: number; data: unknown };
 type TrendPoint = { date: string; sales: number; revenue: number; profit: number; customers: number };
@@ -100,15 +101,21 @@ export class DashboardService {
       const salesThisYearAggregate = await this.prisma.sale.aggregate({ where: { ...completedSaleWhere, createdAt: { gte: startOfYear, lt: endOfDay } }, _sum: { total: true } });
       const salesLastYearAggregate = await this.prisma.sale.aggregate({ where: { ...completedSaleWhere, createdAt: { gte: startOfLastYear, lt: endOfLastYear } }, _sum: { total: true } });
 
-      const productCost = new Map(products.map((product) => [product.id, this.money(product.averageCost) || this.money(product.purchasePrice)]));
+      const productCost = new Map(products.map((product) => [product.id, knownUnitCost(product)]));
       const revenueToday = this.sum(salesToday.map((sale) => this.money(sale.total)));
       const revenueMonth = this.sum(salesThisMonth.map((sale) => this.money(sale.total)));
       const revenueLastMonth = this.sum(salesLastMonth.map((sale) => this.money(sale.total)));
-      const costMonth = this.sum(saleItems.filter((item) => item.sale.createdAt >= startOfMonth && item.productId).map((item) => (productCost.get(item.productId ?? "") ?? 0) * item.quantity));
+      const costMonth = this.sum(saleItems.filter((item) => item.sale.createdAt >= startOfMonth && item.productId).map((item) => {
+        const cost = productCost.get(item.productId ?? "");
+        return cost?.known && cost.amount !== null ? cost.amount * item.quantity : 0;
+      }));
       const profitMonth = revenueMonth - costMonth;
-      const stockValue = this.sum(stocks.map((stock) => stock.quantity * (productCost.get(stock.productId) ?? this.money(stock.product.purchasePrice))));
-      const lowStockProducts = stocks.filter((stock) => stock.quantity > 0 && stock.quantity <= stock.minimumStock);
-      const outOfStockProducts = stocks.filter((stock) => stock.quantity <= 0);
+      const stockValue = sumKnownStockValue(stocks);
+      const lowStockProducts = stocks.filter((stock) => availableStock(stock) <= stock.minimumStock);
+      const outOfStockProducts = stocks.filter((stock) => availableStock(stock) <= 0);
+      const lowStockProductCount = countLowStockProducts(stocks);
+      const outOfStockProductCount = countOutOfStockProducts(stocks);
+      const missingCostProductCount = countUnknownCostProducts(stocks);
       const paidInvoices = invoices.filter((invoice) => invoice.status === SalesDocumentStatus.PAID || this.money(invoice.balance) <= 0);
       const unpaidInvoices = invoices.filter((invoice) => invoice.status !== SalesDocumentStatus.CANCELLED && this.money(invoice.balance) > 0);
       const overdueInvoices = unpaidInvoices.filter((invoice) => invoice.createdAt < this.addDays(startOfDay, -30));
@@ -138,14 +145,16 @@ export class DashboardService {
           salesTotal: allTimeSalesCount,
           customersTotal: customers.length,
           productsTotal: products.length,
-          outOfStock: outOfStockProducts.length,
-          lowStock: lowStockProducts.length,
+          outOfStock: outOfStockProductCount,
+          lowStock: lowStockProductCount,
           invoicesPaid: paidInvoices.length,
           invoicesUnpaid: unpaidInvoices.length,
           pendingOrders
         },
         performance: {
           stockValue,
+          stockValuePartial: missingCostProductCount > 0,
+          missingCostProducts: missingCostProductCount,
           businessValue: stockValue + this.money(allTimeRevenue._sum.total),
           estimatedProfit: profitMonth,
           averageMargin: this.round(marginAverage),
@@ -204,8 +213,8 @@ export class DashboardService {
     for (const item of saleItems) {
       const point = days.get(this.dateKey(item.sale.createdAt));
       if (!point || !item.product) continue;
-      const cost = this.money(item.product.averageCost) || this.money(item.product.purchasePrice);
-      point.profit += this.money(item.total) - cost * item.quantity;
+      const cost = knownUnitCost(item.product);
+      point.profit += this.money(item.total) - (cost.known && cost.amount !== null ? cost.amount * item.quantity : 0);
     }
     for (const customer of customers) {
       const point = days.get(this.dateKey(customer.createdAt));
@@ -230,11 +239,11 @@ export class DashboardService {
     const rows = new Map<string, { product: string; sku: string; quantity: number; revenue: number; profit: number }>();
     for (const item of items) {
       if (!item.productId || !item.product) continue;
-      const cost = this.money(item.product.averageCost) || this.money(item.product.purchasePrice);
+      const cost = knownUnitCost(item.product);
       const current = rows.get(item.productId) ?? { product: item.product.name, sku: item.product.sku, quantity: 0, revenue: 0, profit: 0 };
       current.quantity += item.quantity;
       current.revenue += this.money(item.total);
-      current.profit += this.money(item.total) - cost * item.quantity;
+      current.profit += this.money(item.total) - (cost.known && cost.amount !== null ? cost.amount * item.quantity : 0);
       rows.set(item.productId, current);
     }
     return Array.from(rows.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 10).map((row) => ({ ...row, revenue: this.round(row.revenue), profit: this.round(row.profit) }));
@@ -255,13 +264,13 @@ export class DashboardService {
     return Array.from(rows.entries()).map(([label, value]) => ({ label, value: this.round(value) })).sort((a, b) => b.value - a.value);
   }
 
-  private stockValueByCategory(products: Array<{ category?: { name: string } | null; purchasePrice: Prisma.Decimal; averageCost: Prisma.Decimal; stocks: Array<{ quantity: number }> }>) {
+  private stockValueByCategory(products: Array<{ category?: { name: string } | null; purchasePrice: Prisma.Decimal; averageCost: Prisma.Decimal; stocks: Array<{ quantity: number; reserved?: number | null }> }>) {
     const rows = new Map<string, number>();
     for (const product of products) {
       const category = product.category?.name ?? "Sans categorie";
-      const quantity = product.stocks.reduce((sum, stock) => sum + stock.quantity, 0);
-      const cost = this.money(product.averageCost) || this.money(product.purchasePrice);
-      rows.set(category, (rows.get(category) ?? 0) + quantity * cost);
+      const quantity = product.stocks.reduce((sum, stock) => sum + availableStock(stock), 0);
+      const cost = knownUnitCost(product);
+      rows.set(category, (rows.get(category) ?? 0) + (cost.known && cost.amount !== null ? quantity * cost.amount : 0));
     }
     return Array.from(rows.entries()).map(([label, value]) => ({ label, value: this.round(value) })).sort((a, b) => b.value - a.value).slice(0, 8);
   }

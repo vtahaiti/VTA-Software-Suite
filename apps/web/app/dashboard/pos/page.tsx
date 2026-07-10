@@ -82,13 +82,17 @@ export default function PosPage() {
         const data = await response.json() as { items: Product[] };
         setProducts(data.items ?? []);
         await saveOfflineProducts(data.items ?? []);
+        setError("");
         return;
       }
-      throw new Error("API indisponible");
-    } catch {
+      const body = await response.json().catch(() => null) as { message?: string | string[] } | null;
+      const detail = Array.isArray(body?.message) ? body?.message[0] : body?.message;
+      throw new Error(detail ?? "Impossible de charger les produits du POS.");
+    } catch (error) {
       const cachedProducts = await getOfflineProducts();
       const normalizedQuery = query.trim().toLowerCase();
       setProducts(normalizedQuery ? cachedProducts.filter((product) => product.name.toLowerCase().includes(normalizedQuery) || product.sku.toLowerCase().includes(normalizedQuery) || product.primaryBarcode?.includes(normalizedQuery)) : cachedProducts);
+      setError(error instanceof Error ? error.message : "Impossible de charger les produits du POS.");
     }
   }, [authHeaders, query, warehouseId]);
 

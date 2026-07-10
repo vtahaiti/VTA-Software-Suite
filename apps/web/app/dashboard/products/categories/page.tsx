@@ -1,1 +1,5 @@
-import { ReferenceManager } from "../reference-manager"; export default function CategoriesPage(){return <ReferenceManager title="Categories" endpoint="categories"/>}
+import { ReferenceManager } from "../reference-manager";
+
+export default function CategoriesPage() {
+  return <ReferenceManager title="Catégories" endpoint="categories" supportsArchive />;
+}

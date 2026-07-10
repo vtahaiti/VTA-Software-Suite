@@ -63,9 +63,7 @@ function decorateMenuSections(sections: BusinessMenuSection[]) {
       if (item.href === "/dashboard/products") {
         return [
           item,
-          { label: "   Tous les produits", href: "/dashboard/products" },
-          { label: "   Catégories", href: "/dashboard/products/categories" },
-          { label: "   Ajouter une catégorie", href: "/dashboard/products/categories" }
+          { label: "   Catégories", href: "/dashboard/products/categories" }
         ];
       }
       if (item.href === "/dashboard/pos" && item.label.includes("Nouvelle vente")) {
@@ -88,7 +86,7 @@ function filterMenuSections(sections: BusinessMenuSection[], user: ReturnType<ty
   })).filter((section) => section.items.length > 0);
 
   if (canManageUsers(user) && !filtered.some((section) => section.items.some((item) => item.href === "/dashboard/users"))) {
-    filtered.push({ title: "Administration", items: [{ label: "👤 Roles & Utilisateurs", href: "/dashboard/users" }] });
+    filtered.push({ title: "Administration", items: [{ label: "👤 Rôles & Utilisateurs", href: "/dashboard/users" }] });
   }
 
   return filtered;

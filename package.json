@@ -28,7 +28,8 @@
                     "mobile:sync":  "npm run mobile:sync --workspace=@vta/web",
                     "mobile:open":  "npm run mobile:open --workspace=@vta/web",
                     "test:core-logic":  "node scripts/core-logic-smoke.cjs",
-                    "test:qa:functional":  "node scripts/qa-functional-smoke.cjs"
+                    "test:qa:functional":  "node scripts/qa-functional-smoke.cjs",
+                    "test:business-rules":  "node scripts/business-rules-smoke.cjs"
                 },
     "devDependencies":  {
                             "concurrently":  "^8.2.2",

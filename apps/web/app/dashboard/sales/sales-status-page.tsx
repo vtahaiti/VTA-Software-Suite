@@ -13,7 +13,7 @@ type Sale = {
   createdAt: string;
   customer?: { displayName?: string | null; phone?: string | null } | null;
   receipt?: { number: string } | null;
-  payments?: Array<{ amount: string | number }>;
+  payments?: Array<{ amount: string | number; receivedAmount?: string | number | null; changeAmount?: string | number | null }>;
 };
 type Draft = {
   storageKey: string;
@@ -122,12 +122,14 @@ function DraftList({ drafts }: { drafts: Draft[] }) {
 
 function SaleList({ sales, type }: { sales: Sale[]; type: "completed" | "cancelled" }) {
   return <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-    <table className="w-full min-w-[720px] text-left text-sm">
-      <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">Date</th><th className="p-3">Client</th><th className="p-3">Statut</th><th className="p-3">Payé</th><th className="p-3">Total</th><th className="p-3">Actions</th></tr></thead>
+    <table className="w-full min-w-[920px] text-left text-sm">
+      <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">Date</th><th className="p-3">Client</th><th className="p-3">Statut</th><th className="p-3">Total</th><th className="p-3">Montant réglé</th><th className="p-3">Montant reçu</th><th className="p-3">Monnaie</th><th className="p-3">Actions</th></tr></thead>
       <tbody>{sales.map((sale) => {
         const paid = (sale.payments ?? []).reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
+        const received = (sale.payments ?? []).reduce((sum, payment) => sum + Number(payment.receivedAmount ?? payment.amount ?? 0), 0);
+        const change = (sale.payments ?? []).reduce((sum, payment) => sum + Number(payment.changeAmount ?? 0), 0);
         const total = Number(sale.total ?? 0);
-        return <tr key={sale.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3">{new Date(sale.createdAt).toLocaleString("fr-HT")}</td><td className="p-3">{sale.customer?.displayName ?? sale.customer?.phone ?? "Client comptoir"}</td><td className="p-3">{type === "cancelled" ? "Annulée" : paid >= total ? "Payée" : "Partiellement payée"}</td><td className="p-3">{formatMoney(paid)}</td><td className="p-3 font-bold">{formatMoney(total)}</td><td className="p-3"><div className="flex gap-3"><button onClick={() => window.alert(`Vente ${sale.id}\nTotal: ${formatMoney(total)}\nPayé: ${formatMoney(paid)}`)} className="text-slate-700 dark:text-slate-200">Voir détail</button><button onClick={() => void openPrintPreview(`/sales/${sale.id}/receipt?width=80`)} className="text-brand-600 disabled:text-slate-400" disabled={type === "cancelled"}>Imprimer</button></div></td></tr>;
+        return <tr key={sale.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3">{new Date(sale.createdAt).toLocaleString("fr-HT")}</td><td className="p-3">{sale.customer?.displayName ?? sale.customer?.phone ?? "Client comptoir"}</td><td className="p-3">{type === "cancelled" ? "Annulée" : paid >= total ? "Payée" : "Partiellement payée"}</td><td className="p-3 font-bold">{formatMoney(total)}</td><td className="p-3">{formatMoney(paid)}</td><td className="p-3">{formatMoney(received)}</td><td className="p-3">{formatMoney(change)}</td><td className="p-3"><div className="flex gap-3"><button onClick={() => window.alert(`Vente ${sale.id}\nTotal: ${formatMoney(total)}\nMontant réglé: ${formatMoney(paid)}\nMontant reçu: ${formatMoney(received)}\nMonnaie rendue: ${formatMoney(change)}`)} className="text-slate-700 dark:text-slate-200">Voir détail</button><button onClick={() => void openPrintPreview(`/sales/${sale.id}/receipt?width=80`)} className="text-brand-600 disabled:text-slate-400" disabled={type === "cancelled"}>Imprimer</button></div></td></tr>;
       })}</tbody>
     </table>
     {!sales.length ? <p className="p-5 text-sm text-slate-500">Aucune vente.</p> : null}

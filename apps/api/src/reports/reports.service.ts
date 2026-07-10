@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
-import { Prisma, SaleStatus, SalesDocumentStatus } from "@prisma/client";
+import { Prisma, SaleStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { availableStock, countLowStockProducts, countUnknownCostProducts, isLowStock, knownUnitCost, stockValue, sumKnownStockValue } from "../common/stock-business-rules";
 import { ReportQueryDto } from "./dto/report-query.dto";
 
 type DateRange = { gte?: Date; lte?: Date };
@@ -92,7 +93,10 @@ export class ReportsService {
         unit: product.unit?.name ?? null,
         salePrice: this.money(product.salePrice),
         purchasePrice: this.money(product.purchasePrice),
-        stock: product.stocks.reduce((sum, stock) => sum + stock.quantity, 0),
+        stock: product.stocks.reduce((sum, stock) => sum + availableStock(stock), 0),
+        costKnown: knownUnitCost(product).known,
+        unitCost: knownUnitCost(product).amount,
+        stockValue: product.stocks.reduce((sum, stock) => sum + (stockValue(stock, product) ?? 0), 0),
         minimumStock: product.minimumStock,
         barcodes: product.barcodes.length,
         images: product.images.length,
@@ -112,7 +116,7 @@ export class ReportsService {
       ...(createdAt ? { createdAt } : {})
     };
 
-    const [total, rows, movements, warehouses] = await this.prisma.$transaction([
+    const [total, rows, allStocks, movements, warehouses] = await this.prisma.$transaction([
       this.prisma.stock.count({ where: stockWhere }),
       this.prisma.stock.findMany({
         where: stockWhere,
@@ -120,6 +124,10 @@ export class ReportsService {
         orderBy: { updatedAt: "desc" },
         skip: pagination.skip,
         take: pagination.limit
+      }),
+      this.prisma.stock.findMany({
+        where: stockWhere,
+        include: { product: true, warehouse: true }
       }),
       this.prisma.inventoryMovement.findMany({
         where: movementWhere,
@@ -130,9 +138,12 @@ export class ReportsService {
       this.prisma.warehouse.count({ where: { tenantId, isActive: true } })
     ]);
 
-    const lowStock = rows.filter((stock) => stock.quantity <= stock.minimumStock);
-    const totalQuantity = rows.reduce((sum, stock) => sum + stock.quantity, 0);
-    const totalReserved = rows.reduce((sum, stock) => sum + stock.reserved, 0);
+    const lowStockProductCount = countLowStockProducts(allStocks);
+    const totalQuantity = allStocks.reduce((sum, stock) => sum + stock.quantity, 0);
+    const totalReserved = allStocks.reduce((sum, stock) => sum + stock.reserved, 0);
+    const totalAvailable = allStocks.reduce((sum, stock) => sum + availableStock(stock), 0);
+    const totalStockValue = sumKnownStockValue(allStocks);
+    const stockValueUnknownCosts = countUnknownCostProducts(allStocks);
 
     return {
       summary: {
@@ -140,7 +151,10 @@ export class ReportsService {
         warehouses,
         quantity: totalQuantity,
         reserved: totalReserved,
-        lowStock: lowStock.length,
+        available: totalAvailable,
+        lowStock: lowStockProductCount,
+        stockValue: this.money(totalStockValue),
+        stockValueUnknownCosts,
         movements: movements.length
       },
       items: rows.map((stock) => ({
@@ -150,9 +164,11 @@ export class ReportsService {
         warehouse: stock.warehouse.name,
         quantity: stock.quantity,
         reserved: stock.reserved,
-        available: stock.quantity - stock.reserved,
+        available: availableStock(stock),
         minimumStock: stock.minimumStock,
-        isLowStock: stock.quantity <= stock.minimumStock,
+        isLowStock: isLowStock(stock),
+        costKnown: knownUnitCost(stock.product).known,
+        stockValue: stockValue(stock, stock.product),
         updatedAt: stock.updatedAt
       })),
       recentMovements: movements.map((movement) => ({
@@ -289,10 +305,12 @@ export class ReportsService {
     const revenue = this.money(salesAggregate._sum.total);
     const tax = this.money(salesAggregate._sum.tax);
     const discount = this.money(salesAggregate._sum.discount);
+    const costUnknownItems = saleItems.filter((item) => item.product && !knownUnitCost(item.product).known).length;
     const costOfGoods = saleItems.reduce((sum, item) => {
       if (!item.product) return sum;
-      const cost = this.money(item.product.averageCost) || this.money(item.product.purchasePrice);
-      return sum + cost * item.quantity;
+      const cost = knownUnitCost(item.product);
+      if (!cost.known || cost.amount === null) return sum;
+      return sum + cost.amount * item.quantity;
     }, 0);
     const returns = this.money(returnsAggregate._sum.total);
     const purchases = this.money(purchaseAggregate._sum.total);
@@ -304,15 +322,17 @@ export class ReportsService {
         tax,
         discount,
         costOfGoods,
+        costUnknownItems,
         returns,
         purchases,
         grossProfit,
-        marginRate: revenue > 0 ? Number(((grossProfit / revenue) * 100).toFixed(2)) : 0
+        marginRate: costUnknownItems > 0 ? null : revenue > 0 ? Number(((grossProfit / revenue) * 100).toFixed(2)) : 0,
+        marginReliable: costUnknownItems === 0
       },
       items: saleItems.map((item) => {
-        const cost = item.product ? this.money(item.product.averageCost) || this.money(item.product.purchasePrice) : 0;
+        const cost = item.product ? knownUnitCost(item.product) : { known: false, amount: null };
         const revenueLine = this.money(item.total);
-        const costLine = cost * item.quantity;
+        const costLine = cost.known && cost.amount !== null ? cost.amount * item.quantity : null;
         return {
           id: item.id,
           product: item.product?.name ?? item.customName ?? "Article personnalise",
@@ -320,7 +340,8 @@ export class ReportsService {
           quantity: item.quantity,
           revenue: revenueLine,
           cost: costLine,
-          profit: revenueLine - costLine,
+          costKnown: cost.known,
+          profit: costLine === null ? null : revenueLine - costLine,
           createdAt: item.createdAt
         };
       }),

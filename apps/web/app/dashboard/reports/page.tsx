@@ -36,7 +36,7 @@ const sections: SectionConfig[] = [
     key: "sales",
     title: "Rapport des ventes",
     description: "Suivi des ventes, taxes, remises et paiements.",
-    emptyText: "Aucune vente pour cette periode.",
+    emptyText: "Aucune vente pour cette période.",
     columns: [
       { key: "customer", label: "Client" },
       { key: "status", label: "Statut", format: "status" },
@@ -48,12 +48,12 @@ const sections: SectionConfig[] = [
   {
     key: "products",
     title: "Rapport produits",
-    description: "Catalogue, prix, stock et activite produits.",
-    emptyText: "Aucun produit trouve.",
+    description: "Catalogue, prix, stock et activité produits.",
+    emptyText: "Aucun produit trouvé.",
     columns: [
       { key: "sku", label: "SKU" },
       { key: "name", label: "Produit" },
-      { key: "category", label: "Categorie" },
+      { key: "category", label: "Catégorie" },
       { key: "brand", label: "Marque" },
       { key: "stock", label: "Stock" },
       { key: "salePrice", label: "Prix", format: "money" },
@@ -63,13 +63,13 @@ const sections: SectionConfig[] = [
   {
     key: "inventory",
     title: "Rapport inventaire",
-    description: "Quantites, reservations, depots et alertes de stock.",
+    description: "Quantités, réservations, dépôts et alertes de stock.",
     emptyText: "Aucune ligne de stock disponible.",
     columns: [
       { key: "product", label: "Produit" },
-      { key: "warehouse", label: "Depot" },
-      { key: "quantity", label: "Quantite" },
-      { key: "reserved", label: "Reserve" },
+      { key: "warehouse", label: "Dépôt" },
+      { key: "quantity", label: "Quantité" },
+      { key: "reserved", label: "Réservé" },
       { key: "available", label: "Disponible" },
       { key: "minimumStock", label: "Stock min." },
       { key: "isLowStock", label: "Alerte", format: "boolean" }
@@ -78,13 +78,13 @@ const sections: SectionConfig[] = [
   {
     key: "customers",
     title: "Rapport clients",
-    description: "Clients, soldes, limites de credit et statuts.",
-    emptyText: "Aucun client pour cette periode.",
+    description: "Clients, soldes, limites de crédit et statuts.",
+    emptyText: "Aucun client pour cette période.",
     columns: [
       { key: "code", label: "Code" },
       { key: "name", label: "Client" },
       { key: "company", label: "Entreprise" },
-      { key: "phone", label: "Telephone" },
+      { key: "phone", label: "Téléphone" },
       { key: "city", label: "Ville" },
       { key: "currentBalance", label: "Solde", format: "money" },
       { key: "status", label: "Statut", format: "status" }
@@ -93,14 +93,14 @@ const sections: SectionConfig[] = [
   {
     key: "purchases",
     title: "Rapport achats",
-    description: "Bons de commande, receptions et volumes fournisseurs.",
-    emptyText: "Aucun achat pour cette periode.",
+    description: "Bons de commande, réceptions et volumes fournisseurs.",
+    emptyText: "Aucun achat pour cette période.",
     columns: [
-      { key: "number", label: "Numero" },
+      { key: "number", label: "Numéro" },
       { key: "supplier", label: "Fournisseur" },
       { key: "status", label: "Statut", format: "status" },
       { key: "items", label: "Articles" },
-      { key: "receipts", label: "Receptions" },
+      { key: "receipts", label: "Réceptions" },
       { key: "total", label: "Total", format: "money" },
       { key: "createdAt", label: "Date", format: "date" }
     ]
@@ -108,14 +108,14 @@ const sections: SectionConfig[] = [
   {
     key: "profit",
     title: "Rapport profits",
-    description: "Marge brute, couts, retours et performance commerciale.",
+    description: "Marge brute, coûts, retours et performance commerciale.",
     emptyText: "Aucune ligne de profit disponible.",
     columns: [
       { key: "product", label: "Produit" },
       { key: "sku", label: "SKU" },
-      { key: "quantity", label: "Quantite" },
+      { key: "quantity", label: "Quantité" },
       { key: "revenue", label: "Revenu", format: "money" },
-      { key: "cost", label: "Cout", format: "money" },
+      { key: "cost", label: "Coût", format: "money" },
       { key: "profit", label: "Profit", format: "money" },
       { key: "createdAt", label: "Date", format: "date" }
     ]
@@ -162,10 +162,10 @@ export default function ReportsPage() {
     ? [
         { label: "Ventes", value: formatMoney(numberValue(reports.sales.summary.total)), detail: `${numberValue(reports.sales.summary.count)} ventes` },
         { label: "Produits", value: numberValue(reports.products.summary.count).toString(), detail: `${numberValue(reports.products.summary.active)} actifs` },
-        { label: "Stock faible", value: numberValue(reports.inventory.summary.lowStock).toString(), detail: `${numberValue(reports.inventory.summary.quantity)} unites` },
+        { label: "Stock faible", value: numberValue(reports.inventory.summary.lowStock).toString(), detail: `${numberValue(reports.inventory.summary.available)} unités disponibles` },
         { label: "Clients", value: numberValue(reports.customers.summary.count).toString(), detail: `${formatMoney(numberValue(reports.customers.summary.currentBalance))} solde` },
         { label: "Achats", value: formatMoney(numberValue(reports.purchases.summary.total)), detail: `${numberValue(reports.purchases.summary.count)} bons` },
-        { label: "Profit brut", value: formatMoney(numberValue(reports.profit.summary.grossProfit)), detail: `${numberValue(reports.profit.summary.marginRate)}% marge` }
+        { label: "Profit brut", value: formatMoney(numberValue(reports.profit.summary.grossProfit)), detail: reports.profit.summary.marginReliable === false ? "Coût non renseigné sur certaines ventes" : `${numberValue(reports.profit.summary.marginRate)}% marge` }
       ]
     : [];
 
@@ -189,7 +189,7 @@ export default function ReportsPage() {
 
       <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-[1fr_1fr_auto]">
         <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
-          Date debut
+          Date début
           <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
         </label>
         <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
@@ -258,7 +258,7 @@ function ReportTable({ config, report }: { config: SectionConfig; report: Report
 }
 
 function formatCell(value: Primitive, format?: Column["format"]) {
-  if (value === null || value === undefined || value === "") return "--";
+  if (value === null || value === undefined || value === "") return format === "money" ? "Coût non renseigné" : "--";
   if (format === "money") return formatMoney(Number(value));
   if (format === "date") return new Intl.DateTimeFormat("fr-HT", { dateStyle: "medium", timeStyle: "short" }).format(new Date(String(value)));
   if (format === "boolean") return value ? "Oui" : "Non";

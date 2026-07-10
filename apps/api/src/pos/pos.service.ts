@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, SalesDocumentStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { availableStock as computeAvailableStock } from "../common/stock-business-rules";
 import { CreateCustomerDto } from "../customers/dto/create-customer.dto";
 import { ProductQueryDto } from "../products/dto/product-query.dto";
 import { CreateSaleDto } from "../sales/dto/create-sale.dto";
@@ -320,6 +321,8 @@ export class PosService {
   }
 
   private productForPos(product: Prisma.ProductGetPayload<{ include: { barcodes: true; images: true; stocks: true; category: true; brand: true; unit: true } }>, warehouseId?: string) {
+    const scopedAvailable = this.availableStock(product.stocks, warehouseId);
+    const totalAvailable = this.availableStock(product.stocks);
     return {
       id: product.id,
       sku: product.sku,
@@ -331,14 +334,15 @@ export class PosService {
       brand: product.brand?.name ?? null,
       unit: product.unit?.symbol ?? product.unit?.name ?? null,
       primaryBarcode: product.barcodes.find((barcode) => barcode.isPrimary)?.value ?? product.barcodes[0]?.value ?? null,
-      availableStock: this.availableStock(product.stocks, warehouseId)
+      availableStock: warehouseId && scopedAvailable === 0 && totalAvailable > 0 ? totalAvailable : scopedAvailable,
+      totalAvailableStock: totalAvailable
     };
   }
 
   private availableStock(stocks: Array<{ warehouseId: string; quantity: number; reserved: number }>, warehouseId?: string) {
     return stocks
       .filter((stock) => !warehouseId || stock.warehouseId === warehouseId)
-      .reduce((sum, stock) => sum + stock.quantity - stock.reserved, 0);
+      .reduce((sum, stock) => sum + computeAvailableStock(stock), 0);
   }
 
   private emptyCart(taxRate: number, discount: number) {

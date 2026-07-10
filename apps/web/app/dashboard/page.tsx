@@ -23,6 +23,8 @@ type Kpis = {
 };
 type Performance = {
   stockValue: number;
+  stockValuePartial?: boolean;
+  missingCostProducts?: number;
   businessValue: number;
   estimatedProfit: number;
   averageMargin: number;
@@ -199,10 +201,13 @@ export default function DashboardPage() {
 
       {error ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
-          {error}
+          <p>{error}</p>
+          <button onClick={() => window.location.reload()} className="mt-3 rounded-md bg-red-600 px-4 py-2 text-sm font-bold text-white">Réessayer</button>
         </div>
       ) : null}
 
+      {isLoading ? <DashboardSkeleton /> : (
+        <>
       <section className="grid gap-3 sm:grid-cols-2 lg:gap-4 xl:grid-cols-4">
         {kpiCards.map((card) => <KpiCard key={card.label} {...card} isLoading={isLoading} />)}
       </section>
@@ -231,6 +236,8 @@ export default function DashboardPage() {
       </section>
 
       <TopSalesTable items={summary.topSalesTable} />
+        </>
+      )}
     </div>
   );
 }
@@ -247,8 +254,22 @@ function KpiCard({ label, value, tone, isLoading }: { label: string; value: stri
   return (
     <article className={`rounded-2xl border border-slate-200 bg-gradient-to-br p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg dark:border-slate-800 ${palette[tone] ?? palette.slate}`}>
       <p className="text-xs font-bold uppercase tracking-[0.16em] opacity-70">{label}</p>
-      <p className="mt-4 text-2xl font-black tracking-tight">{isLoading ? "..." : value}</p>
+      <p className="mt-4 text-2xl font-black tracking-tight">{isLoading ? <span className="block h-8 w-24 animate-pulse rounded bg-slate-200 dark:bg-slate-800" /> : value}</p>
     </article>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 8 }).map((_, index) => <div key={index} className="h-32 animate-pulse rounded-2xl border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-900" />)}
+      </section>
+      <section className="grid gap-6 xl:grid-cols-[1.5fr_0.8fr]">
+        <div className="h-96 animate-pulse rounded-[24px] border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-900" />
+        <div className="h-96 animate-pulse rounded-[24px] border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-900" />
+      </section>
+    </div>
   );
 }
 
@@ -354,7 +375,8 @@ function AlertsPanel({ alerts }: { alerts: DashboardSummary["alerts"] }) {
 
 function PerformancePanel({ performance }: { performance: Performance }) {
   const rows = [
-    ["Valeur totale du stock", formatMoney(performance.stockValue)],
+    ["Valeur connue du stock", formatMoney(performance.stockValue)],
+    ["Produits sans coût", String(performance.missingCostProducts ?? 0)],
     ["Valeur estimée du business", formatMoney(performance.businessValue)],
     ["Bénéfices estimés", formatMoney(performance.estimatedProfit)],
     ["Marge moyenne", `${performance.averageMargin}%`],

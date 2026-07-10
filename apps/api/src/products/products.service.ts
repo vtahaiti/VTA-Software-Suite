@@ -1,7 +1,8 @@
-﻿import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+﻿import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { PrismaService } from "../prisma/prisma.service";
+import { availableStock, knownUnitCost, stockValue } from "../common/stock-business-rules";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { CreateReferenceDto } from "./dto/create-reference.dto";
 import { ProductQueryDto } from "./dto/product-query.dto";
@@ -36,6 +37,7 @@ export class ProductsService {
       brandId: query.brandId,
       unitId: query.unitId,
       isActive: query.isActive,
+      ...(query.costMissing ? { averageCost: 0, purchasePrice: 0 } : {}),
       OR: search ? [
         { name: { contains: search, mode: "insensitive" } },
         { sku: { contains: search, mode: "insensitive" } },
@@ -181,10 +183,17 @@ export class ProductsService {
 
   labelData(tenantId: string, id: string) { return this.findOne(tenantId, id); }
 
-  findCategories(tenantId: string) { return this.prisma.category.findMany({ where: { tenantId }, orderBy: { name: "asc" } }); }
+  findCategories(tenantId: string, includeArchived = false) { return this.prisma.category.findMany({ where: { tenantId, ...(includeArchived ? {} : { archivedAt: null, isActive: true }) }, include: { _count: { select: { products: true } } }, orderBy: { name: "asc" } }); }
   createCategory(tenantId: string, dto: CreateReferenceDto) { return this.prisma.category.create({ data: { tenantId, name: dto.name, slug: this.slug(dto.name), imageUrl: dto.imageUrl, icon: dto.icon, isActive: dto.isActive ?? true } }); }
   async updateCategory(tenantId: string, id: string, dto: UpdateReferenceDto) { await this.ensureCategory(tenantId, id); return this.prisma.category.update({ where: { id }, data: { name: dto.name, slug: dto.name ? this.slug(dto.name) : undefined, imageUrl: dto.imageUrl, icon: dto.icon, isActive: dto.isActive } }); }
-  async deleteCategory(tenantId: string, id: string) { await this.ensureCategory(tenantId, id); return this.prisma.category.delete({ where: { id } }); }
+  async archiveCategory(tenantId: string, id: string) { await this.ensureCategory(tenantId, id); return this.prisma.category.update({ where: { id }, data: { archivedAt: new Date(), isActive: false } }); }
+  async restoreCategory(tenantId: string, id: string) { await this.ensureCategory(tenantId, id); return this.prisma.category.update({ where: { id }, data: { archivedAt: null, isActive: true } }); }
+  async deleteCategory(tenantId: string, id: string) {
+    await this.ensureCategory(tenantId, id);
+    const products = await this.prisma.product.count({ where: { tenantId, categoryId: id } });
+    if (products > 0) throw new BadRequestException("Impossible de supprimer une catégorie utilisée par des produits. Archivez-la plutôt.");
+    return this.prisma.category.delete({ where: { id } });
+  }
   findBrands(tenantId: string) { return this.prisma.brand.findMany({ where: { tenantId }, orderBy: { name: "asc" } }); }
   createBrand(tenantId: string, dto: CreateReferenceDto) { return this.prisma.brand.create({ data: { tenantId, name: dto.name, slug: this.slug(dto.name), isActive: dto.isActive ?? true } }); }
   async updateBrand(tenantId: string, id: string, dto: UpdateReferenceDto) { await this.ensureBrand(tenantId, id); return this.prisma.brand.update({ where: { id }, data: { name: dto.name, slug: dto.name ? this.slug(dto.name) : undefined, isActive: dto.isActive } }); }
@@ -224,13 +233,15 @@ export class ProductsService {
     };
   }
 
-  private withComputedFields<T extends { purchasePrice: unknown; salePrice: unknown; promotionalPrice?: unknown; variants?: Array<{ stock: number }>; stocks?: Array<{ quantity: number }> }>(product: T) {
-    const purchase = Number(product.purchasePrice ?? 0);
+  private withComputedFields<T extends { purchasePrice: unknown; averageCost?: unknown; salePrice: unknown; promotionalPrice?: unknown; variants?: Array<{ stock: number }>; stocks?: Array<{ quantity: number; reserved?: number | null; minimumStock?: number | null }> }>(product: T) {
+    const cost = knownUnitCost(product as { purchasePrice?: Prisma.Decimal | number | string | null; averageCost?: Prisma.Decimal | number | string | null });
+    const purchase = cost.amount ?? 0;
     const sale = Number(product.promotionalPrice ?? product.salePrice ?? 0);
-    const marginAmount = sale - purchase;
-    const marginRate = sale > 0 ? Number(((marginAmount / sale) * 100).toFixed(2)) : 0;
-    const stockCurrent = product.stocks?.reduce((sum, stock) => sum + Number(stock.quantity ?? 0), 0) ?? product.variants?.reduce((sum, variant) => sum + Number(variant.stock ?? 0), 0) ?? 0;
-    return { ...product, marginAmount, marginRate, stockCurrent };
+    const marginAmount = cost.known ? sale - purchase : null;
+    const marginRate = cost.known && sale > 0 ? Number((((sale - purchase) / sale) * 100).toFixed(2)) : null;
+    const stockCurrent = product.stocks?.reduce((sum, stock) => sum + availableStock(stock), 0) ?? product.variants?.reduce((sum, variant) => sum + Number(variant.stock ?? 0), 0) ?? 0;
+    const stockValueTotal = product.stocks?.reduce((sum, item) => sum + (stockValue(item, product as { purchasePrice?: Prisma.Decimal | number | string | null; averageCost?: Prisma.Decimal | number | string | null }) ?? 0), 0) ?? null;
+    return { ...product, costKnown: cost.known, unitCost: cost.amount, marginAmount, marginRate, stockCurrent, stockValue: stockValueTotal };
   }
 
   private async ensureCategory(tenantId: string, id: string) { if (!(await this.prisma.category.findFirst({ where: { id, tenantId } }))) throw new NotFoundException("Categorie introuvable"); }
@@ -242,5 +253,6 @@ export class ProductsService {
   private generateQrCode(sku: string) { return `VTA:${sku}:${Date.now().toString(36)}`; }
   private slug(value: string) { return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""); }
 }
+
 
 

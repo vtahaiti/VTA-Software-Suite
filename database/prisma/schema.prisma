@@ -488,6 +488,7 @@ model Category {
   imageUrl  String?
   icon      String?
   isActive  Boolean   @default(true)
+  archivedAt DateTime?
   products  Product[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -949,6 +950,8 @@ model Payment {
   invoice   Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   method    PaymentMethod
   amount    Decimal       @db.Decimal(12, 2)
+  receivedAmount Decimal? @db.Decimal(12, 2)
+  changeAmount   Decimal  @default(0) @db.Decimal(12, 2)
   reference String?
   notes     String?
   createdAt DateTime      @default(now())

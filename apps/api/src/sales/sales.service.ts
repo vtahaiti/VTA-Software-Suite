@@ -1,5 +1,5 @@
 ﻿import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { InventoryMovementType, Prisma, Product, SaleStatus, SalesDocumentStatus } from "@prisma/client";
+import { InventoryMovementType, PaymentMethod, Prisma, Product, SaleStatus, SalesDocumentStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { StockService } from "../stock/stock.service";
 import { CreateSaleDto } from "./dto/create-sale.dto";
@@ -118,13 +118,16 @@ export class SalesService {
       if (total < 0) throw new BadRequestException("Remise superieure au total");
 
       const payments = dto.payments ?? [];
-      const paidAmount = this.round(payments.reduce((sum, payment) => sum + payment.amount, 0));
-      if (paidAmount < total) {
-        throw new BadRequestException(this.insufficientPaymentMessage(total, paidAmount));
+      const receivedAmount = this.round(payments.reduce((sum, payment) => sum + payment.amount, 0));
+      if (receivedAmount < total) {
+        throw new BadRequestException(this.insufficientPaymentMessage(total, receivedAmount));
       }
-      if (paidAmount > total && payments.some((payment) => payment.method !== "CASH")) {
-        throw new BadRequestException("Le trop-percu est autorise uniquement en especes");
+      if (receivedAmount > total && payments.some((payment) => payment.method !== "CASH")) {
+        throw new BadRequestException("Le trop-perçu est autorisé uniquement en espèces");
       }
+      const settledAmount = this.round(Math.min(receivedAmount, total));
+      const changeAmount = this.round(Math.max(0, receivedAmount - total));
+      const paymentRows = this.paymentRows(payments, total);
 
       for (const item of saleItems) {
         if (!item.productId || !item.product) continue;
@@ -155,13 +158,13 @@ export class SalesService {
           tenantId,
           customerId: dto.customerId,
           documentNumber: this.documentNumber("INV"),
-          status: paidAmount >= total ? SalesDocumentStatus.PAID : SalesDocumentStatus.PARTIALLY_PAID,
+          status: settledAmount >= total ? SalesDocumentStatus.PAID : SalesDocumentStatus.PARTIALLY_PAID,
           subtotal: this.round(subtotal),
           discount: this.round(orderDiscount),
           tax: this.round(itemTax),
           total,
-          paidAmount,
-          balance: this.round(Math.max(0, total - paidAmount)),
+          paidAmount: settledAmount,
+          balance: this.round(Math.max(0, total - settledAmount)),
           notes: dto.note,
           createdById: userId,
           issuedAt: new Date(),
@@ -169,18 +172,18 @@ export class SalesService {
         }
       });
 
-      for (const payment of payments.filter((entry) => entry.amount > 0)) {
-        await tx.payment.create({ data: { saleId: sale.id, invoiceId: invoice.id, method: payment.method, amount: payment.amount, reference: payment.reference } });
+      for (const payment of paymentRows) {
+        await tx.payment.create({ data: { saleId: sale.id, invoiceId: invoice.id, method: payment.method, amount: payment.amount, receivedAmount: payment.receivedAmount, changeAmount: payment.changeAmount, reference: payment.reference } });
       }
 
-      if (dto.cashSessionId && paidAmount > 0) {
+      if (dto.cashSessionId && settledAmount > 0) {
         await tx.cashMovement.create({
           data: {
             tenantId,
             cashSessionId: dto.cashSessionId,
             type: "IN",
-            amount: paidAmount,
-            reason: paidAmount >= total ? "Encaissement vente POS" : "Acompte vente POS",
+            amount: settledAmount,
+            reason: settledAmount >= total ? "Encaissement vente POS" : "Acompte vente POS",
             reference: sale.id
           }
         });
@@ -213,7 +216,7 @@ export class SalesService {
         data: {
           saleId: sale.id,
           number: this.documentNumber("RCT"),
-          content: this.receiptContent(sale.id, saleItems, total, paidAmount)
+          content: this.receiptContent(sale.id, saleItems, total, settledAmount, receivedAmount, changeAmount)
         }
       });
 
@@ -280,15 +283,30 @@ export class SalesService {
     };
   }
 
-  private receiptContent(saleId: string, items: Array<{ product: { name: string } | null; customName?: string; productId?: string; quantity: number; total: number }>, total: number, paidAmount: number) {
+  private receiptContent(saleId: string, items: Array<{ product: { name: string } | null; customName?: string; productId?: string; quantity: number; total: number }>, total: number, settledAmount: number, receivedAmount: number, changeAmount: number) {
     const lines = items.map((item) => {
       const name = item.product?.name ?? item.customName ?? "Article personnalise";
       const suffix = item.productId ? "" : " (Article personnalise)";
       return `${name}${suffix} x${item.quantity} ${item.total.toFixed(2)}`;
     }).join("\n");
-    const balance = Math.max(0, total - paidAmount);
-    const change = Math.max(0, paidAmount - total);
-    return `Ticket de vente\nVente ${saleId}\n${lines}\nTotal: ${total.toFixed(2)}\nPaye: ${paidAmount.toFixed(2)}\nMonnaie: ${change.toFixed(2)}\nBalance: ${balance.toFixed(2)}`;
+    const balance = Math.max(0, total - settledAmount);
+    return `Ticket de vente\nVente ${saleId}\n${lines}\nTotal: ${total.toFixed(2)}\nMontant réglé: ${settledAmount.toFixed(2)}\nMontant reçu: ${receivedAmount.toFixed(2)}\nMonnaie rendue: ${changeAmount.toFixed(2)}\nBalance: ${balance.toFixed(2)}`;
+  }
+
+  private paymentRows(payments: Array<{ method: PaymentMethod; amount: number; reference?: string }>, total: number) {
+    let remaining = this.round(total);
+    let overpaymentAssigned = false;
+    return payments
+      .filter((payment) => payment.amount > 0)
+      .map((payment) => {
+        const receivedAmount = this.round(payment.amount);
+        const settledAmount = this.round(Math.min(receivedAmount, remaining));
+        remaining = this.round(Math.max(0, remaining - settledAmount));
+        const changeAmount = !overpaymentAssigned && payment.method === "CASH" && receivedAmount > settledAmount ? this.round(receivedAmount - settledAmount) : 0;
+        if (changeAmount > 0) overpaymentAssigned = true;
+        return { method: payment.method, amount: settledAmount, receivedAmount, changeAmount, reference: payment.reference };
+      })
+      .filter((payment) => payment.amount > 0 || payment.receivedAmount > 0);
   }
 
   private documentNumber(prefix: string) {

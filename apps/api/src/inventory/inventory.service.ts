@@ -1,7 +1,8 @@
 ﻿import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { InventoryMovementType, PhysicalInventoryStatus, Prisma, StockAlertStatus, StockAlertType, TransferStatus } from "@prisma/client";
+import { PhysicalInventoryStatus, Prisma, StockAlertStatus, StockAlertType, TransferStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { StockService } from "../stock/stock.service";
+import { availableStock, countLowStockProducts, countOutOfStockProducts, countUnknownCostProducts, isLowStock, isOutOfStock, sumKnownStockValue } from "../common/stock-business-rules";
 import { CreateTransferDto } from "./dto/create-transfer.dto";
 
 type InventoryQuery = { q?: string; dateFrom?: string; dateTo?: string; storeId?: string; warehouseId?: string; categoryId?: string; page?: number; limit?: number };
@@ -23,10 +24,11 @@ export class InventoryService {
       this.prisma.product.count({ where: { tenantId, expirationDate: { gte: new Date(), lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) } } }),
       this.prisma.product.count({ where: { tenantId, expirationDate: { lt: new Date() } } })
     ]);
-    const totalStockValue = stocks.reduce((sum, stock) => sum + Number(stock.quantity) * Number(stock.product.averageCost || stock.product.purchasePrice || 0), 0);
-    const outOfStock = stocks.filter((stock) => stock.quantity <= 0).length;
-    const belowMinimum = stocks.filter((stock) => stock.quantity > 0 && stock.quantity <= stock.minimumStock).length;
-    return { totalStockValue, productsCount, stockLines: stocks.length, outOfStock, belowMinimum, expiringSoon, expired, alerts, movements, chart: stocks.slice(0, 10).map((stock) => ({ name: stock.product.name, quantity: stock.quantity, minimum: stock.minimumStock })) };
+    const totalStockValue = sumKnownStockValue(stocks);
+    const stockValueUnknownCosts = countUnknownCostProducts(stocks);
+    const outOfStock = countOutOfStockProducts(stocks);
+    const belowMinimum = countLowStockProducts(stocks);
+    return { totalStockValue, stockValueUnknownCosts, productsCount, stockLines: stocks.length, outOfStock, belowMinimum, expiringSoon, expired, alerts, movements, chart: stocks.slice(0, 10).map((stock) => ({ name: stock.product.name, quantity: availableStock(stock), minimum: stock.minimumStock })) };
   }
 
   async movements(tenantId: string, query: InventoryQuery = {}) {
@@ -100,8 +102,9 @@ export class InventoryService {
   private async refreshAlerts(tenantId: string) {
     const stocks = await this.prisma.stock.findMany({ where: { tenantId }, include: { product: true, warehouse: { include: { store: true } } }, take: 1000 });
     for (const stock of stocks) {
-      if (stock.quantity <= 0) await this.upsertAlert(tenantId, stock.productId, stock.warehouseId, stock.warehouse.storeId ?? undefined, StockAlertType.OUT_OF_STOCK, `Rupture de stock: ${stock.product.name}`, stock.quantity, stock.minimumStock);
-      else if (stock.quantity <= stock.minimumStock) await this.upsertAlert(tenantId, stock.productId, stock.warehouseId, stock.warehouse.storeId ?? undefined, StockAlertType.LOW_STOCK, `Stock faible: ${stock.product.name}`, stock.quantity, stock.minimumStock);
+      const available = availableStock(stock);
+      if (isOutOfStock(stock)) await this.upsertAlert(tenantId, stock.productId, stock.warehouseId, stock.warehouse.storeId ?? undefined, StockAlertType.OUT_OF_STOCK, `Rupture de stock: ${stock.product.name}`, available, stock.minimumStock);
+      else if (isLowStock(stock)) await this.upsertAlert(tenantId, stock.productId, stock.warehouseId, stock.warehouse.storeId ?? undefined, StockAlertType.LOW_STOCK, `Stock faible: ${stock.product.name}`, available, stock.minimumStock);
     }
     const soon = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     const expiring = await this.prisma.product.findMany({ where: { tenantId, expirationDate: { lte: soon } }, take: 200 });

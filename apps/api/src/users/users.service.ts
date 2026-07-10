@@ -23,7 +23,7 @@ export class UsersService {
       phone: user.profile?.phone ?? "",
       isActive: user.isActive,
       roles: user.roles.map((entry) => entry.role.name),
-      role: user.roles[0]?.role.name ?? "Aucun role",
+      role: user.roles[0]?.role.name ?? "Aucun rôle",
       tenant: user.tenant.name,
       createdAt: user.createdAt
     }));
@@ -33,7 +33,7 @@ export class UsersService {
     await this.ensureTenantRolePresets(tenantId);
     const email = dto.email.trim().toLowerCase();
     const existing = await this.prisma.user.findFirst({ where: { tenantId, email } });
-    if (existing) throw new ConflictException("Un utilisateur existe deja avec cet email dans cette entreprise.");
+    if (existing) throw new ConflictException("Un utilisateur existe déjà avec cet email dans cette entreprise.");
 
     const role = await this.roleOrFail(tenantId, dto.role);
     const user = await this.prisma.user.create({
@@ -77,13 +77,13 @@ export class UsersService {
   }
 
   async disable(tenantId: string, userId: string, actorId: string) {
-    if (userId === actorId) throw new BadRequestException("Vous ne pouvez pas desactiver votre propre compte.");
+    if (userId === actorId) throw new BadRequestException("Vous ne pouvez pas désactiver votre propre compte.");
     await this.userOrFail(tenantId, userId);
     const activeOwners = await this.prisma.user.count({
       where: { tenantId, isActive: true, roles: { some: { role: { name: { in: ["Owner", "OWNER"] } } } } }
     });
-    const targetIsOwner = await this.prisma.userRole.findFirst({ where: { userId, role: { name: { in: ["Owner", "OWNER"] } } } });
-    if (targetIsOwner && activeOwners <= 1) throw new BadRequestException("Impossible de desactiver le dernier proprietaire actif.");
+    const targetIsOwner = await this.prisma.userRole.findFirst({ where: { userId, user: { tenantId }, role: { tenantId, name: { in: ["Owner", "OWNER"] } } } });
+    if (targetIsOwner && activeOwners <= 1) throw new BadRequestException("Impossible de désactiver le dernier propriétaire actif.");
     await this.prisma.user.update({ where: { id: userId }, data: { isActive: false } });
     await this.prisma.storeUser.updateMany({ where: { tenantId, userId }, data: { isActive: false } });
     return { success: true };
@@ -129,7 +129,7 @@ export class UsersService {
   private async roleOrFail(tenantId: string, roleName: TenantRoleName) {
     await this.ensureTenantRolePresets(tenantId);
     const role = await this.prisma.role.findFirst({ where: { tenantId, name: roleName } });
-    if (!role) throw new NotFoundException("Role introuvable");
+    if (!role) throw new NotFoundException("Rôle introuvable");
     return role;
   }
 }

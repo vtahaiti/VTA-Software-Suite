@@ -77,7 +77,7 @@ export class ProductsController {
 
   @Get("categories")
   @Permissions("products.view")
-  categories(@Req() request: AuthenticatedRequest) { return this.productsService.findCategories(request.user.tenantId); }
+  categories(@Req() request: AuthenticatedRequest, @Query("includeArchived") includeArchived?: string) { return this.productsService.findCategories(request.user.tenantId, includeArchived === "true"); }
 
   @Post("categories")
   @Permissions("products.create")
@@ -86,6 +86,14 @@ export class ProductsController {
   @Patch("categories/:id")
   @Permissions("products.update")
   updateCategory(@Req() request: AuthenticatedRequest, @Param("id") id: string, @Body() dto: UpdateReferenceDto) { return this.productsService.updateCategory(request.user.tenantId, id, dto); }
+
+  @Patch("categories/:id/archive")
+  @Permissions("products.update")
+  archiveCategory(@Req() request: AuthenticatedRequest, @Param("id") id: string) { return this.productsService.archiveCategory(request.user.tenantId, id); }
+
+  @Patch("categories/:id/restore")
+  @Permissions("products.update")
+  restoreCategory(@Req() request: AuthenticatedRequest, @Param("id") id: string) { return this.productsService.restoreCategory(request.user.tenantId, id); }
 
   @Delete("categories/:id")
   @Permissions("products.delete")
