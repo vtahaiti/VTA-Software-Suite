@@ -24,18 +24,46 @@ export class InvoicePrintService {
     return this.page(`Ticket ${sale.receipt?.number ?? sale.id}`, `
       <style>
         @page { size: ${widthMm}mm auto; margin: 3mm; }
-        body { width: ${widthMm - 6}mm; font-family: Arial, sans-serif; font-size: ${width === "58" ? "10px" : "12px"}; color: #111827; }
-        .center { text-align: center; } .logo { width: 42px; height: 42px; margin: 0 auto 4px; border: 1px solid #111827; border-radius: 8px; display: grid; place-items: center; font-weight: 700; overflow: hidden; } .logo img { width: 100%; height: 100%; object-fit: cover; }
-        .line { border-top: 1px dashed #111827; margin: 8px 0; } table { width: 100%; border-collapse: collapse; } td { padding: 2px 0; vertical-align: top; } .right { text-align: right; } .muted { color: #4b5563; } .qr { margin: 10px auto 0; width: 54px; height: 54px; border: 1px dashed #111827; display: grid; place-items: center; font-size: 9px; }
+        * { box-sizing: border-box; }
+        body { width: ${widthMm - 6}mm; margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: ${width === "58" ? "10px" : "11px"}; color: #111827; background: #ffffff; }
+        .ticket { width: 100%; }
+        .center { text-align: center; }
+        .logo { width: ${width === "58" ? "38px" : "46px"}; height: ${width === "58" ? "38px" : "46px"}; margin: 0 auto 5px; border: 1px solid #d1d5db; border-radius: 999px; display: grid; place-items: center; font-weight: 800; font-size: 13px; overflow: hidden; }
+        .logo img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
+        .company { font-size: ${width === "58" ? "11px" : "13px"}; letter-spacing: .3px; text-transform: uppercase; }
+        .muted { color: #4b5563; }
+        .line { border-top: 1px dashed #6b7280; margin: 8px 0; }
+        table { width: 100%; border-collapse: collapse; }
+        td { padding: 2px 0; vertical-align: top; }
+        .right { text-align: right; }
+        .meta td:first-child, .summary td:first-child { color: #4b5563; }
+        .item-name { font-weight: 700; word-break: break-word; }
+        .item-note { color: #4b5563; font-size: 9px; }
+        .total-row td { padding-top: 5px; font-size: ${width === "58" ? "12px" : "14px"}; font-weight: 800; border-top: 1px solid #111827; }
+        .thanks { margin-top: 8px; font-weight: 800; text-align: center; }
+        .legal { margin-top: 2px; text-align: center; font-size: 9px; color: #6b7280; }
+        .qr { margin: 8px auto 0; width: ${width === "58" ? "42px" : "50px"}; height: ${width === "58" ? "42px" : "50px"}; border: 1px dashed #6b7280; display: grid; place-items: center; font-size: 9px; color: #6b7280; }
       </style>
-      <div class="center"><div class="logo">${this.logoContent(tenant)}</div><strong>${this.escape(this.companyName(tenant))}</strong><br/><span class="muted">${this.escape(this.companyPhone(tenant) || "Telephone non defini")}</span><br/><span class="muted">${this.escape(this.companyAddress(tenant) || "Adresse non definie")}</span>${this.companyTax(tenant) ? `<br/><span class="muted">NIF: ${this.escape(this.companyTax(tenant))}</span>` : ""}</div>
-      <div class="line"></div>
-      <table><tr><td>Ticket</td><td class="right">${this.escape(sale.receipt?.number ?? sale.id)}</td></tr><tr><td>Date</td><td class="right">${this.date(sale.createdAt)}</td></tr><tr><td>Caissier</td><td class="right">${this.escape(cashier?.name ?? sale.cashSession?.cashRegister?.name ?? "Caisse")}</td></tr><tr><td>Client</td><td class="right">${this.escape(sale.customer?.displayName ?? "Client comptoir")}</td></tr></table>
-      <div class="line"></div>
-      <table>${sale.items.map((item) => `<tr><td>${this.escape(this.itemName(item))}${item.productId ? "" : `<br/><span class="muted">Article personnalise</span>`}<br/><span class="muted">${item.quantity} x ${this.money(item.unitPrice)} remise ${this.money(item.discount)}</span></td><td class="right">${this.money(item.total)}</td></tr>`).join("")}</table>
-      <div class="line"></div>
-      <table><tr><td>Sous-total</td><td class="right">${this.money(sale.subtotal)}</td></tr>${Number(sale.discount) > 0 ? `<tr><td>Remise</td><td class="right">${this.money(sale.discount)}</td></tr>` : ""}${Number(sale.tax) > 0 ? `<tr><td>Taxes</td><td class="right">${this.money(sale.tax)}</td></tr>` : ""}<tr><td><strong>Total</strong></td><td class="right"><strong>${this.money(sale.total)}</strong></td></tr><tr><td>Montant paye</td><td class="right">${this.money(paid)}</td></tr><tr><td>Monnaie rendue</td><td class="right">${this.money(change)}</td></tr></table>
-      <div class="line"></div><div class="center">Merci pour votre achat<br/><span class="muted">QR Code prepare</span><div class="qr">QR</div></div>
+      <div class="ticket">
+        <div class="center">
+          <div class="logo">${this.logoContent(tenant)}</div>
+          <strong class="company">${this.escape(this.companyName(tenant))}</strong><br/>
+          ${this.companyAddress(tenant) ? `<span class="muted">${this.escape(this.companyAddress(tenant))}</span><br/>` : ""}
+          ${this.companyPhone(tenant) ? `<span class="muted">Tel: ${this.escape(this.companyPhone(tenant))}</span><br/>` : ""}
+          ${this.companyEmail(tenant) ? `<span class="muted">${this.escape(this.companyEmail(tenant))}</span><br/>` : ""}
+          ${this.companyTax(tenant) ? `<span class="muted">NIF: ${this.escape(this.companyTax(tenant))}</span><br/>` : ""}
+        </div>
+        <div class="line"></div>
+        <table class="meta"><tr><td>Ticket</td><td class="right">${this.escape(sale.receipt?.number ?? sale.id)}</td></tr><tr><td>Date</td><td class="right">${this.date(sale.createdAt)}</td></tr><tr><td>Caissier</td><td class="right">${this.escape(cashier?.name ?? sale.cashSession?.cashRegister?.name ?? "Caisse")}</td></tr><tr><td>Client</td><td class="right">${this.escape(sale.customer?.displayName ?? "Client comptoir")}</td></tr></table>
+        <div class="line"></div>
+        <table>${sale.items.map((item) => `<tr><td><div class="item-name">${this.escape(this.itemName(item))}</div>${item.productId ? "" : `<div class="item-note">Article personnalise</div>`}<div class="item-note">${item.quantity} x ${this.money(item.unitPrice)}${Number(item.discount) > 0 ? ` - remise ${this.money(item.discount)}` : ""}</div></td><td class="right"><strong>${this.money(item.total)}</strong></td></tr>`).join("")}</table>
+        <div class="line"></div>
+        <table class="summary"><tr><td>Sous-total</td><td class="right">${this.money(sale.subtotal)}</td></tr>${Number(sale.discount) > 0 ? `<tr><td>Remise</td><td class="right">${this.money(sale.discount)}</td></tr>` : ""}${Number(sale.tax) > 0 ? `<tr><td>Taxes</td><td class="right">${this.money(sale.tax)}</td></tr>` : ""}<tr class="total-row"><td>Total</td><td class="right">${this.money(sale.total)}</td></tr><tr><td>Montant paye</td><td class="right">${this.money(paid)}</td></tr><tr><td>Monnaie rendue</td><td class="right">${this.money(change)}</td></tr></table>
+        <div class="line"></div>
+        <div class="thanks">Merci pour votre achat</div>
+        <div class="legal">Conservez ce ticket comme preuve de paiement.</div>
+        <div class="qr">QR</div>
+      </div>
     `);
   }
 
