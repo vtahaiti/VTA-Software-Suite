@@ -1,0 +1,2 @@
+import { SalesDocumentPage } from "../sales-document-page";
+export default function InvoicesPage() { return <SalesDocumentPage type="invoices" title="Factures" eyebrow="Ventes" createLabel="Nouvelle facture" />; }

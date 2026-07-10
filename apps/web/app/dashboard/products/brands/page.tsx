@@ -1,0 +1,1 @@
+import { ReferenceManager } from "../reference-manager"; export default function BrandsPage(){return <ReferenceManager title="Marques" endpoint="brands"/>}

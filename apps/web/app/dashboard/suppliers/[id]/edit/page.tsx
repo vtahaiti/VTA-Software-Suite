@@ -1,0 +1,2 @@
+import { SupplierForm } from "../../supplier-form";
+export default function EditSupplierPage({params}:{params:{id:string}}){return <div className="space-y-5"><div><p className="text-sm font-medium text-brand-600">Achats</p><h1 className="text-2xl font-bold text-slate-950 dark:text-white">Modifier fournisseur</h1></div><SupplierForm supplierId={params.id}/></div>}

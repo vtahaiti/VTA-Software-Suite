@@ -1,0 +1,38 @@
+{
+    "name":  "vta-software-suite",
+    "version":  "0.1.0",
+    "private":  true,
+    "description":  "VTA Software Suite - fondation de VTA Commerce.",
+    "workspaces":  [
+                       "apps/*",
+                       "packages/*"
+                   ],
+    "scripts":  {
+                    "dev":  "concurrently \"npm:dev:api\" \"npm:dev:web\"",
+                    "dev:web":  "npm run dev --workspace=@vta/web",
+                    "dev:api":  "npm run start:dev --workspace=@vta/api",
+                    "start":  "concurrently \"npm:start:api\" \"npm:start:web\"",
+                    "start:web":  "npm run start --workspace=@vta/web",
+                    "start:api":  "npm run start --workspace=@vta/api",
+                    "build":  "npm run build --workspaces --if-present",
+                    "lint":  "npm run lint --workspaces --if-present",
+                    "prisma:generate":  "prisma generate --schema=database/prisma/schema.prisma",
+                    "prisma:migrate":  "prisma migrate dev --schema=database/prisma/schema.prisma",
+                    "db:studio":  "prisma studio --schema=database/prisma/schema.prisma",
+                    "db:seed":  "node database/prisma/seed.cjs",
+                    "local:start":  "powershell -ExecutionPolicy Bypass -File scripts/start-local.ps1",
+                    "local:stop":  "powershell -ExecutionPolicy Bypass -File scripts/stop-local.ps1",
+                    "local:check":  "powershell -ExecutionPolicy Bypass -File scripts/check-local.ps1",
+                    "prod:check":  "powershell -ExecutionPolicy Bypass -File scripts/production-health-check.ps1",
+                    "mobile:add:android":  "npm run mobile:add:android --workspace=@vta/web",
+                    "mobile:sync":  "npm run mobile:sync --workspace=@vta/web",
+                    "mobile:open":  "npm run mobile:open --workspace=@vta/web",
+                    "test:core-logic":  "node scripts/core-logic-smoke.cjs",
+                    "test:qa:functional":  "node scripts/qa-functional-smoke.cjs",
+                    "test:business-rules":  "node scripts/business-rules-smoke.cjs"
+                },
+    "devDependencies":  {
+                            "concurrently":  "^8.2.2",
+                            "prisma":  "^5.22.0"
+                        }
+}

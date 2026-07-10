@@ -1,0 +1,43 @@
+{
+  "name": "VTA ERP",
+  "short_name": "VTA ERP",
+  "description": "Application de gestion commerciale et POS utilisable en ligne et preparee pour le mode hors ligne.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#16a34a",
+  "lang": "fr",
+  "categories": ["business", "productivity", "finance"],
+  "icons": [
+    {
+      "src": "/vta-commerce-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/vta-commerce-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nouvelle vente",
+      "short_name": "Vente",
+      "description": "Ouvrir directement le POS",
+      "url": "/dashboard/pos",
+      "icons": [{ "src": "/vta-commerce-logo.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Tableau de bord",
+      "short_name": "Accueil",
+      "description": "Ouvrir le tableau de bord",
+      "url": "/dashboard",
+      "icons": [{ "src": "/vta-commerce-logo.png", "sizes": "192x192" }]
+    }
+  ]
+}

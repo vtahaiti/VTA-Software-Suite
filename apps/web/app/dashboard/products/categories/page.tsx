@@ -1,0 +1,5 @@
+import { ReferenceManager } from "../reference-manager";
+
+export default function CategoriesPage() {
+  return <ReferenceManager title="Catégories" endpoint="categories" supportsArchive />;
+}
