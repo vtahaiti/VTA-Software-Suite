@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
-import { getAccessToken, getCurrentUser } from "@/lib/auth";
+import { clearSession, getAccessToken, getCurrentUser, refreshSession } from "@/lib/auth";
 import { openPrintPreview } from "@/lib/print";
 import { summarizePayments } from "@/lib/payment-summary";
 
@@ -40,11 +40,22 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
     const status = type === "cancelled" ? "CANCELLED" : "COMPLETED";
     const params = new URLSearchParams({ status, limit: "50" });
     if (type === "completed") params.set("excludeTestData", "true");
-    const response = await fetch(`${apiUrl}/sales?${params.toString()}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } }).catch(() => null);
-    if (!response?.ok) {
-      setMessage("Impossible de charger les ventes.");
-      return;
-    }
+    let token = getAccessToken();
+        let response = await fetch(`${apiUrl}/sales?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
+        if (response?.status === 401 || response?.status === 403) {
+          const refreshedUser = await refreshSession();
+          token = refreshedUser ? getAccessToken() : null;
+          if (!token) {
+            clearSession();
+            window.location.href = "/login";
+            return;
+          }
+          response = await fetch(`${apiUrl}/sales?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
+        }
+        if (!response?.ok) {
+          setMessage("Impossible de charger les ventes.");
+          return;
+        }
     const data = await response.json();
     const items = uniqueSales(data.items ?? []);
     setSales(type === "completed" ? items.filter(isPaidCompletedSale) : items);
