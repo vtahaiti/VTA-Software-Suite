@@ -1,6 +1,6 @@
 ﻿"use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getAccessToken, getCurrentUser } from "@/lib/auth";
+import { clearSession, getAccessToken, getCurrentUser } from "@/lib/auth";
 import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
 import { getOfflinePosContext, getOfflineProducts, getPendingOfflineSales, saveOfflinePosContext, saveOfflineProducts, saveOfflineSale, updateOfflineProductStock } from "@/lib/offline-db";
 import { syncOfflineSalesNow } from "@/lib/offline-sync";
@@ -1280,6 +1280,11 @@ function clearPosDraft() {
 }
 
 async function readError(response: Response) {
+  if (response.status === 401) {
+    clearSession();
+    if (typeof window !== "undefined") window.location.href = "/login";
+    return "Session expirée. Reconnectez-vous.";
+  }
   try {
     const body = await response.json() as { message?: string | string[] };
     return Array.isArray(body.message) ? body.message[0] : body.message ?? "Operation impossible";
