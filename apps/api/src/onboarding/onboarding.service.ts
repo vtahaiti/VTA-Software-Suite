@@ -61,7 +61,7 @@ export class OnboardingService {
 
   async createCompany(dto: CreateCompanyDto) {
     const pending = await this.prisma.pendingRegistration.findUnique({ where: { token: dto.pendingToken } });
-    if (!pending || pending.expiresAt.getTime() < Date.now()) throw new BadRequestException("Inscription expiree. Recommencez la creation du compte.");
+    if (!pending || pending.expiresAt.getTime() < Date.now()) throw new BadRequestException("Inscription expirée. Recommencez la création du compte.");
 
     const slug = await this.uniqueSlug(dto.companyName);
     const logoUrl = this.uploads.saveDataUrl("tenants", dto.logoDataUrl);
@@ -181,10 +181,10 @@ export class OnboardingService {
         }
       });
 
-      await tx.userProfile.create({ data: { userId: user.id, photoUrl: userPhotoUrl, phone: pending.phone, language: dto.language ?? "fr", jobTitle: "Owner" } });
+      await tx.userProfile.create({ data: { userId: user.id, photoUrl: userPhotoUrl, phone: pending.phone, language: dto.language ?? "fr", jobTitle: "Propriétaire" } });
 
       const store = await tx.store.create({ data: { tenantId: tenant.id, code: "MAIN", name: "Magasin principal", phone: dto.phone, email: dto.email, country: dto.country, city: dto.city, address: dto.address } });
-      const warehouse = await tx.warehouse.create({ data: { tenantId: tenant.id, storeId: store.id, code: "DEPOT-PRINCIPAL", name: "Depot principal", description: "Depot cree automatiquement pendant l onboarding" } });
+      const warehouse = await tx.warehouse.create({ data: { tenantId: tenant.id, storeId: store.id, code: "DEPOT-PRINCIPAL", name: "Dépôt principal", description: "Dépôt créé automatiquement pendant l onboarding" } });
       await tx.cashRegister.create({ data: { tenantId: tenant.id, storeId: store.id, code: "CAISSE-01", name: "Caisse principale" } });
 
       for (const categoryName of activityTemplate.categories) {
@@ -195,7 +195,7 @@ export class OnboardingService {
         });
       }
 
-      const role = await tx.role.create({ data: { tenantId: tenant.id, name: "OWNER", description: "Proprietaire de l entreprise", isSystem: true } });
+      const role = await tx.role.create({ data: { tenantId: tenant.id, name: "OWNER", description: "Propriétaire de l entreprise", isSystem: true } });
       await tx.rolePermission.createMany({ data: permissions.map((permission) => ({ roleId: role.id, permissionId: permission.id })), skipDuplicates: true });
       await tx.userRole.create({ data: { userId: user.id, roleId: role.id } });
       const businessProfileId = savedBusinessProfiles.get(selectedBusinessProfile.slug);

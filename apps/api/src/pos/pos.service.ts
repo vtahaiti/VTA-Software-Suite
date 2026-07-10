@@ -57,7 +57,7 @@ export class PosService {
     return this.prisma.warehouse.upsert({
       where: { tenantId_code: { tenantId, code: "DEPOT-PRINCIPAL" } },
       update: { storeId, status: "ACTIVE", isActive: true },
-      create: { tenantId, storeId, code: "DEPOT-PRINCIPAL", name: "Depot principal", description: "Depot principal", status: "ACTIVE", isActive: true }
+      create: { tenantId, storeId, code: "DEPOT-PRINCIPAL", name: "Dépôt principal", description: "Dépôt principal", status: "ACTIVE", isActive: true }
     });
   }
 

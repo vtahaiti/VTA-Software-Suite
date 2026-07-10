@@ -76,7 +76,7 @@ export class GoodsReceiptsService {
   async printReceipt(tenantId: string, id: string) {
     const receipt = await this.prisma.goodsReceipt.findFirst({ where: { id, tenantId }, include: { purchaseOrder: { include: { supplier: true } }, warehouse: true, items: { include: { product: true } } } });
     if (!receipt) throw new NotFoundException("R?ception introuvable");
-    return `R?CEPTION MARCHANDISES\nNum?ro: ${receipt.number}\nFournisseur: ${receipt.purchaseOrder.supplier.name}\nD?p?t: ${receipt.warehouse.name}\nDate: ${new Date().toLocaleString("fr-HT")}\nLignes: ${receipt.items.length}\n\nInformations entreprise, magasin et utilisateur pr?par?es.`;
+    return `RÉCEPTION MARCHANDISES\nNuméro: ${receipt.number}\nFournisseur: ${receipt.purchaseOrder.supplier.name}\nDépôt: ${receipt.warehouse.name}\nDate: ${new Date().toLocaleString("fr-HT")}\nLignes: ${receipt.items.length}\n\nInformations entreprise, magasin et utilisateur préparées.`;
   }
 
   private async refreshPurchaseOrderStatus(tenantId: string, purchaseOrderId: string) {

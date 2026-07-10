@@ -91,23 +91,23 @@ export default function CustomersPage() {
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Rechercher un client" className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
         <button onClick={() => setShowOptions((value) => !value)} className="mt-3 text-sm font-semibold text-slate-500 hover:text-brand-600">Plus d&apos;options</button>
-        {showOptions ? <div className="mt-3 flex flex-wrap gap-2 text-sm"><Link href="/dashboard/import-export" className="rounded-md border px-3 py-2 dark:border-slate-700">Import / Export</Link><Link href="/dashboard/customers/create" className="rounded-md border px-3 py-2 dark:border-slate-700">Fiche client avanc?e</Link></div> : null}
+        {showOptions ? <div className="mt-3 flex flex-wrap gap-2 text-sm"><Link href="/dashboard/import-export" className="rounded-md border px-3 py-2 dark:border-slate-700">Import / Export</Link><Link href="/dashboard/customers/create" className="rounded-md border px-3 py-2 dark:border-slate-700">Fiche client avancée</Link></div> : null}
       </div>
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">ðŸ‘¤ Nom</th><th className="p-3">ðŸ“ž Téléphone</th><th className="p-3">ðŸ¢ Entreprise</th><th className="p-3">ðŸ’° Solde</th><th className="p-3">âš™ï¸ Actions</th></tr></thead>
+          <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">👤 Nom</th><th className="p-3">📞 Téléphone</th><th className="p-3">🏢 Entreprise</th><th className="p-3">💰 Solde</th><th className="p-3">⚙️ Actions</th></tr></thead>
           <tbody>{items.map((customer) => <tr key={customer.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3"><Link href={`/dashboard/customers/${customer.id}`} className="font-semibold text-brand-700 dark:text-brand-300">{customer.displayName}</Link><p className="font-mono text-xs text-slate-400">{customer.customerCode}</p></td><td className="p-3">{customer.mobile ?? customer.phone ?? "--"}</td><td className="p-3">{customer.company ?? "--"}</td><td className="p-3">{formatMoney(customer.currentBalance)}</td><td className="p-3"><Link className="text-brand-600" href={`/dashboard/customers/${customer.id}/edit`}>Modifier</Link></td></tr>)}</tbody>
         </table>
       </div>
 
-      <Pagination page={page} pages={pages} total={total} label="clients" onPrev={() => setPage(page - 1)} onNext={() => setPage(page + 1)} />
+      <Pagination page={page} pages={pages} total={total} label="client" onPrev={() => setPage(page - 1)} onNext={() => setPage(page + 1)} />
 
       {isModalOpen ? (
         <Modal title="Nouveau client" onClose={() => setIsModalOpen(false)}>
           <form onSubmit={createCustomer} className="space-y-3">
             <Input required value={form.name} onChange={(value) => setForm((current) => ({ ...current, name: value }))} placeholder="Nom *" />
-            <Input required value={form.phone} onChange={(value) => setForm((current) => ({ ...current, phone: value }))} placeholder="T?l?phone *" />
+            <Input required value={form.phone} onChange={(value) => setForm((current) => ({ ...current, phone: value }))} placeholder="Téléphone *" />
             <Input value={form.address} onChange={(value) => setForm((current) => ({ ...current, address: value }))} placeholder="Adresse" />
             <Input value={form.email} onChange={(value) => setForm((current) => ({ ...current, email: value }))} placeholder="Email" />
             <Input value={form.company} onChange={(value) => setForm((current) => ({ ...current, company: value }))} placeholder="Entreprise" />
