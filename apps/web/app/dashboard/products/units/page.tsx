@@ -1,1 +1,1 @@
-import { ReferenceManager } from "../reference-manager"; export default function UnitsPage(){return <ReferenceManager title="Unites" endpoint="units" withSymbol/>}
+import { ReferenceManager } from "../reference-manager"; export default function UnitsPage(){return <ReferenceManager title="Unités" endpoint="units" withSymbol/>}

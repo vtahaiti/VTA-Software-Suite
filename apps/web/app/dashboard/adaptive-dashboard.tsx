@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useEffect, useState } from "react";
 import { getTenantBusinessConfiguration, type TenantBusinessConfiguration } from "@/lib/business-profiles";
 
@@ -54,7 +54,7 @@ const activityCards: Record<string, Array<{ label: string; description: string; 
   printing: [
     { label: "Commandes", description: "Commandes clients impression.", href: "/dashboard/sales/quotes" },
     { label: "Production", description: "Suivi de production prepare.", href: "/dashboard/sales/quotes" },
-    { label: "DTF / Broderie / Laser", description: "Ateliers specialises regroupes.", href: "/dashboard/sales/quotes" },
+    { label: "DTF / Broderie / Laser", description: "Ateliers specialises regroupés.", href: "/dashboard/sales/quotes" },
     { label: "Delais", description: "Suivi des delais prepare.", href: "/dashboard/reports" }
   ],
   garage: [
@@ -67,7 +67,7 @@ const activityCards: Record<string, Array<{ label: string; description: string; 
     { label: "Nouvelle vente", description: "Action principale de vente.", href: "/dashboard/pos" },
     { label: "Produits", description: "Catalogue centralise.", href: "/dashboard/products" },
     { label: "Stock", description: "Stock global et magasins.", href: "/dashboard/inventory" },
-    { label: "Parametres", description: "Activer plus de modules plus tard.", href: "/dashboard/settings/business-modules" }
+    { label: "Paramètres", description: "Activer plus de modules plus tard.", href: "/dashboard/settings/business-modules" }
   ]
 };
 
@@ -95,5 +95,5 @@ export function AdaptiveDashboard() {
   const widgets = configuration.widgets.slice(0, 8);
   const cards = activityCards[activityGroup(configuration)] ?? activityCards.commerce;
 
-  return <div className="mt-6 space-y-5"><div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><p className="text-sm font-medium text-brand-600">Dashboard adapte</p><h2 className="mt-1 text-xl font-bold text-slate-950 dark:text-white">{configuration.primaryActivity ?? "Activite principale"}</h2><p className="mt-1 text-sm text-slate-500">Les raccourcis restent simples et suivent l&apos;activite choisie pendant la creation de l&apos;entreprise.</p></div><div className="flex flex-wrap gap-2">{activeProfiles.map((profile)=><span key={profile.slug} className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 dark:bg-slate-800 dark:text-brand-200">{profile.name}</span>)}</div></div></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{cards.map((card)=><a key={card.label} href={card.href} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"><h3 className="text-lg font-bold text-slate-950 dark:text-white">{card.label}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{card.description}</p></a>)}</div>{widgets.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{widgets.map((widget)=><a key={widget.key} href={widgetRoutes[widget.key] ?? "/dashboard"} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{widget.module}</p><h3 className="mt-2 text-lg font-bold text-slate-950 dark:text-white">{widget.label}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{widget.description}</p></a>)}</div> : null}</div>;
+  return <div className="mt-6 space-y-5"><div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><p className="text-sm font-medium text-brand-600">Dashboard adapte</p><h2 className="mt-1 text-xl font-bold text-slate-950 dark:text-white">{configuration.primaryActivity ?? "Activité principale"}</h2><p className="mt-1 text-sm text-slate-500">Les raccourcis restent simples et suivent l&apos;activité choisie pendant la creation de l&apos;entreprise.</p></div><div className="flex flex-wrap gap-2">{activeProfiles.map((profile)=><span key={profile.slug} className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 dark:bg-slate-800 dark:text-brand-200">{profile.name}</span>)}</div></div></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{cards.map((card)=><a key={card.label} href={card.href} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"><h3 className="text-lg font-bold text-slate-950 dark:text-white">{card.label}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{card.description}</p></a>)}</div>{widgets.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{widgets.map((widget)=><a key={widget.key} href={widgetRoutes[widget.key] ?? "/dashboard"} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{widget.module}</p><h3 className="mt-2 text-lg font-bold text-slate-950 dark:text-white">{widget.label}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{widget.description}</p></a>)}</div> : null}</div>;
 }

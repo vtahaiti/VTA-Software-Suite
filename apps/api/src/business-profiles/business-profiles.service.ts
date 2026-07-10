@@ -1,4 +1,4 @@
-﻿import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { businessActivityTemplates, businessCategories, businessModules, businessProfiles, resolveBusinessProfileSlug } from "./business-catalog";
 
@@ -50,7 +50,7 @@ export class BusinessProfilesService {
       businessProfileType: tenant?.businessProfileType ?? "commerce",
       enabledBusinessModules: tenant?.enabledBusinessModules ?? activeModules.map((module) => module.key),
       categories: businessCategories,
-      offline: { prepared: true, message: "Mode hors ligne prepare pour synchronisation future." }
+      offline: { préparéd: true, message: "Mode hors ligne préparé pour synchronisation future." }
     };
   }
 
@@ -218,7 +218,7 @@ export class BusinessProfilesService {
         { label: "🚚 Fournisseurs", href: "/dashboard/suppliers", module: "suppliers" },
         { label: "🧾 Achats", href: "/dashboard/purchases", module: "suppliers" },
         { label: "📈 Rapports", href: "/dashboard/reports", module: "reports" },
-        { label: "⚙️ Parametres", href: "/dashboard/settings/company", module: "settings" }
+        { label: "⚙️ Paramètres", href: "/dashboard/settings/company", module: "settings" }
       ],
       pharmacy: [
         { label: "🏠 Accueil", href: "/dashboard", module: "dashboard" },
@@ -229,7 +229,7 @@ export class BusinessProfilesService {
         { label: "🧾 Ordonnances", href: "/dashboard/sales/quotes", module: "sales" },
         { label: "🏥 Fournisseurs", href: "/dashboard/suppliers", module: "suppliers" },
         { label: "📈 Rapports", href: "/dashboard/reports", module: "reports" },
-        { label: "⚙️ Parametres", href: "/dashboard/settings/company", module: "settings" }
+        { label: "⚙️ Paramètres", href: "/dashboard/settings/company", module: "settings" }
       ],
       clinic: [
         { label: "🏠 Accueil", href: "/dashboard", module: "dashboard" },
@@ -240,7 +240,7 @@ export class BusinessProfilesService {
         { label: "💊 Prescriptions", href: "/dashboard/sales/quotes", module: "sales" },
         { label: "🧾 Facturation", href: "/dashboard/sales/invoices", module: "sales" },
         { label: "📈 Rapports", href: "/dashboard/reports", module: "reports" },
-        { label: "⚙️ Parametres", href: "/dashboard/settings/company", module: "settings" }
+        { label: "⚙️ Paramètres", href: "/dashboard/settings/company", module: "settings" }
       ],
       restaurant: [
         { label: "🏠 Accueil", href: "/dashboard", module: "dashboard" },
@@ -252,7 +252,7 @@ export class BusinessProfilesService {
         { label: "📦 Stock", href: "/dashboard/inventory", module: "inventory" },
         { label: "👥 Clients", href: "/dashboard/customers", module: "customers" },
         { label: "📈 Rapports", href: "/dashboard/reports", module: "reports" },
-        { label: "⚙️ Parametres", href: "/dashboard/settings/company", module: "settings" }
+        { label: "⚙️ Paramètres", href: "/dashboard/settings/company", module: "settings" }
       ],
       hotel: [
         { label: "🏠 Accueil", href: "/dashboard", module: "dashboard" },
@@ -261,7 +261,7 @@ export class BusinessProfilesService {
         { label: "👥 Clients", href: "/dashboard/customers", module: "customers" },
         { label: "💳 Paiements", href: "/dashboard/payments", module: "sales" },
         { label: "📈 Rapports", href: "/dashboard/reports", module: "reports" },
-        { label: "⚙️ Parametres", href: "/dashboard/settings/company", module: "settings" }
+        { label: "⚙️ Paramètres", href: "/dashboard/settings/company", module: "settings" }
       ],
       school: [
         { label: "🏠 Accueil", href: "/dashboard", module: "dashboard" },
@@ -269,7 +269,7 @@ export class BusinessProfilesService {
         { label: "💳 Paiements", href: "/dashboard/payments", module: "sales" },
         { label: "🏫 Classes", href: "/dashboard/stores", module: "school" },
         { label: "📈 Rapports", href: "/dashboard/reports", module: "reports" },
-        { label: "⚙️ Parametres", href: "/dashboard/settings/company", module: "settings" }
+        { label: "⚙️ Paramètres", href: "/dashboard/settings/company", module: "settings" }
       ],
       garage: [
         { label: "🏠 Accueil", href: "/dashboard", module: "dashboard" },
@@ -280,7 +280,7 @@ export class BusinessProfilesService {
         { label: "📦 Pièces", href: "/dashboard/products", module: "products" },
         { label: "💳 Facturation", href: "/dashboard/sales/invoices", module: "sales" },
         { label: "📈 Rapports", href: "/dashboard/reports", module: "reports" },
-        { label: "⚙️ Parametres", href: "/dashboard/settings/company", module: "settings" }
+        { label: "⚙️ Paramètres", href: "/dashboard/settings/company", module: "settings" }
       ],
       production: [
         { label: "🏠 Accueil", href: "/dashboard", module: "dashboard" },
@@ -292,7 +292,7 @@ export class BusinessProfilesService {
         { label: "🪟 Produits finis", href: "/dashboard/products", module: "products" },
         { label: "👥 Clients", href: "/dashboard/customers", module: "customers" },
         { label: "📈 Rapports", href: "/dashboard/reports", module: "reports" },
-        { label: "⚙️ Parametres", href: "/dashboard/settings/company", module: "settings" }
+        { label: "⚙️ Paramètres", href: "/dashboard/settings/company", module: "settings" }
       ]
     };
     return menus[normalizedProfile] ?? menus.commerce;
@@ -302,7 +302,7 @@ export class BusinessProfilesService {
     const simpleItems = this.buildSimpleMenuSections(modules, profileType, primaryActivity)[0].items;
     return [
       { title: "Menu", items: simpleItems },
-      { title: "Parametres avances", items: [
+      { title: "Paramètres avancés", items: [
         { label: "Import / Export", href: "/dashboard/import-export" },
         { label: "Audit", href: "/dashboard/audit" },
         { label: "Logs", href: "/dashboard/audit-logs" },
@@ -316,7 +316,7 @@ export class BusinessProfilesService {
   }
 
   private buildMenuSections(modules: Array<ReturnType<BusinessProfilesService["serializeModule"]>>) {
-    const order = ["Principal", "Produits", "Stock", "Achats", "Ventes", "Restaurant", "Automobile", "Impression", "Hotel", "Education", "Services", "Parametres"];
+    const order = ["Principal", "Produits", "Stock", "Achats", "Ventes", "Restaurant", "Automobile", "Impression", "Hotel", "Education", "Services", "Paramètres"];
     const grouped = new Map<string, Array<{ label: string; href: string }>>();
     const seen = new Set<string>();
     for (const module of modules) for (const item of module.menuItems) {
@@ -337,8 +337,3 @@ export class BusinessProfilesService {
     return Array.from(widgets.values()).sort((a, b) => Number(!important.has(a.key)) - Number(!important.has(b.key)));
   }
 }
-
-
-
-
-

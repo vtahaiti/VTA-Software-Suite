@@ -1,4 +1,4 @@
-﻿import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { PrismaService } from "../prisma/prisma.service";
@@ -123,7 +123,7 @@ export class ProductsService {
         return tx.product.findUniqueOrThrow({ where: { id: product.id }, include: productInclude });
       }));
     } catch (error) {
-      if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException("Produit ou code-barres deja existant");
+      if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException("Produit ou code-barres déjà existant");
       throw error;
     }
   }
@@ -167,13 +167,13 @@ export class ProductsService {
   async exportCsv(tenantId: string) {
     const products = await this.prisma.product.findMany({ where: { tenantId }, include: productInclude, orderBy: { name: "asc" } });
     const rows = products.map((p) => [p.sku, p.reference ?? "", p.name, p.category?.name ?? "", p.brand?.name ?? "", p.supplier?.name ?? "", p.purchasePrice, p.salePrice, p.promotionalPrice ?? "", p.minimumStock, p.maximumStock, p.location ?? "", p.isActive ? "Actif" : "Inactif"]);
-    return [["SKU", "Reference", "Produit", "Categorie", "Marque", "Fournisseur", "Prix achat", "Prix vente", "Prix promo", "Stock min", "Stock max", "Emplacement", "Statut"], ...rows].map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\n");
+    return [["SKU", "Référence", "Produit", "Catégorie", "Marque", "Fournisseur", "Prix achat", "Prix vente", "Prix promo", "Stock min", "Stock max", "Emplacement", "Statut"], ...rows].map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\n");
   }
 
   async exportExcel(tenantId: string) {
     const products = await this.prisma.product.findMany({ where: { tenantId }, include: productInclude, orderBy: { name: "asc" } });
     const rows = products.map((p) => `<tr><td>${p.sku}</td><td>${p.name}</td><td>${p.category?.name ?? ""}</td><td>${p.brand?.name ?? ""}</td><td>${p.supplier?.name ?? ""}</td><td>${p.purchasePrice}</td><td>${p.salePrice}</td><td>${p.promotionalPrice ?? ""}</td><td>${p.isActive ? "Actif" : "Inactif"}</td></tr>`).join("");
-    return `<table><thead><tr><th>SKU</th><th>Produit</th><th>Categorie</th><th>Marque</th><th>Fournisseur</th><th>Prix achat</th><th>Prix vente</th><th>Prix promo</th><th>Statut</th></tr></thead><tbody>${rows}</tbody></table>`;
+    return `<table><thead><tr><th>SKU</th><th>Produit</th><th>Catégorie</th><th>Marque</th><th>Fournisseur</th><th>Prix achat</th><th>Prix vente</th><th>Prix promo</th><th>Statut</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
   async exportPdf(tenantId: string) {
@@ -244,7 +244,7 @@ export class ProductsService {
     return { ...product, costKnown: cost.known, unitCost: cost.amount, marginAmount, marginRate, stockCurrent, stockValue: stockValueTotal };
   }
 
-  private async ensureCategory(tenantId: string, id: string) { if (!(await this.prisma.category.findFirst({ where: { id, tenantId } }))) throw new NotFoundException("Categorie introuvable"); }
+  private async ensureCategory(tenantId: string, id: string) { if (!(await this.prisma.category.findFirst({ where: { id, tenantId } }))) throw new NotFoundException("Catégorie introuvable"); }
   private async ensureBrand(tenantId: string, id: string) { if (!(await this.prisma.brand.findFirst({ where: { id, tenantId } }))) throw new NotFoundException("Marque introuvable"); }
   private async ensureUnit(tenantId: string, id: string) { if (!(await this.prisma.unit.findFirst({ where: { id, tenantId } }))) throw new NotFoundException("Unite introuvable"); }
 
@@ -253,6 +253,3 @@ export class ProductsService {
   private generateQrCode(sku: string) { return `VTA:${sku}:${Date.now().toString(36)}`; }
   private slug(value: string) { return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""); }
 }
-
-
-

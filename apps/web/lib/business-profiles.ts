@@ -1,4 +1,4 @@
-﻿import { getAccessToken } from "@/lib/auth";
+import { getAccessToken } from "@/lib/auth";
 
 export type BusinessMenuSection = { title: string; items: Array<{ label: string; href: string }> };
 export type BusinessActivity = { name: string; profileType: string };
@@ -34,7 +34,7 @@ export const simpleMenuSections: BusinessMenuSection[] = [
     { label: "🚚 Fournisseurs", href: "/dashboard/suppliers" },
     { label: "🧾 Achats", href: "/dashboard/purchases" },
     { label: "📈 Rapports", href: "/dashboard/reports" },
-    { label: "⚙️ Parametres", href: "/dashboard/settings/company" }
+    { label: "⚙️ Paramètres", href: "/dashboard/settings/company" }
   ] }
 ];
 
@@ -57,7 +57,7 @@ export async function getTenantBusinessConfiguration() {
 export async function updateBusinessSelection(payload: { businessCategory: string; primaryActivity: string; secondaryActivities?: string[] }) {
   const token = getAccessToken();
   const response = await fetch(`${apiUrl}/business-profiles/tenant/selection`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
-  if (!response.ok) throw new Error("Modification de l'activite impossible.");
+  if (!response.ok) throw new Error("Modification de l'activité impossible.");
   return response.json() as Promise<TenantBusinessConfiguration>;
 }
 
@@ -81,5 +81,3 @@ export async function setBusinessModuleState(key: string, isActive: boolean) {
   if (!response.ok) throw new Error("Modification du module impossible.");
   return response.json() as Promise<TenantBusinessConfiguration>;
 }
-
-

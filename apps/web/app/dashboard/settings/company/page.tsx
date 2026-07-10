@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
@@ -40,7 +40,7 @@ export default function CompanySettingsPage() {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
       body: JSON.stringify({ ...form, name: form.companyName ?? form.name })
     });
-    setMsg(response.ok ? "Parametres entreprise sauvegardes." : "Sauvegarde impossible.");
+    setMsg(response.ok ? "Paramètres entreprise sauvegardés." : "Sauvegarde impossible.");
     if (response.ok) setForm(await response.json());
   }
 
@@ -88,7 +88,7 @@ export default function CompanySettingsPage() {
 }
 
 function Header({ active }: { active: string }) {
-  return <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm font-medium text-brand-600">Parametres</p><h1 className="text-2xl font-bold">Profil de l&apos;entreprise</h1><div className="mt-4 flex flex-wrap gap-2">{tabs.map(([label, href]) => <a key={href} href={href} className={`rounded-md px-3 py-2 text-sm ${label === active ? "bg-brand-600 text-white" : "border"}`}>{label}</a>)}</div></div>;
+  return <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm font-medium text-brand-600">Paramètres</p><h1 className="text-2xl font-bold">Profil de l&apos;entreprise</h1><div className="mt-4 flex flex-wrap gap-2">{tabs.map(([label, href]) => <a key={href} href={href} className={`rounded-md px-3 py-2 text-sm ${label === active ? "bg-brand-600 text-white" : "border"}`}>{label}</a>)}</div></div>;
 }
 
 function Input({ label, value, onChange }: { label: string; value?: string; onChange: (value: string) => void }) {

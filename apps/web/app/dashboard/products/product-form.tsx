@@ -83,7 +83,7 @@ export function ProductForm({ productId }: { productId?: string }) {
 
   async function loadRefs() {
     const headers = { Authorization: `Bearer ${getAccessToken()}` };
-    const [categories, brands, units, suppliers, stores, warehouses] = await Promise.all([
+    const [categoriesResponse, brands, units, suppliers, stores, warehouses] = await Promise.all([
       fetch(`${apiUrl}/products/categories`, { headers }),
       fetch(`${apiUrl}/products/brands`, { headers }),
       fetch(`${apiUrl}/products/units`, { headers }),
@@ -95,7 +95,7 @@ export function ProductForm({ productId }: { productId?: string }) {
     const storesData = stores.ok ? await stores.json() : [];
     const warehousesData = warehouses.ok ? await warehouses.json() : [];
     setRefs({
-      categories: categories.ok ? await categories.json() : [],
+      categories: categoriesResponse.ok ? await categoriesResponse.json() : [],
       brands: brands.ok ? await brands.json() : [],
       units: units.ok ? await units.json() : [],
       suppliers: Array.isArray(suppliersData) ? suppliersData : suppliersData.items ?? [],
@@ -246,13 +246,13 @@ export function ProductForm({ productId }: { productId?: string }) {
     <Section title="Informations principales">
       <Input value={form.name} onChange={(value) => update("name", value)} placeholder="Nom du produit" />
       <Input value={form.sku} onChange={(value) => update("sku", value)} placeholder="SKU automatique si vide" />
-      <Input value={form.reference} onChange={(value) => update("reference", value)} placeholder="Reference interne" />
+      <Input value={form.reference} onChange={(value) => update("reference", value)} placeholder="Référence interne" />
       <Input value={form.qrCode} onChange={(value) => update("qrCode", value)} placeholder="QR Code" />
       <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-        <Select value={form.categoryId} onChange={(value) => update("categoryId", value)} placeholder="Categorie" items={refs.categories} />
+        <Select value={form.categoryId} onChange={(value) => update("categoryId", value)} placeholder="Catégorie" items={refs.categories} />
         <button type="button" onClick={() => setShowCategoryModal(true)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">+ Nouvelle catégorie</button>
       </div>
-      <Input value={form.subCategory} onChange={(value) => update("subCategory", value)} placeholder="Sous-categorie" />
+      <Input value={form.subCategory} onChange={(value) => update("subCategory", value)} placeholder="Sous-catégorie" />
       <Select value={form.brandId} onChange={(value) => update("brandId", value)} placeholder="Marque" items={refs.brands} />
       <Select value={form.supplierId} onChange={(value) => update("supplierId", value)} placeholder="Fournisseur principal" items={refs.suppliers} />
       <Select value={form.unitId} onChange={(value) => update("unitId", value)} placeholder="Unite" items={refs.units.length ? refs.units : unitOptions.map((name) => ({ id: "", name }))} />

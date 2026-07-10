@@ -138,12 +138,12 @@ function MetaLine({ label, value }: { label: string; value: string }) {
 function parseTicketContent(content: string) {
   const itemLines: string[] = [];
   const totals: Array<{ label: string; value: string; important?: boolean }> = [];
-  const totalLabels = new Set(["Sous-total", "Total", "Paye", "Payé", "Montant paye", "Montant payé", "Monnaie", "Monnaie rendue", "Balance"]);
+  const totalLabels = new Set(["Sous-total", "Total", "Payé", "Payé", "Montant payé", "Montant payé", "Monnaie", "Monnaie rendue", "Balance"]);
   for (const rawLine of content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)) {
     if (rawLine.toLowerCase().startsWith("ticket") || rawLine.toLowerCase().startsWith("vente ")) continue;
     const match = rawLine.match(/^([^:]+):\s*(.+)$/);
     if (match && totalLabels.has(match[1])) {
-      totals.push({ label: match[1].replace("Paye", "Payé"), value: match[2], important: match[1] === "Total" });
+      totals.push({ label: match[1].replace("Payé", "Payé"), value: match[2], important: match[1] === "Total" });
       continue;
     }
     itemLines.push(rawLine);
