@@ -2,6 +2,7 @@
 
 import { ProtectedShell } from "@/components/protected-shell";
 import type { AuthUser } from "@/lib/auth";
+import { formatRole } from "@/lib/format";
 
 export default function ProfilePage() {
   return <ProtectedShell>{(user) => <ProfileContent user={user} />}</ProtectedShell>;
@@ -18,7 +19,7 @@ function ProfileContent({ user }: { user: AuthUser }) {
           <div>
             <p className="text-sm font-medium text-brand-600">Profil utilisateur</p>
             <h1 className="mt-1 text-3xl font-bold text-slate-950 dark:text-white">{user.name}</h1>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Avatar vide prepare pour les prochaines versions.</p>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Avatar vide préparé pour les prochaines versions.</p>
           </div>
         </div>
 
@@ -27,7 +28,7 @@ function ProfileContent({ user }: { user: AuthUser }) {
           <ProfileItem label="Email" value={user.email} />
           <ProfileItem label="Rôle" value={user.role} />
           <ProfileItem label="Tenant" value={user.tenant} />
-          <ProfileItem label="Date creation" value={new Date(user.createdAt).toLocaleDateString("fr-FR")} />
+          <ProfileItem label="Date création" value={new Date(user.createdAt).toLocaleDateString("fr-FR")} />
         </dl>
       </div>
     </div>

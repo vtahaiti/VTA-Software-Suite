@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AuthUser, getAccessToken, logout } from "@/lib/auth";
 import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
+import { formatRole } from "@/lib/format";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -85,9 +86,9 @@ export function Header({ user }: HeaderProps) {
           </div>
           <Link href="/dashboard/profile" className="hidden items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:flex">
             {branding?.userPhotoUrl ? <img src={branding.userPhotoUrl} alt="Photo utilisateur" className="h-8 w-8 rounded-full object-cover" /> : <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700">{userInitials}</div>}
-            <div className="leading-tight"><p className="text-sm font-semibold text-slate-950 dark:text-white">{userName}</p><p className="text-xs text-slate-500 dark:text-slate-400">{branding?.role ?? user?.role ?? "Session"}</p></div>
+            <div className="leading-tight"><p className="text-sm font-semibold text-slate-950 dark:text-white">{userName}</p><p className="text-xs text-slate-500 dark:text-slate-400">{formatRole(branding?.role ?? user?.role)}</p></div>
           </Link>
-          <button onClick={handleLogout} className="rounded-md bg-slate-950 px-2.5 py-2 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 sm:px-3 sm:text-sm"><span className="sm:hidden">Sortir</span><span className="hidden sm:inline">Deconnexion</span></button>
+          <button onClick={handleLogout} className="rounded-md bg-slate-950 px-2.5 py-2 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 sm:px-3 sm:text-sm"><span className="sm:hidden">Sortir</span><span className="hidden sm:inline">Déconnexion</span></button>
         </div>
       </div>
     </header>
