@@ -2,6 +2,7 @@ import { IsArray, IsIn, IsInt, IsNumber, IsOptional, IsString, Min, ValidateNest
 import { Type } from "class-transformer";
 export class SaleItemDto {
   @IsOptional() @IsString() productId?: string;
+  @IsOptional() @IsString() customId?: string;
   @IsOptional() @IsString() customName?: string;
   @IsOptional() @IsIn(["OUT_OF_STOCK_PRODUCT", "SERVICE", "CUSTOM_WORK", "OTHER"]) customType?: "OUT_OF_STOCK_PRODUCT" | "SERVICE" | "CUSTOM_WORK" | "OTHER";
   @IsOptional() @IsString() customNote?: string;
