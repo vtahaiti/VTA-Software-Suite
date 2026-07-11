@@ -2,12 +2,15 @@ import { Body, Controller, Get, Header, Param, Patch, Post, Query, Req, UseGuard
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { CreatePurchaseOrderDto } from "./dto/create-purchase-order.dto";
 import { PurchaseOrderQueryDto } from "./dto/purchase-order-query.dto";
 import { UpdatePurchaseOrderDto } from "./dto/update-purchase-order.dto";
 import { PurchaseOrdersService } from "./purchase-orders.service";
 
-@UseGuards(JwtAuthGuard)
+@RequiresFeature("PURCHASES")
+@UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("purchase-orders")
 export class PurchaseOrdersController {
   constructor(private readonly purchaseOrdersService: PurchaseOrdersService) {}

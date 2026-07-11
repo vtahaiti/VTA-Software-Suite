@@ -32,7 +32,8 @@
     "test:business-rules": "node scripts/business-rules-smoke.cjs",
     "test:text-quality": "node scripts/text-quality-smoke.cjs",
     "test:password-reset": "node scripts/password-reset-smoke.cjs",
-    "test:navigation": "node scripts/navigation-smoke.cjs"
+    "test:navigation": "node scripts/navigation-smoke.cjs",
+    "test:subscriptions": "node scripts/subscription-entitlements-smoke.cjs"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

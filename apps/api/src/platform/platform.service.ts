@@ -1,12 +1,16 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { AuditAction, NotificationStatus, NotificationType, Prisma, SubscriptionPlan, SubscriptionStatus, TenantStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { SubscriptionEntitlementsService } from "../subscriptions/subscription-entitlements.service";
 
 const PLAN_PRICES_HTG: Record<SubscriptionPlan, number> = {
   FREE: 0,
-  STARTER: 4000,
-  PRO: 11000,
-  ENTERPRISE: 28000
+  STARTER: 1000,
+  PRO: 2000,
+  ENTERPRISE: 4000,
+  ESSENTIAL: 1000,
+  STANDARD: 2000,
+  EXPERT: 4000
 };
 
 const PLATFORM_ROLE_NAMES = ["SUPER_ADMIN", "PlatformAdmin"];
@@ -17,15 +21,18 @@ const BLOCKING_TENANT_STATUSES: TenantStatus[] = [TenantStatus.PAUSED, TenantSta
 type TenantWithAdminRelations = Prisma.TenantGetPayload<{
   include: {
     companyProfile: true;
-    subscription: true;
+    subscription: { include: { planRecord: true } };
     businessModules: { include: { businessModule: true } };
     _count: { select: { users: true; stores: true; warehouses: true } };
   };
 }>;
 
+type PlatformSubscription = Prisma.TenantSubscriptionGetPayload<{ include: { planRecord: true } }> | Prisma.TenantSubscriptionGetPayload<Record<string, never>> | null;
+type SecurityLogSummary = { createdAt?: Date; ipAddress?: string | null };
+
 @Injectable()
 export class PlatformService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly entitlements: SubscriptionEntitlementsService) {}
 
   async stats() {
     const now = new Date();
@@ -40,7 +47,7 @@ export class PlatformService {
         where: this.customerTenantWhere(),
         include: {
           companyProfile: true,
-          subscription: true,
+          subscription: { include: { planRecord: true } },
           businessModules: { include: { businessModule: true } },
           _count: { select: { users: true, stores: true, warehouses: true } }
         }
@@ -51,7 +58,7 @@ export class PlatformService {
       this.prisma.companyProfile.findMany({ where: { tenant: this.customerTenantWhere(), country: { not: null } }, select: { country: true }, distinct: ["country"] }),
       this.prisma.tenant.findMany({
         where: this.customerTenantWhere(),
-        include: { companyProfile: true, subscription: true, businessModules: { include: { businessModule: true } }, _count: { select: { users: true, stores: true, warehouses: true } } },
+        include: { companyProfile: true, subscription: { include: { planRecord: true } }, businessModules: { include: { businessModule: true } }, _count: { select: { users: true, stores: true, warehouses: true } } },
         orderBy: { createdAt: "desc" },
         take: 8
       }),
@@ -109,7 +116,7 @@ export class PlatformService {
       include: {
         _count: { select: { users: true, stores: true, warehouses: true } },
         companyProfile: true,
-        subscription: true,
+        subscription: { include: { planRecord: true } },
         businessModules: { include: { businessModule: true } }
       },
       orderBy: { createdAt: "desc" }
@@ -123,7 +130,7 @@ export class PlatformService {
       where: { id, ...this.customerTenantWhere() },
       include: {
         companyProfile: true,
-        subscription: true,
+        subscription: { include: { planRecord: true } },
         businessModules: { include: { businessModule: true }, orderBy: { createdAt: "asc" } },
         users: { include: { roles: { include: { role: true } }, profile: true }, orderBy: { createdAt: "desc" } },
         stores: { select: { id: true, name: true, status: true, createdAt: true } },
@@ -205,27 +212,47 @@ export class PlatformService {
   async updateSubscription(id: string, data: { plan?: SubscriptionPlan; status?: SubscriptionStatus; startedAt?: string; endsAt?: string; autoRenew?: boolean; reason?: string }) {
     const tenant = await this.ensureTenantCanBeManaged(id);
     const previous = await this.prisma.tenantSubscription.findUnique({ where: { tenantId: id } });
-    const plan = data.plan ?? previous?.plan ?? SubscriptionPlan.STARTER;
+    const plan = data.plan ?? previous?.plan ?? SubscriptionPlan.ESSENTIAL;
+    const planRecord = await this.planRecordFor(plan);
     const subscription = await this.prisma.tenantSubscription.upsert({
       where: { tenantId: id },
       update: {
         plan: data.plan,
+        planId: planRecord?.id,
         status: data.status,
         price: data.plan ? PLAN_PRICES_HTG[data.plan] : undefined,
         currency: "HTG",
         startedAt: data.startedAt ? new Date(data.startedAt) : undefined,
-        endsAt: data.endsAt ? new Date(data.endsAt) : undefined
+        endsAt: data.endsAt ? new Date(data.endsAt) : undefined,
+        currentPeriodStart: data.startedAt ? new Date(data.startedAt) : undefined,
+        currentPeriodEnd: data.endsAt ? new Date(data.endsAt) : undefined,
+        suspendedAt: data.status === SubscriptionStatus.SUSPENDED ? new Date() : undefined,
+        canceledAt: data.status === SubscriptionStatus.CANCELED || data.status === SubscriptionStatus.CANCELLED ? new Date() : undefined
       },
       create: {
         tenantId: id,
         plan,
+        planId: planRecord?.id,
         status: data.status ?? SubscriptionStatus.ACTIVE,
         price: PLAN_PRICES_HTG[plan],
         currency: "HTG",
         startedAt: data.startedAt ? new Date(data.startedAt) : new Date(),
-        endsAt: data.endsAt ? new Date(data.endsAt) : undefined
+        endsAt: data.endsAt ? new Date(data.endsAt) : undefined,
+        currentPeriodStart: data.startedAt ? new Date(data.startedAt) : new Date(),
+        currentPeriodEnd: data.endsAt ? new Date(data.endsAt) : undefined
       }
     });
+    await this.prisma.subscriptionEvent.create({
+      data: {
+        tenantId: id,
+        subscriptionId: subscription.id,
+        eventType: "SUBSCRIPTION_UPDATED",
+        previousStatus: previous?.status,
+        newStatus: subscription.status,
+        metadata: { reason: data.reason?.trim() ?? null, previousPlan: previous?.plan ?? null, newPlan: subscription.plan, planCode: planRecord?.code ?? null }
+      }
+    }).catch(() => undefined);
+    this.entitlements.invalidate(id);
     await this.writePlatformAudit(id, tenant.name, AuditAction.UPDATE, "PLATFORM_SUBSCRIPTION", "Abonnement modifié depuis le Control Center.", {
       oldValue: previous ? this.serializeSubscription(previous) : undefined,
       newValue: this.serializeSubscription(subscription),
@@ -313,7 +340,7 @@ export class PlatformService {
   }
 
   async subscriptions() {
-    const tenants = await this.prisma.tenant.findMany({ where: this.customerTenantWhere(), include: { companyProfile: true, subscription: true, _count: { select: { users: true, stores: true } } }, orderBy: { createdAt: "desc" } });
+    const tenants = await this.prisma.tenant.findMany({ where: this.customerTenantWhere(), include: { companyProfile: true, subscription: { include: { planRecord: true } }, _count: { select: { users: true, stores: true } } }, orderBy: { createdAt: "desc" } });
     return tenants.map((tenant) => ({
       id: tenant.id,
       name: tenant.companyProfile?.companyName ?? tenant.name,
@@ -337,6 +364,10 @@ export class PlatformService {
       activeTenants: assignments.filter((entry) => entry.businessModuleId === module.id).length,
       permissions: module.permissions.length
     }));
+  }
+
+  plans() {
+    return this.entitlements.listPlans();
   }
 
   async deleteTenant(id: string, reason?: string) {
@@ -384,7 +415,7 @@ export class PlatformService {
     ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 60);
   }
 
-  private serializeTenantSummary(tenant: TenantWithAdminRelations, lastLogin?: { createdAt?: Date; ipAddress?: string | null }) {
+  private serializeTenantSummary(tenant: TenantWithAdminRelations, lastLogin?: SecurityLogSummary) {
     const subscription = this.serializeSubscription(tenant.subscription);
     return {
       id: tenant.id,
@@ -418,13 +449,19 @@ export class PlatformService {
     };
   }
 
-  private serializeSubscription(subscription: any) {
+  private serializeSubscription(subscription: PlatformSubscription) {
     const plan = (subscription?.plan ?? SubscriptionPlan.FREE) as SubscriptionPlan;
+    const planRecord = subscription && "planRecord" in subscription ? subscription.planRecord : null;
     return {
       plan,
+      planCode: planRecord?.code ?? this.planCodeFor(plan),
       status: subscription?.status ?? SubscriptionStatus.TRIALING,
       startedAt: subscription?.startedAt ?? null,
       endsAt: subscription?.endsAt ?? null,
+      trialStartedAt: subscription?.trialStartedAt ?? null,
+      trialEndsAt: subscription?.trialEndsAt ?? null,
+      currentPeriodStart: subscription?.currentPeriodStart ?? subscription?.startedAt ?? null,
+      currentPeriodEnd: subscription?.currentPeriodEnd ?? subscription?.endsAt ?? null,
       monthlyPrice: PLAN_PRICES_HTG[plan],
       price: Number(subscription?.price ?? PLAN_PRICES_HTG[plan]),
       currency: subscription?.currency ?? "HTG",
@@ -436,9 +473,21 @@ export class PlatformService {
     };
   }
 
+  private planCodeFor(plan: SubscriptionPlan) {
+    if (plan === SubscriptionPlan.STARTER || plan === SubscriptionPlan.ESSENTIAL) return "ESSENTIAL";
+    if (plan === SubscriptionPlan.PRO || plan === SubscriptionPlan.STANDARD) return "STANDARD";
+    if (plan === SubscriptionPlan.ENTERPRISE || plan === SubscriptionPlan.EXPERT) return "EXPERT";
+    return "TRIAL";
+  }
+
+  private async planRecordFor(plan: SubscriptionPlan) {
+    await this.entitlements.ensureCatalog();
+    return this.prisma.plan.findUnique({ where: { code: this.planCodeFor(plan) } });
+  }
+
   private async latestLoginsByTenant() {
     const logs = await this.prisma.securityLog.findMany({ where: { event: "LOGIN_SUCCESS", tenantId: { not: null } }, orderBy: { createdAt: "desc" }, take: 500 });
-    const map = new Map<string, any>();
+    const map = new Map<string, SecurityLogSummary>();
     for (const log of logs) if (log.tenantId && !map.has(log.tenantId)) map.set(log.tenantId, log);
     return map;
   }

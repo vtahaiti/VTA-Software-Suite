@@ -63,6 +63,11 @@ export class PlatformController {
     return this.platform.subscriptions();
   }
 
+  @Get("plans")
+  plans() {
+    return this.platform.plans();
+  }
+
   @Get("modules")
   modules() {
     return this.platform.modules();

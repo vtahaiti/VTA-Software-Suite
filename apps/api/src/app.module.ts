@@ -36,6 +36,7 @@ import { SecurityModule } from "./security/security.module";
 import { StockModule } from "./stock/stock.module";
 import { StoresModule } from "./stores/stores.module";
 import { SuppliersModule } from "./suppliers/suppliers.module";
+import { SubscriptionsModule } from "./subscriptions/subscriptions.module";
 import { TenantContextMiddleware } from "./tenants/middleware/tenant-context.middleware";
 import { TenantsModule } from "./tenants/tenants.module";
 import { UserRolesModule } from "./user-roles/user-roles.module";
@@ -74,6 +75,7 @@ import { WarehouseModule } from "./warehouses/warehouse.module";
     ReceiptModule,
     PaymentModule,
     NotificationsModule,
+    SubscriptionsModule,
     CashRegisterModule,
     PosModule,
     CustomersModule,

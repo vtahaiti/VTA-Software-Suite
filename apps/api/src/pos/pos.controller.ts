@@ -3,6 +3,8 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { ProductQueryDto } from "../products/dto/product-query.dto";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { CreateCustomerDto } from "../customers/dto/create-customer.dto";
 import { CreateSaleDto } from "../sales/dto/create-sale.dto";
 import { SaleQueryDto } from "../sales/dto/sale-query.dto";
@@ -11,7 +13,8 @@ import { PosCartAddDto, PosCartDto, PosCartRemoveDto, PosCartUpdateDto } from ".
 import { SyncOfflineSalesDto } from "./dto/sync-offline-sales.dto";
 import { PosService } from "./pos.service";
 
-@UseGuards(JwtAuthGuard)
+@RequiresFeature("POS")
+@UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("pos")
 export class PosController {
   constructor(private readonly pos: PosService, private readonly sales: SalesService) {}
@@ -67,12 +70,14 @@ export class PosController {
   }
 
   @Post("quotes")
+  @RequiresFeature("QUOTES")
   @Permissions("pos.sell")
   createQuote(@Req() req: AuthenticatedRequest, @Body() dto: CreateSaleDto) {
     return this.pos.createQuoteFromCart(req.user.tenantId, dto, req.user.id);
   }
 
   @Post("orders")
+  @RequiresFeature("ORDERS")
   @Permissions("pos.sell")
   createOrder(@Req() req: AuthenticatedRequest, @Body() dto: CreateSaleDto) {
     return this.pos.createOrderFromCart(req.user.tenantId, dto, req.user.id);
@@ -105,6 +110,7 @@ export class PosController {
   }
 
   @Get("history")
+  @RequiresFeature("SALES_HISTORY")
   @Permissions("sales.view")
   history(@Req() req: AuthenticatedRequest, @Query() query: SaleQueryDto) {
     return this.sales.findAll(req.user.tenantId, query);

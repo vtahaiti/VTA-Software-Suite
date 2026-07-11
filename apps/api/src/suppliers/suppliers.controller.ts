@@ -2,12 +2,15 @@
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { CreateSupplierDto } from "./dto/create-supplier.dto";
 import { SupplierQueryDto } from "./dto/supplier-query.dto";
 import { UpdateSupplierDto } from "./dto/update-supplier.dto";
 import { SuppliersService } from "./suppliers.service";
 
-@UseGuards(JwtAuthGuard)
+@RequiresFeature("SUPPLIERS")
+@UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("suppliers")
 export class SuppliersController {
   constructor(private readonly suppliersService: SuppliersService) {}

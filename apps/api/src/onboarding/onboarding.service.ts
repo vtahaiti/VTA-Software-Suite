@@ -6,6 +6,7 @@ import { AuthService } from "../auth/auth.service";
 import { hashPassword } from "../auth/password-hashing";
 import { isPasswordStrong, passwordPolicyMessage } from "../auth/password-policy";
 import { PrismaService } from "../prisma/prisma.service";
+import { SubscriptionEntitlementsService } from "../subscriptions/subscription-entitlements.service";
 import { UploadsService } from "../uploads/uploads.service";
 import { CreateCompanyDto } from "./dto/create-company.dto";
 import { RegisterUserDto } from "./dto/register-user.dto";
@@ -15,7 +16,8 @@ export class OnboardingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auth: AuthService,
-    private readonly uploads: UploadsService
+    private readonly uploads: UploadsService,
+    private readonly subscriptions: SubscriptionEntitlementsService
   ) {}
 
   async register(dto: RegisterUserDto) {
@@ -70,6 +72,7 @@ export class OnboardingService {
     const profileSlug = dto.businessProfileSlug ?? resolveBusinessProfileSlug(dto.businessCategory, dto.primaryActivity);
     const selectedBusinessProfile = businessProfiles.find((profile) => profile.slug === profileSlug) ?? businessProfiles[0];
     const activityTemplate = findActivityTemplate(dto.primaryActivity ?? dto.industry);
+    await this.subscriptions.ensureCatalog();
 
     const result = await this.prisma.$transaction(async (tx) => {
       const savedBusinessModules = new Map<string, string>();
@@ -186,6 +189,7 @@ export class OnboardingService {
       const store = await tx.store.create({ data: { tenantId: tenant.id, code: "MAIN", name: "Magasin principal", phone: dto.phone, email: dto.email, country: dto.country, city: dto.city, address: dto.address } });
       const warehouse = await tx.warehouse.create({ data: { tenantId: tenant.id, storeId: store.id, code: "DEPOT-PRINCIPAL", name: "Dépôt principal", description: "Dépôt créé automatiquement pendant l onboarding" } });
       await tx.cashRegister.create({ data: { tenantId: tenant.id, storeId: store.id, code: "CAISSE-01", name: "Caisse principale" } });
+      await this.subscriptions.createTrialSubscription(tx, tenant.id, user.id);
 
       for (const categoryName of activityTemplate.categories) {
         await tx.category.upsert({

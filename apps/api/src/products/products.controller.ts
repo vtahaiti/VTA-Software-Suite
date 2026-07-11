@@ -2,6 +2,8 @@
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { CreateReferenceDto } from "./dto/create-reference.dto";
 import { ImportProductsDto } from "./dto/import-products.dto";
@@ -10,7 +12,8 @@ import { UpdateProductDto } from "./dto/update-product.dto";
 import { UpdateReferenceDto } from "./dto/update-reference.dto";
 import { ProductsService } from "./products.service";
 
-@UseGuards(JwtAuthGuard)
+@RequiresFeature("PRODUCTS")
+@UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("products")
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
@@ -76,26 +79,32 @@ export class ProductsController {
   }
 
   @Get("categories")
+  @RequiresFeature("CATEGORIES")
   @Permissions("products.view")
   categories(@Req() request: AuthenticatedRequest, @Query("includeArchived") includeArchived?: string) { return this.productsService.findCategories(request.user.tenantId, includeArchived === "true"); }
 
   @Post("categories")
+  @RequiresFeature("CATEGORIES")
   @Permissions("products.create")
   createCategory(@Req() request: AuthenticatedRequest, @Body() dto: CreateReferenceDto) { return this.productsService.createCategory(request.user.tenantId, dto); }
 
   @Patch("categories/:id")
+  @RequiresFeature("CATEGORIES")
   @Permissions("products.update")
   updateCategory(@Req() request: AuthenticatedRequest, @Param("id") id: string, @Body() dto: UpdateReferenceDto) { return this.productsService.updateCategory(request.user.tenantId, id, dto); }
 
   @Patch("categories/:id/archive")
+  @RequiresFeature("CATEGORIES")
   @Permissions("products.update")
   archiveCategory(@Req() request: AuthenticatedRequest, @Param("id") id: string) { return this.productsService.archiveCategory(request.user.tenantId, id); }
 
   @Patch("categories/:id/restore")
+  @RequiresFeature("CATEGORIES")
   @Permissions("products.update")
   restoreCategory(@Req() request: AuthenticatedRequest, @Param("id") id: string) { return this.productsService.restoreCategory(request.user.tenantId, id); }
 
   @Delete("categories/:id")
+  @RequiresFeature("CATEGORIES")
   @Permissions("products.delete")
   deleteCategory(@Req() request: AuthenticatedRequest, @Param("id") id: string) { return this.productsService.deleteCategory(request.user.tenantId, id); }
 

@@ -478,14 +478,19 @@ export class AuthService {
   }
 
   private async assertTenantStatus(tenantId: string) {
-    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { status: true, subscription: { select: { endsAt: true } } } });
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { status: true, subscription: { select: { status: true, endsAt: true, trialEndsAt: true, currentPeriodEnd: true, graceEndsAt: true } } } });
     if (!tenant) throw new UnauthorizedException("Entreprise introuvable");
     if (tenant.status === TenantStatus.PAUSED) throw new UnauthorizedException("Votre compte est en pause. Contactez VTA ERP.");
     if (tenant.status === TenantStatus.SUSPENDED) throw new UnauthorizedException("Votre compte est suspendu. Contactez VTA ERP.");
     if (tenant.status === TenantStatus.DELETED) throw new UnauthorizedException("Votre compte a ete supprime. Contactez VTA ERP.");
     if (tenant.status === TenantStatus.EXPIRED || tenant.status === TenantStatus.CANCELLED) throw new UnauthorizedException("Votre abonnement est expire. Contactez VTA ERP.");
-    if (tenant.status === TenantStatus.TRIAL && tenant.subscription?.endsAt && tenant.subscription.endsAt.getTime() < Date.now()) {
+    if (tenant.subscription?.status && ["PAST_DUE", "SUSPENDED", "CANCELLED", "CANCELED", "EXPIRED"].includes(String(tenant.subscription.status))) {
+      throw new UnauthorizedException("Votre abonnement n'est pas actif. Contactez VTA ERP.");
+    }
+    const subscriptionEnd = tenant.subscription?.currentPeriodEnd ?? tenant.subscription?.trialEndsAt ?? tenant.subscription?.endsAt;
+    if (tenant.status === TenantStatus.TRIAL && subscriptionEnd && subscriptionEnd.getTime() < Date.now()) {
       await this.prisma.tenant.update({ where: { id: tenantId }, data: { status: TenantStatus.EXPIRED } });
+      await this.prisma.tenantSubscription.update({ where: { tenantId }, data: { status: "EXPIRED", paymentStatus: "EXPIRED" } }).catch(() => undefined);
       throw new UnauthorizedException("Votre abonnement est expire. Contactez VTA ERP.");
     }
   }

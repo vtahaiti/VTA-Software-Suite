@@ -2,10 +2,13 @@
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { CreateGoodsReceiptDto } from "./dto/create-goods-receipt.dto";
 import { GoodsReceiptsService } from "./goods-receipts.service";
 
-@UseGuards(JwtAuthGuard)
+@RequiresFeature("PURCHASES")
+@UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("goods-receipts")
 export class GoodsReceiptsController {
   constructor(private readonly goodsReceiptsService: GoodsReceiptsService) {}

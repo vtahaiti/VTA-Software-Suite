@@ -3,12 +3,15 @@ import type { Response } from "express";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { CreateCustomerDto } from "./dto/create-customer.dto";
 import { CustomerQueryDto } from "./dto/customer-query.dto";
 import { UpdateCustomerDto } from "./dto/update-customer.dto";
 import { CustomersService } from "./customers.service";
 
-@UseGuards(JwtAuthGuard)
+@RequiresFeature("CUSTOMERS")
+@UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("customers")
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}

@@ -132,6 +132,7 @@ const routeOrder: NavigationSection[] = [
           { id: "company-settings", label: "Entreprise", href: "/dashboard/settings/company", icon: navigationIcons.Entreprise },
           { id: "pos-settings", label: "POS", href: "/dashboard/settings/pos", icon: navigationIcons.PosSettings },
           { id: "invoicing-settings", label: "Facturation", href: "/dashboard/settings/invoicing", icon: navigationIcons.Facturation },
+          { id: "subscription-settings", label: "Abonnement", href: "/dashboard/settings/subscription", icon: navigationIcons.Abonnement },
           { id: "email-settings", label: "Emails", href: "/dashboard/settings/emails", icon: navigationIcons.Emails }
         ]
       }
@@ -174,6 +175,7 @@ function isKnownOrSource(href: string, sourceHrefs: Set<string>, allowBySource: 
   if (href === "/dashboard/settings/emails" && sourceHrefs.has("/dashboard/settings/company")) return true;
   if (href === "/dashboard/settings/pos" && sourceHrefs.has("/dashboard/settings/company")) return true;
   if (href === "/dashboard/settings/invoicing" && sourceHrefs.has("/dashboard/settings/company")) return true;
+  if (href === "/dashboard/settings/subscription" && sourceHrefs.has("/dashboard/settings/company")) return true;
   return false;
 }
 

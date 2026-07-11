@@ -2,10 +2,13 @@ import { Controller, Get, Query, Req, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { ReportQueryDto } from "./dto/report-query.dto";
 import { ReportsService } from "./reports.service";
 
-@UseGuards(JwtAuthGuard)
+@RequiresFeature("BASIC_REPORTS")
+@UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("reports")
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
@@ -41,6 +44,7 @@ export class ReportsController {
   }
 
   @Get("profit")
+  @RequiresFeature("ADVANCED_REPORTS")
   @Permissions("reports.profit")
   profit(@Req() request: AuthenticatedRequest, @Query() query: ReportQueryDto) {
     return this.reportsService.profit(request.user.tenantId, query);

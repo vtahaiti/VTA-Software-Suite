@@ -7,7 +7,7 @@ import { fetchWithAuth } from "@/lib/api-client";
 import { initials, resolveAssetUrl } from "@/lib/company-branding";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-const tabs = [["Entreprise", "/dashboard/settings/company"], ["POS", "/dashboard/settings/pos"], ["Facturation", "/dashboard/settings/invoicing"]];
+const tabs = [["Entreprise", "/dashboard/settings/company"], ["POS", "/dashboard/settings/pos"], ["Facturation", "/dashboard/settings/invoicing"], ["Abonnement", "/dashboard/settings/subscription"], ["Emails", "/dashboard/settings/emails"]];
 const colors = [
   ["Bleu", "#2563eb"],
   ["Vert", "#16a34a"],

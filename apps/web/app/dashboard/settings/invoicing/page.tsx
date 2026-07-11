@@ -96,7 +96,7 @@ function toInvoicingPayload(form: InvoicingForm, defaultTaxRate: number, maxDisc
 }
 
 function Header() {
-  return <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm font-medium text-brand-600">Paramètres</p><h1 className="text-2xl font-bold">Paramètres de facturation</h1><div className="mt-4 flex flex-wrap gap-2"><Link href="/dashboard/settings/company" className="rounded-md border px-3 py-2 text-sm">Entreprise</Link><Link href="/dashboard/settings/pos" className="rounded-md border px-3 py-2 text-sm">POS</Link><Link href="/dashboard/settings/invoicing" className="rounded-md bg-brand-600 px-3 py-2 text-sm text-white">Facturation</Link></div></div>;
+  return <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm font-medium text-brand-600">Paramètres</p><h1 className="text-2xl font-bold">Paramètres de facturation</h1><div className="mt-4 flex flex-wrap gap-2"><Link href="/dashboard/settings/company" className="rounded-md border px-3 py-2 text-sm">Entreprise</Link><Link href="/dashboard/settings/pos" className="rounded-md border px-3 py-2 text-sm">POS</Link><Link href="/dashboard/settings/invoicing" className="rounded-md bg-brand-600 px-3 py-2 text-sm text-white">Facturation</Link><Link href="/dashboard/settings/subscription" className="rounded-md border px-3 py-2 text-sm">Abonnement</Link><Link href="/dashboard/settings/emails" className="rounded-md border px-3 py-2 text-sm">Emails</Link></div></div>;
 }
 
 function Input({ label, value, onChange, help, type = "text", min, max, step }: { label: string; value: string | number; help?: string; type?: string; min?: string; max?: string; step?: string; onChange: (value: string) => void }) {

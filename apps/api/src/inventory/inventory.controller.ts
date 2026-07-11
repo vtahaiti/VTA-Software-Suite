@@ -2,10 +2,13 @@
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { CreateTransferDto } from "./dto/create-transfer.dto";
 import { InventoryService } from "./inventory.service";
 
-@UseGuards(JwtAuthGuard)
+@RequiresFeature("INVENTORY")
+@UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("inventory")
 export class InventoryController {
   constructor(private readonly service: InventoryService) {}
