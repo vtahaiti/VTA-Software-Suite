@@ -1,4 +1,4 @@
-{
+﻿{
     "name":  "vta-software-suite",
     "version":  "0.1.0",
     "private":  true,
@@ -30,7 +30,8 @@
                     "test:core-logic":  "node scripts/core-logic-smoke.cjs",
                     "test:qa:functional":  "node scripts/qa-functional-smoke.cjs",
                     "test:business-rules":  "node scripts/business-rules-smoke.cjs",
-                    "test:text-quality":  "node scripts/text-quality-smoke.cjs"
+                    "test:text-quality":  "node scripts/text-quality-smoke.cjs",
+                    "test:password-reset":  "node scripts/password-reset-smoke.cjs"
                 },
     "devDependencies":  {
                             "concurrently":  "^8.2.2",

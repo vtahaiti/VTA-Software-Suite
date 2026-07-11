@@ -2,6 +2,7 @@ import { Global, Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { PrismaModule } from "../prisma/prisma.module";
 import { AuditLogsModule } from "../audit-logs/audit-logs.module";
+import { EmailModule } from "../email/email.module";
 import { SecurityModule } from "../security/security.module";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
@@ -10,7 +11,7 @@ import { AuthenticationMiddleware } from "./middleware/authentication.middleware
 
 @Global()
 @Module({
-  imports: [JwtModule.register({}), PrismaModule, SecurityModule, AuditLogsModule],
+  imports: [JwtModule.register({}), PrismaModule, SecurityModule, AuditLogsModule, EmailModule],
   controllers: [AuthController],
   providers: [AuthService, JwtAuthGuard, AuthenticationMiddleware],
   exports: [AuthService, JwtAuthGuard, AuthenticationMiddleware]

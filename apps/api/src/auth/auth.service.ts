@@ -1,9 +1,10 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { Injectable, Logger, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { AuditAction, TenantStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { createHash, randomBytes, randomUUID } from "crypto";
 import { AuditLogsService } from "../audit-logs/audit-logs.service";
+import { EmailService } from "../email/email.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { SecurityService } from "../security/security.service";
 import { defaultPermissions } from "../rbac/default-permissions";
@@ -30,7 +31,10 @@ const demoUser = {
   permissions: defaultPermissions.map((permission) => permission.key),
   createdAt: "2026-07-06T00:00:00.000Z"
 };
-const passwordResetMessage = "Si cette adresse email est associée à un compte, vous recevrez les instructions de réinitialisation.";
+const passwordResetMessage = "Si cette adresse email est associ\u00e9e \u00e0 un compte, vous recevrez les instructions de r\u00e9initialisation.";
+const passwordResetTokenTtlMinutes = 30;
+const passwordResetRateLimitWindowMs = 15 * 60 * 1000;
+const passwordResetMaxAttempts = 5;
 
 type SessionRecord = { user: AuthUser; refreshTokenHash: string; rememberMe: boolean; expiresAt: Date };
 type AuthRoleEntry = string | { role?: { name?: string; permissions?: Array<{ permission?: { key?: string } }> } };
@@ -40,8 +44,16 @@ type AuditUserRecord = { id?: string; tenantId?: string; tenant?: { name?: strin
 @Injectable()
 export class AuthService {
   private readonly sessions = new Map<string, SessionRecord>();
+  private readonly passwordResetAttempts = new Map<string, { count: number; resetAt: number }>();
+  private readonly logger = new Logger(AuthService.name);
 
-  constructor(private readonly jwtService: JwtService, private readonly prisma: PrismaService, private readonly security: SecurityService, private readonly auditLogs: AuditLogsService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly prisma: PrismaService,
+    private readonly security: SecurityService,
+    private readonly auditLogs: AuditLogsService,
+    private readonly emailService: EmailService
+  ) {}
 
   async login(loginDto: LoginDto, meta: { ipAddress?: string; userAgent?: string } = {}) {
     const email = loginDto.email.trim().toLowerCase();
@@ -88,20 +100,59 @@ export class AuthService {
     return session;
   }
 
-  async requestPasswordReset(dto: ForgotPasswordDto) {
+  async requestPasswordReset(dto: ForgotPasswordDto, meta: { ipAddress?: string; userAgent?: string } = {}) {
+    const requestId = randomUUID();
     const email = dto.email.trim().toLowerCase();
+
+    if (!this.canRequestPasswordReset(email, meta.ipAddress)) {
+      this.logger.warn({ event: "password_reset_request", status: "rate_limited", requestId, ipAddress: meta.ipAddress });
+      return { message: passwordResetMessage };
+    }
+
     const user = await this.findUserByEmail(email);
 
-    if (user) {
-      const rawToken = randomBytes(32).toString("base64url");
-      await this.prisma.passwordResetToken.create({
+    if (!user) {
+      this.logger.log({ event: "password_reset_request", status: "neutral_no_account_match", requestId });
+      return { message: passwordResetMessage };
+    }
+
+    const rawToken = randomBytes(32).toString("base64url");
+    const resetUrl = this.buildPasswordResetUrl(rawToken);
+
+    if (!resetUrl) {
+      this.logger.error({ event: "password_reset_request", status: "invalid_reset_url", requestId });
+      return { message: passwordResetMessage };
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.passwordResetToken.updateMany({
+        where: { userId: user.id, usedAt: null },
+        data: { usedAt: new Date() }
+      }),
+      this.prisma.passwordResetToken.create({
         data: {
           userId: user.id,
           tokenHash: this.hashPasswordResetToken(rawToken),
-          expiresAt: new Date(Date.now() + 60 * 60 * 1000)
+          expiresAt: new Date(Date.now() + passwordResetTokenTtlMinutes * 60 * 1000)
         }
-      });
-    }
+      })
+    ]);
+
+    const result = await this.emailService.sendPasswordResetEmail({
+      to: user.email,
+      resetUrl,
+      requestId,
+      expiresInMinutes: passwordResetTokenTtlMinutes
+    });
+
+    this.logger.log({
+      event: "password_reset_request",
+      provider: result.provider,
+      status: result.status,
+      accepted: result.accepted,
+      messageId: result.messageId,
+      requestId
+    });
 
     return { message: passwordResetMessage };
   }
@@ -124,15 +175,21 @@ export class AuthService {
     });
 
     if (!token || token.user.isActive === false) {
-      throw new UnauthorizedException("Lien de réinitialisation invalide ou expiré.");
+      throw new UnauthorizedException("Lien de r\u00e9initialisation invalide ou expir\u00e9.");
     }
 
     await this.prisma.$transaction([
       this.prisma.user.update({ where: { id: token.userId }, data: { password: await bcrypt.hash(dto.password, 12) } }),
-      this.prisma.passwordResetToken.update({ where: { id: token.id }, data: { usedAt: new Date() } })
+      this.prisma.passwordResetToken.update({ where: { id: token.id }, data: { usedAt: new Date() } }),
+      this.prisma.passwordResetToken.updateMany({
+        where: { userId: token.userId, usedAt: null, id: { not: token.id } },
+        data: { usedAt: new Date() }
+      })
     ]);
 
-    return { message: "Mot de passe réinitialisé. Vous pouvez maintenant vous connecter." };
+    this.invalidateUserSessions(token.userId);
+
+    return { message: "Mot de passe r\u00e9initialis\u00e9. Vous pouvez maintenant vous connecter." };
   }
 
 
@@ -356,6 +413,56 @@ export class AuthService {
 
   private async touchTenantSeen(tenantId: string) {
     await this.prisma.tenant.update({ where: { id: tenantId }, data: { lastSeenAt: new Date() } }).catch(() => undefined);
+  }
+
+  private canRequestPasswordReset(email: string, ipAddress?: string) {
+    const emailKey = `password-reset:email:${this.hashPasswordResetToken(email)}`;
+    const ipKey = ipAddress ? `password-reset:ip:${this.hashPasswordResetToken(ipAddress)}` : undefined;
+    return [emailKey, ipKey].filter((key): key is string => Boolean(key)).every((key) => this.consumePasswordResetAttempt(key));
+  }
+
+  private consumePasswordResetAttempt(key: string) {
+    const now = Date.now();
+    const current = this.passwordResetAttempts.get(key);
+
+    if (!current || current.resetAt <= now) {
+      this.passwordResetAttempts.set(key, { count: 1, resetAt: now + passwordResetRateLimitWindowMs });
+      return true;
+    }
+
+    if (current.count >= passwordResetMaxAttempts) return false;
+    current.count += 1;
+    return true;
+  }
+
+  private buildPasswordResetUrl(rawToken: string) {
+    try {
+      const configuredBase = process.env.PASSWORD_RESET_BASE_URL?.trim();
+      const webUrl = process.env.WEB_URL?.trim() ?? process.env.FRONTEND_URL?.trim() ?? "https://vtaerp.com";
+      const baseUrl = configuredBase || new URL("/reset-password", webUrl).toString();
+      const url = new URL(baseUrl);
+
+      if (!url.pathname || url.pathname === "/") url.pathname = "/reset-password";
+      if (process.env.NODE_ENV === "production" && url.protocol !== "https:") return null;
+
+      const allowedHosts = (process.env.PASSWORD_RESET_ALLOWED_HOSTS ?? "vtaerp.com,www.vtaerp.com,localhost")
+        .split(",")
+        .map((host) => host.trim().toLowerCase())
+        .filter(Boolean);
+      const hostAllowed = allowedHosts.includes(url.hostname.toLowerCase()) || url.hostname === "127.0.0.1";
+      if (!hostAllowed) return null;
+
+      url.searchParams.set("token", rawToken);
+      return url.toString();
+    } catch {
+      return null;
+    }
+  }
+
+  private invalidateUserSessions(userId: string) {
+    for (const [sessionId, session] of this.sessions.entries()) {
+      if (session.user.id === userId) this.sessions.delete(sessionId);
+    }
   }
 
   private get accessTokenSecret() {

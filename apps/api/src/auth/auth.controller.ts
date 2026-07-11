@@ -20,8 +20,8 @@ export class AuthController {
   }
 
   @Post("forgot-password")
-  forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
-    return this.authService.requestPasswordReset(forgotPasswordDto);
+  forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto, @Req() request: Request) {
+    return this.authService.requestPasswordReset(forgotPasswordDto, this.clientMeta(request));
   }
 
   @Post("reset-password")

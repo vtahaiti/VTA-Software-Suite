@@ -56,6 +56,25 @@ npx prisma migrate deploy --schema=database/prisma/schema.prisma
 npm run start --workspace=@vta/api
 ```
 
+### Email transactionnel / mot de passe oubli?
+
+Le backend utilise SMTP via Nodemailer pour envoyer les liens de r?initialisation. Aucune cl? ne doit ?tre commit?e dans Git.
+
+Variables API ? configurer dans Coolify :
+
+```env
+PASSWORD_RESET_BASE_URL=https://vtaerp.com/reset-password
+PASSWORD_RESET_ALLOWED_HOSTS=vtaerp.com,www.vtaerp.com
+SMTP_HOST=smtp.votre-fournisseur.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=utilisateur-smtp
+SMTP_PASSWORD=mot-de-passe-ou-cle-smtp
+SMTP_FROM=VTA Commerce <noreply@vtaerp.com>
+```
+
+Le domaine exp?diteur doit ?tre autoris? chez le fournisseur email et disposer de SPF, DKIM et DMARC valides. Apr?s modification des variables, red?marrer l'application API.
+
 ## Base PostgreSQL
 
 Utiliser une base PostgreSQL Coolify ou externe.
