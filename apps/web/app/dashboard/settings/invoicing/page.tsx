@@ -1,4 +1,6 @@
 ﻿"use client";
+
+import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
 
@@ -59,9 +61,11 @@ export default function InvoicingSettingsPage() {
 }
 
 function Header() {
-  return <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm font-medium text-brand-600">Paramètres</p><h1 className="text-2xl font-bold">Paramètres de facturation</h1><div className="mt-4 flex flex-wrap gap-2"><a href="/dashboard/settings/company" className="rounded-md border px-3 py-2 text-sm">Entreprise</a><a href="/dashboard/settings/pos" className="rounded-md border px-3 py-2 text-sm">POS</a><a href="/dashboard/settings/invoicing" className="rounded-md bg-brand-600 px-3 py-2 text-sm text-white">Facturation</a></div></div>;
+  return <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm font-medium text-brand-600">Paramètres</p><h1 className="text-2xl font-bold">Paramètres de facturation</h1><div className="mt-4 flex flex-wrap gap-2"><Link href="/dashboard/settings/company" className="rounded-md border px-3 py-2 text-sm">Entreprise</Link><Link href="/dashboard/settings/pos" className="rounded-md border px-3 py-2 text-sm">POS</Link><Link href="/dashboard/settings/invoicing" className="rounded-md bg-brand-600 px-3 py-2 text-sm text-white">Facturation</Link></div></div>;
 }
 
 function Input({ label, value, onChange, help, type = "text", min, max, step }: { label: string; value: string | number; help?: string; type?: string; min?: string; max?: string; step?: string; onChange: (value: string) => void }) {
   return <label className="grid gap-1 text-sm font-medium">{label}<input type={type} min={min} max={max} step={step} value={value ?? ""} onChange={(event)=>onChange(event.target.value)} className="rounded-md border px-3 py-2 dark:bg-slate-950"/>{help ? <span className="text-xs font-normal text-slate-500">{help}</span> : null}</label>;
 }
+
+
