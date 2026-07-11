@@ -59,7 +59,7 @@ export function Header({ user, onMenuClick }: HeaderProps) {
   const primaryColor = branding?.primaryColor ?? "#2563eb";
 
   return (
-    <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 px-3 py-2 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90 sm:px-4 lg:px-8 lg:py-3">
+    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 px-3 py-2 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90 sm:px-4 lg:px-8 lg:py-3">
       <div className="flex items-center justify-between gap-2 sm:gap-4">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <button type="button" onClick={onMenuClick} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 lg:hidden" aria-label="Ouvrir le menu">

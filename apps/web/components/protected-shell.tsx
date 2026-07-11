@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
 import { AuthUser, clearSession, getAccessToken, getCurrentUser, refreshSession } from "@/lib/auth";
@@ -14,6 +14,7 @@ type ProtectedShellProps = {
 
 export function ProtectedShell({ children }: ProtectedShellProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -46,6 +47,10 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
     loadSession();
   }, [router]);
 
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
+
   if (!isReady || !user) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-600 dark:bg-slate-950 dark:text-slate-300">
@@ -60,9 +65,9 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
         <Sidebar />
       </div>
       {isMobileMenuOpen ? (
-        <div className="fixed inset-0 z-40 lg:hidden" aria-modal="true" role="dialog">
+        <div className="fixed inset-0 z-30 lg:hidden" aria-modal="true" role="dialog">
           <button type="button" aria-label="Fermer le menu" className="absolute inset-0 bg-slate-950/45" onClick={() => setIsMobileMenuOpen(false)} />
-          <div className="absolute inset-y-0 left-0 z-50 w-[min(18rem,calc(100vw-2rem))] shadow-2xl">
+          <div className="absolute inset-y-0 left-0 z-40 w-[min(18rem,calc(100vw-2rem))] shadow-2xl">
             <Sidebar className="w-full" onNavigate={() => setIsMobileMenuOpen(false)} />
           </div>
         </div>

@@ -23,7 +23,7 @@ export function Sidebar({ className = "", onNavigate }: SidebarProps) {
   const [expertSections, setExpertSections] = useState<BusinessMenuSection[]>(fallbackMenuSections);
   const [activity, setActivity] = useState("");
   const [branding, setBranding] = useState<CompanyBranding | null>(null);
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
 
   useEffect(() => {
     setMode((window.localStorage.getItem("vta_menu_mode") as MenuMode) || "simple");
@@ -53,13 +53,13 @@ export function Sidebar({ className = "", onNavigate }: SidebarProps) {
   const primaryColor = branding?.primaryColor ?? "#2563eb";
 
   useEffect(() => {
-    const activeGroups: Record<string, boolean> = {};
+    let activeGroupId: string | null = null;
     for (const section of sections) {
       for (const item of section.items) {
-        if (item.children?.length && isNavigationItemActive(pathname, item)) activeGroups[item.id] = true;
+        if (item.children?.length && isNavigationItemActive(pathname, item)) activeGroupId = item.id;
       }
     }
-    if (Object.keys(activeGroups).length) setOpenGroups((current) => ({ ...current, ...activeGroups }));
+    setOpenGroupId(activeGroupId);
   }, [pathname, sections]);
 
   return <aside className={`h-full overflow-y-auto border-r border-slate-200 bg-white px-2 py-3 dark:border-slate-800 dark:bg-slate-950 lg:sticky lg:top-0 lg:h-screen lg:px-4 lg:py-5 ${className}`}>
@@ -73,7 +73,7 @@ export function Sidebar({ className = "", onNavigate }: SidebarProps) {
       {sections.map((section) => <div key={section.title}>
         <p className="hidden px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400 lg:block">{section.title}</p>
         <div className="grid gap-1">
-          {section.items.map((item) => <SidebarItem key={item.id} item={item} pathname={pathname} isOpen={Boolean(openGroups[item.id])} onToggle={() => setOpenGroups((current) => ({ ...current, [item.id]: !current[item.id] }))} onNavigate={onNavigate} />)}
+          {section.items.map((item) => <SidebarItem key={item.id} item={item} pathname={pathname} isOpen={openGroupId === item.id} onToggle={() => setOpenGroupId((current) => current === item.id ? null : item.id)} onNavigate={onNavigate} />)}
         </div>
       </div>)}
     </nav>
@@ -103,7 +103,7 @@ function SidebarItem({ item, pathname, isOpen, onToggle, onNavigate }: { item: N
         <Chevron aria-hidden="true" className={`h-4 w-4 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
         <span className="sr-only">{item.label}</span>
       </button>
-      {isOpen ? <div className="absolute left-full top-0 z-50 ml-2 grid w-64 gap-1 rounded-lg border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-950 lg:static lg:ml-5 lg:w-auto lg:border-y-0 lg:border-r-0 lg:border-l lg:bg-transparent lg:p-0 lg:pl-3 lg:shadow-none dark:lg:border-slate-800">
+      {isOpen ? <div className="mt-1 grid gap-1 rounded-lg border border-slate-100 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-900/60 lg:ml-5 lg:border-y-0 lg:border-r-0 lg:border-l lg:bg-transparent lg:p-0 lg:pl-3 dark:lg:border-slate-800">
         {item.children.map((child) => {
           const ChildIcon = child.icon;
           const childActive = isNavigationItemActive(pathname, child);
