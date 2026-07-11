@@ -48,7 +48,7 @@ export default function CompanySettingsPage() {
         body: JSON.stringify(payload)
       });
       if (!response.ok) {
-        setMsg("Sauvegarde impossible. Vérifiez les champs puis réessayez.");
+        setMsg(await readSettingsError(response));
         return;
       }
       setForm(toCompanyForm(await response.json()));
@@ -101,6 +101,16 @@ export default function CompanySettingsPage() {
       <div className="md:col-span-2 flex items-center gap-3"><button disabled={saving} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement..." : "Sauvegarder"}</button>{msg && <p className="text-sm text-slate-500">{msg}</p>}</div>
     </form>
   </div>;
+}
+
+async function readSettingsError(response: Response) {
+  try {
+    const body = await response.json();
+    const message = Array.isArray(body.message) ? body.message[0] : body.message;
+    return message ? `Sauvegarde impossible : ${message}` : "Sauvegarde impossible. Vérifiez les champs puis réessayez.";
+  } catch {
+    return "Sauvegarde impossible. Vérifiez les champs puis réessayez.";
+  }
 }
 
 function toCompanyForm(data: Partial<CompanyForm>): CompanyForm {
