@@ -45,7 +45,7 @@ export function Sidebar({ className = "", onNavigate }: SidebarProps) {
     window.localStorage.setItem("vta_menu_mode", next);
   }
 
-  const currentUser = getCurrentUser();
+  const currentUser = useMemo(() => getCurrentUser(), []);
   const sourceSections = mode === "simple" ? simpleSections : expertSections;
   const sections = useMemo(() => buildNavigation(currentUser, sourceSections), [currentUser, sourceSections]);
   const companyName = branding?.companyName ?? currentUser?.tenant ?? "Mon entreprise";
