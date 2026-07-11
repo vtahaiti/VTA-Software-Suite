@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { getAccessToken } from "@/lib/auth";
+import { fetchWithAuth } from "@/lib/api-client";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -32,7 +32,7 @@ export default function InvoicingSettingsPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch(`${apiUrl}/settings/invoicing`, { headers: { Authorization: `Bearer ${getAccessToken()}` } })
+    fetchWithAuth(`${apiUrl}/settings/invoicing`)
       .then((response) => response.ok ? response.json() : null)
       .then((data) => data && setForm(toInvoicingForm(data)));
   }, []);
@@ -54,7 +54,7 @@ export default function InvoicingSettingsPage() {
     setSaving(true);
     try {
       const payload = toInvoicingPayload(form, defaultTaxRate, maxDiscountRate);
-      const response = await fetch(`${apiUrl}/settings/invoicing`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` }, body: JSON.stringify(payload) });
+      const response = await fetchWithAuth(`${apiUrl}/settings/invoicing`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (!response.ok) {
         setMsg("Sauvegarde impossible. Vérifiez les champs puis réessayez.");
         return;

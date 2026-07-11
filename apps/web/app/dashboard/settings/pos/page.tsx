@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { FormEvent, useEffect, useState } from "react";
-import { getAccessToken } from "@/lib/auth";
+import { fetchWithAuth } from "@/lib/api-client";
 import { getReceiptPrintSettings, openThermalDemoPreview } from "@/lib/print";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -23,7 +23,7 @@ export default function PosSettingsPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch(`${apiUrl}/settings/pos`, { headers: { Authorization: `Bearer ${getAccessToken()}` } })
+    fetchWithAuth(`${apiUrl}/settings/pos`)
       .then((response) => response.ok ? response.json() : null)
       .then((data) => data && setForm(toPosForm(data)));
     void getReceiptPrintSettings().then((settings) => setReceiptWidth(settings.width)).catch(() => undefined);
@@ -39,7 +39,7 @@ export default function PosSettingsPage() {
     setMsg("");
     setSaving(true);
     try {
-      const response = await fetch(`${apiUrl}/settings/pos`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` }, body: JSON.stringify(toPosForm(form)) });
+      const response = await fetchWithAuth(`${apiUrl}/settings/pos`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(toPosForm(form)) });
       if (!response.ok) {
         setMsg("Sauvegarde impossible. Vérifiez les champs puis réessayez.");
         return;

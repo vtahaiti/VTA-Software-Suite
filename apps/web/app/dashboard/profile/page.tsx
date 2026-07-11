@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { getAccessToken } from "@/lib/auth";
+import { fetchWithAuth } from "@/lib/api-client";
 import { initials, resolveAssetUrl } from "@/lib/company-branding";
 import { formatRole } from "@/lib/format";
 
@@ -18,20 +18,17 @@ export default function DashboardProfilePage() {
   useEffect(() => { void load(); }, []);
 
   async function load() {
-    const token = getAccessToken();
-    if (!token) return;
-    const response = await fetch(`${apiUrl}/profile/me`, { headers: { Authorization: `Bearer ${token}` } });
+    const response = await fetchWithAuth(`${apiUrl}/profile/me`);
     if (response.ok) setProfile(await response.json());
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!profile || saving) return;
-    const token = getAccessToken();
     setMessage("");
     setSaving(true);
     try {
-      const response = await fetch(`${apiUrl}/profile/me`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ name: profile.name, jobTitle: profile.profile?.jobTitle ?? "", phone: profile.profile?.phone ?? "", language: profile.profile?.language ?? "fr" }) });
+      const response = await fetchWithAuth(`${apiUrl}/profile/me`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: profile.name, jobTitle: profile.profile?.jobTitle ?? "", phone: profile.profile?.phone ?? "", language: profile.profile?.language ?? "fr" }) });
       if (!response.ok) {
         setMessage("Mise à jour impossible. Vérifiez les champs puis réessayez.");
         return;

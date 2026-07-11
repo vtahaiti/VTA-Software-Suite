@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
-import { getAccessToken } from "@/lib/auth";
+import { fetchWithAuth } from "@/lib/api-client";
 import { initials, resolveAssetUrl } from "@/lib/company-branding";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -25,7 +25,7 @@ export default function CompanySettingsPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch(`${apiUrl}/settings/company`, { headers: { Authorization: `Bearer ${getAccessToken()}` } })
+    fetchWithAuth(`${apiUrl}/settings/company`)
       .then((response) => response.ok ? response.json() : null)
       .then((data) => data && setForm(toCompanyForm(data)))
       .catch(() => undefined);
@@ -42,9 +42,9 @@ export default function CompanySettingsPage() {
     setSaving(true);
     try {
       const payload = toCompanyPayload(form);
-      const response = await fetch(`${apiUrl}/settings/company`, {
+      const response = await fetchWithAuth(`${apiUrl}/settings/company`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
       if (!response.ok) {
