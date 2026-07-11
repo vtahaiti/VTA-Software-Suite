@@ -22,6 +22,7 @@ type Cart = { items: CartLine[]; subtotal: number; itemDiscount: number; discoun
 type SaleHistory = { id: string; total: string | number; createdAt: string; receipt?: { number: string } | null; invoice?: { documentNumber: string } | null };
 type SaleResponse = { id: string; total: string | number; receipt?: { number: string; content: string } | null; invoice?: { documentNumber: string; total: string | number } | null };
 type PaymentLine = { method: string; amount: string; reference: string };
+type PaymentSummary = { paidAmount: number; changeDue: number; method: string };
 type CustomerForm = { name: string; phone: string; address: string; email: string; notes: string };
 type CustomItemForm = { name: string; price: string; quantity: string; discount: string; note: string; type: CustomItemType };
 type PosDraft = { cart: Cart; customerId: string; payments: PaymentLine[]; orderDiscount: string; taxRate: string; storeId: string; warehouseId: string; cashSessionId: string; updatedAt: string };
@@ -51,12 +52,14 @@ export default function PosPage() {
   const [showExpertOptions, setShowExpertOptions] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [showCartDrawer, setShowCartDrawer] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [syncMessage, setSyncMessage] = useState("");
   const [pendingOfflineSales, setPendingOfflineSales] = useState(0);
   const [lastSale, setLastSale] = useState<SaleResponse | null>(null);
+  const [lastPaymentSummary, setLastPaymentSummary] = useState<PaymentSummary | null>(null);
   const [branding, setBranding] = useState<CompanyBranding | null>(null);
   const [receiptFormat, setReceiptFormat] = useState<"58" | "80">("80");
   const [autoPrintReceipt, setAutoPrintReceipt] = useState(false);
@@ -504,7 +507,7 @@ export default function PosPage() {
 
   return (
     <div className="min-h-screen bg-slate-100 font-sans text-slate-950 lg:-m-6">
-      <div className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_390px] xl:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_360px]">
         <main className="min-h-0 overflow-auto px-3 pb-28 pt-3 sm:px-4 lg:p-5 xl:p-6">
           <section className="sticky top-0 z-20 mb-4 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
             <div className="flex min-h-14 items-center justify-between gap-3">
@@ -606,6 +609,7 @@ export default function PosPage() {
             changeDue={changeDue}
             balanceDue={balanceDue}
             canReceivePayment={canReceivePayment}
+            canStartPayment={canCheckout}
             isLoading={isLoading}
             showExpertOptions={showExpertOptions}
             setShowExpertOptions={setShowExpertOptions}
@@ -623,7 +627,7 @@ export default function PosPage() {
             removePayment={removePayment}
             addExtraPayment={() => setPayments((current) => [...current, { method: "CASH", amount: "", reference: "" }])}
             pendingLabel={posTemplate.pendingLabel}
-            checkout={() => void checkout()}
+            checkout={() => setShowPaymentModal(true)}
             holdSale={() => void createPosDocument("orders", posTemplate.pendingLabel)}
             createQuote={() => void createPosDocument("quotes", "Devis POS")}
             createOrder={() => void createPosDocument("orders", "Commande POS")}
@@ -633,7 +637,7 @@ export default function PosPage() {
         </div>
       </div>
 
-      <MobileCartBar cart={cart} paidAmount={paidAmount} onOpen={() => setShowCartDrawer(true)} />
+      <MobileCartBar cart={cart} onOpen={() => setShowCartDrawer(true)} />
       {showCartDrawer ? (
         <div className="fixed inset-0 z-50 bg-slate-950/60 lg:hidden">
           <div className="ml-auto flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
@@ -665,6 +669,7 @@ export default function PosPage() {
               changeDue={changeDue}
               balanceDue={balanceDue}
               canReceivePayment={canReceivePayment}
+              canStartPayment={canCheckout}
               isLoading={isLoading}
               showExpertOptions={showExpertOptions}
               setShowExpertOptions={setShowExpertOptions}
@@ -682,7 +687,7 @@ export default function PosPage() {
               removePayment={removePayment}
               addExtraPayment={() => setPayments((current) => [...current, { method: "CASH", amount: "", reference: "" }])}
               pendingLabel={posTemplate.pendingLabel}
-              checkout={() => { void checkout().then(() => setShowCartDrawer(false)); }}
+              checkout={() => setShowPaymentModal(true)}
               holdSale={() => void createPosDocument("orders", posTemplate.pendingLabel)}
               createQuote={() => void createPosDocument("quotes", "Devis POS")}
               createOrder={() => void createPosDocument("orders", "Commande POS")}
@@ -691,6 +696,26 @@ export default function PosPage() {
             />
           </div>
         </div>
+      ) : null}
+      {showPaymentModal ? (
+        <PaymentModal
+          cart={cart}
+          payments={payments}
+          updatePayment={updatePayment}
+          setCashPayment={setCashPayment}
+          paidAmount={paidAmount}
+          changeDue={changeDue}
+          balanceDue={balanceDue}
+          canReceivePayment={canReceivePayment}
+          isLoading={isLoading}
+          lastSale={lastSale}
+          lastPaymentSummary={lastPaymentSummary}
+          capturePaymentSummary={() => setLastPaymentSummary({ paidAmount, changeDue, method: payments[0]?.method ?? "CASH" })}
+          checkout={() => void checkout()}
+          onClose={() => setShowPaymentModal(false)}
+          onNewSale={() => { setShowPaymentModal(false); setShowCartDrawer(false); setLastSale(null); setLastPaymentSummary(null); }}
+          printSale={(sale) => void printSaleReceipt(sale)}
+        />
       ) : null}
       {showCustomerModal ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4">
@@ -871,6 +896,7 @@ type CartPanelProps = {
   changeDue: number;
   balanceDue: number;
   canReceivePayment: boolean;
+  canStartPayment: boolean;
   isLoading: boolean;
   showExpertOptions: boolean;
   setShowExpertOptions: (value: boolean | ((current: boolean) => boolean)) => void;
@@ -926,7 +952,7 @@ function CartPanel(props: CartPanelProps) {
         ) : null}
       </div>
 
-      <PaymentPanel {...props} />
+      <CartTotalsPanel {...props} />
     </aside>
   );
 }
@@ -961,63 +987,142 @@ function CartLineItem({ item, updateQuantity, removeProduct }: { item: CartLine;
   );
 }
 
-function PaymentPanel(props: CartPanelProps) {
-  const primaryMethod = props.payments[0]?.method ?? "CASH";
+function CartTotalsPanel(props: CartPanelProps) {
   return (
     <div className="space-y-3 border-t border-slate-200 p-4">
-      <SaleSummary cart={props.cart} paidAmount={props.paidAmount} changeDue={props.changeDue} balanceDue={props.balanceDue} />
-      <details className="rounded-xl border border-slate-200 bg-white">
+      <SaleSummary cart={props.cart} />
+      <details className="rounded-lg border border-slate-200 bg-white">
         <summary className="cursor-pointer list-none px-3 py-2 text-sm font-semibold text-slate-600">Ajouter une remise</summary>
         <label className="grid gap-1 px-3 pb-3 text-sm font-semibold">Remise globale
           <input value={props.orderDiscount} onChange={(event) => props.setOrderDiscount(event.target.value)} onBlur={props.syncCart} className="rounded-lg border border-slate-300 px-3 py-2 font-normal" />
         </label>
       </details>
-      {props.cart.items.length ? (
-        <div className="rounded-xl border border-slate-200 p-3">
-          <p className="mb-2 text-sm font-bold">Paiement</p>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              ["CASH", "Espèces"],
-              ["CARD", "Carte"],
-              ["BANK_TRANSFER", "Virement"]
-            ].map(([method, label]) => (
-              <button key={method} type="button" onClick={() => props.updatePayment(0, { method })} className={`min-h-11 rounded-lg px-3 py-2 text-sm font-semibold ${primaryMethod === method ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}>{label}</button>
-            ))}
+      <button onClick={props.checkout} disabled={!props.canStartPayment} className="w-full rounded-lg bg-emerald-600 px-4 py-4 text-base font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">{props.isLoading ? "Encaissement..." : `Encaisser — ${formatMoney(props.cart.total)}`}</button>
+      <div className="flex items-center justify-between gap-2">
+        <button onClick={props.holdSale} disabled={!props.cart.items.length} className="min-h-11 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-50">{props.pendingLabel}</button>
+        <details className="relative">
+          <summary className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50" aria-label="Autres actions">
+            <MoreIcon />
+          </summary>
+          <div className="absolute bottom-full right-0 z-20 mb-2 grid w-56 gap-1 rounded-lg border border-slate-200 bg-white p-2 text-sm shadow-xl">
+            <button type="button" onClick={() => props.setShowExpertOptions((current) => !current)} className="rounded-md px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50">Options avancées</button>
+            <button onClick={props.createQuote} disabled={!props.cart.items.length} className="rounded-md px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Créer devis</button>
+            <button onClick={props.createOrder} disabled={!props.cart.items.length} className="rounded-md px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Créer commande</button>
           </div>
-          <label className="mt-3 grid gap-1 text-sm font-semibold">
-            {primaryMethod === "CASH" ? "Montant reçu" : "Montant réglé"}
-            <input value={props.payments[0]?.amount ?? ""} onChange={(event) => props.setCashPayment(event.target.value)} placeholder={primaryMethod === "CASH" ? "Montant reçu" : "Montant"} className="w-full rounded-xl border border-slate-300 px-4 py-3 text-lg font-bold tabular-nums outline-none focus:border-brand-600 focus:ring-4 focus:ring-brand-100" />
-          </label>
-          <button type="button" onClick={() => props.setCashPayment(String(props.cart.total))} className="mt-2 min-h-11 rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white">Paiement exact</button>
-        </div>
-      ) : null}
-      {props.cart.items.length > 0 && props.paidAmount > 0 && props.paidAmount < props.cart.total ? (
-        <p className="rounded-xl bg-red-50 px-3 py-2 text-sm font-bold text-red-700">
-          {insufficientPaymentMessage(props.cart.total, props.paidAmount)}
-        </p>
-      ) : null}
-      <button onClick={props.checkout} disabled={!props.canReceivePayment} className="w-full rounded-xl bg-emerald-600 px-4 py-4 text-lg font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">{props.isLoading ? "Encaissement..." : `Encaisser — ${formatMoney(props.cart.total)}`}</button>
-      <div className="grid grid-cols-2 gap-2">
-        <button onClick={props.holdSale} disabled={!props.cart.items.length} className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold disabled:opacity-50">{props.pendingLabel}</button>
-        {props.lastSale ? <button type="button" onClick={() => props.printSale(props.lastSale!)} className="rounded-xl border border-slate-300 px-4 py-3 text-center text-sm font-semibold">Imprimer</button> : <button disabled className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold opacity-50">Imprimer</button>}
+        </details>
       </div>
-      <button type="button" onClick={() => props.setShowExpertOptions((current) => !current)} className="text-xs font-bold text-slate-500 hover:text-slate-900">Options avancées</button>
       {props.showExpertOptions ? <ExpertOptions {...props} /> : null}
     </div>
   );
 }
 
-function SaleSummary({ cart, paidAmount, changeDue, balanceDue }: { cart: Cart; paidAmount: number; changeDue: number; balanceDue: number }) {
+function SaleSummary({ cart }: { cart: Cart }) {
   return (
-    <div className="rounded-xl bg-slate-50 p-3">
+    <div className="rounded-lg bg-slate-50 p-3">
       <TotalLine label="Sous-total" value={cart.subtotal} />
       {cart.discount + cart.itemDiscount > 0 ? <TotalLine label="Remises" value={cart.discount + cart.itemDiscount} /> : null}
       {cart.tax > 0 ? <TotalLine label="Taxe" value={cart.tax} /> : null}
-      <div className="mt-2 flex justify-between border-t border-slate-200 pt-3 text-3xl font-bold tabular-nums"><span>Total</span><span>{formatMoney(cart.total)}</span></div>
-      <div className="mt-2 space-y-1">
-        <TotalLine label="Montant reçu" value={paidAmount} />
-        <TotalLine label="Monnaie rendue" value={changeDue} />
-        {balanceDue > 0 ? <TotalLine label="Balance" value={balanceDue} /> : null}
+      <div className="mt-2 flex justify-between border-t border-slate-200 pt-3 text-2xl font-bold tabular-nums"><span>Total</span><span>{formatMoney(cart.total)}</span></div>
+    </div>
+  );
+}
+
+type PaymentModalProps = Pick<CartPanelProps, "cart" | "payments" | "updatePayment" | "setCashPayment" | "paidAmount" | "changeDue" | "balanceDue" | "canReceivePayment" | "isLoading" | "lastSale" | "checkout" | "printSale"> & {
+  lastPaymentSummary: PaymentSummary | null;
+  capturePaymentSummary: () => void;
+  onClose: () => void;
+  onNewSale: () => void;
+};
+
+function PaymentModal(props: PaymentModalProps) {
+  const primaryMethod = props.payments[0]?.method ?? "CASH";
+  const isCash = primaryMethod === "CASH";
+  const quickAmounts = useMemo(() => {
+    const total = Math.ceil(props.cart.total);
+    return Array.from(new Set([total, Math.ceil(total / 100) * 100, Math.ceil(total / 500) * 500, Math.ceil(total / 1000) * 1000].filter((value) => value > 0)));
+  }, [props.cart.total]);
+
+  function selectPaymentMethod(method: string) {
+    if (method === "CASH") {
+      props.updatePayment(0, { method });
+      return;
+    }
+    props.updatePayment(0, { method, amount: String(props.cart.total), reference: "" });
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/60 p-0 sm:items-center sm:p-4">
+      <div className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-xl bg-white shadow-2xl sm:max-w-lg sm:rounded-xl">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{props.lastSale ? "Confirmation" : "Encaissement"}</p>
+            <h2 className="text-2xl font-bold">{props.lastSale ? "Vente enregistrée" : "Total à payer"}</h2>
+          </div>
+          <button type="button" onClick={props.onClose} className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 text-xl font-semibold text-slate-600 hover:bg-slate-50" aria-label="Fermer">×</button>
+        </div>
+
+        {props.lastSale ? (
+          <div className="space-y-4 overflow-auto p-4">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
+              <p className="text-sm font-semibold">Vente enregistrée</p>
+              <p className="mt-1 text-3xl font-bold tabular-nums">{formatMoney(Number(props.lastSale.total))}</p>
+              <p className="mt-2 text-sm font-semibold">Montant payé: {formatMoney(props.lastPaymentSummary?.paidAmount ?? Number(props.lastSale.total))}</p>
+              {(props.lastPaymentSummary?.changeDue ?? 0) > 0 ? <p className="mt-1 text-sm font-semibold">Monnaie rendue: {formatMoney(props.lastPaymentSummary?.changeDue ?? 0)}</p> : null}
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button type="button" onClick={() => props.printSale(props.lastSale!)} className="min-h-12 rounded-lg bg-slate-950 px-4 py-3 text-sm font-bold text-white">Imprimer le ticket</button>
+              <button type="button" disabled className="min-h-12 rounded-lg border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-400">Envoyer le reçu</button>
+              <button type="button" onClick={props.onNewSale} className="min-h-12 rounded-lg border border-slate-300 px-4 py-3 text-sm font-bold sm:col-span-2">Nouvelle vente</button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4 overflow-auto p-4">
+            <div className="rounded-lg bg-slate-50 p-4 text-center">
+              <p className="text-sm font-semibold text-slate-500">Total à payer</p>
+              <p className="text-4xl font-bold tabular-nums text-slate-950">{formatMoney(props.cart.total)}</p>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                ["CASH", "Espèces"],
+                ["CARD", "Carte"],
+                ["BANK_TRANSFER", "Virement"]
+              ].map(([method, label]) => (
+                <button key={method} type="button" onClick={() => selectPaymentMethod(method)} className={`min-h-12 rounded-lg border px-3 py-2 text-sm font-semibold ${primaryMethod === method ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>{label}</button>
+              ))}
+            </div>
+            {isCash ? (
+              <div className="space-y-3">
+                <label className="grid gap-1 text-sm font-semibold">
+                  Montant reçu
+                  <input value={props.payments[0]?.amount ?? ""} onChange={(event) => props.setCashPayment(event.target.value)} placeholder="Montant reçu" className="w-full rounded-lg border border-slate-300 px-4 py-3 text-xl font-bold tabular-nums outline-none focus:border-brand-600 focus:ring-4 focus:ring-brand-100" />
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => props.setCashPayment(String(props.cart.total))} className="min-h-10 rounded-lg bg-slate-950 px-3 py-2 text-sm font-semibold text-white">Montant exact</button>
+                  {quickAmounts.map((amount) => (
+                    <button key={amount} type="button" onClick={() => props.setCashPayment(String(amount))} className="min-h-10 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold">{formatMoney(amount)}</button>
+                  ))}
+                </div>
+                {props.paidAmount > 0 && props.paidAmount < props.cart.total ? (
+                  <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{insufficientPaymentMessage(props.cart.total, props.paidAmount)}</p>
+                ) : null}
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <TotalLine label="Montant reçu" value={props.paidAmount} />
+                  <TotalLine label="Monnaie à rendre" value={props.changeDue} />
+                  {props.balanceDue > 0 ? <TotalLine label="Balance" value={props.balanceDue} /> : null}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+                <p className="font-semibold text-slate-900">Paiement {primaryMethod === "CARD" ? "par carte" : "par virement"}</p>
+                <p>Le montant réglé sera {formatMoney(props.cart.total)}.</p>
+              </div>
+            )}
+            <div className="grid gap-2 sm:grid-cols-[1fr_1.5fr]">
+              <button type="button" onClick={props.onClose} className="min-h-12 rounded-lg border border-slate-300 px-4 py-3 text-sm font-semibold">Annuler</button>
+              <button type="button" onClick={() => { props.capturePaymentSummary(); props.checkout(); }} disabled={!props.canReceivePayment} className="min-h-12 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">{props.isLoading ? "Encaissement..." : "Confirmer le paiement"}</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1068,12 +1173,12 @@ function ExpertOptions(props: CartPanelProps) {
   );
 }
 
-function MobileCartBar({ cart, paidAmount, onOpen }: { cart: Cart; paidAmount: number; onOpen: () => void }) {
+function MobileCartBar({ cart, onOpen }: { cart: Cart; onOpen: () => void }) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 p-3 shadow-2xl backdrop-blur lg:hidden">
       <button onClick={onOpen} className="flex min-h-14 w-full items-center justify-between rounded-xl bg-slate-950 px-4 py-3 text-left text-white">
         <span>
-          <span className="block text-xs font-semibold opacity-75">{cart.items.length} article{cart.items.length > 1 ? "s" : ""} · Reçu {formatMoney(paidAmount)}</span>
+          <span className="block text-xs font-semibold opacity-75">Panier · {cart.items.length} article{cart.items.length > 1 ? "s" : ""}</span>
           <span className="block text-lg font-bold">Voir le panier</span>
         </span>
         <span className="text-xl font-bold tabular-nums">{formatMoney(cart.total)}</span>
