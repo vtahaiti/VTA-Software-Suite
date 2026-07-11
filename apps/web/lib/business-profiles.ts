@@ -1,4 +1,4 @@
-import { getAccessToken } from "@/lib/auth";
+﻿import { getAccessToken } from "@/lib/auth";
 
 export type BusinessMenuSection = { title: string; items: Array<{ label: string; href: string }> };
 export type BusinessActivity = { name: string; profileType: string };
@@ -26,15 +26,15 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 export const simpleMenuSections: BusinessMenuSection[] = [
   { title: "Menu", items: [
-    { label: "🏠 Accueil", href: "/dashboard" },
-    { label: "🛒 Nouvelle vente", href: "/dashboard/pos" },
-    { label: "📦 Produits", href: "/dashboard/products" },
-    { label: "📊 Stock", href: "/dashboard/inventory" },
-    { label: "👥 Clients", href: "/dashboard/customers" },
-    { label: "🚚 Fournisseurs", href: "/dashboard/suppliers" },
-    { label: "🧾 Achats", href: "/dashboard/purchases" },
-    { label: "📈 Rapports", href: "/dashboard/reports" },
-    { label: "⚙️ Paramètres", href: "/dashboard/settings/company" }
+    { label: "Accueil", href: "/dashboard" },
+    { label: "Nouvelle vente", href: "/dashboard/pos" },
+    { label: "Produits", href: "/dashboard/products" },
+    { label: "Stock", href: "/dashboard/inventory" },
+    { label: "Clients", href: "/dashboard/customers" },
+    { label: "Fournisseurs", href: "/dashboard/suppliers" },
+    { label: "Achats", href: "/dashboard/purchases" },
+    { label: "Rapports", href: "/dashboard/reports" },
+    { label: "Paramètres", href: "/dashboard/settings/company" }
   ] }
 ];
 

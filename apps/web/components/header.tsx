@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Bell, LogOut } from "lucide-react";
 import { AuthUser, getAccessToken, logout } from "@/lib/auth";
 import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
 import { formatRole } from "@/lib/format";
@@ -62,7 +63,7 @@ export function Header({ user }: HeaderProps) {
       <div className="flex items-center justify-between gap-2 sm:gap-4">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           {branding?.logoUrl ? (
-            <img src={branding.logoUrl} alt={`Logo ${companyName}`} className="h-8 w-8 rounded-md object-cover shadow-sm sm:h-10 sm:w-10" />
+            <img src={branding.logoUrl} alt={`Logo ${companyName}`} className="h-8 w-8 rounded-md object-contain shadow-sm sm:h-10 sm:w-10" />
           ) : (
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-xs font-bold text-white shadow-sm sm:h-10 sm:w-10 sm:text-sm" style={{ backgroundColor: primaryColor }}>{companyInitials}</div>
           )}
@@ -74,8 +75,8 @@ export function Header({ user }: HeaderProps) {
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
           <div className="relative">
-            <button onClick={() => setIsOpen((value) => !value)} className="relative rounded-md border border-slate-200 bg-white px-2 py-2 text-xs text-slate-600 shadow-sm hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 sm:px-3 sm:text-sm">
-              <span className="sm:hidden">🔔</span>
+            <button onClick={() => setIsOpen((value) => !value)} className="relative inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-2 text-xs text-slate-600 shadow-sm hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 sm:px-3 sm:text-sm" aria-label="Notifications">
+              <Bell aria-hidden="true" className="h-4 w-4" />
               <span className="hidden sm:inline">Notifications</span>
               {count > 0 ? <span className="absolute -right-2 -top-2 rounded-full bg-red-600 px-1.5 py-0.5 text-xs font-bold text-white">{count}</span> : null}
             </button>
@@ -88,10 +89,13 @@ export function Header({ user }: HeaderProps) {
             {branding?.userPhotoUrl ? <img src={branding.userPhotoUrl} alt="Photo utilisateur" className="h-8 w-8 rounded-full object-cover" /> : <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700">{userInitials}</div>}
             <div className="leading-tight"><p className="text-sm font-semibold text-slate-950 dark:text-white">{userName}</p><p className="text-xs text-slate-500 dark:text-slate-400">{formatRole(branding?.role ?? user?.role)}</p></div>
           </Link>
-          <button onClick={handleLogout} className="rounded-md bg-slate-950 px-2.5 py-2 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 sm:px-3 sm:text-sm"><span className="sm:hidden">Sortir</span><span className="hidden sm:inline">Déconnexion</span></button>
+          <button onClick={handleLogout} className="inline-flex items-center gap-2 rounded-md bg-slate-950 px-2.5 py-2 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 sm:px-3 sm:text-sm">
+            <LogOut aria-hidden="true" className="h-4 w-4 sm:hidden" />
+            <span className="hidden sm:inline">Déconnexion</span>
+            <span className="sr-only sm:hidden">Déconnexion</span>
+          </button>
         </div>
       </div>
     </header>
   );
 }
-
