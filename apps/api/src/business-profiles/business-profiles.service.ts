@@ -67,7 +67,7 @@ export class BusinessProfilesService {
   async activateProfile(tenantId: string, slug: string, isPrimary = false) {
     await this.syncCatalog();
     const profile = await this.prisma.businessProfile.findUnique({ where: { slug }, include: { modules: { include: { businessModule: true } } } });
-    if (!profile) throw new NotFoundException("Profil metier introuvable.");
+    if (!profile) throw new NotFoundException("Profil métier introuvable.");
 
     await this.prisma.$transaction(async (tx) => {
       if (isPrimary) await tx.tenantBusinessProfile.updateMany({ where: { tenantId }, data: { isPrimary: false } });
@@ -94,9 +94,9 @@ export class BusinessProfilesService {
   async deactivateProfile(tenantId: string, slug: string) {
     await this.syncCatalog();
     const profile = await this.prisma.businessProfile.findUnique({ where: { slug } });
-    if (!profile) throw new NotFoundException("Profil metier introuvable.");
+    if (!profile) throw new NotFoundException("Profil métier introuvable.");
     const activeCount = await this.prisma.tenantBusinessProfile.count({ where: { tenantId, isActive: true } });
-    if (activeCount <= 1) throw new BadRequestException("Au moins un profil metier doit rester actif.");
+    if (activeCount <= 1) throw new BadRequestException("Au moins un profil métier doit rester actif.");
     await this.prisma.tenantBusinessProfile.update({ where: { tenantId_businessProfileId: { tenantId, businessProfileId: profile.id } }, data: { isActive: false, isPrimary: false, disabledAt: new Date() } });
     await this.rebuildTenantModules(tenantId);
     const configuration = await this.tenantConfiguration(tenantId);
@@ -107,7 +107,7 @@ export class BusinessProfilesService {
   async setModuleState(tenantId: string, key: string, isActive: boolean) {
     await this.syncCatalog();
     const module = await this.prisma.businessModule.findUnique({ where: { key } });
-    if (!module) throw new NotFoundException("Module metier introuvable.");
+    if (!module) throw new NotFoundException("Module métier introuvable.");
     await this.prisma.tenantBusinessModule.upsert({
       where: { tenantId_businessModuleId: { tenantId, businessModuleId: module.id } },
       update: { isActive, source: "manual", disabledAt: isActive ? null : new Date() },
@@ -201,7 +201,7 @@ export class BusinessProfilesService {
     const specialized = this.resolveSimpleMenu(profileType, primaryActivity);
     const items = specialized
       .filter((item) => activeKeys.has(item.module))
-      .map(({ module, ...item }) => item);
+      .map(({ module: _module, ...item }) => { void _module; return item; });
     return [{ title: "Menu", items }];
   }
 
@@ -256,7 +256,7 @@ export class BusinessProfilesService {
       ],
       hotel: [
         { label: "🏠 Accueil", href: "/dashboard", module: "dashboard" },
-        { label: "🛎 Reservations", href: "/dashboard/sales/quotes", module: "sales" },
+        { label: "🛎 Réservations", href: "/dashboard/sales/quotes", module: "sales" },
         { label: "🏨 Chambres", href: "/dashboard/stores", module: "hotel" },
         { label: "👥 Clients", href: "/dashboard/customers", module: "customers" },
         { label: "💳 Paiements", href: "/dashboard/payments", module: "sales" },
@@ -265,7 +265,7 @@ export class BusinessProfilesService {
       ],
       school: [
         { label: "🏠 Accueil", href: "/dashboard", module: "dashboard" },
-        { label: "🎓 Eleves", href: "/dashboard/customers", module: "customers" },
+        { label: "🎓 Élèves", href: "/dashboard/customers", module: "customers" },
         { label: "💳 Paiements", href: "/dashboard/payments", module: "sales" },
         { label: "🏫 Classes", href: "/dashboard/stores", module: "school" },
         { label: "📈 Rapports", href: "/dashboard/reports", module: "reports" },
@@ -305,18 +305,16 @@ export class BusinessProfilesService {
       { title: "Paramètres avancés", items: [
         { label: "Import / Export", href: "/dashboard/import-export" },
         { label: "Audit", href: "/dashboard/audit" },
-        { label: "Logs", href: "/dashboard/audit-logs" },
         { label: "Permissions", href: "/dashboard/settings/permissions" },
         { label: "Sauvegardes", href: "/dashboard/backups" },
-        { label: "Modules metier", href: "/dashboard/settings/business-modules" },
-        { label: "Taxes", href: "/dashboard/settings/invoicing" },
-        { label: "API / Integrations", href: "/dashboard/settings/business-modules" }
+        { label: "Modules métier", href: "/dashboard/settings/business-modules" },
+        { label: "Taxes", href: "/dashboard/settings/invoicing" }
       ] }
     ];
   }
 
   private buildMenuSections(modules: Array<ReturnType<BusinessProfilesService["serializeModule"]>>) {
-    const order = ["Principal", "Produits", "Stock", "Achats", "Ventes", "Restaurant", "Automobile", "Impression", "Hotel", "Education", "Services", "Paramètres"];
+    const order = ["Principal", "Produits", "Stock", "Achats", "Ventes", "Restaurant", "Automobile", "Impression", "Hôtel", "Éducation", "Services", "Paramètres"];
     const grouped = new Map<string, Array<{ label: string; href: string }>>();
     const seen = new Set<string>();
     for (const module of modules) for (const item of module.menuItems) {

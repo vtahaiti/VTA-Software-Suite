@@ -16,6 +16,13 @@ const files = [
   "apps/web/app/dashboard/settings/invoicing/page.tsx",
   "apps/web/app/dashboard/profile/page.tsx",
   "apps/web/app/dashboard/users/page.tsx",
+  "apps/web/lib/business-profiles.ts",
+  "apps/web/app/dashboard/audit-logs/page.tsx",
+  "apps/web/app/dashboard/backups/page.tsx",
+  "apps/web/app/dashboard/import-export/page.tsx",
+  "apps/web/app/dashboard/settings/permissions/page.tsx",
+  "apps/api/src/business-profiles/business-profiles.service.ts",
+  "apps/api/src/business-profiles/business-catalog.ts",
   "apps/web/app/profile/page.tsx",
   "apps/web/components/header.tsx",
   "apps/web/lib/format.ts",
@@ -36,7 +43,13 @@ const expected = new Map([
   ["apps/web/app/dashboard/customers/page.tsx", ["\u{1f464} Nom", "\u{1f4de} T\u00e9l\u00e9phone", "\u{1f3e2} Entreprise", "\u{1f4b0} Solde", "\u2699\ufe0f Actions", "label=\"client\""]],
   ["apps/web/app/onboarding/company/page.tsx", ["Ha\u00efti", "Activit\u00e9 principale"]],
   ["apps/api/src/onboarding/onboarding.service.ts", ["D\u00e9p\u00f4t principal", "Propri\u00e9taire"]],
-  ["apps/api/src/pos/pos.service.ts", ["D\u00e9p\u00f4t principal"]]
+  ["apps/api/src/pos/pos.service.ts", ["D\u00e9p\u00f4t principal"]],
+  ["apps/web/app/dashboard/audit-logs/page.tsx", ["Historique des actions", "Recherche instantan\u00e9e", "Pr\u00e9c\u00e9dent", "Aucune action"]],
+  ["apps/web/app/dashboard/backups/page.tsx", ["Sauvegardes", "sauvegardes pr\u00e9par\u00e9es", "fausse s\u00e9curit\u00e9"]],
+  ["apps/web/app/dashboard/import-export/page.tsx", ["Donn\u00e9es", "Aper\u00e7u", "R\u00e9sultat", "Format accept\u00e9"]],
+  ["apps/web/app/dashboard/settings/permissions/page.tsx", ["Param\u00e8tres avanc\u00e9s", "Permissions", "matrice"]],
+  ["apps/web/lib/business-profiles.ts", ["\u{1f3e0} Accueil", "\u2699\ufe0f Param\u00e8tres"]],
+  ["apps/api/src/business-profiles/business-profiles.service.ts", ["Param\u00e8tres avanc\u00e9s", "Audit", "Modules m\u00e9tier"]]
 ]);
 
 const failures = [];

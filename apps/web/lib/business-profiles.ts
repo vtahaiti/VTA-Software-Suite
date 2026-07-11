@@ -71,7 +71,7 @@ export async function activateBusinessProfile(slug: string, isPrimary = false) {
 export async function deactivateBusinessProfile(slug: string) {
   const token = getAccessToken();
   const response = await fetch(`${apiUrl}/business-profiles/tenant/profiles/${slug}/disable`, { method: "PATCH", headers: { Authorization: `Bearer ${token}` } });
-  if (!response.ok) throw new Error("Desactivation du profil impossible.");
+  if (!response.ok) throw new Error("Désactivation du profil impossible.");
   return response.json() as Promise<TenantBusinessConfiguration>;
 }
 

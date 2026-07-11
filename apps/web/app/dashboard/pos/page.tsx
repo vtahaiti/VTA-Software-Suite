@@ -133,7 +133,13 @@ export default function PosPage() {
   }, [authHeaders]);
 
   useEffect(() => { void loadRefs(); }, [loadRefs]);
-  useEffect(() => { const token = getAccessToken(); if (token) void getCompanyBranding(token).then(setBranding).catch(() => undefined); void getTenantBusinessConfiguration().then(setBusiness).catch(() => undefined); void getReceiptPrintSettings().then((settings) => { setReceiptFormat(settings.width); setAutoPrintReceipt(settings.autoPrintReceipt); }).catch(() => undefined); }, []);
+  useEffect(() => { const token = getAccessToken(); if (token) void getCompanyBranding(token).then(setBranding).catch(() => undefined); void getTenantBusinessConfiguration().then(setBusiness).catch(() => undefined); void getReceiptPrintSettings().then((settings) => { setReceiptFormat(settings.width); setAutoPrintReceipt(settings.autoPrintReceipt); }).catch(() => undefined);
+    void fetch(`${apiUrl}/settings/invoicing`, { headers: { Authorization: `Bearer ${getAccessToken()}` } })
+      .then((response) => response.ok ? response.json() : null)
+      .then((settings) => {
+        if (settings?.defaultTaxRate !== undefined) setTaxRate(String(Number(settings.defaultTaxRate) / 100));
+      })
+      .catch(() => undefined); }, []);
   useEffect(() => {
     const draft = loadPosDraft();
     if (!draft) return;
@@ -960,7 +966,7 @@ function PaymentPanel(props: CartPanelProps) {
         <button onClick={props.holdSale} disabled={!props.cart.items.length} className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-bold disabled:opacity-50 dark:border-slate-700">{props.pendingLabel}</button>
         {props.lastSale ? <button type="button" onClick={() => props.printSale(props.lastSale!)} className="rounded-2xl border border-slate-300 px-4 py-3 text-center text-sm font-bold dark:border-slate-700">Imprimer</button> : <button disabled className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-bold opacity-50 dark:border-slate-700">Imprimer</button>}
       </div>
-      <button type="button" onClick={() => props.setShowExpertOptions((current) => !current)} className="text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">Mode expert</button>
+      <button type="button" onClick={() => props.setShowExpertOptions((current) => !current)} className="text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">Options avanc?es de vente</button>
       {props.showExpertOptions ? <ExpertOptions {...props} /> : null}
     </div>
   );
@@ -1000,8 +1006,8 @@ function ExpertOptions(props: CartPanelProps) {
         </select>
         <select value={props.taxRate} onChange={(event) => props.setTaxRate(event.target.value)} onBlur={props.syncCart} className="rounded-xl border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
           <option value="0">Aucune taxe</option>
-          <option value="0.1">10%</option>
-          <option value="0.15">15%</option>
+          <option value="0.1">10 % par d?faut</option>
+          <option value="0.15">15 %</option>
         </select>
       </div>
       <button type="button" onClick={props.addExtraPayment} className="text-xs font-bold text-brand-600">+ Ajouter un paiement</button>

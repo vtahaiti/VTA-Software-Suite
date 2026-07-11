@@ -1,8 +1,9 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { TenantStatus } from "@prisma/client";
+import { AuditAction, TenantStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { createHash, randomBytes, randomUUID } from "crypto";
+import { AuditLogsService } from "../audit-logs/audit-logs.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { SecurityService } from "../security/security.service";
 import { defaultPermissions } from "../rbac/default-permissions";
@@ -32,17 +33,21 @@ const demoUser = {
 const passwordResetMessage = "Si cette adresse email est associée à un compte, vous recevrez les instructions de réinitialisation.";
 
 type SessionRecord = { user: AuthUser; refreshTokenHash: string; rememberMe: boolean; expiresAt: Date };
+type AuthRoleEntry = string | { role?: { name?: string; permissions?: Array<{ permission?: { key?: string } }> } };
+type AuthUserRecord = { id: string; tenantId: string; tenant?: { name?: string } | string | null; name: string; email: string; role?: string; roles?: AuthRoleEntry[]; createdAt?: Date | string };
+type AuditUserRecord = { id?: string; tenantId?: string; tenant?: { name?: string } | string | null; name?: string; email?: string };
 
 @Injectable()
 export class AuthService {
   private readonly sessions = new Map<string, SessionRecord>();
 
-  constructor(private readonly jwtService: JwtService, private readonly prisma: PrismaService, private readonly security: SecurityService) {}
+  constructor(private readonly jwtService: JwtService, private readonly prisma: PrismaService, private readonly security: SecurityService, private readonly auditLogs: AuditLogsService) {}
 
   async login(loginDto: LoginDto, meta: { ipAddress?: string; userAgent?: string } = {}) {
     const email = loginDto.email.trim().toLowerCase();
     if (await this.security.isBlocked(email)) {
       await this.security.recordBlockedLogin(email, meta);
+      await this.recordAuthAudit(AuditAction.LOGIN_FAILED, null, email, meta, "Connexion bloquee apres plusieurs echecs");
       throw new UnauthorizedException("Compte temporairement bloque apres plusieurs echecs. Reessayez plus tard.");
     }
 
@@ -52,22 +57,26 @@ export class AuthService {
       const passwordMatchesDemo = await bcrypt.compare(loginDto.password, demoPasswordHash);
       if (email !== adminEmail || !passwordMatchesDemo) {
         await this.security.recordLoginFailure(email, meta);
+        await this.recordAuthAudit(AuditAction.LOGIN_FAILED, null, email, meta, "Connexion echouee");
         throw new UnauthorizedException("Email ou mot de passe incorrect");
       }
       const authUser = this.toAuthUser(demoUser);
       const session = await this.createSession(authUser, Boolean(loginDto.rememberMe));
       await this.security.recordLoginSuccess(authUser, meta);
+      await this.recordAuthAudit(AuditAction.LOGIN, authUser, authUser.email, meta, "Connexion reussie");
       return session;
     }
 
     if (user.isActive === false) {
       await this.security.recordLoginFailure(email, meta);
+      await this.recordAuthAudit(AuditAction.LOGIN_FAILED, user, email, meta, "Compte utilisateur desactive");
       throw new UnauthorizedException("Compte utilisateur desactive. Contactez votre administrateur.");
     }
 
     const passwordMatches = await bcrypt.compare(loginDto.password, user.password);
     if (!passwordMatches) {
       await this.security.recordLoginFailure(email, meta);
+      await this.recordAuthAudit(AuditAction.LOGIN_FAILED, user, email, meta, "Connexion echouee");
       throw new UnauthorizedException("Email ou mot de passe incorrect");
     }
     const authUser = this.toAuthUser(user);
@@ -75,6 +84,7 @@ export class AuthService {
     await this.touchTenantLogin(authUser.tenantId);
     const session = await this.createSession(authUser, Boolean(loginDto.rememberMe));
     await this.security.recordLoginSuccess(authUser, meta);
+    await this.recordAuthAudit(AuditAction.LOGIN, authUser, authUser.email, meta, "Connexion reussie");
     return session;
   }
 
@@ -150,7 +160,10 @@ export class AuthService {
 
   async logout(sessionId: string, user?: AuthUser, meta: { ipAddress?: string; userAgent?: string } = {}) {
     this.sessions.delete(sessionId);
-    if (user) await this.security.recordLogout(user, meta);
+    if (user) {
+      await this.security.recordLogout(user, meta);
+      await this.recordAuthAudit(AuditAction.LOGOUT, user, user.email, meta, "Deconnexion securisee");
+    }
   }
 
   async verifyAccessToken(accessToken: string): Promise<AuthUser> {
@@ -178,20 +191,21 @@ export class AuthService {
     }
   }
 
-  private toAuthUser(user: any): AuthUser {
-    const roles: string[] = user.roles?.map((entry: any) => entry.role?.name ?? entry).filter(Boolean) ?? ["Owner"];
-    const permissions: string[] = user.roles?.flatMap((entry: any) => entry.role?.permissions?.map((rolePermission: any) => rolePermission.permission.key) ?? []) ?? defaultPermissions.map((permission) => permission.key);
+  private toAuthUser(user: AuthUserRecord): AuthUser {
+    const roles = user.roles?.map((entry) => typeof entry === "string" ? entry : entry.role?.name).filter((role): role is string => Boolean(role)) ?? ["Owner"];
+    const permissions = user.roles?.flatMap((entry) => typeof entry === "string" ? [] : entry.role?.permissions?.map((rolePermission) => rolePermission.permission?.key).filter((key): key is string => Boolean(key)) ?? []) ?? defaultPermissions.map((permission) => permission.key);
+    const tenantName = typeof user.tenant === "object" ? user.tenant?.name : user.tenant;
     return {
       id: user.id,
       sessionId: "",
       tenantId: user.tenantId,
-      tenant: user.tenant?.name ?? user.tenant ?? "VTA Enterprise",
+      tenant: tenantName ?? "VTA Enterprise",
       name: user.name,
       email: user.email,
       role: roles[0] ?? "Owner",
       roles,
       permissions: permissions.length ? [...new Set(permissions)] : defaultPermissions.map((permission) => permission.key),
-      createdAt: user.createdAt instanceof Date ? user.createdAt.toISOString() : user.createdAt
+      createdAt: user.createdAt instanceof Date ? user.createdAt.toISOString() : user.createdAt ?? new Date().toISOString()
     };
   }
 
@@ -212,6 +226,43 @@ export class AuthService {
     } catch {
       throw new UnauthorizedException("Session expiree");
     }
+  }
+
+  private async recordAuthAudit(action: AuditAction, user: AuditUserRecord | null, email: string, meta: { ipAddress?: string; userAgent?: string } = {}, message: string) {
+    await this.auditLogs.create({
+      tenantId: user?.tenantId,
+      tenantName: typeof user?.tenant === "object" ? user?.tenant?.name : user?.tenant,
+      userId: user?.id,
+      userEmail: user?.email ?? email,
+      userName: user?.name,
+      action,
+      entity: "Auth",
+      message,
+      metadata: { email },
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      browser: this.parseBrowser(meta.userAgent),
+      operatingSystem: this.parseOperatingSystem(meta.userAgent)
+    }).catch(() => undefined);
+  }
+
+  private parseBrowser(userAgent?: string) {
+    if (!userAgent) return undefined;
+    if (userAgent.includes("Edg/")) return "Microsoft Edge";
+    if (userAgent.includes("Chrome/")) return "Chrome";
+    if (userAgent.includes("Firefox/")) return "Firefox";
+    if (userAgent.includes("Safari/") && !userAgent.includes("Chrome/")) return "Safari";
+    return "Autre";
+  }
+
+  private parseOperatingSystem(userAgent?: string) {
+    if (!userAgent) return undefined;
+    if (userAgent.includes("Windows")) return "Windows";
+    if (userAgent.includes("Android")) return "Android";
+    if (userAgent.includes("iPhone") || userAgent.includes("iPad")) return "iOS";
+    if (userAgent.includes("Mac OS")) return "macOS";
+    if (userAgent.includes("Linux")) return "Linux";
+    return "Autre";
   }
 
   private publicUser(user: AuthUser) {

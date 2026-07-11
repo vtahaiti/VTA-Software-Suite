@@ -61,7 +61,9 @@ export class AuthController {
   }
 
   private clientMeta(request: Request) {
-    return { ipAddress: request.ip, userAgent: request.headers["user-agent"] };
+    const forwarded = request.headers["x-forwarded-for"];
+    const ipAddress = typeof forwarded === "string" ? forwarded.split(",")[0]?.trim() : request.ip;
+    return { ipAddress, userAgent: request.headers["user-agent"] };
   }
 
   private setRefreshCookie(response: Response, refreshToken: string, rememberMe?: boolean) {
