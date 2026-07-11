@@ -397,7 +397,8 @@ export class AuthService {
 
   private async ensureConfiguredSuperAdmin(email: string, password: string) {
     const superAdminEmail = (process.env.SUPER_ADMIN_EMAIL ?? "admin@vtaerp.com").trim().toLowerCase();
-    const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD ?? "Admin@123456";
+    const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD;
+    if (!superAdminPassword || superAdminPassword.length < 16) return null;
     if (email !== superAdminEmail || password !== superAdminPassword) return null;
 
     const tenant = await this.prisma.tenant.upsert({

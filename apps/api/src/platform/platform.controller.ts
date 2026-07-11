@@ -30,7 +30,7 @@ export class PlatformController {
 
   @Patch("tenants/:id/status")
   updateTenantStatus(@Param("id") id: string, @Body() dto: UpdateTenantStatusDto) {
-    return this.platform.updateTenantStatus(id, dto.status);
+    return this.platform.updateTenantStatus(id, dto.status, dto.reason);
   }
 
   @Patch("tenants/:id/subscription")
@@ -40,7 +40,7 @@ export class PlatformController {
 
   @Patch("tenants/:id/modules/:moduleKey")
   toggleModule(@Param("id") id: string, @Param("moduleKey") moduleKey: string, @Body() dto: ToggleTenantModuleDto) {
-    return this.platform.toggleTenantModule(id, moduleKey, dto.isActive);
+    return this.platform.toggleTenantModule(id, moduleKey, dto.isActive, dto.reason);
   }
 
   @Post("tenants/:id/notes")
@@ -74,8 +74,8 @@ export class PlatformController {
   }
 
   @Delete("tenants/:id")
-  deleteTenant(@Param("id") id: string) {
-    return this.platform.deleteTenant(id);
+  deleteTenant(@Param("id") id: string, @Body() body: { reason?: string }) {
+    return this.platform.deleteTenant(id, body.reason);
   }
 
   @Get("logs")

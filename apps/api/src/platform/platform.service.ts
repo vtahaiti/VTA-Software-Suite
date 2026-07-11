@@ -1,15 +1,8 @@
-﻿import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { AuditAction, NotificationStatus, NotificationType, Prisma, SaleStatus, SubscriptionPlan, SubscriptionStatus, TenantStatus } from "@prisma/client";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { AuditAction, NotificationStatus, NotificationType, Prisma, SubscriptionPlan, SubscriptionStatus, TenantStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 
-const PLAN_PRICES: Record<SubscriptionPlan, number> = {
-  FREE: 0,
-  STARTER: 29,
-  PRO: 79,
-  ENTERPRISE: 199
-};
-
-const PLAN_PRICE_HTG: Record<SubscriptionPlan, number> = {
+const PLAN_PRICES_HTG: Record<SubscriptionPlan, number> = {
   FREE: 0,
   STARTER: 4000,
   PRO: 11000,
@@ -17,6 +10,18 @@ const PLAN_PRICE_HTG: Record<SubscriptionPlan, number> = {
 };
 
 const PLATFORM_ROLE_NAMES = ["SUPER_ADMIN", "PlatformAdmin"];
+const CUSTOMER_VISIBLE_STATUSES: TenantStatus[] = [TenantStatus.ACTIVE, TenantStatus.TRIAL, TenantStatus.PAUSED, TenantStatus.SUSPENDED, TenantStatus.EXPIRED];
+const BILLABLE_SUBSCRIPTION_STATUSES: SubscriptionStatus[] = [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING];
+const BLOCKING_TENANT_STATUSES: TenantStatus[] = [TenantStatus.PAUSED, TenantStatus.SUSPENDED, TenantStatus.EXPIRED, TenantStatus.DELETED];
+
+type TenantWithAdminRelations = Prisma.TenantGetPayload<{
+  include: {
+    companyProfile: true;
+    subscription: true;
+    businessModules: { include: { businessModule: true } };
+    _count: { select: { users: true; stores: true; warehouses: true } };
+  };
+}>;
 
 @Injectable()
 export class PlatformService {
@@ -30,27 +35,27 @@ export class PlatformService {
     const sevenDaysFromNow = new Date(now);
     sevenDaysFromNow.setDate(now.getDate() + 7);
 
-    const [tenants, subscriptions, totalUsers, activeSessions, countries, latestTenants, criticalLogs, globalSales] = await this.prisma.$transaction([
+    const [tenants, subscriptions, totalUsers, activeSessions, countries, latestTenants, criticalLogs] = await this.prisma.$transaction([
       this.prisma.tenant.findMany({
         where: this.customerTenantWhere(),
         include: {
           companyProfile: true,
           subscription: true,
-          _count: { select: { users: true, stores: true, warehouses: true, sales: true, products: true } }
+          businessModules: { include: { businessModule: true } },
+          _count: { select: { users: true, stores: true, warehouses: true } }
         }
       }),
-      this.prisma.tenantSubscription.findMany(),
-      this.prisma.user.count(),
+      this.prisma.tenantSubscription.findMany({ where: { tenant: this.customerTenantWhere() } }),
+      this.prisma.user.count({ where: { tenant: this.customerTenantWhere(), isActive: true } }),
       this.prisma.securityLog.count({ where: { event: "LOGIN_SUCCESS", createdAt: { gte: new Date(now.getTime() - 15 * 60 * 1000) } } }),
-      this.prisma.companyProfile.findMany({ where: { country: { not: null } }, select: { country: true }, distinct: ["country"] }),
+      this.prisma.companyProfile.findMany({ where: { tenant: this.customerTenantWhere(), country: { not: null } }, select: { country: true }, distinct: ["country"] }),
       this.prisma.tenant.findMany({
         where: this.customerTenantWhere(),
-        include: { companyProfile: true, subscription: true },
+        include: { companyProfile: true, subscription: true, businessModules: { include: { businessModule: true } }, _count: { select: { users: true, stores: true, warehouses: true } } },
         orderBy: { createdAt: "desc" },
         take: 8
       }),
-      this.prisma.securityLog.findMany({ where: { event: { in: ["LOGIN_FAILED", "LOGIN_BLOCKED"] } }, orderBy: { createdAt: "desc" }, take: 8 }),
-      this.prisma.sale.aggregate({ where: { status: SaleStatus.COMPLETED }, _sum: { total: true }, _count: { id: true } })
+      this.prisma.securityLog.findMany({ where: { event: { in: ["LOGIN_FAILED", "LOGIN_BLOCKED"] } }, orderBy: { createdAt: "desc" }, take: 8 })
     ]);
 
     const activeTenants = tenants.filter((tenant) => tenant.status === TenantStatus.ACTIVE).length;
@@ -59,10 +64,9 @@ export class PlatformService {
     const pausedTenants = tenants.filter((tenant) => tenant.status === TenantStatus.PAUSED).length;
     const deletedTenants = tenants.filter((tenant) => tenant.status === TenantStatus.DELETED).length;
     const expiredTenants = tenants.filter((tenant) => tenant.status === TenantStatus.EXPIRED || tenant.status === TenantStatus.CANCELLED || this.isExpired(tenant.subscription?.endsAt)).length;
-    const monthlyRevenue = subscriptions.reduce((sum, subscription) => subscription.status === SubscriptionStatus.ACTIVE || subscription.status === SubscriptionStatus.TRIALING ? sum + Number(subscription.price || PLAN_PRICES[subscription.plan]) : sum, 0);
+    const monthlyRevenue = this.subscriptionRevenueByCurrency(subscriptions.filter((subscription) => BILLABLE_SUBSCRIPTION_STATUSES.includes(subscription.status)));
     const newSubscriptions = subscriptions.filter((subscription) => subscription.startedAt >= thirtyDaysAgo).length;
     const cancellations = subscriptions.filter((subscription) => subscription.status === SubscriptionStatus.CANCELLED).length;
-    const storageUsedMb = 0;
     const expiringSubscriptions = subscriptions.filter((subscription) => subscription.endsAt && subscription.endsAt >= now && subscription.endsAt <= sevenDaysFromNow).length;
     const expiredSubscriptions = subscriptions.filter((subscription) => this.isExpired(subscription.endsAt)).length;
 
@@ -75,26 +79,24 @@ export class PlatformService {
       expiredTenants,
       deletedTenants,
       monthlyRevenue,
-      globalSalesTotal: Number(globalSales._sum.total ?? 0),
-      globalSalesCount: globalSales._count.id,
       newTenantsToday: tenants.filter((tenant) => tenant.createdAt >= today).length,
       newSubscriptions,
       cancellations,
       totalUsers,
       connectedUsers: activeSessions,
       countries: countries.length,
-      storageUsedMb,
+      storage: { measured: false, label: "Non mesuré" },
       alerts: {
         expiredPayments: expiredSubscriptions,
         renewalsDue: expiringSubscriptions,
-        inactiveTenants: tenants.filter((tenant) => tenant.status !== TenantStatus.ACTIVE && tenant.status !== TenantStatus.TRIAL).length,
+        inactiveTenants: tenants.filter((tenant) => !([TenantStatus.ACTIVE, TenantStatus.TRIAL] as TenantStatus[]).includes(tenant.status)).length,
         criticalErrors: criticalLogs.length
       },
       charts: {
         tenantsCreated: this.monthlySeries(tenants.map((tenant) => tenant.createdAt)),
         subscriptions: this.monthlySeries(subscriptions.map((subscription) => subscription.startedAt)),
-        revenue: this.revenueSeries(subscriptions),
-        logins: await this.loginSeries(),
+        revenue: this.subscriptionRevenueSeries(subscriptions),
+        logins: await this.platformLoginSeries(),
         activities: this.activityBreakdown(tenants)
       },
       latestTenants: latestTenants.map((tenant) => this.serializeTenantSummary(tenant))
@@ -105,52 +107,37 @@ export class PlatformService {
     const tenants = await this.prisma.tenant.findMany({
       where: this.customerTenantWhere(),
       include: {
-        _count: { select: { users: true, stores: true, warehouses: true, products: true, sales: true, invoices: true } },
+        _count: { select: { users: true, stores: true, warehouses: true } },
         companyProfile: true,
         subscription: true,
         businessModules: { include: { businessModule: true } }
       },
       orderBy: { createdAt: "desc" }
     });
-    const [lastLogins, salesStats, monthlySalesStats, profitByTenant] = await Promise.all([
-      this.latestLoginsByTenant(),
-      this.salesStatsByTenant(),
-      this.salesStatsByTenant(this.monthStart()),
-      this.profitByTenant()
-    ]);
-    return tenants.map((tenant) => this.serializeTenantSummary(tenant, lastLogins.get(tenant.id), {
-      totalRevenue: salesStats.get(tenant.id)?.revenue ?? 0,
-      monthRevenue: monthlySalesStats.get(tenant.id)?.revenue ?? 0,
-      salesCount: salesStats.get(tenant.id)?.count ?? tenant._count?.sales ?? 0,
-      profit: profitByTenant.get(tenant.id) ?? 0
-    }));
+    const lastLogins = await this.latestLoginsByTenant();
+    return tenants.map((tenant) => this.serializeTenantSummary(tenant, lastLogins.get(tenant.id)));
   }
 
   async tenant(id: string) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: { id, ...this.customerTenantWhere() },
       include: {
         companyProfile: true,
         subscription: true,
         businessModules: { include: { businessModule: true }, orderBy: { createdAt: "asc" } },
         users: { include: { roles: { include: { role: true } }, profile: true }, orderBy: { createdAt: "desc" } },
-        stores: true,
-        warehouses: true,
-        _count: { select: { users: true, stores: true, warehouses: true, products: true, sales: true, invoices: true } }
+        stores: { select: { id: true, name: true, status: true, createdAt: true } },
+        warehouses: { select: { id: true, name: true, status: true, isActive: true, createdAt: true } },
+        _count: { select: { users: true, stores: true, warehouses: true } }
       }
     });
     if (!tenant) throw new NotFoundException("Entreprise introuvable");
 
-    const [lastLogins, availableModules, notes, securityEvents, salesAggregate, monthSalesAggregate, productCount, invoiceCount, paymentAggregate] = await Promise.all([
+    const [lastLogins, availableModules, notes, securityEvents] = await Promise.all([
       this.prisma.securityLog.findMany({ where: { tenantId: id, event: "LOGIN_SUCCESS" }, orderBy: { createdAt: "desc" }, take: 5 }),
       this.prisma.businessModule.findMany({ orderBy: [{ category: "asc" }, { name: "asc" }] }),
-      this.prisma.auditLog.findMany({ where: { tenantId: id, entity: "PLATFORM_NOTE" }, orderBy: { createdAt: "desc" }, take: 8 }),
-      this.prisma.securityLog.findMany({ where: { tenantId: id }, orderBy: { createdAt: "desc" }, take: 10 }),
-      this.prisma.sale.aggregate({ where: { tenantId: id, status: SaleStatus.COMPLETED }, _sum: { total: true }, _count: { id: true } }),
-      this.prisma.sale.aggregate({ where: { tenantId: id, status: SaleStatus.COMPLETED, createdAt: { gte: this.monthStart() } }, _sum: { total: true }, _count: { id: true } }),
-      this.prisma.product.count({ where: { tenantId: id } }),
-      this.prisma.invoice.count({ where: { tenantId: id } }),
-      this.prisma.payment.aggregate({ where: { sale: { tenantId: id } }, _sum: { amount: true }, _count: { id: true } })
+      this.prisma.auditLog.findMany({ where: { tenantId: id, entity: { in: ["PLATFORM_NOTE", "PLATFORM_TENANT_STATUS", "PLATFORM_SUBSCRIPTION", "PLATFORM_MODULE", "PLATFORM_NOTIFICATION", "PLATFORM_EMAIL"] } }, orderBy: { createdAt: "desc" }, take: 20 }),
+      this.prisma.securityLog.findMany({ where: { tenantId: id }, orderBy: { createdAt: "desc" }, take: 10 })
     ]);
 
     const activeModuleKeys = new Set(tenant.businessModules.filter((entry) => entry.isActive).map((entry) => entry.businessModule.key));
@@ -162,6 +149,7 @@ export class PlatformService {
         name: user.name,
         email: user.email,
         roles: user.roles.map((entry) => entry.role.name),
+        isActive: user.isActive,
         photoUrl: user.profile?.photoUrl ?? null,
         createdAt: user.createdAt
       })),
@@ -174,13 +162,9 @@ export class PlatformService {
       },
       statistics: {
         users: tenant._count.users,
-        products: productCount,
-        sales: salesAggregate._count.id,
-        invoices: invoiceCount,
-        payments: paymentAggregate._count.id,
-        revenueTotal: Number(salesAggregate._sum.total ?? 0),
-        revenueMonth: Number(monthSalesAggregate._sum.total ?? 0),
-        paymentsTotal: Number(paymentAggregate._sum.amount ?? 0)
+        stores: tenant._count.stores,
+        warehouses: tenant._count.warehouses,
+        storage: "Non mesuré"
       },
       modules: availableModules.map((module) => ({
         key: module.key,
@@ -188,44 +172,70 @@ export class PlatformService {
         category: module.category,
         isActive: activeModuleKeys.has(module.key)
       })),
+      stores: tenant.stores,
+      warehouses: tenant.warehouses,
       lastLogins,
       security: securityEvents.map((event) => ({ id: event.id, event: event.event, status: event.status, email: event.email, ipAddress: event.ipAddress, userAgent: event.userAgent, createdAt: event.createdAt })),
-      notes: notes.map((note) => ({ id: note.id, message: note.message, createdAt: note.createdAt }))
+      notes: notes.map((note) => ({ id: note.id, entity: note.entity, message: note.message, metadata: note.metadata, createdAt: note.createdAt }))
     };
   }
 
-  async updateTenantStatus(id: string, status: TenantStatus) {
-    await this.ensureTenantExists(id);
-    return this.prisma.tenant.update({ where: { id }, data: { status }, select: { id: true, name: true, status: true } });
+  async updateTenantStatus(id: string, status: TenantStatus, reason?: string) {
+    const tenant = await this.ensureTenantCanBeManaged(id);
+    this.assertTenantTransition(tenant.status, status);
+    if (BLOCKING_TENANT_STATUSES.includes(status) && !reason?.trim()) {
+      throw new BadRequestException("Un motif est obligatoire pour cette action.");
+    }
+    const updated = await this.prisma.tenant.update({
+      where: { id },
+      data: {
+        status,
+        deletedAt: status === TenantStatus.DELETED ? new Date() : tenant.deletedAt
+      },
+      select: { id: true, name: true, status: true, deletedAt: true }
+    });
+    await this.writePlatformAudit(id, tenant.name, AuditAction.UPDATE, "PLATFORM_TENANT_STATUS", `Statut entreprise: ${tenant.status} -> ${status}`, {
+      oldValue: { status: tenant.status },
+      newValue: { status },
+      metadata: { reason: reason?.trim() ?? null }
+    });
+    return updated;
   }
 
-  async updateSubscription(id: string, data: { plan?: SubscriptionPlan; status?: SubscriptionStatus; startedAt?: string; endsAt?: string; autoRenew?: boolean }) {
-    await this.ensureTenantExists(id);
+  async updateSubscription(id: string, data: { plan?: SubscriptionPlan; status?: SubscriptionStatus; startedAt?: string; endsAt?: string; autoRenew?: boolean; reason?: string }) {
+    const tenant = await this.ensureTenantCanBeManaged(id);
+    const previous = await this.prisma.tenantSubscription.findUnique({ where: { tenantId: id } });
+    const plan = data.plan ?? previous?.plan ?? SubscriptionPlan.STARTER;
     const subscription = await this.prisma.tenantSubscription.upsert({
       where: { tenantId: id },
       update: {
         plan: data.plan,
         status: data.status,
-        price: data.plan ? PLAN_PRICE_HTG[data.plan] : undefined,
+        price: data.plan ? PLAN_PRICES_HTG[data.plan] : undefined,
         currency: "HTG",
         startedAt: data.startedAt ? new Date(data.startedAt) : undefined,
         endsAt: data.endsAt ? new Date(data.endsAt) : undefined
       },
       create: {
         tenantId: id,
-        plan: data.plan ?? SubscriptionPlan.STARTER,
+        plan,
         status: data.status ?? SubscriptionStatus.ACTIVE,
-        price: PLAN_PRICE_HTG[data.plan ?? SubscriptionPlan.STARTER],
+        price: PLAN_PRICES_HTG[plan],
         currency: "HTG",
         startedAt: data.startedAt ? new Date(data.startedAt) : new Date(),
         endsAt: data.endsAt ? new Date(data.endsAt) : undefined
       }
     });
+    await this.writePlatformAudit(id, tenant.name, AuditAction.UPDATE, "PLATFORM_SUBSCRIPTION", "Abonnement modifié depuis le Control Center.", {
+      oldValue: previous ? this.serializeSubscription(previous) : undefined,
+      newValue: this.serializeSubscription(subscription),
+      metadata: { reason: data.reason?.trim() ?? null }
+    });
     return subscription;
   }
 
-  async toggleTenantModule(id: string, moduleKey: string, isActive: boolean) {
-    await this.ensureTenantExists(id);
+  async toggleTenantModule(id: string, moduleKey: string, isActive: boolean, reason?: string) {
+    const tenant = await this.ensureTenantCanBeManaged(id);
     const module = await this.prisma.businessModule.findUnique({ where: { key: moduleKey } });
     if (!module) throw new NotFoundException("Module introuvable");
     const assignment = await this.prisma.tenantBusinessModule.upsert({
@@ -235,11 +245,14 @@ export class PlatformService {
     });
     const activeModules = await this.prisma.tenantBusinessModule.findMany({ where: { tenantId: id, isActive: true }, include: { businessModule: true } });
     await this.prisma.tenant.update({ where: { id }, data: { enabledBusinessModules: activeModules.map((entry) => entry.businessModule.key) } });
+    await this.writePlatformAudit(id, tenant.name, AuditAction.UPDATE, "PLATFORM_MODULE", `${isActive ? "Activation" : "Désactivation"} du module ${module.name}.`, {
+      metadata: { moduleKey, moduleName: module.name, isActive, reason: reason?.trim() ?? null }
+    });
     return { module: module.name, key: module.key, isActive: assignment.isActive };
   }
 
   async addNote(id: string, note: string) {
-    const tenant = await this.ensureTenantExists(id);
+    const tenant = await this.ensureTenantCanBeManaged(id);
     return this.prisma.auditLog.create({
       data: {
         tenantId: id,
@@ -252,8 +265,8 @@ export class PlatformService {
   }
 
   async sendTenantNotification(id: string, data: { title: string; message: string }) {
-    const tenant = await this.ensureTenantExists(id);
-    const users = await this.prisma.user.findMany({ where: { tenantId: id }, select: { id: true } });
+    const tenant = await this.ensureTenantCanBeManaged(id);
+    const users = await this.prisma.user.findMany({ where: { tenantId: id, isActive: true }, select: { id: true } });
     if (!users.length) return { delivered: 0 };
 
     await this.prisma.notification.createMany({
@@ -268,23 +281,16 @@ export class PlatformService {
       }))
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        tenantId: id,
-        tenantName: tenant.name,
-        action: AuditAction.UPDATE,
-        entity: "PLATFORM_NOTIFICATION",
-        message: data.message,
-        metadata: { title: data.title, delivered: users.length }
-      }
+    await this.writePlatformAudit(id, tenant.name, AuditAction.UPDATE, "PLATFORM_NOTIFICATION", data.message, {
+      metadata: { title: data.title, delivered: users.length }
     });
 
     return { delivered: users.length };
   }
 
   async prepareTenantEmail(id: string, data: { title: string; message: string; subject?: string }) {
-    const tenant = await this.ensureTenantExists(id);
-    const users = await this.prisma.user.findMany({ where: { tenantId: id }, select: { email: true } });
+    const tenant = await this.ensureTenantCanBeManaged(id);
+    const users = await this.prisma.user.findMany({ where: { tenantId: id, isActive: true }, select: { email: true } });
     const recipients = users.map((user) => user.email).filter(Boolean);
 
     const log = await this.prisma.auditLog.create({
@@ -297,7 +303,7 @@ export class PlatformService {
         metadata: {
           title: data.title,
           subject: data.subject ?? data.title,
-          recipients,
+          recipientsCount: recipients.length,
           status: "prepared"
         }
       }
@@ -307,13 +313,14 @@ export class PlatformService {
   }
 
   async subscriptions() {
-    const tenants = await this.prisma.tenant.findMany({ include: { companyProfile: true, subscription: true }, orderBy: { createdAt: "desc" } });
+    const tenants = await this.prisma.tenant.findMany({ where: this.customerTenantWhere(), include: { companyProfile: true, subscription: true, _count: { select: { users: true, stores: true } } }, orderBy: { createdAt: "desc" } });
     return tenants.map((tenant) => ({
       id: tenant.id,
       name: tenant.companyProfile?.companyName ?? tenant.name,
       activity: tenant.primaryActivity,
       status: tenant.status,
       subscription: this.serializeSubscription(tenant.subscription),
+      licenses: { users: tenant._count.users, stores: tenant._count.stores },
       createdAt: tenant.createdAt
     }));
   }
@@ -321,7 +328,7 @@ export class PlatformService {
   async modules() {
     const [modules, assignments] = await this.prisma.$transaction([
       this.prisma.businessModule.findMany({ orderBy: [{ category: "asc" }, { name: "asc" }] }),
-      this.prisma.tenantBusinessModule.findMany({ where: { isActive: true }, include: { businessModule: true } })
+      this.prisma.tenantBusinessModule.findMany({ where: { isActive: true, tenant: this.customerTenantWhere() }, include: { businessModule: true } })
     ]);
     return modules.map((module) => ({
       key: module.key,
@@ -332,10 +339,11 @@ export class PlatformService {
     }));
   }
 
-  async deleteTenant(id: string) {
-    await this.ensureTenantCanBeDeleted(id);
-    const tenant = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.tenant.update({
+  async deleteTenant(id: string, reason?: string) {
+    const tenant = await this.ensureTenantCanBeManaged(id);
+    if (!reason?.trim()) throw new BadRequestException("Un motif est obligatoire avant toute suppression.");
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.tenant.update({
         where: { id },
         data: {
           status: TenantStatus.DELETED,
@@ -347,59 +355,36 @@ export class PlatformService {
       await tx.auditLog.create({
         data: {
           tenantId: id,
-          tenantName: updated.name,
+          tenantName: tenant.name,
           action: AuditAction.DELETE,
           entity: "PLATFORM_TENANT",
           entityId: id,
-          message: "Entreprise marquee comme supprimee depuis le Control Center."
+          message: "Entreprise désactivée depuis la zone dangereuse du Control Center.",
+          metadata: { reason: reason.trim(), mode: "soft-delete" }
         }
       });
-      return updated;
+      return result;
     });
-    return { deleted: true, softDeleted: true, tenant };
+    return { deleted: true, softDeleted: true, tenant: updated };
   }
 
   async deleteDemoTenants() {
-    const tenants = await this.prisma.tenant.findMany({
-      where: {
-        OR: [
-          { slug: { contains: "demo", mode: "insensitive" } },
-          { slug: { contains: "test", mode: "insensitive" } },
-          { slug: { contains: "qa", mode: "insensitive" } },
-          { name: { contains: "demo", mode: "insensitive" } },
-          { name: { contains: "test", mode: "insensitive" } },
-          { name: { contains: "qa", mode: "insensitive" } }
-        ]
-      },
-      select: { id: true, name: true }
-    });
-
-    const deleted = [];
-    const skipped = [];
-    for (const tenant of tenants) {
-      try {
-        const result = await this.deleteTenant(tenant.id);
-        deleted.push(result.tenant);
-      } catch {
-        skipped.push(tenant);
-      }
-    }
-    return { deletedCount: deleted.length, deleted, skipped };
+    throw new BadRequestException("Nettoyage global désactivé. Utilisez une suppression contrôlée sur une entreprise test dédiée.");
   }
 
   async logs() {
     const [auditLogs, securityLogs] = await this.prisma.$transaction([
-      this.prisma.auditLog.findMany({ where: { OR: [{ entity: "PLATFORM_NOTE" }, { action: { in: ["SECURITY", "BACKUP"] } }] }, orderBy: { createdAt: "desc" }, take: 40 }),
-      this.prisma.securityLog.findMany({ orderBy: { createdAt: "desc" }, take: 40 })
+      this.prisma.auditLog.findMany({ where: { entity: { startsWith: "PLATFORM" } }, orderBy: { createdAt: "desc" }, take: 60 }),
+      this.prisma.securityLog.findMany({ where: { OR: [{ tenantId: null }, { metadata: { path: ["audience"], equals: "platform" } }] }, orderBy: { createdAt: "desc" }, take: 60 })
     ]);
 
     return [
-      ...auditLogs.map((log) => ({ id: log.id, type: log.entity === "PLATFORM_NOTE" ? "Note interne" : "Audit", tenantId: log.tenantId, tenantName: log.tenantName, user: log.userName ?? log.userEmail, action: log.action, message: log.message, createdAt: log.createdAt })),
-      ...securityLogs.map((log) => ({ id: log.id, type: "Securite", tenantId: log.tenantId, tenantName: null, user: log.email, action: log.event, message: log.status, ipAddress: log.ipAddress, userAgent: log.userAgent, createdAt: log.createdAt }))
+      ...auditLogs.map((log) => ({ id: log.id, type: "Audit plateforme", tenantId: log.tenantId, tenantName: log.tenantName, user: log.userName ?? log.userEmail, action: log.action, message: log.message, createdAt: log.createdAt })),
+      ...securityLogs.map((log) => ({ id: log.id, type: "Sécurité", tenantId: log.tenantId, tenantName: null, user: log.email, action: log.event, message: log.status, ipAddress: log.ipAddress, userAgent: log.userAgent, createdAt: log.createdAt }))
     ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 60);
   }
 
-  private serializeTenantSummary(tenant: any, lastLogin?: any, stats?: { totalRevenue?: number; monthRevenue?: number; profit?: number; salesCount?: number }) {
+  private serializeTenantSummary(tenant: TenantWithAdminRelations, lastLogin?: { createdAt?: Date; ipAddress?: string | null }) {
     const subscription = this.serializeSubscription(tenant.subscription);
     return {
       id: tenant.id,
@@ -422,28 +407,26 @@ export class PlatformService {
       lastLoginAt: lastLogin?.createdAt ?? null,
       lastSeenAt: tenant.lastSeenAt ?? null,
       lastLoginIp: lastLogin?.ipAddress ?? null,
-      modules: tenant.businessModules?.filter((entry: any) => entry.isActive !== false).map((entry: any) => ({ key: entry.businessModule.key, name: entry.businessModule.name, category: entry.businessModule.category })) ?? [],
+      modules: tenant.businessModules?.filter((entry) => entry.isActive !== false).map((entry) => ({ key: entry.businessModule.key, name: entry.businessModule.name, category: entry.businessModule.category })) ?? [],
       users: tenant._count?.users ?? 0,
-      products: tenant._count?.products ?? 0,
-      sales: stats?.salesCount ?? tenant._count?.sales ?? 0,
-      invoices: tenant._count?.invoices ?? 0,
-      revenueTotal: stats?.totalRevenue ?? 0,
-      revenueMonth: stats?.monthRevenue ?? 0,
-      profit: stats?.profit ?? 0,
+      licensesUsed: tenant._count?.users ?? 0,
       stores: tenant._count?.stores ?? 0,
+      storesUsed: tenant._count?.stores ?? 0,
       warehouses: tenant._count?.warehouses ?? 0,
+      storage: "Non mesuré",
       createdAt: tenant.createdAt
     };
   }
 
   private serializeSubscription(subscription: any) {
+    const plan = (subscription?.plan ?? SubscriptionPlan.FREE) as SubscriptionPlan;
     return {
-      plan: subscription?.plan ?? SubscriptionPlan.FREE,
+      plan,
       status: subscription?.status ?? SubscriptionStatus.TRIALING,
       startedAt: subscription?.startedAt ?? null,
       endsAt: subscription?.endsAt ?? null,
-      monthlyPrice: PLAN_PRICES[(subscription?.plan ?? SubscriptionPlan.FREE) as SubscriptionPlan],
-      price: Number(subscription?.price ?? 0),
+      monthlyPrice: PLAN_PRICES_HTG[plan],
+      price: Number(subscription?.price ?? PLAN_PRICES_HTG[plan]),
       currency: subscription?.currency ?? "HTG",
       paymentStatus: subscription?.paymentStatus ?? "UNPAID",
       paymentReceived: subscription?.status === SubscriptionStatus.ACTIVE,
@@ -460,31 +443,9 @@ export class PlatformService {
     return map;
   }
 
-  private async salesStatsByTenant(from?: Date) {
-    const groups = await this.prisma.sale.groupBy({
-      by: ["tenantId"],
-      where: { status: SaleStatus.COMPLETED, ...(from ? { createdAt: { gte: from } } : {}) },
-      _sum: { total: true },
-      _count: { id: true }
-    });
-    return new Map(groups.map((group) => [group.tenantId, { revenue: Number(group._sum.total ?? 0), count: group._count.id }]));
-  }
-
-  private async profitByTenant() {
-    const items = await this.prisma.saleItem.findMany({
-      where: { sale: { status: SaleStatus.COMPLETED } },
-      select: { quantity: true, total: true, sale: { select: { tenantId: true } }, product: { select: { purchasePrice: true } } }
-    });
-    const map = new Map<string, number>();
-    for (const item of items) {
-      const profit = Number(item.total) - Number(item.product?.purchasePrice ?? 0) * item.quantity;
-      map.set(item.sale.tenantId, (map.get(item.sale.tenantId) ?? 0) + profit);
-    }
-    return map;
-  }
-
   private customerTenantWhere(): Prisma.TenantWhereInput {
     return {
+      status: { not: TenantStatus.DELETED },
       NOT: {
         users: {
           some: {
@@ -497,13 +458,8 @@ export class PlatformService {
     };
   }
 
-  private monthStart() {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  }
-
-  private async loginSeries() {
-    const logs = await this.prisma.securityLog.findMany({ where: { event: "LOGIN_SUCCESS" }, select: { createdAt: true } });
+  private async platformLoginSeries() {
+    const logs = await this.prisma.securityLog.findMany({ where: { event: "LOGIN_SUCCESS", tenantId: null }, select: { createdAt: true } });
     return this.monthlySeries(logs.map((log) => log.createdAt));
   }
 
@@ -516,15 +472,27 @@ export class PlatformService {
     });
   }
 
-  private revenueSeries(subscriptions: Array<{ startedAt: Date; plan: SubscriptionPlan; status: SubscriptionStatus }>) {
+  private subscriptionRevenueSeries(subscriptions: Array<{ startedAt: Date; plan: SubscriptionPlan; status: SubscriptionStatus; price: Prisma.Decimal | number | null; currency: string }>) {
     const series = this.monthlySeries(subscriptions.map((subscription) => subscription.startedAt));
-    return series.map((point) => ({ ...point, value: subscriptions.filter((subscription) => `${subscription.startedAt.getFullYear()}-${String(subscription.startedAt.getMonth() + 1).padStart(2, "0")}` === point.key && subscription.status !== SubscriptionStatus.CANCELLED).reduce((sum, subscription) => sum + PLAN_PRICES[subscription.plan], 0) }));
+    return series.map((point) => ({
+      ...point,
+      value: subscriptions.filter((subscription) => `${subscription.startedAt.getFullYear()}-${String(subscription.startedAt.getMonth() + 1).padStart(2, "0")}` === point.key && subscription.status !== SubscriptionStatus.CANCELLED).reduce((sum, subscription) => sum + Number(subscription.price ?? PLAN_PRICES_HTG[subscription.plan]), 0)
+    }));
+  }
+
+  private subscriptionRevenueByCurrency(subscriptions: Array<{ plan: SubscriptionPlan; price: Prisma.Decimal | number | null; currency: string }>) {
+    const map = new Map<string, number>();
+    for (const subscription of subscriptions) {
+      const currency = subscription.currency ?? "HTG";
+      map.set(currency, (map.get(currency) ?? 0) + Number(subscription.price ?? PLAN_PRICES_HTG[subscription.plan]));
+    }
+    return Array.from(map.entries()).map(([currency, amount]) => ({ currency, amount }));
   }
 
   private activityBreakdown(tenants: Array<{ primaryActivity: string | null }>) {
     const map = new Map<string, number>();
     for (const tenant of tenants) {
-      const activity = tenant.primaryActivity ?? "Non defini";
+      const activity = tenant.primaryActivity ?? "Non défini";
       map.set(activity, (map.get(activity) ?? 0) + 1);
     }
     return Array.from(map.entries()).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 8);
@@ -534,18 +502,47 @@ export class PlatformService {
     return Boolean(date && date.getTime() < Date.now());
   }
 
-  private async ensureTenantExists(id: string) {
-    const tenant = await this.prisma.tenant.findUnique({ where: { id }, select: { id: true, name: true } });
-    if (!tenant) throw new NotFoundException("Entreprise introuvable");
-    return tenant;
-  }
-
-  private async ensureTenantCanBeDeleted(id: string) {
+  private async ensureTenantCanBeManaged(id: string) {
     const tenant = await this.prisma.tenant.findUnique({ where: { id }, include: { users: { include: { roles: { include: { role: true } } } } } });
     if (!tenant) throw new NotFoundException("Entreprise introuvable");
     const hasPlatformAdmin = tenant.users.some((user) => user.roles.some((entry) => PLATFORM_ROLE_NAMES.includes(entry.role.name)));
-    if (hasPlatformAdmin) throw new BadRequestException("Impossible de supprimer une entreprise contenant un SUPER_ADMIN");
+    if (hasPlatformAdmin) throw new BadRequestException("Action interdite sur le tenant plateforme ou système.");
+    return tenant;
+  }
+
+  private assertTenantTransition(current: TenantStatus, next: TenantStatus) {
+    if (current === next) return;
+    if (current === TenantStatus.DELETED) throw new BadRequestException("Entreprise supprimée: transition interdite.");
+    if (!CUSTOMER_VISIBLE_STATUSES.includes(next) && next !== TenantStatus.DELETED) throw new BadRequestException("Statut non autorisé pour une entreprise cliente.");
+    const allowed: Record<TenantStatus, TenantStatus[]> = {
+      [TenantStatus.TRIAL]: [TenantStatus.ACTIVE, TenantStatus.PAUSED, TenantStatus.SUSPENDED, TenantStatus.EXPIRED, TenantStatus.DELETED],
+      [TenantStatus.ACTIVE]: [TenantStatus.PAUSED, TenantStatus.SUSPENDED, TenantStatus.EXPIRED, TenantStatus.DELETED],
+      [TenantStatus.PAUSED]: [TenantStatus.ACTIVE, TenantStatus.SUSPENDED, TenantStatus.DELETED],
+      [TenantStatus.SUSPENDED]: [TenantStatus.ACTIVE, TenantStatus.DELETED],
+      [TenantStatus.EXPIRED]: [TenantStatus.ACTIVE, TenantStatus.SUSPENDED, TenantStatus.DELETED],
+      [TenantStatus.CANCELLED]: [TenantStatus.ACTIVE, TenantStatus.DELETED],
+      [TenantStatus.DELETED]: []
+    };
+    if (!allowed[current]?.includes(next)) throw new BadRequestException(`Transition invalide: ${current} -> ${next}`);
+  }
+
+  private async writePlatformAudit(
+    tenantId: string,
+    tenantName: string,
+    action: AuditAction,
+    entity: string,
+    message: string,
+    extra: { oldValue?: Prisma.InputJsonValue; newValue?: Prisma.InputJsonValue; metadata?: Prisma.InputJsonValue } = {}
+  ) {
+    await this.prisma.auditLog.create({
+      data: {
+        tenantId,
+        tenantName,
+        action,
+        entity,
+        message,
+        ...extra
+      }
+    });
   }
 }
-
-
