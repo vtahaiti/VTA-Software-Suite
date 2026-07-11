@@ -155,7 +155,7 @@ export async function requestPasswordReset(payload: { email: string }) {
   return response.json() as Promise<{ message: string }>;
 }
 
-export async function resetPassword(payload: { token: string; password: string; confirmPassword: string }) {
+export async function resetPassword(payload: { token: string; newPassword: string; confirmPassword: string }) {
   const response = await fetch(`${apiUrl}/auth/reset-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

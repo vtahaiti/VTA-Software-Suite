@@ -43,8 +43,11 @@ function ResetPasswordForm() {
 
     setIsLoading(true);
     try {
-      const result = await resetPassword({ token, password, confirmPassword });
+      const result = await resetPassword({ token, newPassword: password, confirmPassword });
       setMessage(result.message);
+      setPassword("");
+      setConfirmPassword("");
+      window.history.replaceState(null, "", "/login?reset=success");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Impossible de réinitialiser le mot de passe.");
     } finally {
@@ -54,22 +57,22 @@ function ResetPasswordForm() {
 
   return (
     <ResetPasswordShell>
-          <form method="post" onSubmit={submit} className="mt-8 space-y-5">
-            <input type="hidden" name="token" value={token} />
-            <PasswordField label="Nouveau mot de passe" name="password" value={password} onChange={setPassword} />
-            <PasswordField label="Confirmer le mot de passe" name="confirmPassword" value={confirmPassword} onChange={setConfirmPassword} />
+      <form method="post" onSubmit={submit} className="mt-8 space-y-5">
+        <input type="hidden" name="token" value={token} />
+        <PasswordField label="Nouveau mot de passe" name="newPassword" value={password} onChange={setPassword} />
+        <PasswordField label="Confirmer le mot de passe" name="confirmPassword" value={confirmPassword} onChange={setConfirmPassword} />
 
-            {error ? <div role="alert" aria-live="polite" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
-            {message ? <div role="status" aria-live="polite" className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
+        {error ? <div role="alert" aria-live="polite" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+        {message ? <div role="status" aria-live="polite" className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {isLoading ? "Réinitialisation..." : "Réinitialiser"}
-            </button>
-          </form>
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {isLoading ? "Réinitialisation..." : "Réinitialiser"}
+        </button>
+      </form>
     </ResetPasswordShell>
   );
 }
@@ -108,3 +111,4 @@ function PasswordField({ label, name, value, onChange }: { label: string; name: 
     </div>
   );
 }
+

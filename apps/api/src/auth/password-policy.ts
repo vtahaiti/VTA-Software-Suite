@@ -4,3 +4,4 @@ export const passwordPolicyMessage =
 export function isPasswordStrong(password: string) {
   return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(password);
 }
+

@@ -1,9 +1,9 @@
 import { BadRequestException, Injectable, UnauthorizedException } from "@nestjs/common";
-import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { defaultPermissions } from "../rbac/default-permissions";
 import { businessModules, businessProfiles, findActivityTemplate, resolveBusinessProfileSlug } from "../business-profiles/business-catalog";
 import { AuthService } from "../auth/auth.service";
+import { hashPassword } from "../auth/password-hashing";
 import { isPasswordStrong, passwordPolicyMessage } from "../auth/password-policy";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
@@ -40,7 +40,7 @@ export class OnboardingService {
         firstName: dto.firstName.trim(),
         lastName: dto.lastName.trim(),
         phone: dto.phone?.trim(),
-        passwordHash: await bcrypt.hash(dto.password, 12),
+        passwordHash: await hashPassword(dto.password),
         acceptedTerms: true,
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
       },
@@ -50,7 +50,7 @@ export class OnboardingService {
         firstName: dto.firstName.trim(),
         lastName: dto.lastName.trim(),
         phone: dto.phone?.trim(),
-        passwordHash: await bcrypt.hash(dto.password, 12),
+        passwordHash: await hashPassword(dto.password),
         acceptedTerms: true,
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
       }

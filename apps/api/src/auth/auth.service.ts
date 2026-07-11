@@ -11,6 +11,7 @@ import { defaultPermissions } from "../rbac/default-permissions";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
+import { comparePassword, hashPassword } from "./password-hashing";
 import { isPasswordStrong, passwordPolicyMessage } from "./password-policy";
 import type { AuthUser } from "./types/auth-user";
 
@@ -66,7 +67,7 @@ export class AuthService {
     let user = await this.findUserByEmail(email);
     user ??= await this.ensureConfiguredSuperAdmin(email, loginDto.password);
     if (!user) {
-      const passwordMatchesDemo = await bcrypt.compare(loginDto.password, demoPasswordHash);
+      const passwordMatchesDemo = await comparePassword(loginDto.password, demoPasswordHash);
       if (email !== adminEmail || !passwordMatchesDemo) {
         await this.security.recordLoginFailure(email, meta);
         await this.recordAuthAudit(AuditAction.LOGIN_FAILED, null, email, meta, "Connexion echouee");
@@ -85,7 +86,7 @@ export class AuthService {
       throw new UnauthorizedException("Compte utilisateur desactive. Contactez votre administrateur.");
     }
 
-    const passwordMatches = await bcrypt.compare(loginDto.password, user.password);
+    const passwordMatches = await comparePassword(loginDto.password, user.password);
     if (!passwordMatches) {
       await this.security.recordLoginFailure(email, meta);
       await this.recordAuthAudit(AuditAction.LOGIN_FAILED, user, email, meta, "Connexion echouee");
@@ -117,7 +118,7 @@ export class AuthService {
       throw new UnauthorizedException("Email ou mot de passe incorrect");
     }
 
-    const passwordMatches = await bcrypt.compare(loginDto.password, user.password);
+    const passwordMatches = await comparePassword(loginDto.password, user.password);
     if (!passwordMatches) {
       await this.security.recordLoginFailure(email, meta);
       await this.recordAuthAudit(AuditAction.LOGIN_FAILED, user, email, meta, "Connexion plateforme echouee");
@@ -198,10 +199,14 @@ export class AuthService {
   }
 
   async resetPassword(dto: ResetPasswordDto) {
-    if (dto.password !== dto.confirmPassword) {
+    const newPassword = dto.newPassword ?? dto.password;
+    if (!newPassword) {
+      throw new UnauthorizedException("Le nouveau mot de passe est obligatoire.");
+    }
+    if (newPassword !== dto.confirmPassword) {
       throw new UnauthorizedException("Les mots de passe ne correspondent pas.");
     }
-    if (!isPasswordStrong(dto.password)) {
+    if (!isPasswordStrong(newPassword)) {
       throw new UnauthorizedException(passwordPolicyMessage);
     }
 
@@ -218,14 +223,26 @@ export class AuthService {
       throw new UnauthorizedException("Lien de r\u00e9initialisation invalide ou expir\u00e9.");
     }
 
-    await this.prisma.$transaction([
-      this.prisma.user.update({ where: { id: token.userId }, data: { password: await bcrypt.hash(dto.password, 12) } }),
-      this.prisma.passwordResetToken.update({ where: { id: token.id }, data: { usedAt: new Date() } }),
-      this.prisma.passwordResetToken.updateMany({
+    const newPasswordHash = await hashPassword(newPassword);
+    const updatedUser = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: token.userId },
+        data: { password: newPasswordHash },
+        select: { id: true, password: true }
+      });
+      await tx.passwordResetToken.update({ where: { id: token.id }, data: { usedAt: new Date() } });
+      await tx.passwordResetToken.updateMany({
         where: { userId: token.userId, usedAt: null, id: { not: token.id } },
         data: { usedAt: new Date() }
-      })
-    ]);
+      });
+      return user;
+    });
+
+    const persistedPasswordWorks = await comparePassword(newPassword, updatedUser.password);
+    if (!persistedPasswordWorks) {
+      this.logger.error({ event: "password_reset_complete", status: "password_hash_verification_failed", userId: token.userId });
+      throw new UnauthorizedException("Impossible de réinitialiser le mot de passe. Demandez un nouveau lien.");
+    }
 
     this.invalidateUserSessions(token.userId);
 
@@ -424,13 +441,13 @@ export class AuthService {
 
     const user = await this.prisma.user.upsert({
       where: { tenantId_email: { tenantId: tenant.id, email: superAdminEmail } },
-      update: { name: "Super Admin VTA ERP", password: await bcrypt.hash(superAdminPassword, 12), isActive: true },
+      update: { name: "Super Admin VTA ERP", password: await hashPassword(superAdminPassword), isActive: true },
       create: {
         id: "usr_super_admin_vta_erp",
         tenantId: tenant.id,
         name: "Super Admin VTA ERP",
         email: superAdminEmail,
-        password: await bcrypt.hash(superAdminPassword, 12),
+        password: await hashPassword(superAdminPassword),
         isActive: true
       }
     });

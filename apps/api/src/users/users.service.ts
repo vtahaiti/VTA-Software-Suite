@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import bcrypt from "bcryptjs";
+import { hashPassword } from "../auth/password-hashing";
 import { PrismaService } from "../prisma/prisma.service";
 import { defaultPermissions } from "../rbac/default-permissions";
 import { CreateUserDto, tenantRoleNames, type TenantRoleName } from "./dto/create-user.dto";
@@ -41,7 +41,7 @@ export class UsersService {
         tenantId,
         email,
         name: dto.name.trim(),
-        password: await bcrypt.hash(dto.temporaryPassword, 12),
+        password: await hashPassword(dto.temporaryPassword),
         isActive: true,
         roles: { create: { roleId: role.id } },
         profile: { create: { phone: dto.phone, jobTitle: this.roleJobTitle(dto.role), language: "fr" } }
