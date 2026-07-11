@@ -73,7 +73,7 @@ export function Sidebar({ className = "", onNavigate }: SidebarProps) {
       {sections.map((section) => <div key={section.title}>
         <p className="hidden px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400 lg:block">{section.title}</p>
         <div className="grid gap-1">
-          {section.items.map((item) => <SidebarItem key={item.id} item={item} pathname={pathname} isOpen={openGroupId === item.id} onToggle={() => setOpenGroupId((current) => current === item.id ? null : item.id)} onNavigate={onNavigate} />)}
+          {section.items.map((item) => <SidebarItem key={item.id} item={item} pathname={pathname} isOpen={openGroupId === item.id} onToggle={() => setOpenGroupId((current) => current === item.id && !isNavigationItemActive(pathname, item) ? null : item.id)} onNavigate={onNavigate} />)}
         </div>
       </div>)}
     </nav>
