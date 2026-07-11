@@ -156,8 +156,8 @@ export class AuditLogsService {
 
   private dateFilter(dateFrom?: string, dateTo?: string): Prisma.DateTimeFilter | undefined {
     if (!dateFrom && !dateTo) return undefined;
-    const from = dateFrom ? new Date(dateFrom) : undefined;
-    const to = dateTo ? new Date(`${dateTo}T23:59:59.999Z`) : dateFrom ? new Date(`${dateFrom}T23:59:59.999Z`) : undefined;
+    const from = dateFrom ? new Date(`${dateFrom}T00:00:00.000Z`) : undefined;
+    const to = dateTo ? new Date(`${dateTo}T23:59:59.999Z`) : undefined;
     return { gte: from, lte: to };
   }
 
