@@ -82,21 +82,20 @@ function SidebarItem({ item, pathname, isOpen, onToggle }: { item: NavigationIte
   const baseClass = `flex h-11 w-full items-center justify-center gap-2 rounded-md px-2 text-sm transition lg:justify-start lg:px-3 ${active ? "bg-brand-50 font-semibold text-brand-700 dark:bg-slate-900 dark:text-white" : "font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white"}`;
 
   if (item.children?.length) {
-    return <div>
+    return <div className="relative">
       <button type="button" title={item.label} aria-expanded={isOpen} onClick={onToggle} className={baseClass}>
         <Icon aria-hidden="true" className="h-5 w-5 shrink-0" />
         <span className="hidden min-w-0 flex-1 truncate text-left lg:block">{item.label}</span>
-        <Chevron aria-hidden="true" className={`hidden h-4 w-4 shrink-0 transition-transform lg:block ${isOpen ? "rotate-180" : ""}`} />
+        <Chevron aria-hidden="true" className={`h-4 w-4 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
         <span className="sr-only">{item.label}</span>
       </button>
-      {isOpen ? <div className="mt-1 grid gap-1 lg:ml-5 lg:border-l lg:border-slate-200 lg:pl-3 dark:lg:border-slate-800">
+      {isOpen ? <div className="absolute left-full top-0 z-50 ml-2 grid w-64 gap-1 rounded-lg border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-950 lg:static lg:ml-5 lg:w-auto lg:border-y-0 lg:border-r-0 lg:border-l lg:bg-transparent lg:p-0 lg:pl-3 lg:shadow-none dark:lg:border-slate-800">
         {item.children.map((child) => {
           const ChildIcon = child.icon;
           const childActive = isNavigationItemActive(pathname, child);
-          return <Link key={child.id} href={child.href} title={child.label} className={`flex h-10 items-center justify-center gap-2 rounded-md px-2 text-sm transition lg:justify-start lg:px-3 ${childActive ? "bg-brand-50 font-semibold text-brand-700 dark:bg-slate-900 dark:text-white" : "font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-white"}`}>
+          return <Link key={child.id} href={child.href} title={child.label} className={`flex h-10 items-center justify-start gap-2 rounded-md px-3 text-sm transition ${childActive ? "bg-brand-50 font-semibold text-brand-700 dark:bg-slate-900 dark:text-white" : "font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-white"}`}>
             <ChildIcon aria-hidden="true" className="h-[18px] w-[18px] shrink-0" />
-            <span className="hidden min-w-0 truncate lg:inline">{child.label}</span>
-            <span className="sr-only">{child.label}</span>
+            <span className="min-w-0 truncate">{child.label}</span>
           </Link>;
         })}
       </div> : null}

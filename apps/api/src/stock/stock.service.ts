@@ -11,19 +11,56 @@ export class StockService {
   async findAll(tenantId: string, query: StockQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const where: Prisma.StockWhereInput = {
+    const productWhere: Prisma.ProductWhereInput = {
       tenantId,
-      warehouseId: query.warehouseId,
-      product: query.search
-        ? { OR: [{ name: { contains: query.search, mode: "insensitive" } }, { sku: { contains: query.search, mode: "insensitive" } }] }
+      isActive: true,
+      OR: query.search
+        ? [{ name: { contains: query.search, mode: "insensitive" } }, { sku: { contains: query.search, mode: "insensitive" } }]
         : undefined
     };
-    const [rawItems, total] = await this.prisma.$transaction([
-      this.prisma.stock.findMany({ where, include: { product: true, warehouse: true }, skip: (page - 1) * limit, take: limit, orderBy: { updatedAt: "desc" } }),
-      this.prisma.stock.count({ where })
+    const [products, total, defaultWarehouse] = await this.prisma.$transaction([
+      this.prisma.product.findMany({
+        where: productWhere,
+        include: {
+          stocks: { where: { warehouseId: query.warehouseId }, include: { warehouse: true }, orderBy: { updatedAt: "desc" } },
+          category: true
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { updatedAt: "desc" }
+      }),
+      this.prisma.product.count({ where: productWhere }),
+      this.prisma.warehouse.findFirst({ where: { tenantId, isActive: true }, orderBy: { createdAt: "asc" } })
     ]);
-    const items = query.lowStock ? rawItems.filter((item) => item.quantity <= item.minimumStock) : rawItems;
-    return { items, meta: { page, limit, total: query.lowStock ? items.length : total, pageCount: Math.ceil((query.lowStock ? items.length : total) / limit) } };
+    const items = products.flatMap((product) => {
+      const stocks = product.stocks.length ? product.stocks : [{
+        id: `virtual-${product.id}-${defaultWarehouse?.id ?? "warehouse"}`,
+        tenantId,
+        productId: product.id,
+        warehouseId: defaultWarehouse?.id ?? "",
+        quantity: 0,
+        reserved: 0,
+        minimumStock: product.minimumStock,
+        createdAt: product.createdAt,
+        updatedAt: product.updatedAt,
+        warehouse: defaultWarehouse
+      }];
+      return stocks.map((stock) => ({
+        id: stock.id,
+        tenantId,
+        productId: product.id,
+        warehouseId: stock.warehouseId,
+        quantity: stock.quantity,
+        reserved: stock.reserved,
+        minimumStock: stock.minimumStock ?? product.minimumStock,
+        createdAt: stock.createdAt,
+        updatedAt: stock.updatedAt,
+        product,
+        warehouse: stock.warehouse
+      }));
+    });
+    const filteredItems = query.lowStock ? items.filter((item) => item.quantity > 0 && item.quantity <= item.minimumStock) : items;
+    return { items: filteredItems, meta: { page, limit, total: query.lowStock ? filteredItems.length : total, pageCount: Math.ceil((query.lowStock ? filteredItems.length : total) / limit) } };
   }
 
   alerts(tenantId: string) {

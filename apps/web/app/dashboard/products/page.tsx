@@ -6,9 +6,22 @@ import { getAccessToken } from "@/lib/auth";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-type Product = { id: string; sku: string; name: string; salePrice: string; purchasePrice?: string | number; averageCost?: string | number; costKnown?: boolean; stockCurrent?: number; category?: { name: string }; minimumStock: number };
+type Product = {
+  id: string;
+  sku: string;
+  name: string;
+  salePrice: string;
+  purchasePrice?: string | number;
+  averageCost?: string | number;
+  costKnown?: boolean;
+  stockCurrent?: number;
+  category?: { name: string } | null;
+  minimumStock: number;
+};
 type Category = { id: string; name: string };
-const emptyForm = { name: "", purchasePrice: "", salePrice: "", categoryId: "", stockInitial: "", imageUrl: "" };
+type ProductForm = { name: string; purchasePrice: string; salePrice: string; categoryId: string; stockInitial: string; minimumStock: string; imageUrl: string };
+
+const emptyForm: ProductForm = { name: "", purchasePrice: "", salePrice: "", categoryId: "", stockInitial: "", minimumStock: "0", imageUrl: "" };
 
 export default function ProductsPage() {
   const [items, setItems] = useState<Product[]>([]);
@@ -19,8 +32,9 @@ export default function ProductsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [costMissingOnly, setCostMissingOnly] = useState(false);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState<ProductForm>(emptyForm);
   const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => { void loadCategories(); }, []);
@@ -35,11 +49,14 @@ export default function ProductsPage() {
   }
 
   async function loadProducts() {
-    const params = new URLSearchParams({ page: String(page), limit: "10", sortBy: "createdAt", sortOrder: "desc" });
-    if (search) params.set("search", search);
+    setIsLoading(true);
+    setMessage("");
+    const params = new URLSearchParams({ page: String(page), limit: "10", sortBy: "createdAt", sortOrder: "desc", isActive: "true" });
+    if (search.trim()) params.set("search", search.trim());
     if (costMissingOnly) params.set("costMissing", "true");
-    const response = await fetch(`${apiUrl}/products?${params}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
-    if (response.ok) {
+    const response = await fetch(`${apiUrl}/products?${params}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } }).catch(() => null);
+    setIsLoading(false);
+    if (response?.ok) {
       const data = await response.json();
       const nextItems = Array.isArray(data) ? data : data.items ?? [];
       setItems(nextItems);
@@ -48,14 +65,13 @@ export default function ProductsPage() {
     }
     setItems([]);
     setTotal(0);
-    setMessage(await readError(response));
+    setMessage(response ? await readError(response) : "Impossible de charger les produits.");
   }
 
   async function createProduct(event: FormEvent) {
     event.preventDefault();
     setMessage("");
     setIsSaving(true);
-    const stockInitial = Number(form.stockInitial || 0);
     const response = await fetch(`${apiUrl}/products`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
@@ -64,8 +80,8 @@ export default function ProductsPage() {
         salePrice: Number(form.salePrice || 0),
         purchasePrice: Number(form.purchasePrice || 0),
         categoryId: form.categoryId || undefined,
-        minimumStock: stockInitial,
-        stockInitial,
+        minimumStock: Number(form.minimumStock || 0),
+        stockInitial: Number(form.stockInitial || 0),
         images: form.imageUrl ? [{ url: form.imageUrl, alt: form.name, sortOrder: 0 }] : undefined,
         isActive: true
       })
@@ -86,7 +102,7 @@ export default function ProductsPage() {
     <div className="space-y-5">
       <div className="flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:flex-row md:items-center">
         <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Produits</h1>
-        <button onClick={() => setIsModalOpen(true)} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">+ Nouveau produit</button>
+        <button onClick={() => setIsModalOpen(true)} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Nouveau produit</button>
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -98,13 +114,15 @@ export default function ProductsPage() {
         <button onClick={() => setShowOptions((value) => !value)} className="mt-3 text-sm font-semibold text-slate-500 hover:text-brand-600">Plus d&apos;options</button>
         {showOptions ? <div className="mt-3 flex flex-wrap gap-2 text-sm"><Link href="/dashboard/import-export" className="rounded-md border px-3 py-2 dark:border-slate-700">Import / Export</Link><Link href="/dashboard/products/create" className="rounded-md border px-3 py-2 dark:border-slate-700">Fiche produit avancée</Link><Link href="/dashboard/products/categories" className="rounded-md border px-3 py-2 dark:border-slate-700">Catégories</Link></div> : null}
       </div>
-      {message ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{message}</p> : null}
+      {message ? <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{message} <button type="button" onClick={() => void loadProducts()} className="ml-2 font-bold underline">Réessayer</button></div> : null}
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">📦 Produit</th><th className="p-3">🏷 Catégorie</th><th className="p-3">💲 Prix</th><th className="p-3">📦 Stock</th><th className="p-3">⚙️ Actions</th></tr></thead>
+          <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">Produit</th><th className="p-3">Catégorie</th><th className="p-3">Prix</th><th className="p-3">Stock</th><th className="p-3">Actions</th></tr></thead>
           <tbody>{items.map((product) => <tr key={product.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3"><p className="font-semibold">{product.name}</p><p className="font-mono text-xs text-slate-400">{product.sku}</p>{product.costKnown === false ? <p className="mt-1 text-xs font-semibold text-amber-600">Coût non renseigné</p> : null}</td><td className="p-3">{product.category?.name ?? "--"}</td><td className="p-3">{product.salePrice}</td><td className="p-3">{product.stockCurrent ?? 0}</td><td className="p-3"><Link className="text-brand-600" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link></td></tr>)}</tbody>
         </table>
+        {!isLoading && !message && items.length === 0 ? <p className="p-5 text-sm text-slate-500">Aucun produit trouvé.</p> : null}
+        {isLoading ? <p className="p-5 text-sm text-slate-500">Chargement des produits...</p> : null}
       </div>
 
       <Pagination page={page} pages={pages} total={total} label="produits" onPrev={() => setPage(page - 1)} onNext={() => setPage(page + 1)} />
@@ -117,12 +135,13 @@ export default function ProductsPage() {
             <Input required type="number" value={form.salePrice} onChange={(value) => setForm((current) => ({ ...current, salePrice: value }))} placeholder="Prix *" />
             <select value={form.categoryId} onChange={(event) => setForm((current) => ({ ...current, categoryId: event.target.value }))} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option value="">Catégorie</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
             <Input type="number" value={form.stockInitial} onChange={(value) => setForm((current) => ({ ...current, stockInitial: value }))} placeholder="Stock initial" />
+            <Input type="number" value={form.minimumStock} onChange={(value) => setForm((current) => ({ ...current, minimumStock: value }))} placeholder="Seuil stock faible" />
             <label className="grid gap-2 rounded-md border border-dashed border-slate-300 px-3 py-3 text-sm font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">
-              📷 Choisir une image
+              Choisir une image
               <input type="file" accept="image/*" onChange={(event) => void loadImage(event.target.files?.[0], (value) => setForm((current) => ({ ...current, imageUrl: value })))} className="sr-only" />
-              {form.imageUrl ? <span className="text-xs font-normal text-green-600">Image selectionnee</span> : <span className="text-xs font-normal text-slate-400">Facultatif</span>}
+              {form.imageUrl ? <span className="text-xs font-normal text-green-600">Image sélectionnée</span> : <span className="text-xs font-normal text-slate-400">Facultatif</span>}
             </label>
-            <p className="text-xs text-slate-500">Le stock initial cree la quantite de depart du produit. Les autres entrees restent dans le module Stock.</p>
+            <p className="text-xs text-slate-500">Le stock initial crée la quantité de départ du produit. Les autres entrées restent dans le module Stock.</p>
             {message ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{message}</p> : null}
             <button disabled={isSaving} className="w-full rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{isSaving ? "Enregistrement..." : "Enregistrer"}</button>
           </form>

@@ -16,7 +16,6 @@ import {
   Mail,
   Package,
   PackageOpen,
-  Palette,
   PlusCircle,
   Printer,
   Settings,
@@ -64,9 +63,9 @@ export const navigationIcons = {
   RolesPermissions: ShieldCheck,
   Parametres: Settings,
   Entreprise: Building2,
-  Apparence: Palette,
   Emails: Mail,
-  Impression: Printer,
+  PosSettings: Printer,
+  Facturation: CreditCard,
   Abonnement: CreditCard,
   Profil: CircleUserRound,
   Notifications: Bell,
@@ -131,10 +130,9 @@ const routeOrder: NavigationSection[] = [
         icon: navigationIcons.Parametres,
         children: [
           { id: "company-settings", label: "Entreprise", href: "/dashboard/settings/company", icon: navigationIcons.Entreprise },
-          { id: "appearance-settings", label: "Apparence", href: "/dashboard/settings/business-modules", icon: navigationIcons.Apparence },
-          { id: "email-settings", label: "Emails", href: "/dashboard/settings/emails", icon: navigationIcons.Emails },
-          { id: "print-settings", label: "Impression", href: "/dashboard/settings/pos", icon: navigationIcons.Impression },
-          { id: "role-settings", label: "Rôles et permissions", href: "/dashboard/settings/roles", icon: navigationIcons.RolesPermissions }
+          { id: "pos-settings", label: "POS", href: "/dashboard/settings/pos", icon: navigationIcons.PosSettings },
+          { id: "invoicing-settings", label: "Facturation", href: "/dashboard/settings/invoicing", icon: navigationIcons.Facturation },
+          { id: "email-settings", label: "Emails", href: "/dashboard/settings/emails", icon: navigationIcons.Emails }
         ]
       }
     ]
@@ -175,8 +173,7 @@ function isKnownOrSource(href: string, sourceHrefs: Set<string>, allowBySource: 
   if (href === "/dashboard/products/categories" && sourceHrefs.has("/dashboard/products")) return true;
   if (href === "/dashboard/settings/emails" && sourceHrefs.has("/dashboard/settings/company")) return true;
   if (href === "/dashboard/settings/pos" && sourceHrefs.has("/dashboard/settings/company")) return true;
-  if (href === "/dashboard/settings/business-modules" && sourceHrefs.has("/dashboard/settings/company")) return true;
-  if (href === "/dashboard/settings/roles" && sourceHrefs.has("/dashboard/settings/company")) return true;
+  if (href === "/dashboard/settings/invoicing" && sourceHrefs.has("/dashboard/settings/company")) return true;
   return false;
 }
 

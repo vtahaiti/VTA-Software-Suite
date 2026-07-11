@@ -14,11 +14,11 @@ type StockLine = {
   product?: { id: string; name: string; sku: string; salePrice?: string | number } | null;
   warehouse?: { id: string; name: string; storeId?: string | null } | null;
 };
-type ProductForm = { name: string; salePrice: string; purchasePrice: string; stockInitial: string };
+type ProductForm = { name: string; salePrice: string; purchasePrice: string; stockInitial: string; minimumStock: string };
 type StockAction = "adjust" | "in" | "out";
 type StockForm = { quantity: string; note: string };
 
-const emptyProductForm: ProductForm = { name: "", salePrice: "", purchasePrice: "", stockInitial: "" };
+const emptyProductForm: ProductForm = { name: "", salePrice: "", purchasePrice: "", stockInitial: "", minimumStock: "0" };
 const emptyStockForm: StockForm = { quantity: "", note: "" };
 
 export default function InventoryPage() {
@@ -26,6 +26,7 @@ export default function InventoryPage() {
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [selectedStock, setSelectedStock] = useState<StockLine | null>(null);
   const [stockAction, setStockAction] = useState<StockAction>("adjust");
   const [stockForm, setStockForm] = useState<StockForm>(emptyStockForm);
@@ -37,18 +38,21 @@ export default function InventoryPage() {
     return () => clearTimeout(timer);
   }, [query]);
 
-  const lowStockCount = useMemo(() => stocks.filter((stock) => stock.quantity <= stock.minimumStock).length, [stocks]);
+  const lowStockCount = useMemo(() => stocks.filter((stock) => stock.quantity > 0 && stock.quantity <= stock.minimumStock).length, [stocks]);
 
   async function loadStocks() {
+    setIsLoading(true);
     const params = new URLSearchParams({ limit: "100" });
     if (query.trim()) params.set("search", query.trim());
     const response = await fetch(`${apiUrl}/stock?${params.toString()}`, { headers: authHeaders() }).catch(() => null);
+    setIsLoading(false);
     if (!response?.ok) {
       setError("Impossible de charger le stock.");
       return;
     }
     const data = await response.json();
     setStocks(data.items ?? []);
+    setError("");
   }
 
   function openStockModal(stock: StockLine, action: StockAction) {
@@ -104,6 +108,7 @@ export default function InventoryPage() {
         name: productForm.name.trim(),
         salePrice: Number(productForm.salePrice || 0),
         purchasePrice: Number(productForm.purchasePrice || 0),
+        minimumStock: Number(productForm.minimumStock || 0),
         stockInitial: Number(productForm.stockInitial || 0)
       })
     }).catch(() => null);
@@ -125,11 +130,11 @@ export default function InventoryPage() {
           <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Inventaire simple</h1>
           <p className="mt-1 text-sm text-slate-500">Recherchez un produit, ajustez, ajoutez ou retirez du stock.</p>
         </div>
-        <button onClick={() => setShowProductModal(true)} className="rounded-md bg-brand-600 px-4 py-3 text-sm font-bold text-white">+ Nouveau produit</button>
+        <button onClick={() => setShowProductModal(true)} className="rounded-md bg-brand-600 px-4 py-3 text-sm font-bold text-white">Nouveau produit</button>
       </div>
     </section>
 
-    {error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+    {error ? <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error} <button type="button" onClick={() => void loadStocks()} className="ml-2 font-bold underline">Réessayer</button></div> : null}
     {message ? <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">{message}</p> : null}
 
     <section className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-[1fr_auto]">
@@ -158,7 +163,8 @@ export default function InventoryPage() {
           </tr>)}
         </tbody>
       </table>
-      {!stocks.length ? <p className="p-5 text-sm text-slate-500">Aucun stock trouvé.</p> : null}
+      {!isLoading && !error && !stocks.length ? <p className="p-5 text-sm text-slate-500">Aucun stock trouvé.</p> : null}
+      {isLoading ? <p className="p-5 text-sm text-slate-500">Chargement du stock...</p> : null}
     </section>
 
     {selectedStock ? <StockModal stock={selectedStock} action={stockAction} form={stockForm} setForm={setStockForm} onClose={() => setSelectedStock(null)} onSave={saveStockAction} /> : null}
@@ -203,6 +209,7 @@ function ProductModal({ form, setForm, onClose, onSave }: { form: ProductForm; s
         <ModalInput label="Prix d'achat" value={form.purchasePrice} onChange={(value) => setForm({ ...form, purchasePrice: value })} type="number" />
         <ModalInput label="Prix de vente" value={form.salePrice} onChange={(value) => setForm({ ...form, salePrice: value })} type="number" />
         <ModalInput label="Stock initial" value={form.stockInitial} onChange={(value) => setForm({ ...form, stockInitial: value })} type="number" />
+        <ModalInput label="Seuil stock faible" value={form.minimumStock} onChange={(value) => setForm({ ...form, minimumStock: value })} type="number" />
         <button onClick={() => void onSave()} className="rounded-md bg-brand-600 px-4 py-3 text-sm font-bold text-white">Créer</button>
       </div>
     </div>

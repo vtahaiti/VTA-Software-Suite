@@ -7,6 +7,7 @@ import { syncOfflineSalesNow } from "@/lib/offline-sync";
 import { useNetworkStatus } from "@/lib/network-status";
 import { getTenantBusinessConfiguration, type TenantBusinessConfiguration } from "@/lib/business-profiles";
 import { getReceiptPrintSettings, openPrintPreview } from "@/lib/print";
+import { Info, MoreHorizontal, Plus, Search, Trash2, X } from "lucide-react";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -50,6 +51,7 @@ export default function PosPage() {
   const [orderDiscount, setOrderDiscount] = useState("0");
   const [taxRate, setTaxRate] = useState("0");
   const [showExpertOptions, setShowExpertOptions] = useState(false);
+  const [showMoreActions, setShowMoreActions] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [showCartDrawer, setShowCartDrawer] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -522,7 +524,7 @@ export default function PosPage() {
               <div className="flex shrink-0 items-center gap-2">
                 <details className="relative">
                   <summary className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50" aria-label="Informations de caisse">
-                    <InfoIcon />
+                    <Info aria-hidden="true" className="h-5 w-5" />
                   </summary>
                   <div className="absolute right-0 z-30 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-xl">
                     <MetaPill label="Magasin" value={activeStore?.name ?? "Non chargé"} />
@@ -531,15 +533,16 @@ export default function PosPage() {
                     <MetaPill label="Statut" value={isOnline ? "En ligne" : "Hors ligne"} />
                   </div>
                 </details>
-                <details className="relative">
-                  <summary className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50" aria-label="Plus d'actions">
-                    <MoreIcon />
-                  </summary>
-                  <div className="absolute right-0 z-30 mt-2 grid w-64 gap-2 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-xl">
-                    <button type="button" onClick={() => setShowCustomItemModal(true)} className="rounded-lg px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50">Article personnalisé</button>
-                    <button type="button" onClick={() => setShowExpertOptions((current) => !current)} className="rounded-lg px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50">Options avancées</button>
+                <div className="relative">
+                  <button type="button" onClick={() => setShowMoreActions((current) => !current)} className="grid h-11 w-11 place-items-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50" aria-expanded={showMoreActions} aria-label="Plus d'actions">
+                    <MoreHorizontal aria-hidden="true" className="h-5 w-5" />
+                  </button>
+                  {showMoreActions ? <div className="absolute right-0 z-30 mt-2 grid w-64 gap-2 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-xl">
+                    <button type="button" onClick={() => { setShowCustomItemModal(true); setShowMoreActions(false); }} className="rounded-lg px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50">Article personnalisé</button>
+                    <button type="button" onClick={() => { setShowExpertOptions(true); setShowMoreActions(false); }} className="rounded-lg px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50">Options avancées</button>
                   </div>
-                </details>
+                  : null}
+                </div>
               </div>
             </div>
 
@@ -548,7 +551,7 @@ export default function PosPage() {
                 <label className="sr-only" htmlFor="pos-product-search">Rechercher ou scanner un produit</label>
                 <input id="pos-product-search" ref={scanInputRef} autoFocus value={query} onChange={(event) => { setQuery(event.target.value); setBarcode(event.target.value); }} onKeyDown={(event) => { if (event.key === "Enter") void scanBarcode(query); }} placeholder={posTemplate.searchPlaceholder} className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-base outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-100" />
                 <button aria-label="Rechercher un produit" title="Rechercher" onClick={() => void scanBarcode(query)} className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-slate-950 text-white shadow-sm transition hover:bg-slate-800">
-                  <SearchIcon />
+                  <Search aria-hidden="true" className="h-5 w-5" />
                 </button>
               </div>
               <CustomerSelector customers={customers} customerId={customerId} defaultLabel={posTemplate.defaultCustomer} onChange={setCustomerId} onCreate={() => setShowCustomerModal(true)} />
@@ -749,30 +752,32 @@ export default function PosPage() {
         </div>
       ) : null}
       {showCustomItemModal ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900">
-            <div className="flex items-start justify-between gap-4">
-              <div>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 p-0 sm:items-center sm:p-4">
+          <div className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white text-slate-950 shadow-2xl dark:bg-slate-900 dark:text-slate-100 sm:rounded-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5 dark:border-slate-800">
+              <div className="min-w-0">
                 <h2 className="text-xl font-bold">Article personnalisé</h2>
-                <p className="text-sm text-slate-500">Ajoutez un service ou un produit hors stock uniquement pour cette vente.</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Ajoutez un service ou un produit hors stock uniquement pour cette vente.</p>
               </div>
-              <button onClick={() => setShowCustomItemModal(false)} className="rounded-md border border-slate-200 px-3 py-1 text-sm font-semibold dark:border-slate-700">Fermer</button>
+              <button onClick={() => setShowCustomItemModal(false)} className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-200" aria-label="Fermer">
+                <X aria-hidden="true" className="h-5 w-5" />
+              </button>
             </div>
-            <div className="mt-4 grid gap-3">
+            <div className="grid gap-3 overflow-auto p-5">
               <label className="grid gap-1 text-sm font-semibold">Nom ou description *
-                <input value={customItemForm.name} onChange={(event) => setCustomItemForm((current) => ({ ...current, name: event.target.value }))} className="rounded-md border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-950" />
+                <input value={customItemForm.name} onChange={(event) => setCustomItemForm((current) => ({ ...current, name: event.target.value }))} className="rounded-md border border-slate-300 bg-white px-3 py-3 font-normal dark:border-slate-700 dark:bg-slate-950" />
               </label>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="grid gap-1 text-sm font-semibold">Prix réel *
-                  <input type="number" min={0} step="0.01" value={customItemForm.price} onChange={(event) => setCustomItemForm((current) => ({ ...current, price: event.target.value }))} className="rounded-md border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-950" />
+                  <input type="number" min={0} step="0.01" value={customItemForm.price} onChange={(event) => setCustomItemForm((current) => ({ ...current, price: event.target.value }))} className="rounded-md border border-slate-300 bg-white px-3 py-3 font-normal dark:border-slate-700 dark:bg-slate-950" />
                 </label>
                 <label className="grid gap-1 text-sm font-semibold">Quantité
-                  <input type="number" min={1} value={customItemForm.quantity} onChange={(event) => setCustomItemForm((current) => ({ ...current, quantity: event.target.value }))} className="rounded-md border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-950" />
+                  <input type="number" min={1} value={customItemForm.quantity} onChange={(event) => setCustomItemForm((current) => ({ ...current, quantity: event.target.value }))} className="rounded-md border border-slate-300 bg-white px-3 py-3 font-normal dark:border-slate-700 dark:bg-slate-950" />
                 </label>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="grid gap-1 text-sm font-semibold">Type
-                  <select value={customItemForm.type} onChange={(event) => setCustomItemForm((current) => ({ ...current, type: event.target.value as CustomItemType }))} className="rounded-md border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-950">
+                  <select value={customItemForm.type} onChange={(event) => setCustomItemForm((current) => ({ ...current, type: event.target.value as CustomItemType }))} className="rounded-md border border-slate-300 bg-white px-3 py-3 font-normal dark:border-slate-700 dark:bg-slate-950">
                     <option value="OUT_OF_STOCK_PRODUCT">Produit hors stock</option>
                     <option value="SERVICE">Service</option>
                     <option value="CUSTOM_WORK">Travail personnalisé</option>
@@ -780,13 +785,16 @@ export default function PosPage() {
                   </select>
                 </label>
                 <label className="grid gap-1 text-sm font-semibold">Remise
-                  <input type="number" min={0} step="0.01" value={customItemForm.discount} onChange={(event) => setCustomItemForm((current) => ({ ...current, discount: event.target.value }))} className="rounded-md border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-950" />
+                  <input type="number" min={0} step="0.01" value={customItemForm.discount} onChange={(event) => setCustomItemForm((current) => ({ ...current, discount: event.target.value }))} className="rounded-md border border-slate-300 bg-white px-3 py-3 font-normal dark:border-slate-700 dark:bg-slate-950" />
                 </label>
               </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
+                Taxe appliquée par le panier: {Math.round(parseMoney(taxRate) * 100)} %
+              </div>
               <label className="grid gap-1 text-sm font-semibold">Note
-                <textarea value={customItemForm.note} onChange={(event) => setCustomItemForm((current) => ({ ...current, note: event.target.value }))} rows={3} className="rounded-md border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-950" />
+                <textarea value={customItemForm.note} onChange={(event) => setCustomItemForm((current) => ({ ...current, note: event.target.value }))} rows={3} className="rounded-md border border-slate-300 bg-white px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-950" />
               </label>
-              <button onClick={() => void addCustomItem()} className="rounded-md bg-amber-500 px-4 py-3 text-sm font-bold text-white">Ajouter au panier</button>
+              <button onClick={() => void addCustomItem()} className="rounded-md bg-brand-600 px-4 py-3 text-sm font-bold text-white hover:bg-brand-700">Ajouter au panier</button>
             </div>
           </div>
         </div>
@@ -850,7 +858,7 @@ function ProductCard({ product, onAdd }: { product: Product; onAdd: () => void }
             <p className="text-base font-bold tabular-nums text-slate-950">{formatMoney(product.salePrice)}</p>
             <p className={`mt-1 text-xs font-medium ${isOut ? "text-red-600" : isLowStock ? "text-orange-600" : "text-slate-500"}`}>{isOut ? "Rupture" : `Stock ${product.availableStock}`}</p>
           </div>
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-slate-950 text-xl font-bold leading-none text-white transition group-hover:bg-brand-600" aria-label="Ajouter">+</span>
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-slate-950 text-white transition group-hover:bg-brand-600" aria-label="Ajouter"><Plus aria-hidden="true" className="h-5 w-5" /></span>
         </div>
       </div>
     </button>
@@ -953,6 +961,7 @@ function CartPanel(props: CartPanelProps) {
       </div>
 
       <CartTotalsPanel {...props} />
+      {props.showExpertOptions ? <ExpertOptionsModal {...props} onClose={() => props.setShowExpertOptions(false)} /> : null}
     </aside>
   );
 }
@@ -968,7 +977,7 @@ function CartLineItem({ item, updateQuantity, removeProduct }: { item: CartLine;
           {item.isCustom ? <span className="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">Personnalisé</span> : null}
         </div>
         <button onClick={() => removeProduct(id)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600" aria-label={`Retirer ${item.name}`}>
-          <TrashIcon />
+          <Trash2 aria-hidden="true" className="h-4 w-4" />
         </button>
       </div>
       <div className="mt-3 flex items-center justify-between gap-3">
@@ -1002,16 +1011,15 @@ function CartTotalsPanel(props: CartPanelProps) {
         <button onClick={props.holdSale} disabled={!props.cart.items.length} className="min-h-11 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-50">{props.pendingLabel}</button>
         <details className="relative">
           <summary className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50" aria-label="Autres actions">
-            <MoreIcon />
+            <MoreHorizontal aria-hidden="true" className="h-5 w-5" />
           </summary>
           <div className="absolute bottom-full right-0 z-20 mb-2 grid w-56 gap-1 rounded-lg border border-slate-200 bg-white p-2 text-sm shadow-xl">
-            <button type="button" onClick={() => props.setShowExpertOptions((current) => !current)} className="rounded-md px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50">Options avancées</button>
+            <button type="button" onClick={() => props.setShowExpertOptions(true)} className="rounded-md px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50">Options avancées</button>
             <button onClick={props.createQuote} disabled={!props.cart.items.length} className="rounded-md px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Créer devis</button>
             <button onClick={props.createOrder} disabled={!props.cart.items.length} className="rounded-md px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Créer commande</button>
           </div>
         </details>
       </div>
-      {props.showExpertOptions ? <ExpertOptions {...props} /> : null}
     </div>
   );
 }
@@ -1128,46 +1136,68 @@ function PaymentModal(props: PaymentModalProps) {
   );
 }
 
+function ExpertOptionsModal(props: CartPanelProps & { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[75] flex items-end justify-center bg-slate-950/60 p-0 sm:items-center sm:p-4">
+      <div className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-xl bg-white text-slate-950 shadow-2xl dark:bg-slate-900 dark:text-slate-100 sm:max-w-xl sm:rounded-xl">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-4 dark:border-slate-800">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">POS</p>
+            <h2 className="text-xl font-bold">Options avancées</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Magasin, dépôt, caisse, taxe, paiements multiples, devis et commande.</p>
+          </div>
+          <button type="button" onClick={props.onClose} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800" aria-label="Fermer les options avancées">
+            <X aria-hidden="true" className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="overflow-auto p-4">
+          <ExpertOptions {...props} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ExpertOptions(props: CartPanelProps) {
   return (
-    <div className="space-y-2 rounded-xl bg-slate-50 p-3">
+    <div className="space-y-3">
       <div className="grid gap-2">
-        <select value={props.storeId} onChange={(event) => props.setStoreId(event.target.value)} className="rounded-lg border border-slate-300 px-3 py-2">
+        <select value={props.storeId} onChange={(event) => props.setStoreId(event.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
           <option value="">Magasin actif</option>
           {props.stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}
         </select>
-        <select value={props.warehouseId} onChange={(event) => props.setWarehouseId(event.target.value)} className="rounded-lg border border-slate-300 px-3 py-2">
+        <select value={props.warehouseId} onChange={(event) => props.setWarehouseId(event.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
           <option value="">Dépôt</option>
           {props.warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>)}
         </select>
-        <select value={props.cashSessionId} onChange={(event) => props.setCashSessionId(event.target.value)} className="rounded-lg border border-slate-300 px-3 py-2">
+        <select value={props.cashSessionId} onChange={(event) => props.setCashSessionId(event.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
           <option value="">Caisse active</option>
           {props.sessions.map((session) => <option key={session.id} value={session.id}>{session.cashRegister?.name ?? "Caisse"}</option>)}
         </select>
-        <select value={props.taxRate} onChange={(event) => props.setTaxRate(event.target.value)} onBlur={props.syncCart} className="rounded-lg border border-slate-300 px-3 py-2">
+        <select value={props.taxRate} onChange={(event) => props.setTaxRate(event.target.value)} onBlur={props.syncCart} className="rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
           <option value="0">Aucune taxe</option>
           <option value="0.1">10 % par défaut</option>
           <option value="0.15">15 %</option>
         </select>
       </div>
-      <button type="button" onClick={props.addExtraPayment} className="text-xs font-bold text-brand-600">+ Ajouter un paiement</button>
+      <button type="button" onClick={props.addExtraPayment} className="inline-flex min-h-10 items-center rounded-lg border border-brand-200 px-3 py-2 text-sm font-bold text-brand-700 hover:bg-brand-50 dark:border-brand-900 dark:text-brand-300 dark:hover:bg-slate-800">Ajouter un paiement fractionné</button>
       {props.payments.slice(1).map((payment, index) => {
         const paymentIndex = index + 1;
         return (
           <div key={paymentIndex} className="grid gap-2">
-            <select value={payment.method} onChange={(event) => props.updatePayment(paymentIndex, { method: event.target.value })} className="rounded-lg border border-slate-300 px-3 py-2">
+            <select value={payment.method} onChange={(event) => props.updatePayment(paymentIndex, { method: event.target.value })} className="rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
               <option value="CASH">Espèces</option>
               <option value="CARD">Carte</option>
               <option value="BANK_TRANSFER">Virement</option>
             </select>
-            <input value={payment.amount} onChange={(event) => props.updatePayment(paymentIndex, { amount: event.target.value })} placeholder="Montant" className="rounded-lg border border-slate-300 px-3 py-2" />
-            <button type="button" onClick={() => props.removePayment(paymentIndex)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold">Retirer</button>
+            <input value={payment.amount} onChange={(event) => props.updatePayment(paymentIndex, { amount: event.target.value })} placeholder="Montant" className="rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+            <button type="button" onClick={() => props.removePayment(paymentIndex)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold dark:border-slate-700">Retirer</button>
           </div>
         );
       })}
       <div className="grid grid-cols-2 gap-2">
-        <button onClick={props.createQuote} disabled={!props.cart.items.length} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold disabled:opacity-50">Créer devis</button>
-        <button onClick={props.createOrder} disabled={!props.cart.items.length} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold disabled:opacity-50">Créer commande</button>
+        <button onClick={props.createQuote} disabled={!props.cart.items.length} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold disabled:opacity-50 dark:border-slate-700">Créer devis</button>
+        <button onClick={props.createOrder} disabled={!props.cart.items.length} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold disabled:opacity-50 dark:border-slate-700">Créer commande</button>
       </div>
     </div>
   );
@@ -1189,22 +1219,6 @@ function MobileCartBar({ cart, onOpen }: { cart: Cart; onOpen: () => void }) {
 
 function TotalLine({ label, value }: { label: string; value: number }) {
   return <div className="flex justify-between text-sm"><span>{label}</span><b className="tabular-nums">{formatMoney(value)}</b></div>;
-}
-
-function SearchIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>;
-}
-
-function InfoIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>;
-}
-
-function MoreIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>;
-}
-
-function TrashIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /></svg>;
 }
 
 function customerLabel(customer: Customer) {
