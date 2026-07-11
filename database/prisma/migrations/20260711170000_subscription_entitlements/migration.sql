@@ -198,9 +198,6 @@ SET
     WHEN "plan" = 'STARTER' THEN 'plan_essential'
     WHEN "plan" = 'PRO' THEN 'plan_standard'
     WHEN "plan" = 'ENTERPRISE' THEN 'plan_expert'
-    WHEN "plan" = 'ESSENTIAL' THEN 'plan_essential'
-    WHEN "plan" = 'STANDARD' THEN 'plan_standard'
-    WHEN "plan" = 'EXPERT' THEN 'plan_expert'
     ELSE "planId"
   END,
   "trialStartedAt" = COALESCE("trialStartedAt", CASE WHEN "status" = 'TRIALING' THEN "startedAt" ELSE NULL END),
