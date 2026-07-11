@@ -4,7 +4,9 @@ import { ReactNode, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
-import { AuthUser, getAccessToken, getCurrentUser, refreshSession } from "@/lib/auth";
+import { AuthUser, clearSession, getAccessToken, getCurrentUser, refreshSession } from "@/lib/auth";
+
+const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 type ProtectedShellProps = {
   children: ReactNode | ((user: AuthUser) => ReactNode);
@@ -19,9 +21,19 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
     async function loadSession() {
       const currentUser = getCurrentUser();
       const currentToken = getAccessToken();
-      const sessionUser = currentUser && currentToken ? currentUser : await refreshSession();
+      let sessionUser: AuthUser | null = null;
+
+      if (currentUser && currentToken) {
+        const response = await fetch(`${apiUrl}/auth/me`, { headers: { Authorization: `Bearer ${currentToken}` } }).catch(() => null);
+        sessionUser = response?.ok ? currentUser : null;
+      }
 
       if (!sessionUser) {
+        sessionUser = await refreshSession();
+      }
+
+      if (!sessionUser) {
+        clearSession();
         router.push("/login");
         return;
       }
