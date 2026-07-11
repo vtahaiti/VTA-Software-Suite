@@ -284,6 +284,7 @@ model Tenant {
   lastSeenAt DateTime?
   deletedAt DateTime?
   users User[]
+  emailLogs EmailLog[]
   roles Role[]
   products Product[]
   warehouses Warehouse[]
@@ -423,6 +424,7 @@ model User {
   profile UserProfile?
   onboardingStates OnboardingState[]
   passwordResetTokens PasswordResetToken[]
+  emailLogs EmailLog[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@unique([tenantId, email])
@@ -1640,6 +1642,30 @@ model PendingRegistration {
   acceptedTerms Boolean  @default(false)
   expiresAt     DateTime
   createdAt     DateTime @default(now())
+}
+
+model EmailLog {
+  id            String   @id @default(cuid())
+  tenantId      String?
+  tenant        Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  type          String
+  provider      String
+  status        String
+  messageId     String?
+  errorCode     String?
+  recipientHash String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([messageId])
+  @@index([createdAt])
 }
 
 model PasswordResetToken {

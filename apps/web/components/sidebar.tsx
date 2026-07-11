@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -71,6 +71,12 @@ function decorateMenuSections(sections: BusinessMenuSection[]) {
           item,
           { label: "   En cours", href: "/dashboard/sales/in-progress" },
           { label: "   Terminées", href: "/dashboard/sales/completed" }
+        ];
+      }
+      if (item.href === "/dashboard/settings/company") {
+        return [
+          item,
+          { label: "   Emails", href: "/dashboard/settings/emails" }
         ];
       }
       return [item];

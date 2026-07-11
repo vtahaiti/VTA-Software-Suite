@@ -63,13 +63,20 @@ Le backend utilise SMTP via Nodemailer pour envoyer les liens de r?initialisatio
 Variables API ? configurer dans Coolify :
 
 ```env
+APP_PUBLIC_URL=https://vtaerp.com
+PASSWORD_RESET_URL=https://vtaerp.com/reset-password
 PASSWORD_RESET_BASE_URL=https://vtaerp.com/reset-password
 PASSWORD_RESET_ALLOWED_HOSTS=vtaerp.com,www.vtaerp.com
+MAIL_PROVIDER=auto
+RESEND_API_KEY=
+RESEND_WEBHOOK_SECRET=
+MAIL_FROM=VTA Commerce <noreply@vtaerp.com>
+MAIL_REPLY_TO=support@vtaerp.com
 SMTP_HOST=smtp.votre-fournisseur.com
 SMTP_PORT=587
 SMTP_SECURE=false
-SMTP_USER=utilisateur-smtp
-SMTP_PASSWORD=mot-de-passe-ou-cle-smtp
+SMTP_USER=
+SMTP_PASSWORD=
 SMTP_FROM=VTA Commerce <noreply@vtaerp.com>
 ```
 

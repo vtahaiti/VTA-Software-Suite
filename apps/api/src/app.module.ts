@@ -9,6 +9,7 @@ import { AuthenticationMiddleware } from "./auth/middleware/authentication.middl
 import { CashRegisterModule } from "./cash-register/cash-register.module";
 import { CustomersModule } from "./customers/customers.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
+import { EmailModule } from "./email/email.module";
 import { HealthModule } from "./health/health.module";
 import { InventoryModule } from "./inventory/inventory.module";
 import { ImportExportModule } from "./import-export/import-export.module";
@@ -77,6 +78,7 @@ import { WarehouseModule } from "./warehouses/warehouse.module";
     PosModule,
     CustomersModule,
     DashboardModule,
+    EmailModule,
     ReportsModule,
     SuppliersModule,
     SettingsModule,

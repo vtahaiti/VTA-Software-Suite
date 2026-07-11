@@ -139,7 +139,10 @@ export class AuthService {
     ]);
 
     const result = await this.emailService.sendPasswordResetEmail({
+      tenantId: user.tenantId,
+      userId: user.id,
       to: user.email,
+      userName: user.name,
       resetUrl,
       requestId,
       expiresInMinutes: passwordResetTokenTtlMinutes
@@ -188,6 +191,13 @@ export class AuthService {
     ]);
 
     this.invalidateUserSessions(token.userId);
+
+    await this.emailService.sendPasswordChangedEmail({
+      tenantId: token.user.tenantId,
+      userId: token.userId,
+      to: token.user.email,
+      userName: token.user.name
+    }).catch(() => undefined);
 
     return { message: "Mot de passe r\u00e9initialis\u00e9. Vous pouvez maintenant vous connecter." };
   }
@@ -437,8 +447,8 @@ export class AuthService {
 
   private buildPasswordResetUrl(rawToken: string) {
     try {
-      const configuredBase = process.env.PASSWORD_RESET_BASE_URL?.trim();
-      const webUrl = process.env.WEB_URL?.trim() ?? process.env.FRONTEND_URL?.trim() ?? "https://vtaerp.com";
+      const configuredBase = (process.env.PASSWORD_RESET_URL ?? process.env.PASSWORD_RESET_BASE_URL)?.trim();
+      const webUrl = process.env.APP_PUBLIC_URL?.trim() ?? process.env.WEB_URL?.trim() ?? process.env.FRONTEND_URL?.trim() ?? "https://vtaerp.com";
       const baseUrl = configuredBase || new URL("/reset-password", webUrl).toString();
       const url = new URL(baseUrl);
 

@@ -28,7 +28,7 @@ function buildCorsOrigins() {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
   app.use(cookieParser());
   app.use("/uploads", express.static(join(process.cwd(), "uploads")));
