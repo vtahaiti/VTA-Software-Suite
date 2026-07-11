@@ -33,7 +33,7 @@ const files = [
   "apps/api/src/print/invoice-print.service.ts"
 ];
 
-const forbidden = ["\u00c3", "\u00c2", "\ufffd", "\u00f0\u0178", "\u00e2\u0161", "associ?e", "T?l?phone", "R?le", "Param?", "D?p", "Ha?ti", "co?t", "estim?e", "B?n", "avanc?e", "affichees", "Depot principal", "Haiti", "Nouvelle activit?", "1 lignes", "trouvees", "Telephone principal", "Numero fiscal", "Historique des receptions", "Aucune reception"];
+const forbidden = ["\u00c3", "\u00c2", "\ufffd", "\u00f0\u0178", "\u00e2\u0161", "associ?e", "T?l?phone", "R?le", "Param?", "D?p", "Ha?ti", "co?t", "estim?e", "B?n", "avanc?e", "affichees", "Depot principal", "Haiti", "Nouvelle activit?", "1 lignes", "trouvees", "trouv?es", "Telephone principal", "Numero fiscal", "Historique des receptions", "Aucune reception"];
 const expected = new Map([
   ["apps/web/app/dashboard/settings/company/page.tsx", ["Param\u00e8tres", "\u{1f4f7} Choisir un logo", "configur\u00e9", "affich\u00e9es", "T\u00e9l\u00e9phone", "Num\u00e9ro fiscal"]],
   ["apps/web/app/dashboard/profile/page.tsx", ["Entreprise associ\u00e9e", "T\u00e9l\u00e9phone", "R\u00f4le", "Propri\u00e9taire"]],
