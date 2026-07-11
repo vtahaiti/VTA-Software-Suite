@@ -102,6 +102,12 @@ export class AuthService {
 
   async loginPlatformAdmin(loginDto: LoginDto, meta: { ipAddress?: string; userAgent?: string } = {}) {
     const email = loginDto.email.trim().toLowerCase();
+    if (await this.security.isBlocked(email)) {
+      await this.security.recordBlockedLogin(email, meta);
+      await this.recordAuthAudit(AuditAction.LOGIN_FAILED, null, email, meta, "Connexion plateforme bloquee apres plusieurs echecs");
+      throw new UnauthorizedException("Compte temporairement bloque apres plusieurs echecs. Reessayez plus tard.");
+    }
+
     let user = await this.findUserByEmail(email);
     user ??= await this.ensureConfiguredSuperAdmin(email, loginDto.password);
 
