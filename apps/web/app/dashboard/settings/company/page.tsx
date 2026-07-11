@@ -22,11 +22,12 @@ type CompanyForm = { name: string; companyName?: string; logoUrl?: string; prima
 export default function CompanySettingsPage() {
   const [form, setForm] = useState<CompanyForm>({ name: "", companyName: "", logoUrl: "", primaryColor: "#2563eb", phone: "", whatsapp: "", email: "", address: "", city: "", country: "", taxNumber: "", currency: "HTG", language: "fr", timezone: "America/Port-au-Prince" });
   const [msg, setMsg] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetch(`${apiUrl}/settings/company`, { headers: { Authorization: `Bearer ${getAccessToken()}` } })
       .then((response) => response.ok ? response.json() : null)
-      .then((data) => data && setForm({ ...data, companyName: data.companyName ?? data.name, primaryColor: data.primaryColor ?? "#2563eb" }))
+      .then((data) => data && setForm(toCompanyForm(data)))
       .catch(() => undefined);
   }, []);
 
@@ -36,14 +37,27 @@ export default function CompanySettingsPage() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (saving) return;
     setMsg("");
-    const response = await fetch(`${apiUrl}/settings/company`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
-      body: JSON.stringify({ ...form, name: form.companyName ?? form.name })
-    });
-    setMsg(response.ok ? "Paramètres entreprise sauvegardés." : "Sauvegarde impossible.");
-    if (response.ok) setForm(await response.json());
+    setSaving(true);
+    try {
+      const payload = toCompanyPayload(form);
+      const response = await fetch(`${apiUrl}/settings/company`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        setMsg("Sauvegarde impossible. Vérifiez les champs puis réessayez.");
+        return;
+      }
+      setForm(toCompanyForm(await response.json()));
+      setMsg("Paramètres enregistrés.");
+    } catch {
+      setMsg("Sauvegarde impossible. Vérifiez votre connexion puis réessayez.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function uploadLogo(event: ChangeEvent<HTMLInputElement>) {
@@ -84,9 +98,49 @@ export default function CompanySettingsPage() {
           {colors.map(([label, value]) => <button type="button" key={value} onClick={() => update("primaryColor", value)} className={`rounded-full border px-3 py-2 text-sm font-semibold ${primaryColor === value ? "border-slate-950 dark:border-white" : "border-slate-200 dark:border-slate-700"}`}><span className="mr-2 inline-block h-3 w-3 rounded-full" style={{ backgroundColor: value }} />{label}</button>)}
         </div>
       </div>
-      <div className="md:col-span-2 flex items-center gap-3"><button className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Sauvegarder</button>{msg && <p className="text-sm text-slate-500">{msg}</p>}</div>
+      <div className="md:col-span-2 flex items-center gap-3"><button disabled={saving} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement..." : "Sauvegarder"}</button>{msg && <p className="text-sm text-slate-500">{msg}</p>}</div>
     </form>
   </div>;
+}
+
+function toCompanyForm(data: Partial<CompanyForm>): CompanyForm {
+  const companyName = data.companyName ?? data.name ?? "";
+  return {
+    name: data.name ?? companyName,
+    companyName,
+    logoUrl: data.logoUrl ?? "",
+    primaryColor: data.primaryColor ?? "#2563eb",
+    phone: data.phone ?? "",
+    whatsapp: data.whatsapp ?? "",
+    email: data.email ?? "",
+    address: data.address ?? "",
+    city: data.city ?? "",
+    country: data.country ?? "",
+    taxNumber: data.taxNumber ?? "",
+    currency: data.currency ?? "HTG",
+    language: data.language ?? "fr",
+    timezone: data.timezone ?? "America/Port-au-Prince"
+  };
+}
+
+function toCompanyPayload(form: CompanyForm) {
+  const companyName = form.companyName ?? form.name;
+  return {
+    name: companyName,
+    companyName,
+    logoUrl: form.logoUrl ?? "",
+    primaryColor: form.primaryColor ?? "#2563eb",
+    phone: form.phone ?? "",
+    whatsapp: form.whatsapp ?? "",
+    email: form.email ?? "",
+    address: form.address ?? "",
+    city: form.city ?? "",
+    country: form.country ?? "",
+    taxNumber: form.taxNumber ?? "",
+    currency: form.currency ?? "HTG",
+    language: form.language ?? "fr",
+    timezone: form.timezone ?? "America/Port-au-Prince"
+  };
 }
 
 function Header({ active }: { active: string }) {

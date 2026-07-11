@@ -29,11 +29,12 @@ const initialForm: InvoicingForm = {
 export default function InvoicingSettingsPage() {
   const [form, setForm] = useState<InvoicingForm>(initialForm);
   const [msg, setMsg] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetch(`${apiUrl}/settings/invoicing`, { headers: { Authorization: `Bearer ${getAccessToken()}` } })
       .then((response) => response.ok ? response.json() : null)
-      .then((data) => data && setForm({ ...data, defaultTaxRate: Number(data.defaultTaxRate), maxDiscountRate: Number(data.maxDiscountRate) }));
+      .then((data) => data && setForm(toInvoicingForm(data)));
   }, []);
 
   function update(key: keyof InvoicingForm, value: string) {
@@ -42,22 +43,56 @@ export default function InvoicingSettingsPage() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (saving) return;
+    setMsg("");
     const defaultTaxRate = Number(form.defaultTaxRate);
     const maxDiscountRate = Number(form.maxDiscountRate);
     if (defaultTaxRate < 0 || defaultTaxRate > 100 || maxDiscountRate < 0 || maxDiscountRate > 100) {
       setMsg("La taxe et la remise doivent être comprises entre 0 % et 100 %.");
       return;
     }
-    const payload = { ...form, defaultTaxRate, maxDiscountRate };
-    const response = await fetch(`${apiUrl}/settings/invoicing`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` }, body: JSON.stringify(payload) });
-    setMsg(response.ok ? "Paramètres de facturation sauvegardés." : "Sauvegarde impossible.");
-    if (response.ok) {
-      const data = await response.json();
-      setForm({ ...data, defaultTaxRate: Number(data.defaultTaxRate), maxDiscountRate: Number(data.maxDiscountRate) });
+    setSaving(true);
+    try {
+      const payload = toInvoicingPayload(form, defaultTaxRate, maxDiscountRate);
+      const response = await fetch(`${apiUrl}/settings/invoicing`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` }, body: JSON.stringify(payload) });
+      if (!response.ok) {
+        setMsg("Sauvegarde impossible. Vérifiez les champs puis réessayez.");
+        return;
+      }
+      setForm(toInvoicingForm(await response.json()));
+      setMsg("Paramètres enregistrés.");
+    } catch {
+      setMsg("Sauvegarde impossible. Vérifiez votre connexion puis réessayez.");
+    } finally {
+      setSaving(false);
     }
   }
 
-  return <div className="space-y-5"><Header/><form onSubmit={submit} className="grid gap-4 rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2"><Input type="number" min="0" max="100" step="0.01" label="Taxe par défaut (%)" help="Contrat : l'interface et l'API utilisent 10 pour 10 %. La base conserve 0,10 pour les calculs." value={form.defaultTaxRate} onChange={(value)=>update("defaultTaxRate",value)}/><Input type="number" min="0" max="100" step="0.01" label="Remise maximale autorisée (%)" value={form.maxDiscountRate} onChange={(value)=>update("maxDiscountRate",value)}/><Input label="Numérotation factures" value={form.invoicePrefix} onChange={(value)=>update("invoicePrefix",value)}/><Input label="Numérotation devis" value={form.quotePrefix} onChange={(value)=>update("quotePrefix",value)}/><Input label="Numérotation reçus" value={form.receiptPrefix} onChange={(value)=>update("receiptPrefix",value)}/><label className="grid gap-1 text-sm font-medium">Format ticket POS<select value={form.posReceiptFormat} onChange={(event)=>update("posReceiptFormat",event.target.value)} className="rounded-md border px-3 py-2 dark:bg-slate-950"><option value="58">58 mm</option><option value="80">80 mm</option></select></label><label className="grid gap-1 text-sm font-medium">Format facture<select value={form.invoiceFormat} onChange={(event)=>update("invoiceFormat",event.target.value)} className="rounded-md border px-3 py-2 dark:bg-slate-950"><option value="A4">A4</option><option value="LETTER">Letter 8.5 x 11</option></select></label><div className="md:col-span-2 flex items-center gap-3"><button className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Sauvegarder</button>{msg ? <p className="text-sm text-slate-500">{msg}</p> : null}</div></form></div>;
+  return <div className="space-y-5"><Header/><form onSubmit={submit} className="grid gap-4 rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2"><Input type="number" min="0" max="100" step="0.01" label="Taxe par défaut (%)" help="Contrat : l'interface et l'API utilisent 10 pour 10 %. La base conserve 0,10 pour les calculs." value={form.defaultTaxRate} onChange={(value)=>update("defaultTaxRate",value)}/><Input type="number" min="0" max="100" step="0.01" label="Remise maximale autorisée (%)" value={form.maxDiscountRate} onChange={(value)=>update("maxDiscountRate",value)}/><Input label="Numérotation factures" value={form.invoicePrefix} onChange={(value)=>update("invoicePrefix",value)}/><Input label="Numérotation devis" value={form.quotePrefix} onChange={(value)=>update("quotePrefix",value)}/><Input label="Numérotation reçus" value={form.receiptPrefix} onChange={(value)=>update("receiptPrefix",value)}/><label className="grid gap-1 text-sm font-medium">Format ticket POS<select value={form.posReceiptFormat} onChange={(event)=>update("posReceiptFormat",event.target.value)} className="rounded-md border px-3 py-2 dark:bg-slate-950"><option value="58">58 mm</option><option value="80">80 mm</option></select></label><label className="grid gap-1 text-sm font-medium">Format facture<select value={form.invoiceFormat} onChange={(event)=>update("invoiceFormat",event.target.value)} className="rounded-md border px-3 py-2 dark:bg-slate-950"><option value="A4">A4</option><option value="LETTER">Letter 8.5 x 11</option></select></label><div className="md:col-span-2 flex items-center gap-3"><button disabled={saving} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement..." : "Sauvegarder"}</button>{msg ? <p className="text-sm text-slate-500">{msg}</p> : null}</div></form></div>;
+}
+
+function toInvoicingForm(data: Partial<InvoicingForm>): InvoicingForm {
+  return {
+    defaultTaxRate: Number(data.defaultTaxRate ?? initialForm.defaultTaxRate),
+    maxDiscountRate: Number(data.maxDiscountRate ?? initialForm.maxDiscountRate),
+    invoicePrefix: String(data.invoicePrefix ?? initialForm.invoicePrefix),
+    quotePrefix: String(data.quotePrefix ?? initialForm.quotePrefix),
+    receiptPrefix: String(data.receiptPrefix ?? initialForm.receiptPrefix),
+    posReceiptFormat: data.posReceiptFormat === "58" ? "58" : "80",
+    invoiceFormat: data.invoiceFormat === "A4" ? "A4" : "LETTER"
+  };
+}
+
+function toInvoicingPayload(form: InvoicingForm, defaultTaxRate: number, maxDiscountRate: number) {
+  return {
+    defaultTaxRate,
+    maxDiscountRate,
+    invoicePrefix: String(form.invoicePrefix ?? ""),
+    quotePrefix: String(form.quotePrefix ?? ""),
+    receiptPrefix: String(form.receiptPrefix ?? ""),
+    posReceiptFormat: form.posReceiptFormat,
+    invoiceFormat: form.invoiceFormat
+  };
 }
 
 function Header() {

@@ -13,6 +13,7 @@ type Profile = { name: string; firstName: string; lastName: string; email: strin
 export default function DashboardProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => { void load(); }, []);
 
@@ -25,11 +26,23 @@ export default function DashboardProfilePage() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!profile) return;
+    if (!profile || saving) return;
     const token = getAccessToken();
-    await fetch(`${apiUrl}/profile/me`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ name: profile.name, jobTitle: profile.profile?.jobTitle, phone: profile.profile?.phone, language: profile.profile?.language }) });
-    setMessage("Profil mis à jour.");
-    await load();
+    setMessage("");
+    setSaving(true);
+    try {
+      const response = await fetch(`${apiUrl}/profile/me`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ name: profile.name, jobTitle: profile.profile?.jobTitle ?? "", phone: profile.profile?.phone ?? "", language: profile.profile?.language ?? "fr" }) });
+      if (!response.ok) {
+        setMessage("Mise à jour impossible. Vérifiez les champs puis réessayez.");
+        return;
+      }
+      setProfile(await response.json());
+      setMessage("Profil mis à jour.");
+    } catch {
+      setMessage("Mise à jour impossible. Vérifiez votre connexion puis réessayez.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (!profile) return <div className="text-sm text-slate-500">Chargement du profil...</div>;
@@ -61,7 +74,7 @@ export default function DashboardProfilePage() {
           <Input label="Rôle" value={displayRole(profile.role)} disabled onChange={() => undefined} />
           <Input label="Entreprise" value={companyName} disabled onChange={() => undefined} />
           {message ? <p className="md:col-span-2 text-sm font-semibold text-green-600">{message}</p> : null}
-          <button className="md:col-span-2 rounded-md bg-brand-600 px-4 py-3 text-sm font-semibold text-white">Sauvegarder</button>
+          <button disabled={saving} className="md:col-span-2 rounded-md bg-brand-600 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement..." : "Sauvegarder"}</button>
         </div>
       </form>
     </div>
