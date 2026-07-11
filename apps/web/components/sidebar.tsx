@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useRouter } from "next/navigation";
 import type { MouseEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { fallbackMenuSections, getTenantBusinessConfiguration, type BusinessMenuSection } from "@/lib/business-profiles";
@@ -12,7 +11,12 @@ import { buildNavigation, isNavigationItemActive, navigationIcons, type Navigati
 
 type MenuMode = "simple" | "expert";
 
-export function Sidebar() {
+type SidebarProps = {
+  className?: string;
+  onNavigate?: () => void;
+};
+
+export function Sidebar({ className = "", onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const [mode, setMode] = useState<MenuMode>("simple");
   const [simpleSections, setSimpleSections] = useState<BusinessMenuSection[]>(fallbackMenuSections);
@@ -58,7 +62,7 @@ export function Sidebar() {
     if (Object.keys(activeGroups).length) setOpenGroups((current) => ({ ...current, ...activeGroups }));
   }, [pathname, sections]);
 
-  return <aside className="sticky top-0 h-screen overflow-y-auto border-r border-slate-200 bg-white px-2 py-3 dark:border-slate-800 dark:bg-slate-950 lg:px-4 lg:py-5">
+  return <aside className={`h-full overflow-y-auto border-r border-slate-200 bg-white px-2 py-3 dark:border-slate-800 dark:bg-slate-950 lg:sticky lg:top-0 lg:h-screen lg:px-4 lg:py-5 ${className}`}>
     <Link href="/dashboard" title={companyName} className="flex items-center justify-center gap-3 rounded-lg px-1 py-2 text-lg font-bold text-slate-950 transition hover:bg-slate-50 dark:text-white dark:hover:bg-slate-900 lg:justify-start lg:px-3">
       {branding?.logoUrl ? <img src={branding.logoUrl} alt={`Logo ${companyName}`} className="h-10 w-10 rounded-md object-contain shadow-sm" /> : <span className="flex h-10 w-10 items-center justify-center rounded-md text-sm font-bold text-white shadow-sm" style={{ backgroundColor: primaryColor }}>{companyInitials}</span>}
       <span className="hidden min-w-0 truncate lg:block">{companyName}</span>
@@ -69,26 +73,26 @@ export function Sidebar() {
       {sections.map((section) => <div key={section.title}>
         <p className="hidden px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400 lg:block">{section.title}</p>
         <div className="grid gap-1">
-          {section.items.map((item) => <SidebarItem key={item.id} item={item} pathname={pathname} isOpen={Boolean(openGroups[item.id])} onToggle={() => setOpenGroups((current) => ({ ...current, [item.id]: !current[item.id] }))} onNavigate={() => setOpenGroups((current) => ({ ...current, [item.id]: false }))} />)}
+          {section.items.map((item) => <SidebarItem key={item.id} item={item} pathname={pathname} isOpen={Boolean(openGroups[item.id])} onToggle={() => setOpenGroups((current) => ({ ...current, [item.id]: !current[item.id] }))} onNavigate={onNavigate} />)}
         </div>
       </div>)}
     </nav>
   </aside>;
 }
 
-function SidebarItem({ item, pathname, isOpen, onToggle, onNavigate }: { item: NavigationItem; pathname: string; isOpen: boolean; onToggle: () => void; onNavigate: () => void }) {
-  const router = useRouter();
+function SidebarItem({ item, pathname, isOpen, onToggle, onNavigate }: { item: NavigationItem; pathname: string; isOpen: boolean; onToggle: () => void; onNavigate?: () => void }) {
   const Icon = item.icon;
   const Chevron = navigationIcons.Chevron;
   const active = isNavigationItemActive(pathname, item);
   const directActive = pathname === item.href;
   const baseClass = `flex h-11 w-full items-center justify-center gap-2 rounded-md px-2 text-sm transition lg:justify-start lg:px-3 ${active ? "bg-brand-50 font-semibold text-brand-700 dark:bg-slate-900 dark:text-white" : "font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white"}`;
-  function navigateChild(event: MouseEvent<HTMLAnchorElement>, href: string) {
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
-    event.preventDefault();
+  function handleChildClick(event: MouseEvent<HTMLAnchorElement>) {
     event.stopPropagation();
-    router.push(href);
-    onNavigate();
+    onNavigate?.();
+  }
+
+  function handleDirectClick() {
+    onNavigate?.();
   }
 
   if (item.children?.length) {
@@ -103,7 +107,7 @@ function SidebarItem({ item, pathname, isOpen, onToggle, onNavigate }: { item: N
         {item.children.map((child) => {
           const ChildIcon = child.icon;
           const childActive = isNavigationItemActive(pathname, child);
-          return <Link key={child.id} href={child.href} title={child.label} onClick={(event) => navigateChild(event, child.href)} className={`flex h-10 items-center justify-start gap-2 rounded-md px-3 text-sm transition ${childActive ? "bg-brand-50 font-semibold text-brand-700 dark:bg-slate-900 dark:text-white" : "font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-white"}`}>
+          return <Link key={child.id} href={child.href} title={child.label} onClick={handleChildClick} className={`flex h-10 items-center justify-start gap-2 rounded-md px-3 text-sm transition ${childActive ? "bg-brand-50 font-semibold text-brand-700 dark:bg-slate-900 dark:text-white" : "font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-white"}`}>
             <ChildIcon aria-hidden="true" className="h-[18px] w-[18px] shrink-0" />
             <span className="min-w-0 truncate">{child.label}</span>
           </Link>;
@@ -112,7 +116,7 @@ function SidebarItem({ item, pathname, isOpen, onToggle, onNavigate }: { item: N
     </div>;
   }
 
-  return <Link href={item.href} title={item.label} aria-current={directActive ? "page" : undefined} className={baseClass}>
+  return <Link href={item.href} title={item.label} aria-current={directActive ? "page" : undefined} onClick={handleDirectClick} className={baseClass}>
     <Icon aria-hidden="true" className="h-5 w-5 shrink-0" />
     <span className="hidden min-w-0 truncate lg:inline">{item.label}</span>
     <span className="sr-only">{item.label}</span>

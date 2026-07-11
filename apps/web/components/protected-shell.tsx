@@ -16,6 +16,7 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     async function loadSession() {
@@ -54,10 +55,20 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
   }
 
   return (
-    <div className="grid min-h-screen grid-cols-[68px_minmax(0,1fr)] bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white lg:grid-cols-[270px_1fr]">
-      <Sidebar />
+    <div className="min-h-screen bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white lg:grid lg:grid-cols-[270px_1fr]">
+      <div className="hidden lg:block">
+        <Sidebar />
+      </div>
+      {isMobileMenuOpen ? (
+        <div className="fixed inset-0 z-40 lg:hidden" aria-modal="true" role="dialog">
+          <button type="button" aria-label="Fermer le menu" className="absolute inset-0 bg-slate-950/45" onClick={() => setIsMobileMenuOpen(false)} />
+          <div className="absolute inset-y-0 left-0 z-50 w-[min(18rem,calc(100vw-2rem))] shadow-2xl">
+            <Sidebar className="w-full" onNavigate={() => setIsMobileMenuOpen(false)} />
+          </div>
+        </div>
+      ) : null}
       <div className="min-w-0">
-        <Header user={user} />
+        <Header user={user} onMenuClick={() => setIsMobileMenuOpen((value) => !value)} />
         <main className="px-3 py-4 sm:px-4 sm:py-5 lg:px-10 lg:py-8">
           {typeof children === "function" ? children(user) : children}
         </main>

@@ -3,17 +3,17 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, LogOut } from "lucide-react";
+import { Bell, LogOut, Menu } from "lucide-react";
 import { AuthUser, getAccessToken, logout } from "@/lib/auth";
 import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
 import { formatRole } from "@/lib/format";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-type HeaderProps = { user: AuthUser | null };
+type HeaderProps = { user: AuthUser | null; onMenuClick?: () => void };
 type Notification = { id: string; title: string; message: string; type: string; status: string; module?: string; createdAt: string };
 
-export function Header({ user }: HeaderProps) {
+export function Header({ user, onMenuClick }: HeaderProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [count, setCount] = useState(0);
@@ -62,6 +62,9 @@ export function Header({ user }: HeaderProps) {
     <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 px-3 py-2 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90 sm:px-4 lg:px-8 lg:py-3">
       <div className="flex items-center justify-between gap-2 sm:gap-4">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <button type="button" onClick={onMenuClick} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 lg:hidden" aria-label="Ouvrir le menu">
+            <Menu aria-hidden="true" className="h-5 w-5" />
+          </button>
           {branding?.logoUrl ? (
             <img src={branding.logoUrl} alt={`Logo ${companyName}`} className="h-8 w-8 rounded-md object-contain shadow-sm sm:h-10 sm:w-10" />
           ) : (

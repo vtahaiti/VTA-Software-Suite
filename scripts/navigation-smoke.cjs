@@ -4,6 +4,8 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const navigationSource = fs.readFileSync(path.join(root, "apps/web/lib/navigation.tsx"), "utf8");
 const sidebarSource = fs.readFileSync(path.join(root, "apps/web/components/sidebar.tsx"), "utf8");
+const headerSource = fs.readFileSync(path.join(root, "apps/web/components/header.tsx"), "utf8");
+const shellSource = fs.readFileSync(path.join(root, "apps/web/components/protected-shell.tsx"), "utf8");
 
 const expectedRoutes = {
   "Nouvelle vente": "/dashboard/pos",
@@ -34,10 +36,14 @@ for (const href of salesChildren) {
   if (!hrefs.includes(href)) failures.push(`Href ventes manquant: ${href}`);
 }
 
-if (!sidebarSource.includes("router.push(href)")) failures.push("Sidebar: router.push(href) est requis pour les sous-liens.");
-if (!sidebarSource.includes("event.preventDefault()")) failures.push("Sidebar: preventDefault est requis pour isoler le clic enfant.");
 if (!sidebarSource.includes("event.stopPropagation()")) failures.push("Sidebar: stopPropagation est requis pour éviter l'interception par le parent.");
-if (!sidebarSource.includes("onClick={(event) => navigateChild(event, child.href)}")) failures.push("Sidebar: les sous-liens doivent appeler navigateChild.");
+if (sidebarSource.includes("event.preventDefault()")) failures.push("Sidebar: les sous-liens doivent rester des liens natifs, sans preventDefault.");
+if (sidebarSource.includes("router.push(")) failures.push("Sidebar: les sous-liens doivent utiliser leur href natif, pas router.push.");
+if (!sidebarSource.includes("onClick={handleChildClick}")) failures.push("Sidebar: les sous-liens doivent isoler leur clic avec handleChildClick.");
+if (!headerSource.includes("aria-label=\"Ouvrir le menu\"")) failures.push("Header: bouton hamburger mobile absent.");
+if (!shellSource.includes("isMobileMenuOpen")) failures.push("Shell: état du menu mobile absent.");
+if (!shellSource.includes("aria-label=\"Fermer le menu\"")) failures.push("Shell: overlay de fermeture mobile absent.");
+if (!shellSource.includes("onNavigate={() => setIsMobileMenuOpen(false)}")) failures.push("Shell: le menu mobile doit se fermer après navigation.");
 
 if (failures.length) {
   console.error("Navigation smoke failed:");
