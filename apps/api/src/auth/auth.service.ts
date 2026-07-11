@@ -1,4 +1,4 @@
-import { Injectable, Logger, UnauthorizedException } from "@nestjs/common";
+import { ForbiddenException, Injectable, Logger, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { AuditAction, TenantStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -36,7 +36,7 @@ const passwordResetTokenTtlMinutes = 30;
 const passwordResetRateLimitWindowMs = 15 * 60 * 1000;
 const passwordResetMaxAttempts = 5;
 
-type SessionRecord = { user: AuthUser; refreshTokenHash: string; rememberMe: boolean; expiresAt: Date };
+type SessionRecord = { user: AuthUser; refreshTokenHash: string; rememberMe: boolean; expiresAt: Date; audience: "tenant" | "platform" };
 type AuthRoleEntry = string | { role?: { name?: string; permissions?: Array<{ permission?: { key?: string } }> } };
 type AuthUserRecord = { id: string; tenantId: string; tenant?: { name?: string } | string | null; name: string; email: string; role?: string; roles?: AuthRoleEntry[]; createdAt?: Date | string };
 type AuditUserRecord = { id?: string; tenantId?: string; tenant?: { name?: string } | string | null; name?: string; email?: string };
@@ -73,7 +73,7 @@ export class AuthService {
         throw new UnauthorizedException("Email ou mot de passe incorrect");
       }
       const authUser = this.toAuthUser(demoUser);
-      const session = await this.createSession(authUser, Boolean(loginDto.rememberMe));
+      const session = await this.createSession(authUser, Boolean(loginDto.rememberMe), "tenant");
       await this.security.recordLoginSuccess(authUser, meta);
       await this.recordAuthAudit(AuditAction.LOGIN, authUser, authUser.email, meta, "Connexion reussie");
       return session;
@@ -94,9 +94,40 @@ export class AuthService {
     const authUser = this.toAuthUser(user);
     await this.assertTenantCanLogin(authUser);
     await this.touchTenantLogin(authUser.tenantId);
-    const session = await this.createSession(authUser, Boolean(loginDto.rememberMe));
+    const session = await this.createSession(authUser, Boolean(loginDto.rememberMe), "tenant");
     await this.security.recordLoginSuccess(authUser, meta);
     await this.recordAuthAudit(AuditAction.LOGIN, authUser, authUser.email, meta, "Connexion reussie");
+    return session;
+  }
+
+  async loginPlatformAdmin(loginDto: LoginDto, meta: { ipAddress?: string; userAgent?: string } = {}) {
+    const email = loginDto.email.trim().toLowerCase();
+    let user = await this.findUserByEmail(email);
+    user ??= await this.ensureConfiguredSuperAdmin(email, loginDto.password);
+
+    if (!user || user.isActive === false) {
+      await this.security.recordLoginFailure(email, meta);
+      await this.recordAuthAudit(AuditAction.LOGIN_FAILED, null, email, meta, "Connexion plateforme refusee");
+      throw new UnauthorizedException("Email ou mot de passe incorrect");
+    }
+
+    const passwordMatches = await bcrypt.compare(loginDto.password, user.password);
+    if (!passwordMatches) {
+      await this.security.recordLoginFailure(email, meta);
+      await this.recordAuthAudit(AuditAction.LOGIN_FAILED, user, email, meta, "Connexion plateforme echouee");
+      throw new UnauthorizedException("Email ou mot de passe incorrect");
+    }
+
+    const authUser = this.toAuthUser(user);
+    if (!this.isPlatformAdmin(authUser)) {
+      await this.security.recordLoginFailure(email, meta);
+      await this.recordAuthAudit(AuditAction.LOGIN_FAILED, user, email, meta, "Connexion plateforme refusee: role insuffisant");
+      throw new ForbiddenException("Acces reserve au SUPER_ADMIN VTA");
+    }
+
+    const session = await this.createSession(authUser, Boolean(loginDto.rememberMe), "platform");
+    await this.security.recordLoginSuccess(authUser, meta);
+    await this.recordAuthAudit(AuditAction.LOGIN, authUser, authUser.email, meta, "Connexion plateforme reussie");
     return session;
   }
 
@@ -209,7 +240,7 @@ export class AuthService {
       include: { tenant: true, roles: { include: { role: { include: { permissions: { include: { permission: true } } } } } } }
     });
     if (!user) throw new UnauthorizedException("Utilisateur introuvable");
-    return this.createSession(this.toAuthUser(user), rememberMe);
+    return this.createSession(this.toAuthUser(user), rememberMe, "tenant");
   }
   async refresh(refreshToken: string) {
     const payload = await this.verifyRefreshToken(refreshToken);
@@ -222,7 +253,22 @@ export class AuthService {
       throw new UnauthorizedException("Session invalide");
     }
     this.sessions.delete(payload.sessionId);
-    return this.createSession(session.user, session.rememberMe);
+    if (session.audience !== "tenant") throw new UnauthorizedException("Session invalide");
+    return this.createSession(session.user, session.rememberMe, "tenant");
+  }
+
+  async refreshPlatform(refreshToken: string) {
+    const payload = await this.verifyRefreshToken(refreshToken);
+    const session = this.sessions.get(payload.sessionId);
+    if (!session || session.expiresAt.getTime() < Date.now() || session.audience !== "platform") throw new UnauthorizedException("Session plateforme expiree");
+    await this.assertUserActive(session.user.id);
+    const tokenMatches = await bcrypt.compare(refreshToken, session.refreshTokenHash);
+    if (!tokenMatches) {
+      this.sessions.delete(payload.sessionId);
+      throw new UnauthorizedException("Session plateforme invalide");
+    }
+    this.sessions.delete(payload.sessionId);
+    return this.createSession(session.user, session.rememberMe, "platform");
   }
 
   async logout(sessionId: string, user?: AuthUser, meta: { ipAddress?: string; userAgent?: string } = {}) {
@@ -241,6 +287,9 @@ export class AuthService {
       throw new UnauthorizedException("Token invalide");
     }
     if (!this.sessions.has(payload.sessionId)) throw new UnauthorizedException("Session invalide");
+    const session = this.sessions.get(payload.sessionId);
+    if (!session || payload.audience !== session.audience) throw new UnauthorizedException("Audience invalide");
+    if (payload.iss !== this.tokenIssuer) throw new UnauthorizedException("Emetteur invalide");
     await this.assertUserActive(payload.id);
     await this.assertTenantCanRequest(payload);
     await this.touchTenantSeen(payload.tenantId);
@@ -276,12 +325,12 @@ export class AuthService {
     };
   }
 
-  private async createSession(baseUser: AuthUser, rememberMe: boolean) {
+  private async createSession(baseUser: AuthUser, rememberMe: boolean, audience: "tenant" | "platform") {
     const sessionId = randomUUID();
-    const user: AuthUser = { ...baseUser, sessionId };
-    const accessToken = await this.jwtService.signAsync(user, { secret: this.accessTokenSecret, expiresIn: accessTokenTtl });
-    const refreshToken = await this.jwtService.signAsync({ sessionId, sub: user.id, type: "refresh" }, { secret: this.refreshTokenSecret, expiresIn: rememberMe ? rememberMeRefreshTokenTtl : refreshTokenTtl });
-    this.sessions.set(sessionId, { user, refreshTokenHash: await bcrypt.hash(refreshToken, 12), rememberMe, expiresAt: new Date(Date.now() + (rememberMe ? 30 : 1) * 24 * 60 * 60 * 1000) });
+    const user: AuthUser = { ...baseUser, sessionId, audience };
+    const accessToken = await this.jwtService.signAsync(user, { secret: this.accessTokenSecret, expiresIn: accessTokenTtl, audience, issuer: this.tokenIssuer });
+    const refreshToken = await this.jwtService.signAsync({ sessionId, sub: user.id, type: "refresh", audience }, { secret: this.refreshTokenSecret, expiresIn: rememberMe ? rememberMeRefreshTokenTtl : refreshTokenTtl, audience, issuer: this.tokenIssuer });
+    this.sessions.set(sessionId, { user, refreshTokenHash: await bcrypt.hash(refreshToken, 12), rememberMe, expiresAt: new Date(Date.now() + (rememberMe ? 30 : 1) * 24 * 60 * 60 * 1000), audience });
     return { accessToken, refreshToken, rememberMe, user: this.publicUser(user) };
   }
 
@@ -481,6 +530,10 @@ export class AuthService {
 
   private get refreshTokenSecret() {
     return process.env.JWT_REFRESH_SECRET ?? process.env.JWT_SECRET ?? "change-me-refresh";
+  }
+
+  private get tokenIssuer() {
+    return process.env.JWT_ISSUER ?? "vtaerp.com";
   }
 
   private hashPasswordResetToken(token: string) {

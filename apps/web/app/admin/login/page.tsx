@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { clearSession, getCurrentUser, login } from "@/lib/auth";
+import { isPlatformAdmin, platformLogin } from "@/lib/platform";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -12,8 +12,7 @@ export default function AdminLoginPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    const user = getCurrentUser();
-    if (user?.roles?.some((role) => role === "SUPER_ADMIN" || role === "PlatformAdmin") || user?.role === "SUPER_ADMIN" || user?.role === "PlatformAdmin") router.replace("/admin/dashboard");
+    if (isPlatformAdmin()) router.replace("/admin/dashboard");
   }, [router]);
 
   async function submit(event: FormEvent) {
@@ -21,13 +20,7 @@ export default function AdminLoginPage() {
     setError("");
     setIsLoading(true);
     try {
-      const user = await login({ email, password, rememberMe: true });
-      const isPlatformAdmin = user.roles?.some((role) => role === "SUPER_ADMIN" || role === "PlatformAdmin") || user.role === "SUPER_ADMIN" || user.role === "PlatformAdmin";
-      if (!isPlatformAdmin) {
-        clearSession();
-        setError("Acces reserve aux administrateurs VTA ERP.");
-        return;
-      }
+      await platformLogin({ email, password, rememberMe: true });
       router.push("/admin/dashboard");
       router.refresh();
     } catch (err) {

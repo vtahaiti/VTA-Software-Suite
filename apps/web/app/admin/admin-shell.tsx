@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
-import { isPlatformAdmin } from "@/lib/platform";
+import { platformLogout, verifyPlatformSession } from "@/lib/platform";
 
 const nav = [
   { href: "/admin/dashboard", label: "Dashboard" },
@@ -17,12 +17,25 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const [allowed, setAllowed] = useState(false);
 
   useEffect(() => {
-    if (!isPlatformAdmin()) {
-      router.replace("/admin/login");
-      return;
+    let cancelled = false;
+    async function verify() {
+      const valid = await verifyPlatformSession();
+      if (cancelled) return;
+      if (!valid) {
+        router.replace("/admin/login");
+        return;
+      }
+      setAllowed(true);
     }
-    setAllowed(true);
+    void verify();
+    return () => { cancelled = true; };
   }, [router]);
+
+  async function logout() {
+    await platformLogout();
+    router.replace("/admin/login");
+    router.refresh();
+  }
 
   if (!allowed) {
     return <main className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-300">Verification de l&apos;acces plateforme...</main>;
@@ -42,7 +55,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
         <div className="absolute bottom-6 left-6 right-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-xs text-slate-400">
-          Reserve aux PlatformAdmin. Les donnees internes clients restent confidentielles.
+          Réservé aux SUPER_ADMIN. Les données affichées dépendent des permissions plateforme.
+          <button onClick={logout} className="mt-3 w-full rounded-xl border border-white/10 px-3 py-2 text-sm font-bold text-white hover:bg-white/10">Déconnexion</button>
         </div>
       </aside>
       <div className="xl:pl-72">
@@ -53,7 +67,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
               <h2 className="text-3xl font-black text-white">VTA ERP Control Center</h2>
               <p className="mt-1 text-sm text-slate-400">Administration globale des entreprises, abonnements, modules et signaux securite.</p>
             </div>
-            <Link href="/admin/companies" className="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-bold text-slate-950 shadow-lg shadow-cyan-400/20">Gerer les entreprises</Link>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/admin/companies" className="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-bold text-slate-950 shadow-lg shadow-cyan-400/20">Gérer les entreprises</Link>
+              <button onClick={logout} className="rounded-xl border border-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white/10 xl:hidden">Déconnexion</button>
+            </div>
           </div>
         </header>
         <main className="p-5 lg:p-8">{children}</main>

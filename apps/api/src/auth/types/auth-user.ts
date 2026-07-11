@@ -9,4 +9,7 @@ export type AuthUser = {
   roles?: string[];
   permissions?: string[];
   createdAt: string;
+  audience?: "tenant" | "platform";
+  aud?: string | string[];
+  iss?: string;
 };
