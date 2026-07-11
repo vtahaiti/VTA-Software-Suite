@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
+import type { MouseEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { fallbackMenuSections, getTenantBusinessConfiguration, type BusinessMenuSection } from "@/lib/business-profiles";
 import { CompanyBranding, getCompanyBranding, initials } from "@/lib/company-branding";
@@ -67,19 +69,27 @@ export function Sidebar() {
       {sections.map((section) => <div key={section.title}>
         <p className="hidden px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400 lg:block">{section.title}</p>
         <div className="grid gap-1">
-          {section.items.map((item) => <SidebarItem key={item.id} item={item} pathname={pathname} isOpen={Boolean(openGroups[item.id])} onToggle={() => setOpenGroups((current) => ({ ...current, [item.id]: !current[item.id] }))} />)}
+          {section.items.map((item) => <SidebarItem key={item.id} item={item} pathname={pathname} isOpen={Boolean(openGroups[item.id])} onToggle={() => setOpenGroups((current) => ({ ...current, [item.id]: !current[item.id] }))} onNavigate={() => setOpenGroups((current) => ({ ...current, [item.id]: false }))} />)}
         </div>
       </div>)}
     </nav>
   </aside>;
 }
 
-function SidebarItem({ item, pathname, isOpen, onToggle }: { item: NavigationItem; pathname: string; isOpen: boolean; onToggle: () => void }) {
+function SidebarItem({ item, pathname, isOpen, onToggle, onNavigate }: { item: NavigationItem; pathname: string; isOpen: boolean; onToggle: () => void; onNavigate: () => void }) {
+  const router = useRouter();
   const Icon = item.icon;
   const Chevron = navigationIcons.Chevron;
   const active = isNavigationItemActive(pathname, item);
   const directActive = pathname === item.href;
   const baseClass = `flex h-11 w-full items-center justify-center gap-2 rounded-md px-2 text-sm transition lg:justify-start lg:px-3 ${active ? "bg-brand-50 font-semibold text-brand-700 dark:bg-slate-900 dark:text-white" : "font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white"}`;
+  function navigateChild(event: MouseEvent<HTMLAnchorElement>, href: string) {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    router.push(href);
+    onNavigate();
+  }
 
   if (item.children?.length) {
     return <div className="relative">
@@ -93,7 +103,7 @@ function SidebarItem({ item, pathname, isOpen, onToggle }: { item: NavigationIte
         {item.children.map((child) => {
           const ChildIcon = child.icon;
           const childActive = isNavigationItemActive(pathname, child);
-          return <Link key={child.id} href={child.href} title={child.label} className={`flex h-10 items-center justify-start gap-2 rounded-md px-3 text-sm transition ${childActive ? "bg-brand-50 font-semibold text-brand-700 dark:bg-slate-900 dark:text-white" : "font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-white"}`}>
+          return <Link key={child.id} href={child.href} title={child.label} onClick={(event) => navigateChild(event, child.href)} className={`flex h-10 items-center justify-start gap-2 rounded-md px-3 text-sm transition ${childActive ? "bg-brand-50 font-semibold text-brand-700 dark:bg-slate-900 dark:text-white" : "font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-white"}`}>
             <ChildIcon aria-hidden="true" className="h-[18px] w-[18px] shrink-0" />
             <span className="min-w-0 truncate">{child.label}</span>
           </Link>;
