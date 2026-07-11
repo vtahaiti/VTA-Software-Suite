@@ -503,31 +503,49 @@ export default function PosPage() {
   const visibleProducts = useMemo(() => categoryFilter ? products.filter((product) => product.category === categoryFilter) : products, [categoryFilter, products]);
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-950 dark:bg-slate-950 dark:text-white lg:-m-6">
-      <div className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_420px]">
-        <main className="min-h-0 overflow-auto px-3 pb-28 pt-3 sm:px-4 lg:p-6">
-          <section className="mb-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+    <div className="min-h-screen bg-slate-100 font-sans text-slate-950 lg:-m-6">
+      <div className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_390px] xl:grid-cols-[minmax(0,1fr)_400px]">
+        <main className="min-h-0 overflow-auto px-3 pb-28 pt-3 sm:px-4 lg:p-5 xl:p-6">
+          <section className="sticky top-0 z-20 mb-4 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
+            <div className="flex min-h-14 items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-bold text-brand-700 dark:bg-brand-950 dark:text-brand-200">{posTemplate.eyebrow}</span>
-                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${isOnline ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200" : "bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-200"}`}>{isOnline ? "En ligne" : "Hors ligne"}</span>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Vente</h1>
+                  <span className={`h-2.5 w-2.5 rounded-full ${isOnline ? "bg-emerald-500" : "bg-orange-500"}`} aria-label={isOnline ? "En ligne" : "Hors ligne"} />
+                  {pendingOfflineSales > 0 ? <span className="rounded-full bg-orange-50 px-2 py-1 text-xs font-semibold text-orange-700">{pendingOfflineSales} en attente</span> : null}
                 </div>
-                <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Nouvelle vente</h1>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{posTemplate.description}</p>
+                <p className="mt-0.5 text-xs font-medium text-slate-500">{posTemplate.eyebrow}</p>
               </div>
-              <div className="grid gap-2 rounded-2xl bg-slate-50 p-3 text-sm dark:bg-slate-950 sm:grid-cols-3 xl:min-w-[520px]">
-                <MetaPill label="Magasin" value={activeStore?.name ?? "Non chargé"} />
-                <MetaPill label="Caisse" value={activeSession?.cashRegister?.name ?? "Non chargée"} />
-                <MetaPill label="Utilisateur" value={cashierName} />
+              <div className="flex shrink-0 items-center gap-2">
+                <details className="relative">
+                  <summary className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50" aria-label="Informations de caisse">
+                    <InfoIcon />
+                  </summary>
+                  <div className="absolute right-0 z-30 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-xl">
+                    <MetaPill label="Magasin" value={activeStore?.name ?? "Non chargé"} />
+                    <MetaPill label="Caisse" value={activeSession?.cashRegister?.name ?? "Non chargée"} />
+                    <MetaPill label="Caissier" value={cashierName} />
+                    <MetaPill label="Statut" value={isOnline ? "En ligne" : "Hors ligne"} />
+                  </div>
+                </details>
+                <details className="relative">
+                  <summary className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50" aria-label="Plus d'actions">
+                    <MoreIcon />
+                  </summary>
+                  <div className="absolute right-0 z-30 mt-2 grid w-64 gap-2 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-xl">
+                    <button type="button" onClick={() => setShowCustomItemModal(true)} className="rounded-lg px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50">Article personnalisé</button>
+                    <button type="button" onClick={() => setShowExpertOptions((current) => !current)} className="rounded-lg px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50">Options avancées</button>
+                  </div>
+                </details>
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.6fr)_minmax(260px,0.8fr)]">
+            <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_minmax(240px,0.75fr)]">
               <div className="flex min-w-0 gap-2">
-                <input ref={scanInputRef} autoFocus value={query} onChange={(event) => { setQuery(event.target.value); setBarcode(event.target.value); }} onKeyDown={(event) => { if (event.key === "Enter") void scanBarcode(query); }} placeholder={posTemplate.searchPlaceholder} className="min-w-0 flex-1 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-base outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-brand-950" />
-                <button aria-label="Rechercher un produit" title="Rechercher" onClick={() => void scanBarcode(query)} className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-slate-950 text-lg font-black text-white shadow-sm transition hover:-translate-y-0.5 dark:bg-white dark:text-slate-950">
-                  <span aria-hidden="true">🔍</span>
+                <label className="sr-only" htmlFor="pos-product-search">Rechercher ou scanner un produit</label>
+                <input id="pos-product-search" ref={scanInputRef} autoFocus value={query} onChange={(event) => { setQuery(event.target.value); setBarcode(event.target.value); }} onKeyDown={(event) => { if (event.key === "Enter") void scanBarcode(query); }} placeholder={posTemplate.searchPlaceholder} className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-base outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-100" />
+                <button aria-label="Rechercher un produit" title="Rechercher" onClick={() => void scanBarcode(query)} className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-slate-950 text-white shadow-sm transition hover:bg-slate-800">
+                  <SearchIcon />
                 </button>
               </div>
               <CustomerSelector customers={customers} customerId={customerId} defaultLabel={posTemplate.defaultCustomer} onChange={setCustomerId} onCreate={() => setShowCustomerModal(true)} />
@@ -536,24 +554,27 @@ export default function PosPage() {
 
           <StatusMessages error={error} message={message} syncMessage={syncMessage} />
 
-          <section className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-lg font-black">Produits disponibles</h2>
-              <p className="text-sm text-slate-500">{visibleProducts.length} produit(s) affiché(s)</p>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <button type="button" onClick={() => setShowCustomItemModal(true)} className="rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-amber-600">
-                Ajouter article personnalisé
-              </button>
-              <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold dark:border-slate-700 dark:bg-slate-900">
-                <option value="">Toutes les catégories</option>
+          <section className="mb-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold">Produits</h2>
+                <p className="text-sm text-slate-500">{visibleProducts.length} produit{visibleProducts.length > 1 ? "s" : ""} affiché{visibleProducts.length > 1 ? "s" : ""}</p>
+              </div>
+              <select aria-label="Filtrer par catégorie" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="hidden rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold sm:block">
+                <option value="">Toutes</option>
                 {categories.map((category) => <option key={category} value={category}>{category}</option>)}
               </select>
+            </div>
+            <div className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1">
+              <button type="button" onClick={() => setCategoryFilter("")} className={`h-10 shrink-0 rounded-full border px-4 text-sm font-semibold ${categoryFilter === "" ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-700"}`}>Toutes</button>
+              {categories.map((category) => (
+                <button key={category} type="button" onClick={() => setCategoryFilter(category)} className={`h-10 shrink-0 rounded-full border px-4 text-sm font-semibold ${categoryFilter === category ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-700"}`}>{category}</button>
+              ))}
             </div>
           </section>
 
           {visibleProducts.length ? (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 min-[1800px]:grid-cols-6">
               {visibleProducts.map((product) => (
                 <ProductCard key={product.id} product={product} onAdd={() => void addProduct(product.id)} />
               ))}
@@ -615,13 +636,13 @@ export default function PosPage() {
       <MobileCartBar cart={cart} paidAmount={paidAmount} onOpen={() => setShowCartDrawer(true)} />
       {showCartDrawer ? (
         <div className="fixed inset-0 z-50 bg-slate-950/60 lg:hidden">
-          <div className="ml-auto flex h-full w-full max-w-md flex-col bg-white shadow-2xl dark:bg-slate-900">
-            <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-800">
+          <div className="ml-auto flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 p-4">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-brand-600">Ticket</p>
-                <h2 className="text-xl font-black">{formatMoney(cart.total)}</h2>
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">Panier</p>
+                <h2 className="text-xl font-bold tabular-nums">{formatMoney(cart.total)}</h2>
               </div>
-              <button onClick={() => setShowCartDrawer(false)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold dark:border-slate-700">Fermer</button>
+              <button onClick={() => setShowCartDrawer(false)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold">Fermer</button>
             </div>
             <CartPanel
               cart={cart}
@@ -632,8 +653,8 @@ export default function PosPage() {
               branding={branding}
               companyName={companyName}
               cashierName={cashierName}
-            receiptFormat={receiptFormat}
-            printSale={(sale) => void printSaleReceipt(sale)}
+              receiptFormat={receiptFormat}
+              printSale={(sale) => void printSaleReceipt(sale)}
               orderDiscount={orderDiscount}
               setOrderDiscount={setOrderDiscount}
               syncCart={() => void syncCart("calculate")}
@@ -761,11 +782,11 @@ function MetaPill({ label, value }: { label: string; value: string }) {
 function CustomerSelector({ customers, customerId, defaultLabel, onChange, onCreate }: { customers: Customer[]; customerId: string; defaultLabel: string; onChange: (value: string) => void; onCreate: () => void }) {
   return (
     <div className="flex min-w-0 gap-2">
-      <select value={customerId} onChange={(event) => onChange(event.target.value)} className="min-w-0 flex-1 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-brand-950">
+      <select aria-label="Client" value={customerId} onChange={(event) => onChange(event.target.value)} className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-100">
         <option value="">{defaultLabel}</option>
         {customers.map((customer) => <option key={customer.id} value={customer.id}>{customerLabel(customer)}</option>)}
       </select>
-      <button type="button" aria-label="Ajouter un client" title="Ajouter client" onClick={onCreate} className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-slate-300 bg-white text-2xl font-black text-slate-800 shadow-sm transition hover:-translate-y-0.5 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
+      <button type="button" aria-label="Ajouter un client" title="Ajouter client" onClick={onCreate} className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-slate-300 bg-white text-2xl font-bold text-slate-800 shadow-sm transition hover:border-brand-600 hover:text-brand-700">
         <span aria-hidden="true">+</span>
       </button>
     </div>
@@ -775,9 +796,9 @@ function CustomerSelector({ customers, customerId, defaultLabel, onChange, onCre
 function StatusMessages({ error, message, syncMessage }: { error: string; message: string; syncMessage: string }) {
   return (
     <>
-      {error ? <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{error}</div> : null}
-      {message ? <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">{message}</div> : null}
-      {syncMessage ? <div className="mb-4 rounded-2xl border border-blue-200 bg-blue-50 p-3 text-sm font-semibold text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">{syncMessage}</div> : null}
+      {error ? <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</div> : null}
+      {message ? <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{message}</div> : null}
+      {syncMessage ? <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm font-semibold text-blue-700">{syncMessage}</div> : null}
     </>
   );
 }
@@ -786,27 +807,25 @@ function ProductCard({ product, onAdd }: { product: Product; onAdd: () => void }
   const isLowStock = product.availableStock > 0 && product.availableStock <= 3;
   const isOut = product.availableStock <= 0;
   return (
-    <button onClick={onAdd} disabled={isOut} className="group overflow-hidden rounded-3xl border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-1 hover:border-brand-500 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900">
-      <div className="aspect-[4/3] bg-slate-100 dark:bg-slate-800">
+    <button onClick={onAdd} disabled={isOut} className="group flex h-full min-h-[214px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm transition hover:border-brand-500 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-brand-100 disabled:cursor-not-allowed disabled:opacity-55">
+      <div className="aspect-[4/3] bg-slate-100">
         {product.image ? (
           <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
         ) : (
           <ProductPlaceholder name={product.name} />
         )}
       </div>
-      <div className="space-y-3 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate text-base font-black text-slate-950 dark:text-white">{product.name}</p>
-            <p className="truncate text-xs font-semibold text-slate-500">{product.category ?? product.sku}</p>
-          </div>
-          <span className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-black ${isOut ? "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-200" : isLowStock ? "bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-200" : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200"}`}>
-            {isOut ? "Rupture" : `Stock ${product.availableStock}`}
-          </span>
+      <div className="flex flex-1 flex-col justify-between gap-3 p-3">
+        <div className="min-w-0">
+          <p className="line-clamp-2 min-h-[40px] text-sm font-semibold leading-5 text-slate-950">{product.name}</p>
+          <p className="mt-1 truncate text-xs font-medium text-slate-500">{product.category ?? "Sans catégorie"}</p>
         </div>
-        <div className="flex items-end justify-between gap-3">
-          <p className="text-xl font-black text-brand-700 dark:text-brand-300">{formatMoney(product.salePrice)}</p>
-          <span className="grid h-9 w-9 place-items-center rounded-full bg-slate-950 text-xl font-black leading-none text-white opacity-90 transition group-hover:opacity-100 dark:bg-white dark:text-slate-950" aria-label="Ajouter">+</span>
+        <div className="flex items-end justify-between gap-2">
+          <div>
+            <p className="text-base font-bold tabular-nums text-slate-950">{formatMoney(product.salePrice)}</p>
+            <p className={`mt-1 text-xs font-medium ${isOut ? "text-red-600" : isLowStock ? "text-orange-600" : "text-slate-500"}`}>{isOut ? "Rupture" : `Stock ${product.availableStock}`}</p>
+          </div>
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-slate-950 text-xl font-bold leading-none text-white transition group-hover:bg-brand-600" aria-label="Ajouter">+</span>
         </div>
       </div>
     </button>
@@ -815,8 +834,8 @@ function ProductCard({ product, onAdd }: { product: Product; onAdd: () => void }
 
 function ProductPlaceholder({ name }: { name: string }) {
   return (
-    <div className="grid h-full w-full place-items-center bg-gradient-to-br from-brand-50 via-emerald-50 to-orange-50 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800">
-      <div className="grid h-20 w-20 place-items-center rounded-3xl bg-white/85 text-2xl font-black text-brand-700 shadow-lg shadow-brand-900/10 ring-1 ring-white/70 dark:bg-slate-950/80 dark:text-brand-200 dark:ring-slate-700">
+    <div className="grid h-full w-full place-items-center bg-slate-50">
+      <div className="grid h-14 w-14 place-items-center rounded-xl border border-slate-200 bg-white text-lg font-bold text-slate-500 shadow-sm">
         {productInitials(name)}
       </div>
     </div>
@@ -825,10 +844,10 @@ function ProductPlaceholder({ name }: { name: string }) {
 
 function EmptyProductsState() {
   return (
-    <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
-      <p className="text-lg font-black">Aucun produit disponible</p>
+    <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
+      <p className="text-lg font-bold">Aucun produit disponible</p>
       <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">Ajoutez vos produits pour commencer à vendre. Les ventes utilisent uniquement les données réelles de votre entreprise.</p>
-      <a href="/dashboard/products/create" className="mt-5 inline-flex rounded-2xl bg-brand-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-brand-700">Ajouter un produit</a>
+      <a href="/dashboard/products/create" className="mt-5 inline-flex rounded-xl bg-brand-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-brand-700">Ajouter un produit</a>
     </div>
   );
 }
@@ -881,23 +900,28 @@ type CartPanelProps = {
 
 function CartPanel(props: CartPanelProps) {
   return (
-    <aside className="flex h-full min-h-0 flex-col border-l border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-      <div className="border-b border-slate-200 p-4 dark:border-slate-800">
-        <h2 className="text-xl font-black">{props.cartTitle}</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400">{props.cart.items.length} ligne(s) · {props.selectedCustomerLabel}</p>
+    <aside className="flex h-full min-h-0 flex-col border-l border-slate-200 bg-white lg:sticky lg:top-0 lg:h-screen">
+      <div className="border-b border-slate-200 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold">Panier</h2>
+            <p className="text-sm text-slate-500">{props.cart.items.length} article{props.cart.items.length > 1 ? "s" : ""}</p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{props.selectedCustomerLabel}</span>
+        </div>
       </div>
 
       <div className="flex-1 space-y-3 overflow-auto p-4">
         {props.cart.items.length ? props.cart.items.map((item) => (
           <CartLineItem key={lineKey(item)} item={item} updateQuantity={props.updateQuantity} removeProduct={props.removeProduct} />
-        )) : <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">{props.emptyCart}</div>}
+        )) : <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">{props.emptyCart}</div>}
 
         {props.lastSale ? (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
-            <p className="font-black">Dernière vente confirmée</p>
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+            <p className="font-bold">Dernière vente confirmée</p>
             <p>Reçu: {props.lastSale.receipt?.number ?? "--"}</p>
             <p>Facture: {props.lastSale.invoice?.documentNumber ?? "--"}</p>
-            <button type="button" onClick={() => props.printSale(props.lastSale!)} className="mt-2 inline-flex rounded-xl bg-emerald-700 px-3 py-2 text-xs font-bold text-white">Imprimer ticket</button>
+            <button type="button" onClick={() => props.printSale(props.lastSale!)} className="mt-2 inline-flex rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">Imprimer ticket</button>
           </div>
         ) : null}
       </div>
@@ -910,63 +934,74 @@ function CartPanel(props: CartPanelProps) {
 function CartLineItem({ item, updateQuantity, removeProduct }: { item: CartLine; updateQuantity: (lineId: string, quantity: number) => void; removeProduct: (lineId: string) => void }) {
   const id = lineKey(item);
   return (
-    <div className={`rounded-2xl border p-3 ${item.hasEnoughStock ? "border-slate-200 dark:border-slate-800" : "border-red-300 bg-red-50 dark:border-red-900 dark:bg-red-950"}`}>
+    <div className={`rounded-xl border p-3 ${item.hasEnoughStock ? "border-slate-200" : "border-red-300 bg-red-50"}`}>
       <div className="flex justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate font-black">{item.name}</p>
+          <p className="truncate font-semibold">{item.name}</p>
           <p className="text-xs text-slate-500">{item.isCustom ? customTypeLabel(item.customType) : `${item.sku} · stock ${item.availableStock}`}</p>
-          {item.isCustom ? <span className="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-black text-amber-700 dark:bg-amber-950 dark:text-amber-200">Personnalisé</span> : null}
+          {item.isCustom ? <span className="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">Personnalisé</span> : null}
         </div>
-        <button onClick={() => removeProduct(id)} className="shrink-0 text-sm font-bold text-red-600">Retirer</button>
+        <button onClick={() => removeProduct(id)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600" aria-label={`Retirer ${item.name}`}>
+          <TrashIcon />
+        </button>
       </div>
       <div className="mt-3 flex items-center justify-between gap-3">
-        <div className="inline-flex items-center overflow-hidden rounded-xl border border-slate-300 dark:border-slate-700">
-          <button onClick={() => updateQuantity(id, Math.max(0, item.quantity - 1))} className="h-10 w-10 text-lg font-black">-</button>
-          <input aria-label={`Quantité ${item.name}`} type="number" min={0} value={item.quantity} onChange={(event) => updateQuantity(id, Math.floor(parseMoney(event.target.value)))} className="h-10 w-16 border-x border-slate-300 bg-white text-center font-bold outline-none dark:border-slate-700 dark:bg-slate-950" />
-          <button onClick={() => updateQuantity(id, item.quantity + 1)} className="h-10 w-10 text-lg font-black">+</button>
+        <div className="inline-flex items-center overflow-hidden rounded-lg border border-slate-300">
+          <button onClick={() => updateQuantity(id, Math.max(0, item.quantity - 1))} className="h-11 w-11 text-lg font-bold">-</button>
+          <input aria-label={`Quantité ${item.name}`} type="number" min={0} value={item.quantity} onChange={(event) => updateQuantity(id, Math.floor(parseMoney(event.target.value)))} className="h-11 w-14 border-x border-slate-300 bg-white text-center font-bold outline-none" />
+          <button onClick={() => updateQuantity(id, item.quantity + 1)} className="h-11 w-11 text-lg font-bold">+</button>
         </div>
         <div className="text-right text-sm">
           <p className="text-slate-500">{formatMoney(item.unitPrice)}</p>
-          <p className="text-base font-black">{formatMoney(item.total)}</p>
+          <p className="text-base font-bold tabular-nums">{formatMoney(item.total)}</p>
         </div>
       </div>
-      {!item.hasEnoughStock ? <p className="mt-2 text-xs font-bold text-red-700 dark:text-red-200">Stock insuffisant pour cette quantité.</p> : null}
+      {!item.hasEnoughStock ? <p className="mt-2 text-xs font-bold text-red-700">Stock insuffisant pour cette quantité.</p> : null}
     </div>
   );
 }
 
 function PaymentPanel(props: CartPanelProps) {
+  const primaryMethod = props.payments[0]?.method ?? "CASH";
   return (
-    <div className="space-y-3 border-t border-slate-200 p-4 dark:border-slate-800">
+    <div className="space-y-3 border-t border-slate-200 p-4">
       <SaleSummary cart={props.cart} paidAmount={props.paidAmount} changeDue={props.changeDue} balanceDue={props.balanceDue} />
-      <label className="grid gap-1 text-sm font-bold">Remise globale
-        <input value={props.orderDiscount} onChange={(event) => props.setOrderDiscount(event.target.value)} onBlur={props.syncCart} className="rounded-2xl border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-950" />
-      </label>
-      <div className="rounded-2xl border border-slate-200 p-3 dark:border-slate-800">
-        <p className="mb-2 text-sm font-black">Paiement</p>
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            ["CASH", "Cash"],
-            ["CARD", "Carte"],
-            ["BANK_TRANSFER", "Virement"]
-          ].map(([method, label]) => (
-            <button key={method} type="button" onClick={() => props.updatePayment(0, { method })} className={`rounded-xl px-3 py-2 text-sm font-bold ${props.payments[0]?.method === method ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200"}`}>{label}</button>
-          ))}
+      <details className="rounded-xl border border-slate-200 bg-white">
+        <summary className="cursor-pointer list-none px-3 py-2 text-sm font-semibold text-slate-600">Ajouter une remise</summary>
+        <label className="grid gap-1 px-3 pb-3 text-sm font-semibold">Remise globale
+          <input value={props.orderDiscount} onChange={(event) => props.setOrderDiscount(event.target.value)} onBlur={props.syncCart} className="rounded-lg border border-slate-300 px-3 py-2 font-normal" />
+        </label>
+      </details>
+      {props.cart.items.length ? (
+        <div className="rounded-xl border border-slate-200 p-3">
+          <p className="mb-2 text-sm font-bold">Paiement</p>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              ["CASH", "Espèces"],
+              ["CARD", "Carte"],
+              ["BANK_TRANSFER", "Virement"]
+            ].map(([method, label]) => (
+              <button key={method} type="button" onClick={() => props.updatePayment(0, { method })} className={`min-h-11 rounded-lg px-3 py-2 text-sm font-semibold ${primaryMethod === method ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}>{label}</button>
+            ))}
+          </div>
+          <label className="mt-3 grid gap-1 text-sm font-semibold">
+            {primaryMethod === "CASH" ? "Montant reçu" : "Montant réglé"}
+            <input value={props.payments[0]?.amount ?? ""} onChange={(event) => props.setCashPayment(event.target.value)} placeholder={primaryMethod === "CASH" ? "Montant reçu" : "Montant"} className="w-full rounded-xl border border-slate-300 px-4 py-3 text-lg font-bold tabular-nums outline-none focus:border-brand-600 focus:ring-4 focus:ring-brand-100" />
+          </label>
+          <button type="button" onClick={() => props.setCashPayment(String(props.cart.total))} className="mt-2 min-h-11 rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white">Paiement exact</button>
         </div>
-        <input value={props.payments[0]?.amount ?? ""} onChange={(event) => props.setCashPayment(event.target.value)} placeholder="Montant reçu" className="mt-3 w-full rounded-2xl border border-slate-300 px-4 py-3 text-lg font-black outline-none focus:border-brand-600 focus:ring-4 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-brand-950" />
-        <button type="button" onClick={() => props.setCashPayment(String(props.cart.total))} className="mt-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white dark:bg-white dark:text-slate-950">Paiement exact</button>
-      </div>
+      ) : null}
       {props.cart.items.length > 0 && props.paidAmount > 0 && props.paidAmount < props.cart.total ? (
-        <p className="rounded-2xl bg-red-50 px-3 py-2 text-sm font-bold text-red-700 dark:bg-red-950 dark:text-red-200">
+        <p className="rounded-xl bg-red-50 px-3 py-2 text-sm font-bold text-red-700">
           {insufficientPaymentMessage(props.cart.total, props.paidAmount)}
         </p>
       ) : null}
-      <button onClick={props.checkout} disabled={!props.canReceivePayment} className="w-full rounded-2xl bg-emerald-600 px-4 py-4 text-lg font-black text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">{props.isLoading ? "Validation..." : "Encaisser"}</button>
+      <button onClick={props.checkout} disabled={!props.canReceivePayment} className="w-full rounded-xl bg-emerald-600 px-4 py-4 text-lg font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">{props.isLoading ? "Encaissement..." : `Encaisser — ${formatMoney(props.cart.total)}`}</button>
       <div className="grid grid-cols-2 gap-2">
-        <button onClick={props.holdSale} disabled={!props.cart.items.length} className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-bold disabled:opacity-50 dark:border-slate-700">{props.pendingLabel}</button>
-        {props.lastSale ? <button type="button" onClick={() => props.printSale(props.lastSale!)} className="rounded-2xl border border-slate-300 px-4 py-3 text-center text-sm font-bold dark:border-slate-700">Imprimer</button> : <button disabled className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-bold opacity-50 dark:border-slate-700">Imprimer</button>}
+        <button onClick={props.holdSale} disabled={!props.cart.items.length} className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold disabled:opacity-50">{props.pendingLabel}</button>
+        {props.lastSale ? <button type="button" onClick={() => props.printSale(props.lastSale!)} className="rounded-xl border border-slate-300 px-4 py-3 text-center text-sm font-semibold">Imprimer</button> : <button disabled className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold opacity-50">Imprimer</button>}
       </div>
-      <button type="button" onClick={() => props.setShowExpertOptions((current) => !current)} className="text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">Options avanc?es de vente</button>
+      <button type="button" onClick={() => props.setShowExpertOptions((current) => !current)} className="text-xs font-bold text-slate-500 hover:text-slate-900">Options avancées</button>
       {props.showExpertOptions ? <ExpertOptions {...props} /> : null}
     </div>
   );
@@ -974,11 +1009,11 @@ function PaymentPanel(props: CartPanelProps) {
 
 function SaleSummary({ cart, paidAmount, changeDue, balanceDue }: { cart: Cart; paidAmount: number; changeDue: number; balanceDue: number }) {
   return (
-    <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-950">
+    <div className="rounded-xl bg-slate-50 p-3">
       <TotalLine label="Sous-total" value={cart.subtotal} />
       {cart.discount + cart.itemDiscount > 0 ? <TotalLine label="Remises" value={cart.discount + cart.itemDiscount} /> : null}
       {cart.tax > 0 ? <TotalLine label="Taxe" value={cart.tax} /> : null}
-      <div className="mt-2 flex justify-between border-t border-slate-200 pt-3 text-2xl font-black dark:border-slate-800"><span>Total</span><span>{formatMoney(cart.total)}</span></div>
+      <div className="mt-2 flex justify-between border-t border-slate-200 pt-3 text-3xl font-bold tabular-nums"><span>Total</span><span>{formatMoney(cart.total)}</span></div>
       <div className="mt-2 space-y-1">
         <TotalLine label="Montant reçu" value={paidAmount} />
         <TotalLine label="Monnaie rendue" value={changeDue} />
@@ -990,23 +1025,23 @@ function SaleSummary({ cart, paidAmount, changeDue, balanceDue }: { cart: Cart; 
 
 function ExpertOptions(props: CartPanelProps) {
   return (
-    <div className="space-y-2 rounded-2xl bg-slate-50 p-3 dark:bg-slate-950">
+    <div className="space-y-2 rounded-xl bg-slate-50 p-3">
       <div className="grid gap-2">
-        <select value={props.storeId} onChange={(event) => props.setStoreId(event.target.value)} className="rounded-xl border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+        <select value={props.storeId} onChange={(event) => props.setStoreId(event.target.value)} className="rounded-lg border border-slate-300 px-3 py-2">
           <option value="">Magasin actif</option>
           {props.stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}
         </select>
-        <select value={props.warehouseId} onChange={(event) => props.setWarehouseId(event.target.value)} className="rounded-xl border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+        <select value={props.warehouseId} onChange={(event) => props.setWarehouseId(event.target.value)} className="rounded-lg border border-slate-300 px-3 py-2">
           <option value="">Dépôt</option>
           {props.warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>)}
         </select>
-        <select value={props.cashSessionId} onChange={(event) => props.setCashSessionId(event.target.value)} className="rounded-xl border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+        <select value={props.cashSessionId} onChange={(event) => props.setCashSessionId(event.target.value)} className="rounded-lg border border-slate-300 px-3 py-2">
           <option value="">Caisse active</option>
           {props.sessions.map((session) => <option key={session.id} value={session.id}>{session.cashRegister?.name ?? "Caisse"}</option>)}
         </select>
-        <select value={props.taxRate} onChange={(event) => props.setTaxRate(event.target.value)} onBlur={props.syncCart} className="rounded-xl border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+        <select value={props.taxRate} onChange={(event) => props.setTaxRate(event.target.value)} onBlur={props.syncCart} className="rounded-lg border border-slate-300 px-3 py-2">
           <option value="0">Aucune taxe</option>
-          <option value="0.1">10 % par d?faut</option>
+          <option value="0.1">10 % par défaut</option>
           <option value="0.15">15 %</option>
         </select>
       </div>
@@ -1015,19 +1050,19 @@ function ExpertOptions(props: CartPanelProps) {
         const paymentIndex = index + 1;
         return (
           <div key={paymentIndex} className="grid gap-2">
-            <select value={payment.method} onChange={(event) => props.updatePayment(paymentIndex, { method: event.target.value })} className="rounded-xl border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
-              <option value="CASH">Cash</option>
+            <select value={payment.method} onChange={(event) => props.updatePayment(paymentIndex, { method: event.target.value })} className="rounded-lg border border-slate-300 px-3 py-2">
+              <option value="CASH">Espèces</option>
               <option value="CARD">Carte</option>
               <option value="BANK_TRANSFER">Virement</option>
             </select>
-            <input value={payment.amount} onChange={(event) => props.updatePayment(paymentIndex, { amount: event.target.value })} placeholder="Montant" className="rounded-xl border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-            <button type="button" onClick={() => props.removePayment(paymentIndex)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-bold dark:border-slate-700">Retirer</button>
+            <input value={payment.amount} onChange={(event) => props.updatePayment(paymentIndex, { amount: event.target.value })} placeholder="Montant" className="rounded-lg border border-slate-300 px-3 py-2" />
+            <button type="button" onClick={() => props.removePayment(paymentIndex)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold">Retirer</button>
           </div>
         );
       })}
       <div className="grid grid-cols-2 gap-2">
-        <button onClick={props.createQuote} disabled={!props.cart.items.length} className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-bold disabled:opacity-50 dark:border-slate-700">Créer devis</button>
-        <button onClick={props.createOrder} disabled={!props.cart.items.length} className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-bold disabled:opacity-50 dark:border-slate-700">Créer commande</button>
+        <button onClick={props.createQuote} disabled={!props.cart.items.length} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold disabled:opacity-50">Créer devis</button>
+        <button onClick={props.createOrder} disabled={!props.cart.items.length} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold disabled:opacity-50">Créer commande</button>
       </div>
     </div>
   );
@@ -1035,20 +1070,36 @@ function ExpertOptions(props: CartPanelProps) {
 
 function MobileCartBar({ cart, paidAmount, onOpen }: { cart: Cart; paidAmount: number; onOpen: () => void }) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 p-3 shadow-2xl backdrop-blur lg:hidden dark:border-slate-800 dark:bg-slate-900/95">
-      <button onClick={onOpen} className="flex w-full items-center justify-between rounded-2xl bg-slate-950 px-4 py-3 text-left text-white dark:bg-white dark:text-slate-950">
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 p-3 shadow-2xl backdrop-blur lg:hidden">
+      <button onClick={onOpen} className="flex min-h-14 w-full items-center justify-between rounded-xl bg-slate-950 px-4 py-3 text-left text-white">
         <span>
-          <span className="block text-xs font-bold opacity-70">{cart.items.length} article(s) · Reçu {formatMoney(paidAmount)}</span>
-          <span className="block text-lg font-black">Voir panier</span>
+          <span className="block text-xs font-semibold opacity-75">{cart.items.length} article{cart.items.length > 1 ? "s" : ""} · Reçu {formatMoney(paidAmount)}</span>
+          <span className="block text-lg font-bold">Voir le panier</span>
         </span>
-        <span className="text-xl font-black">{formatMoney(cart.total)}</span>
+        <span className="text-xl font-bold tabular-nums">{formatMoney(cart.total)}</span>
       </button>
     </div>
   );
 }
 
 function TotalLine({ label, value }: { label: string; value: number }) {
-  return <div className="flex justify-between text-sm"><span>{label}</span><b>{formatMoney(value)}</b></div>;
+  return <div className="flex justify-between text-sm"><span>{label}</span><b className="tabular-nums">{formatMoney(value)}</b></div>;
+}
+
+function SearchIcon() {
+  return <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>;
+}
+
+function InfoIcon() {
+  return <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>;
+}
+
+function MoreIcon() {
+  return <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>;
+}
+
+function TrashIcon() {
+  return <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /></svg>;
 }
 
 function customerLabel(customer: Customer) {
@@ -1330,5 +1381,3 @@ async function readError(response: Response) {
     return "Operation impossible";
   }
 }
-
-
