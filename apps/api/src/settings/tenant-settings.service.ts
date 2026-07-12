@@ -1,4 +1,4 @@
-﻿import { Injectable } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import type { TenantSettings } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { UpdateInvoicingSettingsDto, UpdatePosSettingsDto } from "./dto/settings.dto";
@@ -32,6 +32,7 @@ export class TenantSettingsService {
     const settings = await this.prisma.tenantSettings.update({
       where: { tenantId },
       data: {
+        taxEnabled: dto.taxEnabled,
         defaultTaxRate: dto.defaultTaxRate === undefined ? undefined : dto.defaultTaxRate / 100,
         maxDiscountRate: dto.maxDiscountRate === undefined ? undefined : dto.maxDiscountRate / 100,
         invoicePrefix: dto.invoicePrefix,
@@ -47,6 +48,7 @@ export class TenantSettingsService {
   private toApi(settings: TenantSettings) {
     return {
       ...settings,
+      taxEnabled: Boolean((settings as TenantSettings & { taxEnabled?: boolean }).taxEnabled),
       defaultTaxRate: Number(settings.defaultTaxRate ?? 0) * 100,
       maxDiscountRate: Number(settings.maxDiscountRate ?? 0) * 100
     };

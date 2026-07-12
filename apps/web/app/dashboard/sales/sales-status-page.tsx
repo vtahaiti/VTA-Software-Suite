@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { clearSession, getAccessToken, getCurrentUser, refreshSession } from "@/lib/auth";
@@ -17,10 +17,16 @@ type Sale = {
   payments?: Array<{ amount: string | number; receivedAmount?: string | number | null; changeAmount?: string | number | null }>;
 };
 type Draft = {
-  storageKey: string;
+  id?: string;
+  storageKey?: string;
   cart?: { total: number; items: Array<{ name: string; quantity: number; total?: number }> };
   customerId?: string;
   payments?: Array<{ amount: string }>;
+  orderDiscount?: string | number;
+  taxRate?: string | number;
+  storeId?: string;
+  warehouseId?: string;
+  cashSessionId?: string;
   updatedAt?: string;
 };
 
@@ -38,7 +44,27 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
   async function load() {
     setMessage("");
     if (type === "in-progress") {
+      setIsLoading(true);
+      let token = getAccessToken();
+      let response = await fetch(`${apiUrl}/pos/held-sales`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
+      if (response?.status === 401 || response?.status === 403) {
+        const refreshedUser = await refreshSession();
+        token = refreshedUser ? getAccessToken() : null;
+        if (!token) {
+          clearSession();
+          window.location.href = "/login";
+          return;
+        }
+        response = await fetch(`${apiUrl}/pos/held-sales`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
+      }
+      setIsLoading(false);
+      if (response?.ok) {
+        const data = await response.json();
+        setDrafts([...(data.items ?? []), ...loadDrafts()].map(normalizeDraft));
+        return;
+      }
       setDrafts(loadDrafts());
+      setMessage("Impossible de charger les ventes en attente du serveur. Brouillons locaux affichés.");
       return;
     }
     const status = type === "cancelled" ? "CANCELLED" : "COMPLETED";
@@ -80,28 +106,34 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
       <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
     </section>
     {message ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{message}</p> : null}
-    {type === "in-progress" ? <DraftList drafts={drafts} /> : <SaleList sales={sales} type={type} isLoading={isLoading} />}
+    {type === "in-progress" ? <DraftList drafts={drafts} isLoading={isLoading} onReload={() => void load()} /> : <SaleList sales={sales} type={type} isLoading={isLoading} />}
     {type !== "in-progress" ? <Pagination page={page} pages={pages} total={total} onPrev={() => setPage(page - 1)} onNext={() => setPage(page + 1)} /> : null}
   </div>;
 }
 
-function DraftList({ drafts }: { drafts: Draft[] }) {
+function DraftList({ drafts, isLoading, onReload }: { drafts: Draft[]; isLoading: boolean; onReload: () => void }) {
   const [selectedDraft, setSelectedDraft] = useState<Draft | null>(null);
 
-  function continueDraft() {
+  function continueDraft(draft: Draft) {
+    saveDraftForPos(draft);
     window.location.href = "/dashboard/pos";
   }
 
-  function cancelDraft(storageKey: string) {
+  async function cancelDraft(draft: Draft) {
     if (!window.confirm("Annuler cette vente en cours ?")) return;
-    window.localStorage.removeItem(storageKey);
-    window.location.reload();
+    if (draft.id) {
+      const token = getAccessToken();
+      await fetch(`${apiUrl}/pos/held-sales/${draft.id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
+    }
+    if (draft.storageKey) window.localStorage.removeItem(draft.storageKey);
+    onReload();
   }
 
   return <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
     <h2 className="font-bold">Brouillons POS</h2>
     <div className="mt-4 grid gap-3">
-      {drafts.length ? drafts.map((draft, index) => <div key={`${draft.updatedAt}-${index}`} className="rounded-md border border-slate-200 p-4 dark:border-slate-800">
+      {isLoading ? <p className="text-sm text-slate-500">Chargement des ventes en attente...</p> : null}
+      {!isLoading && drafts.length ? drafts.map((draft, index) => <div key={`${draft.updatedAt}-${index}`} className="rounded-md border border-slate-200 p-4 dark:border-slate-800">
         <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
           <div>
             <p className="font-semibold">Vente en cours</p>
@@ -109,12 +141,13 @@ function DraftList({ drafts }: { drafts: Draft[] }) {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <p className="mr-2 text-xl font-bold text-brand-600">{formatMoney(draft.cart?.total ?? 0)}</p>
-            <button onClick={continueDraft} className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white">Continuer</button>
+            <button onClick={() => continueDraft(draft)} className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white">Continuer</button>
             <button onClick={() => setSelectedDraft(draft)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">Voir détail</button>
-            <button onClick={() => cancelDraft(draft.storageKey)} className="rounded-md border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 dark:border-red-900">Annuler</button>
+            <button onClick={() => void cancelDraft(draft)} className="rounded-md border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 dark:border-red-900">Annuler</button>
           </div>
         </div>
-      </div>) : <p className="text-sm text-slate-500">Aucune vente en cours.</p>}
+      </div>) : null}
+      {!isLoading && !drafts.length ? <p className="text-sm text-slate-500">Aucune vente en cours.</p> : null}
     </div>
     {selectedDraft ? (
       <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4">
@@ -134,7 +167,7 @@ function DraftList({ drafts }: { drafts: Draft[] }) {
               </div>
             ))}
             <div className="flex justify-between text-lg font-bold"><span>Total</span><span>{formatMoney(selectedDraft.cart?.total ?? 0)}</span></div>
-            <button onClick={continueDraft} className="w-full rounded-md bg-brand-600 px-4 py-3 text-sm font-bold text-white">Continuer dans le POS</button>
+            <button onClick={() => continueDraft(selectedDraft)} className="w-full rounded-md bg-brand-600 px-4 py-3 text-sm font-bold text-white">Continuer dans le POS</button>
           </div>
         </div>
       </div>
@@ -181,10 +214,45 @@ function isPaidCompletedSale(sale: Sale) {
 function loadDrafts() {
   if (typeof window === "undefined") return [];
   const user = getCurrentUser();
-  const keys = Object.keys(window.localStorage).filter((key) => key === `vta_pos_draft_${user?.tenantId ?? "default"}` || key.startsWith("vta_pos_draft_"));
-  return keys.map((key) => {
-    try { return { ...JSON.parse(window.localStorage.getItem(key) ?? ""), storageKey: key } as Draft; } catch { return null; }
-  }).filter(Boolean) as Draft[];
+  const key = posDraftKey(user?.tenantId);
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? [normalizeDraft({ ...JSON.parse(raw), storageKey: key })] : [];
+  } catch {
+    return [];
+  }
+}
+
+function normalizeDraft(draft: Draft): Draft {
+  return {
+    ...draft,
+    storageKey: draft.storageKey,
+    cart: draft.cart,
+    customerId: draft.customerId ?? "",
+    payments: draft.payments ?? [],
+    updatedAt: draft.updatedAt
+  };
+}
+
+function saveDraftForPos(draft: Draft) {
+  if (typeof window === "undefined") return;
+  const user = getCurrentUser();
+  window.localStorage.setItem(posDraftKey(user?.tenantId), JSON.stringify({
+    heldSaleId: draft.id,
+    cart: draft.cart,
+    customerId: draft.customerId ?? "",
+    payments: draft.payments ?? [],
+    orderDiscount: String((draft as Draft & { orderDiscount?: string | number }).orderDiscount ?? 0),
+    taxRate: String((draft as Draft & { taxRate?: string | number }).taxRate ?? 0),
+    storeId: (draft as Draft & { storeId?: string }).storeId ?? "",
+    warehouseId: (draft as Draft & { warehouseId?: string }).warehouseId ?? "",
+    cashSessionId: (draft as Draft & { cashSessionId?: string }).cashSessionId ?? "",
+    updatedAt: new Date().toISOString()
+  }));
+}
+
+function posDraftKey(tenantId?: string) {
+  return `vta_pos_draft_${tenantId ?? "default"}`;
 }
 
 function formatMoney(value: number) {

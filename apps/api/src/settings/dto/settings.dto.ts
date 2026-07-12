@@ -1,4 +1,4 @@
-﻿import { Transform, Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import { IsBoolean, IsEmail, IsIn, IsNumber, IsOptional, IsString, Max, Min } from "class-validator";
 
 const emptyToNull = ({ value }: { value: unknown }) => typeof value === "string" && value.trim() === "" ? null : value;
@@ -21,6 +21,7 @@ export class UpdateCompanyProfileDto {
 }
 
 export class UpdateInvoicingSettingsDto {
+  @IsOptional() @IsBoolean() taxEnabled?: boolean;
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(100) defaultTaxRate?: number;
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(100) maxDiscountRate?: number;
   @Transform(emptyToNull) @IsOptional() @IsString() invoicePrefix?: string;

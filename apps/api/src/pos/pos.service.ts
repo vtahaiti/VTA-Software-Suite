@@ -252,6 +252,74 @@ export class PosService {
     };
   }
 
+
+  async listHeldSales(tenantId: string) {
+    const items = await this.prisma.heldSale.findMany({
+      where: { tenantId },
+      orderBy: { updatedAt: "desc" },
+      take: 50
+    });
+    return {
+      items: items.map((item) => ({
+        id: item.id,
+        cart: item.cart,
+        customerId: item.customerId,
+        payments: item.payments ?? [],
+        orderDiscount: Number(item.orderDiscount ?? 0),
+        taxRate: Number(item.taxRate ?? 0),
+        storeId: item.storeId,
+        warehouseId: item.warehouseId,
+        cashSessionId: item.cashSessionId,
+        total: Number(item.total ?? 0),
+        updatedAt: item.updatedAt,
+        createdAt: item.createdAt
+      }))
+    };
+  }
+
+  async saveHeldSale(tenantId: string, userId: string | undefined, dto: {
+    id?: string;
+    cart: Prisma.InputJsonValue;
+    customerId?: string | null;
+    payments?: Prisma.InputJsonValue;
+    orderDiscount?: number;
+    taxRate?: number;
+    storeId?: string | null;
+    warehouseId?: string | null;
+    cashSessionId?: string | null;
+    total?: number;
+    note?: string | null;
+  }) {
+    if (!dto.cart || typeof dto.cart !== "object") throw new BadRequestException("Panier en attente invalide");
+    const total = Number(dto.total ?? (dto.cart as { total?: unknown }).total ?? 0);
+    const data = {
+      tenantId,
+      userId,
+      customerId: dto.customerId || null,
+      storeId: dto.storeId || null,
+      warehouseId: dto.warehouseId || null,
+      cashSessionId: dto.cashSessionId || null,
+      cart: dto.cart,
+      payments: dto.payments ?? [],
+      orderDiscount: dto.orderDiscount ?? 0,
+      taxRate: dto.taxRate ?? 0,
+      total: Number.isFinite(total) ? total : 0,
+      note: dto.note || null
+    };
+    if (dto.id) {
+      const existing = await this.prisma.heldSale.findFirst({ where: { id: dto.id, tenantId } });
+      if (existing) return this.prisma.heldSale.update({ where: { id: existing.id }, data });
+    }
+    return this.prisma.heldSale.create({ data });
+  }
+
+  async deleteHeldSale(tenantId: string, id: string) {
+    const existing = await this.prisma.heldSale.findFirst({ where: { id, tenantId } });
+    if (!existing) throw new NotFoundException("Vente en attente introuvable");
+    await this.prisma.heldSale.delete({ where: { id: existing.id } });
+    return { success: true };
+  }
+
   async createQuoteFromCart(tenantId: string, dto: CreateSaleDto, userId?: string) {
     return this.createCommercialDocument(tenantId, dto, userId, "DEVIS POS");
   }

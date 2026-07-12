@@ -174,7 +174,7 @@ export class OnboardingService {
           currency: dto.currency ?? "HTG",
           timezone: dto.timezone ?? "America/Port-au-Prince",
           language: dto.language ?? "fr",
-          defaultTaxRate: 0.1,
+          taxEnabled: false, defaultTaxRate: 0,
           invoiceFormat: "LETTER",
           posReceiptFormat: "80",
           allowNegativeStock: false,

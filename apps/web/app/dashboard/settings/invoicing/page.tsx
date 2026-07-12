@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
@@ -7,6 +7,7 @@ import { fetchWithAuth } from "@/lib/api-client";
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 type InvoicingForm = {
+  taxEnabled: boolean;
   defaultTaxRate: number | string;
   maxDiscountRate: number | string;
   invoicePrefix: string;
@@ -17,7 +18,8 @@ type InvoicingForm = {
 };
 
 const initialForm: InvoicingForm = {
-  defaultTaxRate: 10,
+  taxEnabled: false,
+  defaultTaxRate: 0,
   maxDiscountRate: 0,
   invoicePrefix: "INV",
   quotePrefix: "QUO",
@@ -38,6 +40,10 @@ export default function InvoicingSettingsPage() {
   }, []);
 
   function update(key: keyof InvoicingForm, value: string) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateBoolean(key: keyof InvoicingForm, value: boolean) {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
@@ -68,11 +74,12 @@ export default function InvoicingSettingsPage() {
     }
   }
 
-  return <div className="space-y-5"><Header/><form onSubmit={submit} className="grid gap-4 rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2"><Input type="number" min="0" max="100" step="0.01" label="Taxe par défaut (%)" help="Contrat : l'interface et l'API utilisent 10 pour 10 %. La base conserve 0,10 pour les calculs." value={form.defaultTaxRate} onChange={(value)=>update("defaultTaxRate",value)}/><Input type="number" min="0" max="100" step="0.01" label="Remise maximale autorisée (%)" value={form.maxDiscountRate} onChange={(value)=>update("maxDiscountRate",value)}/><Input label="Numérotation factures" value={form.invoicePrefix} onChange={(value)=>update("invoicePrefix",value)}/><Input label="Numérotation devis" value={form.quotePrefix} onChange={(value)=>update("quotePrefix",value)}/><Input label="Numérotation reçus" value={form.receiptPrefix} onChange={(value)=>update("receiptPrefix",value)}/><label className="grid gap-1 text-sm font-medium">Format ticket POS<select value={form.posReceiptFormat} onChange={(event)=>update("posReceiptFormat",event.target.value)} className="rounded-md border px-3 py-2 dark:bg-slate-950"><option value="58">58 mm</option><option value="80">80 mm</option></select></label><label className="grid gap-1 text-sm font-medium">Format facture<select value={form.invoiceFormat} onChange={(event)=>update("invoiceFormat",event.target.value)} className="rounded-md border px-3 py-2 dark:bg-slate-950"><option value="A4">A4</option><option value="LETTER">Letter 8.5 x 11</option></select></label><div className="md:col-span-2 flex items-center gap-3"><button disabled={saving} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement..." : "Sauvegarder"}</button>{msg ? <p className="text-sm text-slate-500">{msg}</p> : null}</div></form></div>;
+  return <div className="space-y-5"><Header/><form onSubmit={submit} className="grid gap-4 rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2"><label className="flex items-start gap-3 rounded-md border p-3 text-sm font-medium dark:border-slate-800"><input type="checkbox" checked={form.taxEnabled} onChange={(event)=>updateBoolean("taxEnabled", event.target.checked)} className="mt-1" /><span><span className="block font-semibold">Activer la taxe</span><span className="block text-xs font-normal text-slate-500">Si cette option est désactivée, le POS applique toujours 0 % même si un taux est renseigné.</span></span></label><Input type="number" min="0" max="100" step="0.01" label="Taxe par défaut (%)" help="Contrat : l'interface et l'API utilisent 10 pour 10 %. La base conserve 0,10 pour les calculs. La taxe ne s'applique que si elle est activée." value={form.defaultTaxRate} onChange={(value)=>update("defaultTaxRate",value)}/><Input type="number" min="0" max="100" step="0.01" label="Remise maximale autorisée (%)" value={form.maxDiscountRate} onChange={(value)=>update("maxDiscountRate",value)}/><Input label="Numérotation factures" value={form.invoicePrefix} onChange={(value)=>update("invoicePrefix",value)}/><Input label="Numérotation devis" value={form.quotePrefix} onChange={(value)=>update("quotePrefix",value)}/><Input label="Numérotation reçus" value={form.receiptPrefix} onChange={(value)=>update("receiptPrefix",value)}/><label className="grid gap-1 text-sm font-medium">Format ticket POS<select value={form.posReceiptFormat} onChange={(event)=>update("posReceiptFormat",event.target.value)} className="rounded-md border px-3 py-2 dark:bg-slate-950"><option value="58">58 mm</option><option value="80">80 mm</option></select></label><label className="grid gap-1 text-sm font-medium">Format facture<select value={form.invoiceFormat} onChange={(event)=>update("invoiceFormat",event.target.value)} className="rounded-md border px-3 py-2 dark:bg-slate-950"><option value="A4">A4</option><option value="LETTER">Letter 8.5 x 11</option></select></label><div className="md:col-span-2 flex items-center gap-3"><button disabled={saving} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement..." : "Sauvegarder"}</button>{msg ? <p className="text-sm text-slate-500">{msg}</p> : null}</div></form></div>;
 }
 
 function toInvoicingForm(data: Partial<InvoicingForm>): InvoicingForm {
   return {
+    taxEnabled: Boolean((data as InvoicingForm).taxEnabled ?? initialForm.taxEnabled),
     defaultTaxRate: Number(data.defaultTaxRate ?? initialForm.defaultTaxRate),
     maxDiscountRate: Number(data.maxDiscountRate ?? initialForm.maxDiscountRate),
     invoicePrefix: String(data.invoicePrefix ?? initialForm.invoicePrefix),
@@ -85,6 +92,7 @@ function toInvoicingForm(data: Partial<InvoicingForm>): InvoicingForm {
 
 function toInvoicingPayload(form: InvoicingForm, defaultTaxRate: number, maxDiscountRate: number) {
   return {
+    taxEnabled: form.taxEnabled,
     defaultTaxRate,
     maxDiscountRate,
     invoicePrefix: String(form.invoicePrefix ?? ""),

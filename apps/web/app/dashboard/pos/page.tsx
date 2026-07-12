@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { clearSession, getAccessToken, getCurrentUser } from "@/lib/auth";
 import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
@@ -26,7 +26,7 @@ type PaymentLine = { method: string; amount: string; reference: string };
 type PaymentSummary = { paidAmount: number; changeDue: number; method: string };
 type CustomerForm = { name: string; phone: string; address: string; email: string; notes: string };
 type CustomItemForm = { name: string; price: string; quantity: string; discount: string; note: string; type: CustomItemType };
-type PosDraft = { cart: Cart; customerId: string; payments: PaymentLine[]; orderDiscount: string; taxRate: string; storeId: string; warehouseId: string; cashSessionId: string; updatedAt: string };
+type PosDraft = { heldSaleId?: string; cart: Cart; customerId: string; payments: PaymentLine[]; orderDiscount: string; taxRate: string; storeId: string; warehouseId: string; cashSessionId: string; updatedAt: string };
 
 const emptyCart: Cart = { items: [], subtotal: 0, itemDiscount: 0, discount: 0, tax: 0, total: 0, taxRate: 0, canCheckout: false };
 const emptyCustomerForm: CustomerForm = { name: "", phone: "", address: "", email: "", notes: "" };
@@ -47,6 +47,7 @@ export default function PosPage() {
   const [warehouseId, setWarehouseId] = useState("");
   const [cashSessionId, setCashSessionId] = useState("");
   const [customerId, setCustomerId] = useState("");
+  const [heldSaleId, setHeldSaleId] = useState<string | undefined>(undefined);
   const [payments, setPayments] = useState<PaymentLine[]>([{ method: "CASH", amount: "", reference: "" }]);
   const [orderDiscount, setOrderDiscount] = useState("0");
   const [taxRate, setTaxRate] = useState("0");
@@ -142,12 +143,13 @@ export default function PosPage() {
     void fetch(`${apiUrl}/settings/invoicing`, { headers: { Authorization: `Bearer ${getAccessToken()}` } })
       .then((response) => response.ok ? response.json() : null)
       .then((settings) => {
-        if (settings?.defaultTaxRate !== undefined) setTaxRate(String(Number(settings.defaultTaxRate) / 100));
+        if (settings?.taxEnabled && settings?.defaultTaxRate !== undefined) setTaxRate(String(Number(settings.defaultTaxRate) / 100)); else setTaxRate("0");
       })
       .catch(() => undefined); }, []);
   useEffect(() => {
     const draft = loadPosDraft();
     if (!draft) return;
+    setHeldSaleId(draft.heldSaleId);
     setCart(draft.cart);
     setCustomerId(draft.customerId);
     setPayments(draft.payments.length ? draft.payments : [{ method: "CASH", amount: "", reference: "" }]);
@@ -164,8 +166,8 @@ export default function PosPage() {
       clearPosDraft();
       return;
     }
-    savePosDraft({ cart, customerId, payments, orderDiscount, taxRate, storeId, warehouseId, cashSessionId, updatedAt: new Date().toISOString() });
-  }, [cart, customerId, payments, orderDiscount, taxRate, storeId, warehouseId, cashSessionId]);
+    savePosDraft({ heldSaleId, cart, customerId, payments, orderDiscount, taxRate, storeId, warehouseId, cashSessionId, updatedAt: new Date().toISOString() });
+  }, [heldSaleId, cart, customerId, payments, orderDiscount, taxRate, storeId, warehouseId, cashSessionId]);
   useEffect(() => { scanInputRef.current?.focus(); }, []);
   useEffect(() => { const timer = setTimeout(() => void loadProducts(), 200); return () => clearTimeout(timer); }, [loadProducts]);
   useEffect(() => { void refreshPendingCount(); }, []);
@@ -331,7 +333,10 @@ export default function PosPage() {
       }
     }
     setMessage(successMessage);
+    if (heldSaleId) await fetch(`${apiUrl}/pos/held-sales/${heldSaleId}`, { method: "DELETE", headers: authHeaders() }).catch(() => null);
+    setHeldSaleId(undefined);
     clearPosDraft();
+    setHeldSaleId(undefined);
     setCart(emptyCart);
     setPayments([{ method: "CASH", amount: "", reference: "" }]);
     setOrderDiscount("0");
@@ -339,6 +344,45 @@ export default function PosPage() {
     await Promise.all([loadProducts(), loadRefs()]);
   }
 
+
+  async function holdCurrentSale() {
+    setError("");
+    setMessage("");
+    if (!cart.items.length) {
+      setError("Panier vide");
+      return;
+    }
+    const draft: PosDraft = { heldSaleId, cart, customerId, payments, orderDiscount, taxRate, storeId, warehouseId, cashSessionId, updatedAt: new Date().toISOString() };
+    savePosDraft(draft);
+    if (!isOnline) {
+      setMessage("Vente mise en attente sur cet appareil. Elle sera disponible ici à la reprise.");
+      return;
+    }
+    const response = await fetch(`${apiUrl}/pos/held-sales`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({
+        id: heldSaleId,
+        cart,
+        customerId: customerId || undefined,
+        payments,
+        orderDiscount: parseMoney(orderDiscount),
+        taxRate: parseMoney(taxRate),
+        storeId: storeId || undefined,
+        warehouseId: warehouseId || undefined,
+        cashSessionId: cashSessionId || undefined,
+        total: cart.total
+      })
+    }).catch(() => null);
+    if (!response?.ok) {
+      setError(response ? await readError(response) : "Vente mise en attente localement, serveur indisponible.");
+      return;
+    }
+    const saved = await response.json() as { id: string };
+    setHeldSaleId(saved.id);
+    savePosDraft({ ...draft, heldSaleId: saved.id });
+    setMessage("Vente mise en attente.");
+  }
   async function createPosDocument(endpoint: "orders" | "quotes", label: string) {
     setError("");
     setMessage("");
@@ -369,6 +413,7 @@ export default function PosPage() {
     }
     setMessage(`${label} cree avec succès.`);
     clearPosDraft();
+    setHeldSaleId(undefined);
     setCart(emptyCart);
     setOrderDiscount("0");
     setCustomerId("");
@@ -396,6 +441,7 @@ export default function PosPage() {
     setLastSale({ id: localId, total: cart.total, receipt: { number: localId, content: `Ticket local ${localId}` }, invoice: { documentNumber: "En attente", total: cart.total } });
     setMessage(`Vente enregistrée localement. Montant payé: ${formatMoney(amount)}. Le stock sera confirmé à la synchronisation.`);
     clearPosDraft();
+    setHeldSaleId(undefined);
     setCart(emptyCart);
     setPayments([{ method: "CASH", amount: "", reference: "" }]);
     setOrderDiscount("0");
@@ -631,7 +677,7 @@ export default function PosPage() {
             addExtraPayment={() => setPayments((current) => [...current, { method: "CASH", amount: "", reference: "" }])}
             pendingLabel={posTemplate.pendingLabel}
             checkout={() => setShowPaymentModal(true)}
-            holdSale={() => void createPosDocument("orders", posTemplate.pendingLabel)}
+            holdSale={() => void holdCurrentSale()}
             createQuote={() => void createPosDocument("quotes", "Devis POS")}
             createOrder={() => void createPosDocument("orders", "Commande POS")}
             updateQuantity={(productId, quantity) => void updateQuantity(productId, quantity)}
@@ -691,7 +737,7 @@ export default function PosPage() {
               addExtraPayment={() => setPayments((current) => [...current, { method: "CASH", amount: "", reference: "" }])}
               pendingLabel={posTemplate.pendingLabel}
               checkout={() => setShowPaymentModal(true)}
-              holdSale={() => void createPosDocument("orders", posTemplate.pendingLabel)}
+              holdSale={() => void holdCurrentSale()}
               createQuote={() => void createPosDocument("quotes", "Devis POS")}
               createOrder={() => void createPosDocument("orders", "Commande POS")}
               updateQuantity={(productId, quantity) => void updateQuantity(productId, quantity)}

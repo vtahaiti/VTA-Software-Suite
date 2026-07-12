@@ -35,7 +35,8 @@
     "test:navigation": "node scripts/navigation-smoke.cjs",
     "test:subscriptions": "node scripts/subscription-entitlements-smoke.cjs",
     "test:production-priority": "node scripts/production-priority-smoke.cjs",
-    "test:performance": "node scripts/performance-list-contract-smoke.cjs"
+    "test:performance": "node scripts/performance-list-contract-smoke.cjs",
+    "test:held-sales-tax": "node scripts/held-sales-tax-contract-smoke.cjs"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

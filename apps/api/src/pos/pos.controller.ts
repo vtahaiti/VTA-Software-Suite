@@ -1,4 +1,5 @@
-import { BadRequestException, Body, Controller, Get, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { ProductQueryDto } from "../products/dto/product-query.dto";
@@ -12,6 +13,20 @@ import { SalesService } from "../sales/sales.service";
 import { PosCartAddDto, PosCartDto, PosCartRemoveDto, PosCartUpdateDto } from "./dto/pos-cart.dto";
 import { SyncOfflineSalesDto } from "./dto/sync-offline-sales.dto";
 import { PosService } from "./pos.service";
+
+type HeldSaleRequest = {
+  id?: string;
+  cart: Prisma.InputJsonValue;
+  customerId?: string | null;
+  payments?: Prisma.InputJsonValue;
+  orderDiscount?: number;
+  taxRate?: number;
+  storeId?: string | null;
+  warehouseId?: string | null;
+  cashSessionId?: string | null;
+  total?: number;
+  note?: string | null;
+};
 
 @RequiresFeature("POS")
 @UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
@@ -83,6 +98,27 @@ export class PosController {
     return this.pos.createOrderFromCart(req.user.tenantId, dto, req.user.id);
   }
 
+
+  @Get("held-sales")
+  @RequiresFeature("HELD_SALES")
+  @Permissions("pos.sell")
+  heldSales(@Req() req: AuthenticatedRequest) {
+    return this.pos.listHeldSales(req.user.tenantId);
+  }
+
+  @Post("held-sales")
+  @RequiresFeature("HELD_SALES")
+  @Permissions("pos.sell")
+  saveHeldSale(@Req() req: AuthenticatedRequest, @Body() dto: HeldSaleRequest) {
+    return this.pos.saveHeldSale(req.user.tenantId, req.user.id, dto);
+  }
+
+  @Delete("held-sales/:id")
+  @RequiresFeature("HELD_SALES")
+  @Permissions("pos.sell")
+  deleteHeldSale(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
+    return this.pos.deleteHeldSale(req.user.tenantId, id);
+  }
   @Post("customers")
   @Permissions("pos.sell")
   createCustomer(@Req() req: AuthenticatedRequest, @Body() dto: CreateCustomerDto) {
@@ -94,7 +130,8 @@ export class PosController {
   async syncOfflineSales(@Req() req: AuthenticatedRequest, @Body() dto: SyncOfflineSalesDto) {
     const results = [];
     for (const offlineSale of dto.sales) {
-      const { localId, createdOfflineAt: _createdOfflineAt, ...saleDto } = offlineSale;
+      const { localId, createdOfflineAt, ...saleDto } = offlineSale;
+      void createdOfflineAt;
       try {
         if (!saleDto.cashSessionId) throw new BadRequestException("Une caisse ouverte est obligatoire avant la synchronisation");
         if (this.paidAmount(saleDto) <= 0) throw new BadRequestException("Montant recu obligatoire avant la synchronisation");
