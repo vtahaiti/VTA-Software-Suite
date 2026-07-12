@@ -12,22 +12,26 @@ export class SalesService {
   async findAll(tenantId: string, query: SaleQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const status = this.normalizeStatus(query.status);
     const where = this.saleWhere(tenantId, query);
-    const include = { items: { include: { product: true } }, payments: { include: { invoice: true } }, receipt: true, customer: true, cashSession: { include: { cashRegister: true } } };
-    const [rawItems, rawTotal] = await this.prisma.$transaction([
+    const saleListSelect = {
+      id: true,
+      status: true,
+      total: true,
+      createdAt: true,
+      customer: { select: { displayName: true, phone: true } },
+      receipt: { select: { number: true } },
+      payments: { select: { amount: true, receivedAmount: true, changeAmount: true, invoice: { select: { status: true } } } }
+    } satisfies Prisma.SaleSelect;
+    const [items, total] = await this.prisma.$transaction([
       this.prisma.sale.findMany({
         where,
-        include,
-        skip: status === SaleStatus.COMPLETED ? 0 : (page - 1) * limit,
-        take: status === SaleStatus.COMPLETED ? Math.max(limit * page * 3, 100) : limit,
+        select: saleListSelect,
+        skip: (page - 1) * limit,
+        take: limit,
         orderBy: { createdAt: "desc" }
       }),
       this.prisma.sale.count({ where })
     ]);
-    const normalized = this.uniqueSales(status === SaleStatus.COMPLETED ? rawItems.filter((sale) => this.isCompletedPaidSale(sale)) : rawItems);
-    const items = status === SaleStatus.COMPLETED ? normalized.slice((page - 1) * limit, page * limit) : normalized;
-    const total = status === SaleStatus.COMPLETED ? normalized.length : rawTotal;
     return { items, meta: { page, limit, total, pageCount: Math.ceil(total / limit) } };
   }
 

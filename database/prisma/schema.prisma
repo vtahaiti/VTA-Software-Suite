@@ -719,6 +719,8 @@ model Product {
   @@index([tenantId])
   @@index([tenantId, name])
   @@index([tenantId, isActive])
+  @@index([tenantId, isActive, name])
+  @@index([tenantId, isActive, createdAt])
   @@index([tenantId, supplierId])
   @@index([tenantId, expirationDate])
 }
@@ -1035,6 +1037,8 @@ model Sale {
   @@index([customerId])
   @@index([createdById])
   @@index([status])
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, customerId, createdAt])
 }
 
 model SaleItem {
@@ -1176,6 +1180,7 @@ model Customer {
   @@index([tenantId])
   @@index([tenantId, displayName])
   @@index([tenantId, status])
+  @@index([tenantId, status, createdAt])
   @@index([tenantId, customerType])
   @@index([tenantId, city])
 }

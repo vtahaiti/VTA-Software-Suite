@@ -30,6 +30,7 @@ export default function CustomersPage() {
   const [showOptions, setShowOptions] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -38,14 +39,19 @@ export default function CustomersPage() {
   }, [search, page]);
 
   async function loadCustomers() {
-    const params = new URLSearchParams({ page: String(page), limit: "10", sortBy: "createdAt", sortOrder: "desc" });
+    setIsLoading(true);
+    setMessage("");
+    const params = new URLSearchParams({ page: String(page), limit: "25", sortBy: "createdAt", sortOrder: "desc" });
     if (search) params.set("search", search);
-    const response = await fetch(`${apiUrl}/customers?${params}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
-    if (response.ok) {
+    const response = await fetch(`${apiUrl}/customers?${params}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } }).catch(() => null);
+    setIsLoading(false);
+    if (response?.ok) {
       const data = await response.json();
       setItems(data.items ?? []);
       setTotal(data.meta?.total ?? 0);
+      return;
     }
+    setMessage(response ? await readError(response) : "Impossible de charger les clients.");
   }
 
   async function createCustomer(event: FormEvent) {
@@ -79,7 +85,7 @@ export default function CustomersPage() {
     await loadCustomers();
   }
 
-  const pages = useMemo(() => Math.max(1, Math.ceil(total / 10)), [total]);
+  const pages = useMemo(() => Math.max(1, Math.ceil(total / 25)), [total]);
 
   return (
     <div className="space-y-5">
@@ -99,6 +105,8 @@ export default function CustomersPage() {
           <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">👤 Nom</th><th className="p-3">📞 Téléphone</th><th className="p-3">🏢 Entreprise</th><th className="p-3">💰 Solde</th><th className="p-3">⚙️ Actions</th></tr></thead>
           <tbody>{items.map((customer) => <tr key={customer.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3"><Link href={`/dashboard/customers/${customer.id}`} className="font-semibold text-brand-700 dark:text-brand-300">{customer.displayName}</Link><p className="font-mono text-xs text-slate-400">{customer.customerCode}</p></td><td className="p-3">{customer.mobile ?? customer.phone ?? "--"}</td><td className="p-3">{customer.company ?? "--"}</td><td className="p-3">{formatMoney(customer.currentBalance)}</td><td className="p-3"><Link className="text-brand-600" href={`/dashboard/customers/${customer.id}/edit`}>Modifier</Link></td></tr>)}</tbody>
         </table>
+        {isLoading ? <p className="p-5 text-sm text-slate-500">Chargement des clients...</p> : null}
+        {!isLoading && !message && items.length === 0 ? <p className="p-5 text-sm text-slate-500">Aucun client trouvé.</p> : null}
       </div>
 
       <Pagination page={page} pages={pages} total={total} label="client" onPrev={() => setPage(page - 1)} onNext={() => setPage(page + 1)} />
@@ -137,5 +145,3 @@ async function readError(response: Response) {
   const body = await response.json().catch(() => null);
   return Array.isArray(body?.message) ? body.message[0] : body?.message ?? "Enregistrement impossible.";
 }
-
-

@@ -107,7 +107,19 @@ export class PosService {
     const [items, total] = await this.prisma.$transaction([
       this.prisma.product.findMany({
         where,
-        include: { barcodes: true, images: true, stocks: true, category: true, brand: true, unit: true },
+        select: {
+          id: true,
+          sku: true,
+          name: true,
+          salePrice: true,
+          purchasePrice: true,
+          barcodes: { select: { value: true, isPrimary: true } },
+          images: { select: { url: true }, take: 1, orderBy: { sortOrder: "asc" } },
+          stocks: { select: { warehouseId: true, quantity: true, reserved: true } },
+          category: { select: { name: true } },
+          brand: { select: { name: true } },
+          unit: { select: { name: true, symbol: true } }
+        },
         skip: (page - 1) * limit,
         take: limit,
         orderBy: { name: "asc" }
@@ -320,7 +332,19 @@ export class PosService {
     return { ...quote, documentType: label };
   }
 
-  private productForPos(product: Prisma.ProductGetPayload<{ include: { barcodes: true; images: true; stocks: true; category: true; brand: true; unit: true } }>, warehouseId?: string) {
+  private productForPos(product: Prisma.ProductGetPayload<{ select: {
+    id: true;
+    sku: true;
+    name: true;
+    salePrice: true;
+    purchasePrice: true;
+    barcodes: { select: { value: true; isPrimary: true } };
+    images: { select: { url: true } };
+    stocks: { select: { warehouseId: true; quantity: true; reserved: true } };
+    category: { select: { name: true } };
+    brand: { select: { name: true } };
+    unit: { select: { name: true; symbol: true } };
+  } }>, warehouseId?: string) {
     const scopedAvailable = this.availableStock(product.stocks, warehouseId);
     const totalAvailable = this.availableStock(product.stocks);
     return {

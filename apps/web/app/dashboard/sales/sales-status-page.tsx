@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { clearSession, getAccessToken, getCurrentUser, refreshSession } from "@/lib/auth";
 import { getReceiptPrintSettings, openPrintPreview } from "@/lib/print";
 import { summarizePayments } from "@/lib/payment-summary";
@@ -28,8 +28,12 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
   const [sales, setSales] = useState<Sale[]>([]);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
-  useEffect(() => { void load(); }, [type]);
+  useEffect(() => { setPage(1); }, [type]);
+  useEffect(() => { void load(); }, [type, page]);
 
   async function load() {
     setMessage("");
@@ -38,9 +42,10 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
       return;
     }
     const status = type === "cancelled" ? "CANCELLED" : "COMPLETED";
-    const params = new URLSearchParams({ status, limit: "50" });
+    const params = new URLSearchParams({ status, page: String(page), limit: "25" });
     if (type === "completed") params.set("excludeTestData", "true");
     let token = getAccessToken();
+        setIsLoading(true);
         let response = await fetch(`${apiUrl}/sales?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
         if (response?.status === 401 || response?.status === 403) {
           const refreshedUser = await refreshSession();
@@ -52,6 +57,7 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
           }
           response = await fetch(`${apiUrl}/sales?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
         }
+        setIsLoading(false);
         if (!response?.ok) {
           setMessage("Impossible de charger les ventes.");
           return;
@@ -59,10 +65,13 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
     const data = await response.json();
     const items = uniqueSales(data.items ?? []);
     setSales(type === "completed" ? items.filter(isPaidCompletedSale) : items);
+    setTotal(data.meta?.total ?? items.length);
   }
 
   const title = type === "in-progress" ? "Ventes en cours" : type === "completed" ? "Ventes terminées" : "Ventes annulées";
   const subtitle = type === "in-progress" ? "Brouillons POS, commandes en attente et paiements partiels." : type === "completed" ? "Ventes payées ou clôturées." : "Historique des ventes annulées.";
+
+  const pages = useMemo(() => Math.max(1, Math.ceil(total / 25)), [total]);
 
   return <div className="space-y-5">
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -71,7 +80,8 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
       <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
     </section>
     {message ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{message}</p> : null}
-    {type === "in-progress" ? <DraftList drafts={drafts} /> : <SaleList sales={sales} type={type} />}
+    {type === "in-progress" ? <DraftList drafts={drafts} /> : <SaleList sales={sales} type={type} isLoading={isLoading} />}
+    {type !== "in-progress" ? <Pagination page={page} pages={pages} total={total} onPrev={() => setPage(page - 1)} onNext={() => setPage(page + 1)} /> : null}
   </div>;
 }
 
@@ -132,7 +142,7 @@ function DraftList({ drafts }: { drafts: Draft[] }) {
   </section>;
 }
 
-function SaleList({ sales, type }: { sales: Sale[]; type: "completed" | "cancelled" }) {
+function SaleList({ sales, type, isLoading }: { sales: Sale[]; type: "completed" | "cancelled"; isLoading: boolean }) {
   async function printSale(saleId: string) {
     try {
       const settings = await getReceiptPrintSettings();
@@ -154,7 +164,8 @@ function SaleList({ sales, type }: { sales: Sale[]; type: "completed" | "cancell
         return <tr key={sale.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3">{new Date(sale.createdAt).toLocaleString("fr-HT")}</td><td className="p-3">{sale.customer?.displayName ?? sale.customer?.phone ?? "Client comptoir"}</td><td className="p-3">{type === "cancelled" ? "Annulée" : paid >= total ? "Payée" : "Partiellement payée"}</td><td className="p-3 font-bold">{formatMoney(total)}</td><td className="p-3">{formatMoney(paid)}</td><td className="p-3">{formatMoney(received)}</td><td className="p-3">{paymentSummary.historicalDataUnavailable ? "Donnée historique indisponible" : formatMoney(change)}</td><td className="p-3"><div className="flex gap-3"><button onClick={() => window.alert(`Vente ${sale.id}\nTotal: ${formatMoney(total)}\nMontant réglé: ${formatMoney(paid)}\nMontant reçu: ${formatMoney(received)}\nMonnaie rendue: ${formatMoney(change)}`)} className="text-slate-700 dark:text-slate-200">Voir détail</button><button onClick={() => void printSale(sale.id)} className="text-brand-600 disabled:text-slate-400" disabled={type === "cancelled"}>Imprimer</button></div></td></tr>;
       })}</tbody>
     </table>
-    {!sales.length ? <p className="p-5 text-sm text-slate-500">Aucune vente.</p> : null}
+    {isLoading ? <p className="p-5 text-sm text-slate-500">Chargement des ventes...</p> : null}
+    {!isLoading && !sales.length ? <p className="p-5 text-sm text-slate-500">Aucune vente.</p> : null}
   </section>;
 }
 
@@ -178,6 +189,10 @@ function loadDrafts() {
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("fr-HT", { style: "currency", currency: "HTG", maximumFractionDigits: 2 }).format(value || 0);
+}
+
+function Pagination({ page, pages, total, onPrev, onNext }: { page: number; pages: number; total: number; onPrev: () => void; onNext: () => void }) {
+  return <div className="flex items-center justify-between"><p className="text-sm text-slate-500">{total} vente{total > 1 ? "s" : ""}</p><div className="flex gap-2"><button disabled={page <= 1} onClick={onPrev} className="rounded-md border px-3 py-2 disabled:opacity-50">Précédent</button><span className="px-3 py-2 text-sm">{page}/{pages}</span><button disabled={page >= pages} onClick={onNext} className="rounded-md border px-3 py-2 disabled:opacity-50">Suivant</button></div></div>;
 }
 
 

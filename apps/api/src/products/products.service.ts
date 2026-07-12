@@ -10,6 +10,21 @@ import { UpdateProductDto } from "./dto/update-product.dto";
 import { UpdateReferenceDto } from "./dto/update-reference.dto";
 
 const productInclude = { category: true, brand: true, unit: true, supplier: true, barcodes: true, images: true, variants: true, stocks: true };
+const productListSelect = {
+  id: true,
+  sku: true,
+  name: true,
+  salePrice: true,
+  purchasePrice: true,
+  averageCost: true,
+  promotionalPrice: true,
+  minimumStock: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+  category: { select: { id: true, name: true } },
+  stocks: { select: { quantity: true, reserved: true, minimumStock: true } }
+} satisfies Prisma.ProductSelect;
 
 @Injectable()
 export class ProductsService {
@@ -51,7 +66,7 @@ export class ProductsService {
       ] : undefined
     };
     const [items, total] = await this.prisma.$transaction([
-      this.prisma.product.findMany({ where, include: productInclude, skip: (page - 1) * limit, take: limit, orderBy: { [query.sortBy ?? "createdAt"]: query.sortOrder ?? "desc" } }),
+      this.prisma.product.findMany({ where, select: productListSelect, skip: (page - 1) * limit, take: limit, orderBy: { [query.sortBy ?? "createdAt"]: query.sortOrder ?? "desc" } }),
       this.prisma.product.count({ where })
     ]);
     return { items: items.map((item) => this.withComputedFields(item)), meta: { page, limit, total, pageCount: Math.ceil(total / limit) } };

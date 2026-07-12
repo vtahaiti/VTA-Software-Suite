@@ -51,7 +51,7 @@ export default function ProductsPage() {
   async function loadProducts() {
     setIsLoading(true);
     setMessage("");
-    const params = new URLSearchParams({ page: String(page), limit: "10", sortBy: "createdAt", sortOrder: "desc", isActive: "true" });
+    const params = new URLSearchParams({ page: String(page), limit: "25", sortBy: "createdAt", sortOrder: "desc", isActive: "true" });
     if (search.trim()) params.set("search", search.trim());
     if (costMissingOnly) params.set("costMissing", "true");
     const response = await fetch(`${apiUrl}/products?${params}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } }).catch(() => null);
@@ -96,7 +96,7 @@ export default function ProductsPage() {
     await loadProducts();
   }
 
-  const pages = useMemo(() => Math.max(1, Math.ceil(total / 10)), [total]);
+  const pages = useMemo(() => Math.max(1, Math.ceil(total / 25)), [total]);
 
   return (
     <div className="space-y-5">
