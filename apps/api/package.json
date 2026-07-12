@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "prisma generate --schema=prisma/schema.prisma && nest build",
-    "start": "npx prisma migrate resolve --rolled-back 20260712190000_notifications_dedup_metadata --schema=../../database/prisma/schema.prisma || true; npx prisma migrate deploy --schema=../../database/prisma/schema.prisma && node dist/main.js",
+    "start": "npx prisma migrate deploy --schema=../../database/prisma/schema.prisma && node dist/main.js",
     "start:dev": "nest start --watch",
     "lint": "eslint \"src/**/*.ts\""
   },
