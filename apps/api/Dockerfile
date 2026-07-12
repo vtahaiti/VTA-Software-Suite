@@ -17,6 +17,7 @@ COPY database ./database
 
 RUN npm ci
 RUN npm run prisma:generate
+RUN date -u +"%Y-%m-%dT%H:%M:%SZ" > /app/build-time
 RUN npm run build --workspace=@vta/api
 
 FROM node:20-alpine AS runner
@@ -46,6 +47,7 @@ ENV SOURCE_COMMIT=${SOURCE_COMMIT}
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/database ./database
+COPY --from=builder /app/build-time ./build-time
 COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 

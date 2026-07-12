@@ -1,4 +1,7 @@
 import { Controller, Get } from "@nestjs/common";
+import { readFileSync } from "node:fs";
+
+let cachedBuildTime: string | undefined;
 
 function firstRealValue(...values: Array<string | undefined>) {
   return values.find((value) => {
@@ -6,6 +9,16 @@ function firstRealValue(...values: Array<string | undefined>) {
     const normalized = value.trim().toLowerCase();
     return normalized.length > 0 && normalized !== "head" && normalized !== "unknown";
   }) ?? "unknown";
+}
+
+function imageBuildTime() {
+  if (cachedBuildTime !== undefined) return cachedBuildTime;
+  try {
+    cachedBuildTime = readFileSync("build-time", "utf8").trim();
+  } catch {
+    cachedBuildTime = "";
+  }
+  return cachedBuildTime;
 }
 
 function buildInfo(service: "api") {
@@ -18,7 +31,7 @@ function buildInfo(service: "api") {
       process.env.COMMIT_SHA,
       process.env.BUILD_COMMIT_SHA
     ),
-    buildTime: firstRealValue(process.env.BUILD_TIME, process.env.NEXT_PUBLIC_BUILD_TIME)
+    buildTime: firstRealValue(process.env.BUILD_TIME, process.env.NEXT_PUBLIC_BUILD_TIME, imageBuildTime())
   };
 }
 
