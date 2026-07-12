@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+﻿import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { NotificationStatus, NotificationType, Prisma } from "@prisma/client";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
@@ -153,3 +153,4 @@ export class NotificationsService {
     return Object.values(NotificationStatus).includes(value as NotificationStatus) ? value as NotificationStatus : NotificationStatus.UNREAD;
   }
 }
+
