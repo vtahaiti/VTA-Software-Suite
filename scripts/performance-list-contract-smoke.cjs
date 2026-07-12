@@ -70,6 +70,23 @@ const checks = [
       "\"Sale_tenantId_status_createdAt_idx\"",
       "\"Customer_tenantId_status_createdAt_idx\""
     ]
+  },
+  {
+    name: "API connects Prisma during bootstrap instead of first business query",
+    file: "apps/api/src/prisma/prisma.service.ts",
+    expect: ["await this.$connect()", "await this.$queryRaw`SELECT 1`", "connectWithRetry"]
+  },
+  {
+    name: "API exposes opt-in request and SQL performance profiling without secrets",
+    file: "apps/api/src/performance/request-profiler.ts",
+    expect: ["AsyncLocalStorage", "PERF_REQUEST_LOG", "request_profile", "sqlCount", "sqlMs"],
+    reject: ["authorization", "cookie", "password", "token"]
+  },
+  {
+    name: "sales status filter rejects invalid statuses instead of ignoring them",
+    file: "apps/api/src/sales/sales.service.ts",
+    expect: ["Statut de vente invalide", "allowedSaleStatuses"],
+    reject: ["return undefined;\n  }"]
   }
 ];
 

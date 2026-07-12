@@ -1,4 +1,4 @@
-﻿import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InventoryMovementType, PaymentMethod, Prisma, Product, SaleStatus, SalesDocumentStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { StockService } from "../stock/stock.service";
@@ -365,6 +365,10 @@ export class SalesService {
     const normalized = status.trim().toUpperCase();
     if (normalized === "PAID") return SaleStatus.COMPLETED;
     if (normalized in SaleStatus) return SaleStatus[normalized as keyof typeof SaleStatus];
-    return undefined;
+    throw new BadRequestException(`Statut de vente invalide: ${normalized}. Statuts autorisés: ${this.allowedSaleStatuses().join(", ")}.`);
+  }
+
+  private allowedSaleStatuses() {
+    return [...Object.keys(SaleStatus), "PAID"];
   }
 }
