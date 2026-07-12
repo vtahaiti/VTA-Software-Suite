@@ -26,7 +26,7 @@ type PaymentLine = { method: string; amount: string; reference: string };
 type PaymentSummary = { paidAmount: number; changeDue: number; method: string };
 type CustomerForm = { name: string; phone: string; address: string; email: string; notes: string };
 type CustomItemForm = { name: string; price: string; quantity: string; discount: string; note: string; type: CustomItemType };
-type PosDraft = { heldSaleId?: string; cart: Cart; customerId: string; payments: PaymentLine[]; orderDiscount: string; taxRate: string; storeId: string; warehouseId: string; cashSessionId: string; updatedAt: string };
+type PosDraft = { heldSaleId?: string; heldSaleFinalizeKey?: string; cart: Cart; customerId: string; payments: PaymentLine[]; orderDiscount: string; taxRate: string; storeId: string; warehouseId: string; cashSessionId: string; updatedAt: string };
 
 const emptyCart: Cart = { items: [], subtotal: 0, itemDiscount: 0, discount: 0, tax: 0, total: 0, taxRate: 0, canCheckout: false };
 const emptyCustomerForm: CustomerForm = { name: "", phone: "", address: "", email: "", notes: "" };
@@ -48,6 +48,7 @@ export default function PosPage() {
   const [cashSessionId, setCashSessionId] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [heldSaleId, setHeldSaleId] = useState<string | undefined>(undefined);
+  const [heldSaleFinalizeKey, setHeldSaleFinalizeKey] = useState<string | undefined>(undefined);
   const [payments, setPayments] = useState<PaymentLine[]>([{ method: "CASH", amount: "", reference: "" }]);
   const [orderDiscount, setOrderDiscount] = useState("0");
   const [taxRate, setTaxRate] = useState("0");
@@ -150,6 +151,7 @@ export default function PosPage() {
     const draft = loadPosDraft();
     if (!draft) return;
     setHeldSaleId(draft.heldSaleId);
+    setHeldSaleFinalizeKey(draft.heldSaleFinalizeKey);
     setCart(draft.cart);
     setCustomerId(draft.customerId);
     setPayments(draft.payments.length ? draft.payments : [{ method: "CASH", amount: "", reference: "" }]);
@@ -166,8 +168,8 @@ export default function PosPage() {
       clearPosDraft();
       return;
     }
-    savePosDraft({ heldSaleId, cart, customerId, payments, orderDiscount, taxRate, storeId, warehouseId, cashSessionId, updatedAt: new Date().toISOString() });
-  }, [heldSaleId, cart, customerId, payments, orderDiscount, taxRate, storeId, warehouseId, cashSessionId]);
+    savePosDraft({ heldSaleId, heldSaleFinalizeKey, cart, customerId, payments, orderDiscount, taxRate, storeId, warehouseId, cashSessionId, updatedAt: new Date().toISOString() });
+  }, [heldSaleId, heldSaleFinalizeKey, cart, customerId, payments, orderDiscount, taxRate, storeId, warehouseId, cashSessionId]);
   useEffect(() => { scanInputRef.current?.focus(); }, []);
   useEffect(() => { const timer = setTimeout(() => void loadProducts(), 200); return () => clearTimeout(timer); }, [loadProducts]);
   useEffect(() => { void refreshPendingCount(); }, []);
@@ -308,10 +310,12 @@ export default function PosPage() {
       setIsLoading(false);
       return;
     }
-    const response = await fetch(`${apiUrl}/pos/checkout`, {
+    const finalizeKey = heldSaleId ? (heldSaleFinalizeKey || makeClientId()) : undefined;
+    if (finalizeKey && !heldSaleFinalizeKey) setHeldSaleFinalizeKey(finalizeKey);
+    const response = await fetch(heldSaleId ? `${apiUrl}/pos/held-sales/${heldSaleId}/finalize` : `${apiUrl}/pos/checkout`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(heldSaleId ? { sale: payload, idempotencyKey: finalizeKey } : payload)
     }).catch(() => null);
     setIsLoading(false);
     if (!response) {
@@ -333,10 +337,11 @@ export default function PosPage() {
       }
     }
     setMessage(successMessage);
-    if (heldSaleId) await fetch(`${apiUrl}/pos/held-sales/${heldSaleId}`, { method: "DELETE", headers: authHeaders() }).catch(() => null);
     setHeldSaleId(undefined);
+    setHeldSaleFinalizeKey(undefined);
     clearPosDraft();
     setHeldSaleId(undefined);
+    setHeldSaleFinalizeKey(undefined);
     setCart(emptyCart);
     setPayments([{ method: "CASH", amount: "", reference: "" }]);
     setOrderDiscount("0");
@@ -352,7 +357,7 @@ export default function PosPage() {
       setError("Panier vide");
       return;
     }
-    const draft: PosDraft = { heldSaleId, cart, customerId, payments, orderDiscount, taxRate, storeId, warehouseId, cashSessionId, updatedAt: new Date().toISOString() };
+    const draft: PosDraft = { heldSaleId, heldSaleFinalizeKey, cart, customerId, payments, orderDiscount, taxRate, storeId, warehouseId, cashSessionId, updatedAt: new Date().toISOString() };
     savePosDraft(draft);
     if (!isOnline) {
       setMessage("Vente mise en attente sur cet appareil. Elle sera disponible ici à la reprise.");
@@ -1504,6 +1509,11 @@ function calculateLocalCart(items: CartPayloadItem[], products: Product[], taxRa
 
 function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function makeClientId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `client-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 function posDraftKey() {

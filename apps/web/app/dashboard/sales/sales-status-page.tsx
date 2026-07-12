@@ -27,6 +27,12 @@ type Draft = {
   storeId?: string;
   warehouseId?: string;
   cashSessionId?: string;
+  status?: "AVAILABLE" | "CLAIMED" | "FINALIZING" | "COMPLETED" | "CANCELLED";
+  lockState?: "AVAILABLE" | "CLAIMED_BY_YOU" | "CLAIMED_BY_OTHER" | "EXPIRED" | "FINALIZING";
+  canClaim?: boolean;
+  canCancel?: boolean;
+  claimExpiresAt?: string | null;
+  version?: number;
   updatedAt?: string;
 };
 
@@ -113,40 +119,61 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
 
 function DraftList({ drafts, isLoading, onReload }: { drafts: Draft[]; isLoading: boolean; onReload: () => void }) {
   const [selectedDraft, setSelectedDraft] = useState<Draft | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<Draft | null>(null);
+  const [actionMessage, setActionMessage] = useState("");
 
-  function continueDraft(draft: Draft) {
+  async function continueDraft(draft: Draft) {
+    setActionMessage("");
+    if (draft.id) {
+      const response = await fetch(apiUrl + "/pos/held-sales/" + draft.id + "/claim", { method: "POST", headers: authHeaders() }).catch(() => null);
+      if (!response?.ok) {
+        setActionMessage(response ? await readError(response) : "Impossible de reprendre cette vente en attente.");
+        onReload();
+        return;
+      }
+      draft = normalizeDraft(await response.json() as Draft);
+    }
     saveDraftForPos(draft);
     window.location.href = "/dashboard/pos";
   }
 
   async function cancelDraft(draft: Draft) {
-    if (!window.confirm("Annuler cette vente en cours ?")) return;
+    setActionMessage("");
     if (draft.id) {
-      const token = getAccessToken();
-      await fetch(`${apiUrl}/pos/held-sales/${draft.id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
+      const response = await fetch(apiUrl + "/pos/held-sales/" + draft.id, { method: "DELETE", headers: authHeaders() }).catch(() => null);
+      if (!response?.ok) {
+        setActionMessage(response ? await readError(response) : "Annulation impossible.");
+        return;
+      }
     }
     if (draft.storageKey) window.localStorage.removeItem(draft.storageKey);
+    setCancelTarget(null);
     onReload();
   }
 
   return <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
     <h2 className="font-bold">Brouillons POS</h2>
+    {actionMessage ? <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">{actionMessage}</p> : null}
     <div className="mt-4 grid gap-3">
       {isLoading ? <p className="text-sm text-slate-500">Chargement des ventes en attente...</p> : null}
-      {!isLoading && drafts.length ? drafts.map((draft, index) => <div key={`${draft.updatedAt}-${index}`} className="rounded-md border border-slate-200 p-4 dark:border-slate-800">
-        <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
-          <div>
-            <p className="font-semibold">Vente en cours</p>
-            <p className="text-sm text-slate-500">{draft.cart?.items.length ?? 0} article(s) - Mise à jour {draft.updatedAt ? new Date(draft.updatedAt).toLocaleString("fr-HT") : "-"}</p>
+      {!isLoading && drafts.length ? drafts.map((draft, index) => {
+        const lockedByOther = draft.lockState === "CLAIMED_BY_OTHER" || draft.lockState === "FINALIZING";
+        return <div key={`${draft.updatedAt}-${index}`} className="rounded-md border border-slate-200 p-4 dark:border-slate-800">
+          <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+            <div>
+              <p className="font-semibold">Vente en cours</p>
+              <p className="text-sm text-slate-500">{draft.cart?.items.length ?? 0} article(s) - Mise à jour {draft.updatedAt ? new Date(draft.updatedAt).toLocaleString("fr-HT") : "-"}</p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">{heldSaleStatusLabel(draft)}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="mr-2 text-xl font-bold text-brand-600">{formatMoney(draft.cart?.total ?? 0)}</p>
+              <button onClick={() => void continueDraft(draft)} disabled={lockedByOther || draft.canClaim === false} className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Continuer</button>
+              <button onClick={() => setSelectedDraft(draft)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">Voir détail</button>
+              <button onClick={() => setCancelTarget(draft)} disabled={lockedByOther || draft.canCancel === false} className="rounded-md border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900">Annuler</button>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="mr-2 text-xl font-bold text-brand-600">{formatMoney(draft.cart?.total ?? 0)}</p>
-            <button onClick={() => continueDraft(draft)} className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white">Continuer</button>
-            <button onClick={() => setSelectedDraft(draft)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">Voir détail</button>
-            <button onClick={() => void cancelDraft(draft)} className="rounded-md border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 dark:border-red-900">Annuler</button>
-          </div>
-        </div>
-      </div>) : null}
+        </div>;
+      }) : null}
       {!isLoading && !drafts.length ? <p className="text-sm text-slate-500">Aucune vente en cours.</p> : null}
     </div>
     {selectedDraft ? (
@@ -167,14 +194,25 @@ function DraftList({ drafts, isLoading, onReload }: { drafts: Draft[]; isLoading
               </div>
             ))}
             <div className="flex justify-between text-lg font-bold"><span>Total</span><span>{formatMoney(selectedDraft.cart?.total ?? 0)}</span></div>
-            <button onClick={() => continueDraft(selectedDraft)} className="w-full rounded-md bg-brand-600 px-4 py-3 text-sm font-bold text-white">Continuer dans le POS</button>
+            <button onClick={() => void continueDraft(selectedDraft)} disabled={selectedDraft.lockState === "CLAIMED_BY_OTHER" || selectedDraft.lockState === "FINALIZING"} className="w-full rounded-md bg-brand-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">Continuer dans le POS</button>
+          </div>
+        </div>
+      </div>
+    ) : null}
+    {cancelTarget ? (
+      <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-labelledby="cancel-held-sale-title">
+        <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-2xl dark:bg-slate-900">
+          <h3 id="cancel-held-sale-title" className="text-lg font-bold">Annuler cette vente en attente ?</h3>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Cette action retirera le brouillon.</p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button onClick={() => setCancelTarget(null)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">Garder</button>
+            <button onClick={() => void cancelDraft(cancelTarget)} className="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white">Annuler la vente</button>
           </div>
         </div>
       </div>
     ) : null}
   </section>;
 }
-
 function SaleList({ sales, type, isLoading }: { sales: Sale[]; type: "completed" | "cancelled"; isLoading: boolean }) {
   async function printSale(saleId: string) {
     try {
@@ -230,8 +268,22 @@ function normalizeDraft(draft: Draft): Draft {
     cart: draft.cart,
     customerId: draft.customerId ?? "",
     payments: draft.payments ?? [],
+    status: draft.status,
+    lockState: draft.lockState,
+    canClaim: draft.canClaim,
+    canCancel: draft.canCancel,
+    claimExpiresAt: draft.claimExpiresAt,
+    version: draft.version,
     updatedAt: draft.updatedAt
   };
+}
+
+function heldSaleStatusLabel(draft: Draft) {
+  if (draft.lockState === "FINALIZING") return "Finalisation en cours";
+  if (draft.lockState === "CLAIMED_BY_YOU") return "Reprise par vous";
+  if (draft.lockState === "CLAIMED_BY_OTHER") return "Utilisée par un autre caissier";
+  if (draft.lockState === "EXPIRED") return "Verrou expiré";
+  return "Disponible";
 }
 
 function saveDraftForPos(draft: Draft) {
@@ -239,6 +291,7 @@ function saveDraftForPos(draft: Draft) {
   const user = getCurrentUser();
   window.localStorage.setItem(posDraftKey(user?.tenantId), JSON.stringify({
     heldSaleId: draft.id,
+    heldSaleFinalizeKey: makeClientId(),
     cart: draft.cart,
     customerId: draft.customerId ?? "",
     payments: draft.payments ?? [],
@@ -251,8 +304,27 @@ function saveDraftForPos(draft: Draft) {
   }));
 }
 
+function makeClientId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `client-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 function posDraftKey(tenantId?: string) {
   return `vta_pos_draft_${tenantId ?? "default"}`;
+}
+
+async function readError(response: Response) {
+  try {
+    const body = await response.json() as { message?: string | string[] };
+    return Array.isArray(body.message) ? body.message[0] : body.message ?? "Opération impossible";
+  } catch {
+    return "Opération impossible";
+  }
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getAccessToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 function formatMoney(value: number) {

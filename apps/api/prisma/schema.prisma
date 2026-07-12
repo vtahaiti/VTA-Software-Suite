@@ -87,6 +87,14 @@ enum SaleStatus {
   CANCELLED
   RETURNED
 }
+
+enum HeldSaleStatus {
+  AVAILABLE
+  CLAIMED
+  FINALIZING
+  COMPLETED
+  CANCELLED
+}
 enum SalesDocumentStatus {
   DRAFT
   SENT
@@ -1009,24 +1017,36 @@ model TransferItem {
   @@index([productId])
 }
 model HeldSale {
-  id            String   @id @default(cuid())
-  tenantId      String
-  userId        String?
-  customerId    String?
-  storeId       String?
-  warehouseId   String?
-  cashSessionId String?
-  cart          Json
-  payments      Json?
-  orderDiscount Decimal  @default(0) @db.Decimal(12, 2)
-  taxRate       Decimal  @default(0) @db.Decimal(5, 4)
-  total         Decimal  @default(0) @db.Decimal(12, 2)
-  note          String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                     String         @id @default(cuid())
+  tenantId               String
+  userId                 String?
+  customerId             String?
+  storeId                String?
+  warehouseId            String?
+  cashSessionId          String?
+  cart                   Json
+  payments               Json?
+  orderDiscount          Decimal        @default(0) @db.Decimal(12, 2)
+  taxRate                Decimal        @default(0) @db.Decimal(5, 4)
+  total                  Decimal        @default(0) @db.Decimal(12, 2)
+  note                   String?
+  status                 HeldSaleStatus @default(AVAILABLE)
+  claimedByUserId        String?
+  claimedBySessionId     String?
+  claimedAt              DateTime?
+  claimExpiresAt         DateTime?
+  finalizedSaleId        String?
+  finalizeIdempotencyKey String?
+  finalizedAt            DateTime?
+  cancelledAt            DateTime?
+  version                Int            @default(0)
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
 
   @@index([tenantId, updatedAt])
   @@index([tenantId, userId])
+  @@index([tenantId, status, claimExpiresAt])
+  @@index([tenantId, finalizeIdempotencyKey])
 }
 
 model Sale {

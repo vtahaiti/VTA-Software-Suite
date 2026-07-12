@@ -28,6 +28,9 @@ type HeldSaleRequest = {
   note?: string | null;
 };
 
+type HeldSaleReleaseRequest = { force?: boolean };
+type HeldSaleFinalizeRequest = { sale: CreateSaleDto; idempotencyKey: string };
+
 @RequiresFeature("POS")
 @UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("pos")
@@ -103,21 +106,44 @@ export class PosController {
   @RequiresFeature("HELD_SALES")
   @Permissions("pos.sell")
   heldSales(@Req() req: AuthenticatedRequest) {
-    return this.pos.listHeldSales(req.user.tenantId);
+    return this.pos.listHeldSales(req.user.tenantId, req.user.id, req.user.sessionId);
   }
 
   @Post("held-sales")
   @RequiresFeature("HELD_SALES")
   @Permissions("pos.sell")
   saveHeldSale(@Req() req: AuthenticatedRequest, @Body() dto: HeldSaleRequest) {
-    return this.pos.saveHeldSale(req.user.tenantId, req.user.id, dto);
+    return this.pos.saveHeldSale(req.user.tenantId, req.user.id, req.user.sessionId, dto);
+  }
+
+  @Post("held-sales/:id/claim")
+  @RequiresFeature("HELD_SALES")
+  @Permissions("pos.sell")
+  claimHeldSale(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
+    return this.pos.claimHeldSale(req.user.tenantId, req.user.id, req.user.sessionId, id);
+  }
+
+  @Post("held-sales/:id/release")
+  @RequiresFeature("HELD_SALES")
+  @Permissions("pos.sell")
+  releaseHeldSale(@Req() req: AuthenticatedRequest, @Param("id") id: string, @Body() dto: HeldSaleReleaseRequest) {
+    return this.pos.releaseHeldSale(req.user.tenantId, req.user.id, req.user.sessionId, id, Boolean(dto?.force && this.canForceHeldSale(req)));
+  }
+
+  @Post("held-sales/:id/finalize")
+  @RequiresFeature("HELD_SALES")
+  @Permissions("pos.sell")
+  finalizeHeldSale(@Req() req: AuthenticatedRequest, @Param("id") id: string, @Body() dto: HeldSaleFinalizeRequest) {
+    if (!dto?.sale?.cashSessionId) throw new BadRequestException("Une caisse ouverte est obligatoire avant la vente");
+    if (this.paidAmount(dto.sale) <= 0) throw new BadRequestException("Montant recu obligatoire avant l encaissement");
+    return this.pos.finalizeHeldSale(req.user.tenantId, req.user.id, req.user.sessionId, id, dto.sale, dto.idempotencyKey);
   }
 
   @Delete("held-sales/:id")
   @RequiresFeature("HELD_SALES")
   @Permissions("pos.sell")
   deleteHeldSale(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
-    return this.pos.deleteHeldSale(req.user.tenantId, id);
+    return this.pos.deleteHeldSale(req.user.tenantId, req.user.id, req.user.sessionId, id, this.canForceHeldSale(req));
   }
   @Post("customers")
   @Permissions("pos.sell")
@@ -151,6 +177,11 @@ export class PosController {
   @Permissions("sales.view")
   history(@Req() req: AuthenticatedRequest, @Query() query: SaleQueryDto) {
     return this.sales.findAll(req.user.tenantId, query);
+  }
+
+  private canForceHeldSale(req: AuthenticatedRequest) {
+    const roles = new Set([req.user.role, ...(req.user.roles ?? [])].filter(Boolean).map((role) => String(role).toUpperCase()));
+    return roles.has("OWNER") || roles.has("ADMIN") || roles.has("MANAGER");
   }
 
   private paidAmount(dto: Pick<CreateSaleDto, "payments">) {

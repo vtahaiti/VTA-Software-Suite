@@ -1,15 +1,18 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, SalesDocumentStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { availableStock as computeAvailableStock } from "../common/stock-business-rules";
 import { CreateCustomerDto } from "../customers/dto/create-customer.dto";
 import { ProductQueryDto } from "../products/dto/product-query.dto";
 import { CreateSaleDto } from "../sales/dto/create-sale.dto";
+import { SalesService } from "../sales/sales.service";
 import { PosCartAddDto, PosCartDto, PosCartRemoveDto, PosCartUpdateDto } from "./dto/pos-cart.dto";
 
 @Injectable()
 export class PosService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly heldSaleLockMs = 10 * 60 * 1000;
+
+  constructor(private readonly prisma: PrismaService, private readonly sales: SalesService) {}
 
   async context(tenantId: string) {
     await this.ensurePosContext(tenantId);
@@ -253,31 +256,16 @@ export class PosService {
   }
 
 
-  async listHeldSales(tenantId: string) {
+  async listHeldSales(tenantId: string, userId: string, sessionId: string) {
     const items = await this.prisma.heldSale.findMany({
-      where: { tenantId },
+      where: { tenantId, status: { in: ["AVAILABLE", "CLAIMED", "FINALIZING"] } },
       orderBy: { updatedAt: "desc" },
       take: 50
     });
-    return {
-      items: items.map((item) => ({
-        id: item.id,
-        cart: item.cart,
-        customerId: item.customerId,
-        payments: item.payments ?? [],
-        orderDiscount: Number(item.orderDiscount ?? 0),
-        taxRate: Number(item.taxRate ?? 0),
-        storeId: item.storeId,
-        warehouseId: item.warehouseId,
-        cashSessionId: item.cashSessionId,
-        total: Number(item.total ?? 0),
-        updatedAt: item.updatedAt,
-        createdAt: item.createdAt
-      }))
-    };
+    return { items: items.map((item) => this.heldSaleForApi(item, userId, sessionId)) };
   }
 
-  async saveHeldSale(tenantId: string, userId: string | undefined, dto: {
+  async saveHeldSale(tenantId: string, userId: string | undefined, sessionId: string | undefined, dto: {
     id?: string;
     cart: Prisma.InputJsonValue;
     customerId?: string | null;
@@ -308,16 +296,124 @@ export class PosService {
     };
     if (dto.id) {
       const existing = await this.prisma.heldSale.findFirst({ where: { id: dto.id, tenantId } });
-      if (existing) return this.prisma.heldSale.update({ where: { id: existing.id }, data });
+      if (existing) {
+        if (["FINALIZING", "COMPLETED", "CANCELLED"].includes(existing.status)) {
+          throw new ConflictException("Cette vente en attente ne peut plus etre modifiee.");
+        }
+        if (this.isActiveLockOwnedByAnotherSession(existing, sessionId)) {
+          throw new ConflictException("Cette vente est deja reprise par un autre caissier.");
+        }
+        return this.prisma.heldSale.update({ where: { id: existing.id }, data: { ...data, version: { increment: 1 } } });
+      }
     }
-    return this.prisma.heldSale.create({ data });
+    return this.prisma.heldSale.create({ data: { ...data, status: "AVAILABLE" } });
   }
 
-  async deleteHeldSale(tenantId: string, id: string) {
+  async claimHeldSale(tenantId: string, userId: string, sessionId: string, id: string) {
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + this.heldSaleLockMs);
+    const claimed = await this.prisma.heldSale.updateMany({
+      where: {
+        id,
+        tenantId,
+        status: { in: ["AVAILABLE", "CLAIMED"] },
+        OR: [
+          { status: "AVAILABLE" },
+          { claimExpiresAt: { lt: now } },
+          { claimedBySessionId: sessionId }
+        ]
+      },
+      data: {
+        status: "CLAIMED",
+        claimedByUserId: userId,
+        claimedBySessionId: sessionId,
+        claimedAt: now,
+        claimExpiresAt: expiresAt,
+        version: { increment: 1 }
+      }
+    });
+    if (!claimed.count) {
+      const existing = await this.prisma.heldSale.findFirst({ where: { id, tenantId } });
+      if (!existing || existing.status === "CANCELLED") throw new NotFoundException("Vente en attente introuvable");
+      if (existing.status === "COMPLETED") throw new ConflictException("Cette vente en attente est deja finalisee.");
+      if (existing.status === "FINALIZING") throw new ConflictException("Finalisation en cours.");
+      throw new ConflictException("Cette vente est deja reprise par un autre caissier.");
+    }
+    const item = await this.prisma.heldSale.findFirstOrThrow({ where: { id, tenantId } });
+    return this.heldSaleForApi(item, userId, sessionId);
+  }
+
+  async releaseHeldSale(tenantId: string, userId: string, sessionId: string, id: string, canForce = false) {
     const existing = await this.prisma.heldSale.findFirst({ where: { id, tenantId } });
-    if (!existing) throw new NotFoundException("Vente en attente introuvable");
-    await this.prisma.heldSale.delete({ where: { id: existing.id } });
+    if (!existing || existing.status === "CANCELLED") throw new NotFoundException("Vente en attente introuvable");
+    if (existing.status === "COMPLETED") return { success: true, status: "COMPLETED" };
+    if (existing.status === "FINALIZING") throw new ConflictException("Finalisation en cours.");
+    if (this.isActiveLockOwnedByAnotherSession(existing, sessionId) && !canForce) {
+      throw new ConflictException("Cette vente est deja reprise par un autre caissier.");
+    }
+    const item = await this.prisma.heldSale.update({
+      where: { id: existing.id },
+      data: { status: "AVAILABLE", claimedByUserId: null, claimedBySessionId: null, claimedAt: null, claimExpiresAt: null, version: { increment: 1 } }
+    });
+    return this.heldSaleForApi(item, userId, sessionId);
+  }
+
+  async deleteHeldSale(tenantId: string, userId: string, sessionId: string, id: string, canForce = false) {
+    const existing = await this.prisma.heldSale.findFirst({ where: { id, tenantId } });
+    if (!existing || existing.status === "CANCELLED") throw new NotFoundException("Vente en attente introuvable");
+    if (existing.status === "FINALIZING") throw new ConflictException("Finalisation en cours.");
+    if (this.isActiveLockOwnedByAnotherSession(existing, sessionId) && !canForce) {
+      throw new ConflictException("Cette vente est deja reprise par un autre caissier.");
+    }
+    await this.prisma.heldSale.update({
+      where: { id: existing.id },
+      data: { status: "CANCELLED", cancelledAt: new Date(), claimedByUserId: null, claimedBySessionId: null, claimExpiresAt: null, version: { increment: 1 } }
+    });
     return { success: true };
+  }
+
+  async finalizeHeldSale(tenantId: string, userId: string, sessionId: string, id: string, dto: CreateSaleDto, idempotencyKey: string) {
+    if (!idempotencyKey?.trim()) throw new BadRequestException("Cle d'idempotence obligatoire");
+    const existing = await this.prisma.heldSale.findFirst({ where: { id, tenantId } });
+    if (!existing || existing.status === "CANCELLED") throw new NotFoundException("Vente en attente introuvable");
+    if (existing.status === "COMPLETED" && existing.finalizedSaleId && existing.finalizeIdempotencyKey === idempotencyKey) {
+      return this.sales.findOne(tenantId, existing.finalizedSaleId);
+    }
+    if (this.isActiveLockOwnedByAnotherSession(existing, sessionId)) {
+      throw new ConflictException("Cette vente est deja reprise par un autre caissier.");
+    }
+    const locked = await this.prisma.heldSale.updateMany({
+      where: { id, tenantId, status: "CLAIMED", claimedBySessionId: sessionId },
+      data: { status: "FINALIZING", finalizeIdempotencyKey: idempotencyKey, version: { increment: 1 } }
+    });
+    if (!locked.count) {
+      const latest = await this.prisma.heldSale.findFirst({ where: { id, tenantId } });
+      if (latest?.status === "COMPLETED" && latest.finalizedSaleId && latest.finalizeIdempotencyKey === idempotencyKey) return this.sales.findOne(tenantId, latest.finalizedSaleId);
+      if (latest?.status === "FINALIZING") throw new ConflictException("Finalisation en cours.");
+      throw new ConflictException("Reprenez la vente en attente avant de l'encaisser.");
+    }
+    try {
+      const sale = await this.sales.create(tenantId, dto, userId);
+      await this.prisma.heldSale.update({
+        where: { id },
+        data: {
+          status: "COMPLETED",
+          finalizedSaleId: sale.id,
+          finalizedAt: new Date(),
+          claimedByUserId: null,
+          claimedBySessionId: null,
+          claimExpiresAt: null,
+          version: { increment: 1 }
+        }
+      });
+      return sale;
+    } catch (error) {
+      await this.prisma.heldSale.updateMany({
+        where: { id, tenantId, status: "FINALIZING", finalizeIdempotencyKey: idempotencyKey },
+        data: { status: "CLAIMED", claimExpiresAt: new Date(Date.now() + this.heldSaleLockMs), version: { increment: 1 } }
+      }).catch(() => null);
+      throw error;
+    }
   }
 
   async createQuoteFromCart(tenantId: string, dto: CreateSaleDto, userId?: string) {
@@ -398,6 +494,39 @@ export class PosService {
       include: { items: { include: { product: true } }, customer: true }
     });
     return { ...quote, documentType: label };
+  }
+
+
+  private heldSaleForApi(item: Prisma.HeldSaleGetPayload<Record<string, never>>, userId: string, sessionId: string) {
+    const now = new Date();
+    const isExpired = item.status === "CLAIMED" && Boolean(item.claimExpiresAt && item.claimExpiresAt <= now);
+    const isClaimedByCurrentSession = item.claimedBySessionId === sessionId;
+    return {
+      id: item.id,
+      cart: item.cart,
+      customerId: item.customerId,
+      payments: item.payments ?? [],
+      orderDiscount: Number(item.orderDiscount ?? 0),
+      taxRate: Number(item.taxRate ?? 0),
+      storeId: item.storeId,
+      warehouseId: item.warehouseId,
+      cashSessionId: item.cashSessionId,
+      total: Number(item.total ?? 0),
+      status: isExpired ? "AVAILABLE" : item.status,
+      lockState: item.status === "FINALIZING" ? "FINALIZING" : isExpired ? "EXPIRED" : isClaimedByCurrentSession ? "CLAIMED_BY_YOU" : item.status === "CLAIMED" ? "CLAIMED_BY_OTHER" : "AVAILABLE",
+      claimedByUserId: item.claimedByUserId,
+      claimedAt: item.claimedAt,
+      claimExpiresAt: item.claimExpiresAt,
+      canClaim: item.status === "AVAILABLE" || isExpired || isClaimedByCurrentSession,
+      canCancel: item.status !== "FINALIZING" && (item.status !== "CLAIMED" || isExpired || isClaimedByCurrentSession),
+      version: item.version,
+      updatedAt: item.updatedAt,
+      createdAt: item.createdAt
+    };
+  }
+
+  private isActiveLockOwnedByAnotherSession(item: { status: string; claimedBySessionId?: string | null; claimExpiresAt?: Date | null }, sessionId?: string) {
+    return item.status === "CLAIMED" && item.claimedBySessionId && item.claimedBySessionId !== sessionId && Boolean(item.claimExpiresAt && item.claimExpiresAt > new Date());
   }
 
   private productForPos(product: Prisma.ProductGetPayload<{ select: {
