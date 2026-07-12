@@ -1686,14 +1686,22 @@ model Notification {
   status      NotificationStatus @default(UNREAD)
   module      String?
   referenceId String?
+  role        String?
+  link        String?
+  dedupKey    String?
+  metadata    Json?
   createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
   readAt      DateTime?
 
   @@index([tenantId])
   @@index([userId])
   @@index([status])
   @@index([createdAt])
+  @@index([tenantId, dedupKey])
+  @@unique([tenantId, userId, dedupKey])
 }
+
 model WarehouseStock {
   id          String    @id @default(cuid())
   tenantId    String
@@ -1934,5 +1942,8 @@ model TenantBusinessModule {
   @@index([businessModuleId])
   @@index([isActive])
 }
+
+
+
 
 

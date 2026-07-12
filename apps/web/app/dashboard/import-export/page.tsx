@@ -1,122 +1,228 @@
 "use client";
-import { ChangeEvent, useMemo, useState } from "react";
+
+import { useMemo, useState } from "react";
+import { Download, FileSpreadsheet, RefreshCw, Upload } from "lucide-react";
 import { getAccessToken } from "@/lib/auth";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-type ImportTarget = "products" | "customers" | "suppliers";
-type ImportResult = { entity: string; totalRows: number; successCount: number; failedCount: number; successes: Array<{ line: number; id: string; label: string }>; errors: Array<{ line: number; field?: string; message: string; value?: string }>; errorReport: string };
-type ImportConfig = { key: ImportTarget; title: string; description: string; sample: string };
+type Analysis = {
+  headers: string[];
+  mapping: Record<string, string>;
+  preview: Array<Record<string, unknown>>;
+  totalRows: number;
+  successCount: number;
+  failedCount: number;
+  duplicateCount: number;
+  ignoredCount: number;
+  errors: Array<{ line: number; field?: string; message: string; value?: string }>;
+  duplicates: Array<{ line: number; field?: string; message: string; value?: string }>;
+  errorReport?: string;
+};
 
-const imports: ImportConfig[] = [
-  { key: "products", title: "Import Produits", description: "Colonnes conseillées : name, sku, barcode, purchasePrice, salePrice, minimumStock.", sample: "name,sku,barcode,purchasePrice,salePrice,minimumStock\nProduit exemple,SKU-DEMO,123456789012,50,75,5" },
-  { key: "customers", title: "Import Clients", description: "Colonnes conseillées : displayName, phone, email, city, currentBalance.", sample: "displayName,phone,email,city,currentBalance\nClient exemple,+50900000000,client@example.com,Port-au-Prince,0" },
-  { key: "suppliers", title: "Import Fournisseurs", description: "Colonnes conseillées : name, code, phone, email, primaryContact, balance.", sample: "name,code,phone,email,primaryContact,balance\nFournisseur exemple,SUP-DEMO,+50900000000,fournisseur@example.com,Contact demo,0" }
+const productFields = [
+  ["", "Ignorer"],
+  ["sku", "Code / SKU"],
+  ["name", "Produit / Nom"],
+  ["category", "Catégorie"],
+  ["stock", "Stock / Quantité"],
+  ["purchasePrice", "Prix d'achat"],
+  ["salePrice", "Prix de vente"],
+  ["supplier", "Fournisseur"],
+  ["barcode", "Code-barres"],
+  ["minimumStock", "Stock faible / Stock minimum"],
+  ["description", "Description"]
 ];
 
-const exportGroups = [
-  { title: "Export Produits", endpoints: [{ label: "CSV", path: "products/export/csv" }, { label: "Excel", path: "products/export/excel" }] },
-  { title: "Export Clients", endpoints: [{ label: "CSV", path: "customers/export/csv" }, { label: "Excel", path: "customers/export/excel" }] },
-  { title: "Export Fournisseurs", endpoints: [{ label: "CSV", path: "suppliers/export/csv" }, { label: "Excel", path: "suppliers/export/excel" }] },
-  { title: "Export Inventaire", endpoints: [{ label: "Stock CSV", path: "inventory/stock/export/csv" }, { label: "Stock Excel", path: "inventory/stock/export/excel" }, { label: "Mouvements CSV", path: "inventory/movements/export/csv" }, { label: "Alertes CSV", path: "inventory/low-stock/export/csv" }] }
+const exportTargets = [
+  ["products", "Produits", "export.products"],
+  ["customers", "Clients", "export.customers"],
+  ["suppliers", "Fournisseurs", "export.suppliers"],
+  ["inventory/stock", "Inventaire", "export.inventory"],
+  ["inventory/movements", "Mouvements de stock", "export.inventory"],
+  ["inventory/low-stock", "Stock faible", "export.inventory"],
+  ["sales", "Ventes et historique", "export.sales"],
+  ["purchases", "Achats", "export.purchases"],
+  ["reports/summary", "Rapports", "export.reports"]
 ];
 
 export default function ImportExportPage() {
-  const [target, setTarget] = useState<ImportTarget>("products");
-  const [fileName, setFileName] = useState("");
-  const [content, setContent] = useState("");
-  const [result, setResult] = useState<ImportResult | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const token = useMemo(() => getAccessToken(), []);
+  const [file, setFile] = useState<File | null>(null);
+  const [payload, setPayload] = useState<Record<string, unknown> | null>(null);
+  const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [mapping, setMapping] = useState<Record<string, string>>({});
+  const [duplicateStrategy, setDuplicateStrategy] = useState<"ignore" | "update">("ignore");
+  const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [message, setMessage] = useState("");
-  const previewRows = useMemo(() => content.split(/\r?\n/).filter(Boolean).slice(0, 6), [content]);
-  const selected = imports.find((item) => item.key === target) ?? imports[0];
+  const [loading, setLoading] = useState(false);
 
-  async function readFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    setResult(null);
-    setMessage("");
-    if (!file) return;
-    setFileName(file.name);
-    if (file.name.endsWith(".xlsx")) {
-      setMessage("Import Excel non disponible pour le moment. Utilisez un fichier CSV.");
-      setContent("");
-      return;
+  async function readFile(selected: File) {
+    const lowerName = selected.name.toLowerCase();
+    if (lowerName.endsWith(".xlsx")) {
+      const buffer = await selected.arrayBuffer();
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+      return { fileName: selected.name, format: "XLSX", contentBase64: base64 };
     }
-    setContent(await file.text());
+    const content = await selected.text();
+    return { fileName: selected.name, format: "CSV", content };
   }
 
-  async function submitImport() {
-    setIsLoading(true);
+  async function analyze(nextMapping?: Record<string, string>) {
+    if (!token || !file) return;
+    setLoading(true);
     setMessage("");
     setResult(null);
     try {
-      const response = await fetch(`${apiUrl}/import-export/${target}/import`, {
+      const basePayload = payload ?? await readFile(file);
+      setPayload(basePayload);
+      const response = await fetch(`${apiUrl}/import-export/products/analyze`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
-        body: JSON.stringify({ content, fileName, format: "CSV" })
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ...basePayload, mapping: nextMapping ?? mapping, duplicateStrategy })
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message ?? "Import impossible.");
-      setResult(data as ImportResult);
+      if (!response.ok) throw new Error(await response.text());
+      const data = await response.json() as Analysis;
+      setAnalysis(data);
+      setMapping(data.mapping ?? {});
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Analyse impossible.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function confirmImport() {
+    if (!token || !payload) return;
+    setLoading(true);
+    setMessage("");
+    try {
+      const response = await fetch(`${apiUrl}/import-export/products/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ...payload, mapping, duplicateStrategy })
+      });
+      if (!response.ok) throw new Error(await response.text());
+      setResult(await response.json());
       setMessage("Import terminé.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Erreur pendant l'import.");
+      setMessage(error instanceof Error ? error.message : "Import impossible.");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }
 
-  async function downloadExport(path: string) {
-    setMessage("");
-    try {
-      const response = await fetch(`${apiUrl}/import-export/${path}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
-      if (!response.ok) throw new Error("Export impossible.");
-      const blob = await response.blob();
-      const disposition = response.headers.get("content-disposition") ?? "";
-      const file = disposition.match(/filename="?([^";]+)"?/)?.[1] ?? "export.csv";
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = file;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Erreur pendant l'export.");
-    }
+  function updateMapping(header: string, value: string) {
+    const next = { ...mapping, [header]: value };
+    if (!value) delete next[header];
+    setMapping(next);
   }
 
   function downloadErrorReport() {
-    if (!result?.errorReport) return;
-    const blob = new Blob([result.errorReport], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `rapport-erreurs-${target}.csv`;
-    link.click();
+    if (!analysis?.errorReport) return;
+    const url = URL.createObjectURL(new Blob([analysis.errorReport], { type: "text/csv;charset=utf-8" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "rapport-erreurs-import.csv";
+    anchor.click();
     URL.revokeObjectURL(url);
   }
 
-  function useSample() {
-    setFileName(`${target}-exemple.csv`);
-    setContent(selected.sample);
-    setResult(null);
-    setMessage("Exemple chargé pour aperçu.");
-  }
+  return (
+    <div className="space-y-6">
+      <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <p className="text-sm font-medium text-brand-600">Import / export</p>
+        <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Données commerciales</h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Importez des produits CSV/XLSX avec aperçu et correspondance des colonnes. Les exports respectent le tenant et les permissions.</p>
+      </section>
 
-  return <div className="space-y-6">
-    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"><p className="text-sm font-medium text-brand-600">Données</p><h1 className="text-2xl font-bold text-slate-950 dark:text-white">Import / Export</h1><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Importer et exporter les produits, clients, fournisseurs et données d&apos;inventaire.</p></div>
-    {message ? <div className="rounded-lg border border-brand-200 bg-brand-50 p-4 text-sm text-brand-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">{message}</div> : null}
-    <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-      <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start"><div><h2 className="text-lg font-bold text-slate-950 dark:text-white">Importer un fichier</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Format accepté : CSV uniquement pour l&apos;import. Excel reste disponible pour certains exports.</p></div><button onClick={useSample} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">Charger un exemple</button></div>
-        <div className="mt-5 grid gap-4 md:grid-cols-3"><label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">Type de données<select value={target} onChange={(event) => { setTarget(event.target.value as ImportTarget); setResult(null); }} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">{imports.map((item) => <option key={item.key} value={item.key}>{item.title.replace("Import ", "")}</option>)}</select></label><label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200 md:col-span-2">Fichier CSV<input type="file" accept=".csv" onChange={readFile} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /></label></div>
-        <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">{selected.description}</p><div className="mt-4 overflow-hidden rounded-md border border-slate-200 dark:border-slate-800"><div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold dark:border-slate-800 dark:bg-slate-950">Aperçu avant import</div>{previewRows.length ? <pre className="max-h-56 overflow-auto p-3 text-xs text-slate-700 dark:text-slate-200">{previewRows.join("\n")}</pre> : <div className="p-4 text-sm text-slate-500">Aucun fichier chargé.</div>}</div>
-        <button disabled={!content || isLoading} onClick={() => void submitImport()} className="mt-4 rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{isLoading ? "Import en cours..." : "Importer"}</button>
-      </div>
-      <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"><h2 className="text-lg font-bold text-slate-950 dark:text-white">Résultat import</h2>{result ? <div className="mt-4 space-y-3 text-sm"><div className="grid grid-cols-3 gap-2"><Stat label="Lignes" value={result.totalRows} /><Stat label="Réussies" value={result.successCount} /><Stat label="Échouées" value={result.failedCount} /></div>{result.errors.length ? <button onClick={downloadErrorReport} className="rounded-md border border-red-300 px-3 py-2 font-semibold text-red-700 dark:border-red-800 dark:text-red-300">Télécharger le rapport d&apos;erreurs</button> : <p className="text-emerald-600">Aucune erreur détectée.</p>}<div className="max-h-52 overflow-auto rounded-md border border-slate-200 dark:border-slate-800">{result.errors.map((error, index) => <div key={index} className="border-b border-slate-100 p-2 text-xs dark:border-slate-800">Ligne {error.line} - {error.field ?? "general"} : {error.message}</div>)}</div></div> : <p className="mt-4 text-sm text-slate-500">Le résultat apparaîtra ici après import.</p>}</div>
-    </section>
-    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{exportGroups.map((group) => <div key={group.title} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"><h2 className="text-base font-bold text-slate-950 dark:text-white">{group.title}</h2><div className="mt-4 flex flex-wrap gap-2">{group.endpoints.map((endpoint) => <button key={endpoint.path} onClick={() => void downloadExport(endpoint.path)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">{endpoint.label}</button>)}</div></div>)}</section>
-  </div>;
+      {message ? <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm dark:border-slate-800 dark:bg-slate-900">{message}</div> : null}
+
+      <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="space-y-5 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-950 dark:text-white">Importer des produits</h2>
+              <p className="text-sm text-slate-500">CSV UTF-8, CSV BOM, séparateurs virgule/point-virgule/tabulation, ou XLSX.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <a href={`${apiUrl}/import-export/products/template/csv`} className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700"><Download className="h-4 w-4" /> Modèle CSV</a>
+              <a href={`${apiUrl}/import-export/products/template/xlsx`} className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700"><FileSpreadsheet className="h-4 w-4" /> Modèle XLSX</a>
+            </div>
+          </div>
+
+          <div className="grid gap-3 rounded-lg border border-dashed border-slate-300 p-4 dark:border-slate-700 md:grid-cols-[1fr_auto]">
+            <input type="file" accept=".csv,.xlsx" onChange={(event) => { const selected = event.target.files?.[0] ?? null; setFile(selected); setPayload(null); setAnalysis(null); setResult(null); }} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+            <button disabled={!file || loading} onClick={() => void analyze()} className="inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><Upload className="h-4 w-4" /> Analyser</button>
+          </div>
+
+          {analysis ? (
+            <div className="space-y-5">
+              <div className="grid gap-3 sm:grid-cols-4">
+                <Metric label="Lignes" value={analysis.totalRows} />
+                <Metric label="Importables" value={analysis.successCount} />
+                <Metric label="Doublons" value={analysis.duplicateCount} />
+                <Metric label="Erreurs" value={analysis.failedCount} />
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-slate-950 dark:text-white">Correspondance des colonnes</h3>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  {analysis.headers.map((header) => (
+                    <label key={header} className="grid gap-1 text-sm">
+                      <span className="font-medium">{header}</span>
+                      <select value={mapping[header] ?? ""} onChange={(event) => updateMapping(header, event.target.value)} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+                        {productFields.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      </select>
+                    </label>
+                  ))}
+                </div>
+                <button disabled={loading} onClick={() => void analyze(mapping)} className="mt-3 inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700"><RefreshCw className="h-4 w-4" /> Revalider</button>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+                <label className="grid gap-1 text-sm">
+                  <span className="font-medium">Doublons SKU / code-barres</span>
+                  <select value={duplicateStrategy} onChange={(event) => setDuplicateStrategy(event.target.value as "ignore" | "update")} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+                    <option value="ignore">Ignorer les doublons</option>
+                    <option value="update">Mettre à jour les doublons</option>
+                  </select>
+                </label>
+                <button disabled={loading || (!analysis.successCount && duplicateStrategy === "ignore")} onClick={() => void confirmImport()} className="rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-slate-950">Confirmer l&apos;import</button>
+                <button disabled={!analysis.errorReport} onClick={downloadErrorReport} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-50 dark:border-slate-700">Rapport erreurs</button>
+              </div>
+
+              <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-slate-50 dark:bg-slate-950"><tr>{Object.keys(analysis.preview[0] ?? { line: "" }).map((key) => <th key={key} className="px-3 py-2 text-left">{key}</th>)}</tr></thead>
+                  <tbody>{analysis.preview.map((row, index) => <tr key={index} className="border-t border-slate-100 dark:border-slate-800">{Object.keys(analysis.preview[0] ?? { line: "" }).map((key) => <td key={key} className="px-3 py-2">{String(row[key] ?? "")}</td>)}</tr>)}</tbody>
+                </table>
+              </div>
+
+              {result ? <pre className="max-h-64 overflow-auto rounded-lg bg-slate-950 p-4 text-xs text-white">{JSON.stringify(result, null, 2)}</pre> : null}
+            </div>
+          ) : null}
+        </div>
+
+        <aside className="space-y-3 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="text-lg font-bold text-slate-950 dark:text-white">Exports</h2>
+          <p className="text-sm text-slate-500">CSV compatible Excel et XLSX réel.</p>
+          {exportTargets.map(([path, label]) => (
+            <div key={path} className="rounded-md border border-slate-200 p-3 dark:border-slate-800">
+              <p className="font-semibold">{label}</p>
+              <div className="mt-2 flex gap-2">
+                <a href={`${apiUrl}/import-export/${path}/export/csv`} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700">CSV</a>
+                <a href={`${apiUrl}/import-export/${path}/export/xlsx`} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700">XLSX</a>
+              </div>
+            </div>
+          ))}
+        </aside>
+      </section>
+    </div>
+  );
 }
 
-function Stat({ label, value }: { label: string; value: number }) { return <div className="rounded-md bg-slate-50 p-3 dark:bg-slate-950"><p className="text-xs text-slate-500">{label}</p><p className="text-lg font-bold text-slate-950 dark:text-white">{value}</p></div>; }
+function Metric({ label, value }: { label: string; value: number }) {
+  return <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800"><p className="text-xs text-slate-500">{label}</p><p className="text-2xl font-bold text-slate-950 dark:text-white">{value}</p></div>;
+}
+

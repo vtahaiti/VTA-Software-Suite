@@ -11,6 +11,7 @@ import { CustomersModule } from "./customers/customers.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { EmailModule } from "./email/email.module";
 import { HealthModule } from "./health/health.module";
+import { VersionModule } from "./version/version.module";
 import { InventoryModule } from "./inventory/inventory.module";
 import { ImportExportModule } from "./import-export/import-export.module";
 import { MovementModule } from "./movements/movement.module";
@@ -47,6 +48,7 @@ import { WarehouseModule } from "./warehouses/warehouse.module";
   imports: [
     PrismaModule,
     HealthModule,
+    VersionModule,
     UploadsModule,
     ProfileModule,
     OnboardingModule,
@@ -92,5 +94,7 @@ export class AppModule implements NestModule {
     consumer.apply(AuthenticationMiddleware, TenantContextMiddleware, RbacContextMiddleware).forRoutes("*");
   }
 }
+
+
 
 

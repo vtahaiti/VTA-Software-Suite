@@ -1,42 +1,51 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { NotificationStatus, NotificationType, Prisma } from "@prisma/client";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateNotificationDto } from "./dto/create-notification.dto";
 
-type NotificationQuery = { status?: "unread" | "read" | "archived"; type?: "info" | "success" | "warning" | "error"; module?: string };
+type NotificationQuery = { status?: "unread" | "read" | "archived"; type?: "info" | "success" | "warning" | "error"; module?: string; page?: string; limit?: string };
 
 @Injectable()
 export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
 
   createForUser(tenantId: string, currentUserId: string, dto: CreateNotificationDto) {
-    return this.prisma.notification.create({
-      data: {
-        tenantId,
-        userId: dto.userId ?? currentUserId,
-        title: dto.title,
-        message: dto.message,
-        type: this.toType(dto.type),
-        module: dto.module,
-        referenceId: dto.referenceId
-      }
+    return this.createSystem({
+      tenantId,
+      userId: dto.userId ?? currentUserId,
+      role: dto.role,
+      title: dto.title,
+      message: dto.message,
+      type: dto.type ?? "info",
+      module: dto.module,
+      referenceId: dto.referenceId,
+      link: dto.link,
+      dedupKey: dto.dedupKey,
+      metadata: dto.metadata as Prisma.InputJsonValue | undefined
     });
   }
 
-  findForUser(user: AuthUser, query: NotificationQuery) {
+  async findForUser(user: AuthUser, query: NotificationQuery) {
+    const page = Math.max(Number(query.page ?? 1), 1);
+    const limit = Math.min(Math.max(Number(query.limit ?? 20), 1), 100);
     const where: Prisma.NotificationWhereInput = {
       tenantId: user.tenantId,
-      userId: user.id,
+      OR: [{ userId: user.id }, { role: { in: this.userRoleKeys(user) } }],
       status: query.status ? this.toStatus(query.status) : { not: NotificationStatus.ARCHIVED },
       type: query.type ? this.toType(query.type) : undefined,
       module: query.module ? { equals: query.module, mode: "insensitive" } : undefined
     };
-    return this.prisma.notification.findMany({ where, orderBy: { createdAt: "desc" }, take: 100 });
+    const [items, total, unread] = await Promise.all([
+      this.prisma.notification.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * limit, take: limit }),
+      this.prisma.notification.count({ where }),
+      this.prisma.notification.count({ where: { tenantId: user.tenantId, OR: [{ userId: user.id }, { role: { in: this.userRoleKeys(user) } }], status: NotificationStatus.UNREAD } })
+    ]);
+    return { items, total, unread, page, limit, totalPages: Math.max(Math.ceil(total / limit), 1) };
   }
 
   async unreadCount(user: AuthUser) {
-    const count = await this.prisma.notification.count({ where: { tenantId: user.tenantId, userId: user.id, status: NotificationStatus.UNREAD } });
+    const count = await this.prisma.notification.count({ where: { tenantId: user.tenantId, OR: [{ userId: user.id }, { role: { in: this.userRoleKeys(user) } }], status: NotificationStatus.UNREAD } });
     return { count };
   }
 
@@ -46,7 +55,7 @@ export class NotificationsService {
   }
 
   async markAllAsRead(user: AuthUser) {
-    const result = await this.prisma.notification.updateMany({ where: { tenantId: user.tenantId, userId: user.id, status: NotificationStatus.UNREAD }, data: { status: NotificationStatus.READ, readAt: new Date() } });
+    const result = await this.prisma.notification.updateMany({ where: { tenantId: user.tenantId, OR: [{ userId: user.id }, { role: { in: this.userRoleKeys(user) } }], status: NotificationStatus.UNREAD }, data: { status: NotificationStatus.READ, readAt: new Date() } });
     return { updated: result.count };
   }
 
@@ -56,37 +65,82 @@ export class NotificationsService {
   }
 
   notifyLowStock(tenantId: string, userId: string, productName: string, referenceId?: string) {
-    return this.createSystem(tenantId, userId, "Stock faible", `${productName} est sous le seuil minimum.`, "warning", "inventory", referenceId);
+    return this.createSystem({ tenantId, userId, title: "Stock faible", message: `${productName} est sous le seuil minimum.`, type: "warning", module: "inventory", referenceId, link: referenceId ? `/dashboard/products/${referenceId}` : "/dashboard/inventory", dedupKey: `stock-low:${referenceId ?? productName}` });
+  }
+
+  notifyOutOfStock(tenantId: string, userId: string, productName: string, referenceId?: string) {
+    return this.createSystem({ tenantId, userId, title: "Rupture de stock", message: `${productName} est en rupture de stock.`, type: "error", module: "inventory", referenceId, link: referenceId ? `/dashboard/products/${referenceId}` : "/dashboard/inventory", dedupKey: `stock-out:${referenceId ?? productName}` });
   }
 
   notifySaleCreated(tenantId: string, userId: string, referenceId?: string) {
-    return this.createSystem(tenantId, userId, "Vente creee", "Une nouvelle vente a ete enregistree.", "success", "sales", referenceId);
+    return this.createSystem({ tenantId, userId, title: "Vente créée", message: "Une nouvelle vente a été enregistrée.", type: "success", module: "sales", referenceId, link: referenceId ? `/dashboard/sales/completed/${referenceId}` : "/dashboard/sales/completed" });
   }
 
   notifyUnpaidInvoice(tenantId: string, userId: string, referenceId?: string) {
-    return this.createSystem(tenantId, userId, "Facture impayee", "Une facture reste impayee ou partiellement payee.", "warning", "invoices", referenceId);
+    return this.createSystem({ tenantId, userId, title: "Facture impayée", message: "Une facture reste impayée ou partiellement payée.", type: "warning", module: "invoices", referenceId, dedupKey: `invoice-unpaid:${referenceId ?? "unknown"}` });
   }
 
   notifyPaymentReceived(tenantId: string, userId: string, referenceId?: string) {
-    return this.createSystem(tenantId, userId, "Paiement recu", "Un paiement a ete enregistre.", "success", "payments", referenceId);
+    return this.createSystem({ tenantId, userId, title: "Paiement reçu", message: "Un paiement a été enregistré.", type: "success", module: "payments", referenceId });
   }
 
   notifyBackupCompleted(tenantId: string, userId: string, referenceId?: string) {
-    return this.createSystem(tenantId, userId, "Sauvegarde terminee", "La sauvegarde a ete preparee avec succes.", "success", "backups", referenceId);
+    return this.createSystem({ tenantId, userId, title: "Sauvegarde réussie", message: "La sauvegarde a été préparée avec succès.", type: "success", module: "backups", referenceId, dedupKey: referenceId ? `backup:${referenceId}` : undefined });
+  }
+
+  notifyBackupFailed(tenantId: string, userId: string, message: string, referenceId?: string) {
+    return this.createSystem({ tenantId, userId, title: "Sauvegarde échouée", message, type: "error", module: "backups", referenceId, dedupKey: referenceId ? `backup-failed:${referenceId}` : undefined });
   }
 
   notifyFailedLogin(tenantId: string, userId: string, referenceId?: string) {
-    return this.createSystem(tenantId, userId, "Tentative de connexion echouee", "Une tentative de connexion echouee a ete detectee.", "error", "security", referenceId);
+    return this.createSystem({ tenantId, userId, title: "Tentative de connexion échouée", message: "Une tentative de connexion échouée a été détectée.", type: "error", module: "security", referenceId });
   }
 
-  private createSystem(tenantId: string, userId: string, title: string, message: string, type: "info" | "success" | "warning" | "error", module: string, referenceId?: string) {
-    return this.prisma.notification.create({ data: { tenantId, userId, title, message, type: this.toType(type), module, referenceId } });
+  notifyImportResult(tenantId: string, userId: string, status: "success" | "warning" | "error", title: string, message: string, referenceId?: string) {
+    return this.createSystem({ tenantId, userId, title, message, type: status, module: "import-export", referenceId, link: "/dashboard/import-export", dedupKey: referenceId ? `import:${referenceId}` : undefined });
+  }
+
+  notifySubscriptionExpiring(tenantId: string, userId: string, days: number) {
+    return this.createSystem({ tenantId, userId, title: "Abonnement bientôt expiré", message: `Votre abonnement expire dans ${days} jour${days > 1 ? "s" : ""}.`, type: "warning", module: "subscriptions", link: "/dashboard/settings/subscription", dedupKey: `subscription-expiring:${days}` });
+  }
+
+  private async createSystem(input: { tenantId: string; userId: string; title: string; message: string; type: "info" | "success" | "warning" | "error"; module?: string; referenceId?: string; role?: string; link?: string; dedupKey?: string; metadata?: Prisma.InputJsonValue }) {
+    if (input.link && !this.isSafeLink(input.link)) throw new BadRequestException("Lien de notification invalide");
+    const data = {
+      tenantId: input.tenantId,
+      userId: input.userId,
+      role: input.role,
+      title: input.title,
+      message: input.message,
+      type: this.toType(input.type),
+      module: input.module,
+      referenceId: input.referenceId,
+      link: input.link,
+      dedupKey: input.dedupKey,
+      metadata: input.metadata
+    };
+    if (input.dedupKey) {
+      return this.prisma.notification.upsert({
+        where: { tenantId_userId_dedupKey: { tenantId: input.tenantId, userId: input.userId, dedupKey: input.dedupKey } },
+        create: data,
+        update: { ...data, status: NotificationStatus.UNREAD, readAt: null }
+      });
+    }
+    return this.prisma.notification.create({ data });
   }
 
   private async ensureOwned(user: AuthUser, id: string) {
-    const notification = await this.prisma.notification.findFirst({ where: { id, tenantId: user.tenantId, userId: user.id } });
+    const notification = await this.prisma.notification.findFirst({ where: { id, tenantId: user.tenantId, OR: [{ userId: user.id }, { role: { in: this.userRoleKeys(user) } }] } });
     if (!notification) throw new NotFoundException("Notification introuvable");
     return notification;
+  }
+
+  private userRoleKeys(user: AuthUser) {
+    return [user.role, user.role?.toUpperCase(), user.role?.toLowerCase()].filter(Boolean) as string[];
+  }
+
+  private isSafeLink(link: string) {
+    return link.startsWith("/dashboard") && !link.startsWith("//") && !link.includes("://");
   }
 
   private toType(type?: string) {

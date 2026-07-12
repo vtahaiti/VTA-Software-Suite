@@ -38,10 +38,14 @@
     "test:performance": "node scripts/performance-list-contract-smoke.cjs",
     "test:held-sales-tax": "node scripts/held-sales-tax-contract-smoke.cjs",
     "test:held-sales-locking": "node scripts/held-sales-locking-smoke.cjs",
-    "test:launch-stabilization": "node scripts/launch-stabilization-smoke.cjs"
+    "test:launch-stabilization": "node scripts/launch-stabilization-smoke.cjs",
+    "test:lot2": "node scripts/lot2-import-export-notifications-smoke.cjs"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
     "prisma": "^5.22.0"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
   }
 }

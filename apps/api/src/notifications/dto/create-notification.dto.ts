@@ -1,9 +1,13 @@
-import { IsIn, IsOptional, IsString, MinLength } from "class-validator";
+import { IsIn, IsObject, IsOptional, IsString, MinLength } from "class-validator";
 
 export class CreateNotificationDto {
   @IsOptional()
   @IsString()
   userId?: string;
+
+  @IsOptional()
+  @IsString()
+  role?: string;
 
   @IsString()
   @MinLength(2)
@@ -24,4 +28,16 @@ export class CreateNotificationDto {
   @IsOptional()
   @IsString()
   referenceId?: string;
+
+  @IsOptional()
+  @IsString()
+  link?: string;
+
+  @IsOptional()
+  @IsString()
+  dedupKey?: string;
+
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>;
 }
