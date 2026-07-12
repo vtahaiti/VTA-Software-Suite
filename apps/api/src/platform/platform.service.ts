@@ -481,7 +481,7 @@ export class PlatformService {
   }
 
   private async planRecordFor(plan: SubscriptionPlan) {
-    await this.entitlements.ensureCatalog();
+    await this.entitlements.ensureCatalogOnce();
     return this.prisma.plan.findUnique({ where: { code: this.planCodeFor(plan) } });
   }
 

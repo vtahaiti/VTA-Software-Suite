@@ -73,7 +73,7 @@ export class OnboardingService {
     const profileSlug = dto.businessProfileSlug ?? resolveBusinessProfileSlug(dto.businessCategory, dto.primaryActivity);
     const selectedBusinessProfile = businessProfiles.find((profile) => profile.slug === profileSlug) ?? businessProfiles[0];
     const activityTemplate = findActivityTemplate(dto.primaryActivity ?? dto.industry);
-    await this.subscriptions.ensureCatalog();
+    await this.subscriptions.ensureCatalogOnce();
 
     let result: { userId: string; tenantId: string; warehouseId: string };
     try {

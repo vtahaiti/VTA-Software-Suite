@@ -18,14 +18,22 @@ type SubscriptionWithPlan = Prisma.TenantSubscriptionGetPayload<{
 @Injectable()
 export class SubscriptionEntitlementsService implements OnModuleInit {
   private readonly cache = new Map<string, { expiresAt: number; entitlements: Awaited<ReturnType<SubscriptionEntitlementsService["buildEntitlements"]>> }>();
+  private catalogReady: Promise<void> | null = null;
 
   constructor(private readonly prisma: PrismaService) {}
 
   async onModuleInit() {
-    await this.ensureCatalog();
+    await this.ensureCatalogOnce();
   }
 
-  async ensureCatalog() {
+  async ensureCatalogOnce(force = false) {
+    if (!this.catalogReady || force) {
+      this.catalogReady = this.ensureCatalog();
+    }
+    await this.catalogReady;
+  }
+
+  private async ensureCatalog() {
     for (const plan of defaultPlans) {
       await this.prisma.plan.upsert({
         where: { code: plan.code },
@@ -94,7 +102,7 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
   }
 
   async getSubscription(tenantId: string) {
-    await this.ensureCatalog();
+    await this.ensureCatalogOnce();
     let subscription = await this.prisma.tenantSubscription.findUnique({
       where: { tenantId },
       include: { planRecord: { include: { features: { include: { feature: true } } } }, payments: { orderBy: { createdAt: "desc" }, take: 10 } }
@@ -140,7 +148,7 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
   }
 
   async listPlans() {
-    await this.ensureCatalog();
+    await this.ensureCatalogOnce();
     const plans = await this.prisma.plan.findMany({
       where: { isActive: true },
       include: { features: { include: { feature: true }, orderBy: { feature: { category: "asc" } } } },
