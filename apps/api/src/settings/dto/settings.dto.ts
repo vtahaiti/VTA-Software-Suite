@@ -1,5 +1,5 @@
-import { Transform, Type } from "class-transformer";
-import { IsBoolean, IsEmail, IsIn, IsNumber, IsOptional, IsString, Max, Min } from "class-validator";
+﻿import { Transform, Type } from "class-transformer";
+import { IsBoolean, IsEmail, IsIn, IsNumber, IsOptional, IsString, Matches, Max, Min } from "class-validator";
 
 const emptyToNull = ({ value }: { value: unknown }) => typeof value === "string" && value.trim() === "" ? null : value;
 
@@ -7,7 +7,7 @@ export class UpdateCompanyProfileDto {
   @Transform(emptyToNull) @IsOptional() @IsString() name?: string;
   @Transform(emptyToNull) @IsOptional() @IsString() companyName?: string;
   @Transform(emptyToNull) @IsOptional() @IsString() primaryColor?: string;
-  @Transform(emptyToNull) @IsOptional() @IsString() logoUrl?: string;
+  @Transform(emptyToNull) @IsOptional() @IsString() @Matches(/^(?!data:).*/i, { message: "Le logo doit etre envoye avec le bouton upload, pas dans le formulaire." }) logoUrl?: string;
   @Transform(emptyToNull) @IsOptional() @IsString() phone?: string;
   @Transform(emptyToNull) @IsOptional() @IsString() whatsapp?: string;
   @Transform(emptyToNull) @IsOptional() @IsEmail({}, { message: "Veuillez saisir une adresse email valide." }) email?: string;
@@ -38,4 +38,5 @@ export class UpdatePosSettingsDto {
   @IsOptional() @IsBoolean() autoPrintReceipt?: boolean;
   @IsOptional() @IsBoolean() openCashDrawer?: boolean;
 }
+
 

@@ -1,8 +1,8 @@
 ﻿"use client";
 
 import Link from "next/link";
-
-import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import { Camera } from "lucide-react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
 import { initials, resolveAssetUrl } from "@/lib/company-branding";
 
@@ -16,6 +16,8 @@ const colors = [
   ["Violet", "#7c3aed"],
   ["Gris", "#475569"]
 ];
+const maxLogoBytes = 2 * 1024 * 1024;
+const allowedLogoTypes = ["image/png", "image/jpeg", "image/webp"];
 
 type CompanyForm = { name: string; companyName?: string; logoUrl?: string; primaryColor?: string; phone?: string; whatsapp?: string; email?: string; address?: string; city?: string; country?: string; taxNumber?: string; currency?: string; language?: string; timezone?: string };
 
@@ -23,6 +25,8 @@ export default function CompanySettingsPage() {
   const [form, setForm] = useState<CompanyForm>({ name: "", companyName: "", logoUrl: "", primaryColor: "#2563eb", phone: "", whatsapp: "", email: "", address: "", city: "", country: "", taxNumber: "", currency: "HTG", language: "fr", timezone: "America/Port-au-Prince" });
   const [msg, setMsg] = useState("");
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [localLogoPreview, setLocalLogoPreview] = useState<string | null>(null);
 
   useEffect(() => {
     fetchWithAuth(`${apiUrl}/settings/company`)
@@ -31,13 +35,17 @@ export default function CompanySettingsPage() {
       .catch(() => undefined);
   }, []);
 
+  useEffect(() => () => {
+    if (localLogoPreview) URL.revokeObjectURL(localLogoPreview);
+  }, [localLogoPreview]);
+
   function update(key: keyof CompanyForm, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (saving) return;
+    if (saving || uploadingLogo) return;
     setMsg("");
     setSaving(true);
     try {
@@ -53,6 +61,8 @@ export default function CompanySettingsPage() {
       }
       const updated = toCompanyForm(await response.json());
       setForm(updated);
+      if (localLogoPreview) URL.revokeObjectURL(localLogoPreview);
+      setLocalLogoPreview(null);
       window.dispatchEvent(new CustomEvent("vta:branding-updated"));
       setMsg("Paramètres enregistrés.");
     } catch {
@@ -64,25 +74,60 @@ export default function CompanySettingsPage() {
 
   async function uploadLogo(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => update("logoUrl", String(reader.result));
-    reader.readAsDataURL(file);
+    setMsg("");
+    if (!allowedLogoTypes.includes(file.type)) {
+      setMsg("Format non accepté. Utilisez PNG, JPG, JPEG ou WebP.");
+      return;
+    }
+    setUploadingLogo(true);
+    const previousLogoUrl = form.logoUrl ?? "";
+    try {
+      const optimized = await optimizeLogoFile(file);
+      if (optimized.size > maxLogoBytes) {
+        setMsg("Le fichier est trop grand. Taille maximale : 2 Mo.");
+        return;
+      }
+      const previewUrl = URL.createObjectURL(optimized);
+      if (localLogoPreview) URL.revokeObjectURL(localLogoPreview);
+      setLocalLogoPreview(previewUrl);
+      const body = new FormData();
+      body.append("file", optimized, optimized.name);
+      const response = await fetchWithAuth(`${apiUrl}/uploads/company-logo`, { method: "POST", body });
+      if (!response.ok) {
+        setLocalLogoPreview(null);
+        update("logoUrl", previousLogoUrl);
+        setMsg(await readSettingsError(response));
+        return;
+      }
+      const result = await response.json() as { url?: string };
+      if (!result.url) throw new Error("Logo non reçu.");
+      update("logoUrl", result.url);
+      setMsg("Logo chargé. Cliquez sur Sauvegarder pour l’appliquer aux paramètres.");
+    } catch {
+      update("logoUrl", previousLogoUrl);
+      setMsg("Impossible de charger le logo. Vérifiez le fichier puis réessayez.");
+    } finally {
+      setUploadingLogo(false);
+    }
   }
 
   const companyName = form.companyName || form.name || "Mon entreprise";
-  const logo = resolveAssetUrl(form.logoUrl);
+  const logo = useMemo(() => localLogoPreview ?? resolveAssetUrl(form.logoUrl), [localLogoPreview, form.logoUrl]);
   const primaryColor = form.primaryColor || "#2563eb";
 
   return <div className="space-y-5"><Header active="Entreprise" />
     <form onSubmit={submit} className="grid gap-4 rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2">
       <div className="md:col-span-2 flex flex-col gap-4 rounded-lg border border-dashed p-4 dark:border-slate-700 sm:flex-row sm:items-center">
-        {logo ? <img src={logo} alt={`Logo ${companyName}`} className="h-20 w-20 rounded-xl object-cover shadow-sm" /> : <div className="flex h-20 w-20 items-center justify-center rounded-xl text-xl font-bold text-white shadow-sm" style={{ backgroundColor: primaryColor }}>{initials(companyName, "ME")}</div>}
+        {logo ? <img src={logo} alt={`Logo ${companyName}`} className="h-20 w-20 rounded-xl object-contain shadow-sm" /> : <div className="flex h-20 w-20 items-center justify-center rounded-xl text-xl font-bold text-white shadow-sm" style={{ backgroundColor: primaryColor }}>{initials(companyName, "ME")}</div>}
         <div className="flex-1">
-          <label className="inline-flex cursor-pointer items-center rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-slate-950">
-            📷 Choisir un logo
-            <input type="file" accept="image/*" onChange={uploadLogo} className="sr-only" />
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-slate-950">
+            <Camera className="h-4 w-4" aria-hidden="true" />
+            {uploadingLogo ? "Chargement du logo..." : "Choisir un logo"}
+            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadLogo} disabled={uploadingLogo || saving} className="sr-only" />
           </label>
+          <p className="mt-1 text-xs text-slate-500">PNG, JPG, JPEG ou WebP. Le logo est compressé avant l’envoi. Taille maximale : 2 Mo.</p>
           <p className="mt-1 text-xs text-slate-500">Si aucun logo n&apos;est configuré, les initiales de l&apos;entreprise sont affichées automatiquement.</p>
         </div>
       </div>
@@ -100,9 +145,28 @@ export default function CompanySettingsPage() {
           {colors.map(([label, value]) => <button type="button" key={value} onClick={() => update("primaryColor", value)} className={`rounded-full border px-3 py-2 text-sm font-semibold ${primaryColor === value ? "border-slate-950 dark:border-white" : "border-slate-200 dark:border-slate-700"}`}><span className="mr-2 inline-block h-3 w-3 rounded-full" style={{ backgroundColor: value }} />{label}</button>)}
         </div>
       </div>
-      <div className="md:col-span-2 flex items-center gap-3"><button disabled={saving} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement..." : "Sauvegarder"}</button>{msg && <p className="text-sm text-slate-500">{msg}</p>}</div>
+      <div className="md:col-span-2 flex flex-wrap items-center gap-3"><button disabled={saving || uploadingLogo} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement..." : "Sauvegarder"}</button>{msg && <p className="text-sm text-slate-500" role="status">{msg}</p>}</div>
     </form>
   </div>;
+}
+
+async function optimizeLogoFile(file: File) {
+  if (file.size <= maxLogoBytes && file.type === "image/webp") return file;
+  const bitmap = await createImageBitmap(file);
+  const maxSide = 512;
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) return file;
+  context.drawImage(bitmap, 0, 0, width, height);
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.88));
+  bitmap.close();
+  if (!blob) return file;
+  return new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), { type: "image/webp" });
 }
 
 async function readSettingsError(response: Response) {
@@ -120,7 +184,7 @@ function toCompanyForm(data: Partial<CompanyForm>): CompanyForm {
   return {
     name: data.name ?? companyName,
     companyName,
-    logoUrl: data.logoUrl ?? "",
+    logoUrl: data.logoUrl?.startsWith("data:") ? "" : data.logoUrl ?? "",
     primaryColor: data.primaryColor ?? "#2563eb",
     phone: data.phone ?? "",
     whatsapp: data.whatsapp ?? "",
@@ -140,7 +204,7 @@ function toCompanyPayload(form: CompanyForm) {
   return {
     name: companyName,
     companyName,
-    logoUrl: form.logoUrl ?? "",
+    logoUrl: form.logoUrl?.startsWith("data:") ? "" : form.logoUrl ?? "",
     primaryColor: form.primaryColor ?? "#2563eb",
     phone: form.phone ?? "",
     whatsapp: form.whatsapp ?? "",
@@ -162,7 +226,3 @@ function Header({ active }: { active: string }) {
 function Input({ label, value, onChange }: { label: string; value?: string; onChange: (value: string) => void }) {
   return <label className="grid gap-1 text-sm font-medium">{label}<input value={value ?? ""} onChange={(event) => onChange(event.target.value)} className="rounded-md border px-3 py-2 dark:bg-slate-950" /></label>;
 }
-
-
-
-
