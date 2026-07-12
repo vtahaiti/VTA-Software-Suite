@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { defaultPermissions } from "../rbac/default-permissions";
 import { businessModules, businessProfiles, findActivityTemplate, resolveBusinessProfileSlug } from "../business-profiles/business-catalog";
@@ -74,7 +75,9 @@ export class OnboardingService {
     const activityTemplate = findActivityTemplate(dto.primaryActivity ?? dto.industry);
     await this.subscriptions.ensureCatalog();
 
-    const result = await this.prisma.$transaction(async (tx) => {
+    let result: { userId: string; tenantId: string; warehouseId: string };
+    try {
+      result = await this.prisma.$transaction(async (tx) => {
       const savedBusinessModules = new Map<string, string>();
       for (const module of businessModules) {
         const savedModule = await tx.businessModule.upsert({
@@ -217,8 +220,19 @@ export class OnboardingService {
       }
       await tx.onboardingState.create({ data: { tenantId: tenant.id, userId: user.id, companyCreated: true, storeCreated: true, warehouseCreated: true, cashRegisterCreated: true, logoUploaded: Boolean(logoUrl), profilePhotoUploaded: Boolean(userPhotoUrl), completed: true } });
       await tx.pendingRegistration.delete({ where: { id: pending.id } });
-      return { userId: user.id, tenantId: tenant.id, warehouseId: warehouse.id };
-    });
+        return { userId: user.id, tenantId: tenant.id, warehouseId: warehouse.id };
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === "P2002") {
+          throw new BadRequestException("Une entreprise ou un compte utilise déjà ces informations. Vérifiez l'email, le téléphone ou le nom de l'entreprise.");
+        }
+        if (error.code === "P2003") {
+          throw new BadRequestException("Configuration de création d'entreprise incomplète. Réessayez ou contactez VTA Commerce.");
+        }
+      }
+      throw error;
+    }
 
     return this.auth.issueSessionForUser(result.userId, true);
   }

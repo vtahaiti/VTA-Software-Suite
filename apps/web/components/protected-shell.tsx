@@ -51,6 +51,19 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
     setIsMobileMenuOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = previousOverflow || "";
+    }
+    return () => {
+      document.body.style.overflow = previousOverflow || "";
+      document.body.style.pointerEvents = "";
+    };
+  }, [isMobileMenuOpen]);
+
   if (!isReady || !user) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-600 dark:bg-slate-950 dark:text-slate-300">
@@ -65,10 +78,10 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
         <Sidebar />
       </div>
       {isMobileMenuOpen ? (
-        <div className="fixed inset-0 z-30 lg:hidden" aria-modal="true" role="dialog">
-          <button type="button" aria-label="Fermer le menu" className="absolute inset-0 bg-slate-950/45" onClick={() => setIsMobileMenuOpen(false)} />
-          <div className="absolute inset-y-0 left-0 z-40 w-[min(18rem,calc(100vw-2rem))] shadow-2xl">
-            <Sidebar className="w-full" onNavigate={() => setIsMobileMenuOpen(false)} />
+        <div className="fixed inset-0 z-40 overflow-hidden lg:hidden" aria-modal="true" role="dialog">
+          <button type="button" aria-label="Fermer le menu" className="absolute inset-y-0 right-0 left-[min(86vw,320px)] bg-slate-950/45" onClick={() => setIsMobileMenuOpen(false)} />
+          <div className="absolute inset-y-0 left-0 z-40 h-[100dvh] w-[min(86vw,320px)] max-w-[320px] overflow-hidden shadow-2xl">
+            <Sidebar className="w-full" forceExpanded onNavigate={() => setIsMobileMenuOpen(false)} />
           </div>
         </div>
       ) : null}

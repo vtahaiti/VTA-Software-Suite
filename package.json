@@ -33,7 +33,8 @@
     "test:text-quality": "node scripts/text-quality-smoke.cjs",
     "test:password-reset": "node scripts/password-reset-smoke.cjs",
     "test:navigation": "node scripts/navigation-smoke.cjs",
-    "test:subscriptions": "node scripts/subscription-entitlements-smoke.cjs"
+    "test:subscriptions": "node scripts/subscription-entitlements-smoke.cjs",
+    "test:production-priority": "node scripts/production-priority-smoke.cjs"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

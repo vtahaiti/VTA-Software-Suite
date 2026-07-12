@@ -51,7 +51,9 @@ export default function CompanySettingsPage() {
         setMsg(await readSettingsError(response));
         return;
       }
-      setForm(toCompanyForm(await response.json()));
+      const updated = toCompanyForm(await response.json());
+      setForm(updated);
+      window.dispatchEvent(new CustomEvent("vta:branding-updated"));
       setMsg("Paramètres enregistrés.");
     } catch {
       setMsg("Sauvegarde impossible. Vérifiez votre connexion puis réessayez.");

@@ -20,7 +20,12 @@ export function Header({ user, onMenuClick }: HeaderProps) {
   const [items, setItems] = useState<Notification[]>([]);
   const [branding, setBranding] = useState<CompanyBranding | null>(null);
 
-  useEffect(() => { void loadNotifications(); void loadBranding(); }, []);
+  useEffect(() => {
+    void loadNotifications();
+    void loadBranding();
+    window.addEventListener("vta:branding-updated", loadBranding);
+    return () => window.removeEventListener("vta:branding-updated", loadBranding);
+  }, []);
 
   async function loadBranding() {
     const token = getAccessToken();
