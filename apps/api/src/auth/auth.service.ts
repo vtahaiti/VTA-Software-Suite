@@ -322,7 +322,8 @@ export class AuthService {
   private async findUserByEmail(email: string) {
     try {
       return await this.prisma.user.findFirst({
-        where: { email },
+        where: { email, tenant: { status: { not: TenantStatus.DELETED } } },
+        orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
         include: { tenant: true, roles: { include: { role: { include: { permissions: { include: { permission: true } } } } } } }
       });
     } catch {

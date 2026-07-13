@@ -41,7 +41,8 @@
     "test:launch-stabilization": "node scripts/launch-stabilization-smoke.cjs",
     "test:lot2": "node scripts/lot2-import-export-notifications-smoke.cjs",
     "test:web-print-subscription": "node scripts/web-print-subscription-smoke.cjs",
-    "test:exports-runtime": "node scripts/export-runtime-smoke.cjs"
+    "test:exports-runtime": "node scripts/export-runtime-smoke.cjs",
+    "test:deleted-tenant-reregistration": "node scripts/deleted-tenant-reregistration-smoke.cjs"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

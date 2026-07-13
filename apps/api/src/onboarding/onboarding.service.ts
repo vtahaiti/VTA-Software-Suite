@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, UnauthorizedException } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { Prisma, TenantStatus } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { defaultPermissions } from "../rbac/default-permissions";
 import { businessModules, businessProfiles, findActivityTemplate, resolveBusinessProfileSlug } from "../business-profiles/business-catalog";
@@ -27,8 +27,12 @@ export class OnboardingService {
     if (!isPasswordStrong(dto.password)) throw new BadRequestException(passwordPolicyMessage);
     if (!dto.acceptedTerms) throw new BadRequestException("Vous devez accepter les conditions d’utilisation et la politique de confidentialité.");
 
-    const existingUser = await this.prisma.user.findFirst({ where: { email } });
-    if (existingUser) throw new BadRequestException("Un compte existe déjà avec cet email.");
+    const existingUsers = await this.prisma.user.findMany({
+      where: { email },
+      select: { id: true, tenant: { select: { id: true, status: true } } }
+    });
+    const activeTenantUser = existingUsers.find((user) => user.tenant.status !== TenantStatus.DELETED);
+    if (activeTenantUser) throw new BadRequestException("Un compte existe déjà avec cet email.");
 
     const existingPending = await this.prisma.pendingRegistration.findUnique({ where: { email } });
     if (existingPending && existingPending.expiresAt.getTime() > Date.now()) {
