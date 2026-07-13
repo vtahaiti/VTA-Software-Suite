@@ -14,12 +14,12 @@ export function GET() {
     service: "web",
     version: process.env.npm_package_version ?? process.env.APP_VERSION ?? "0.1.0",
     commitSha: firstRealValue(
-      process.env.NEXT_PUBLIC_BUILD_SHA,
+      process.env.SOURCE_COMMIT,
+      process.env.COOLIFY_GIT_COMMIT,
+      process.env.COMMIT_SHA,
       process.env.BUILD_COMMIT_SHA,
       process.env.NEXT_PUBLIC_BUILD_COMMIT_SHA,
-      process.env.COMMIT_SHA,
-      process.env.COOLIFY_GIT_COMMIT,
-      process.env.SOURCE_COMMIT
+      process.env.NEXT_PUBLIC_BUILD_SHA
     ),
     buildTime: firstRealValue(process.env.NEXT_PUBLIC_BUILD_TIME, process.env.BUILD_TIME)
   });
