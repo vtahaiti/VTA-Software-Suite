@@ -12,6 +12,15 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 type HeaderProps = { user: AuthUser | null; onMenuClick?: () => void };
 type Notification = { id: string; title: string; message: string; type: string; status: string; module?: string; createdAt: string };
+type NotificationsResponse = Notification[] | { items?: Notification[]; data?: Notification[]; notifications?: Notification[] };
+
+function extractNotificationItems(payload: NotificationsResponse): Notification[] {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload.items)) return payload.items;
+  if (Array.isArray(payload.data)) return payload.data;
+  if (Array.isArray(payload.notifications)) return payload.notifications;
+  return [];
+}
 
 export function Header({ user, onMenuClick }: HeaderProps) {
   const router = useRouter();
@@ -41,8 +50,14 @@ export function Header({ user, onMenuClick }: HeaderProps) {
       fetch(`${apiUrl}/notifications/unread-count`, { headers }).catch(() => null),
       fetch(`${apiUrl}/notifications?status=unread`, { headers }).catch(() => null)
     ]);
-    if (countResponse?.ok) setCount(((await countResponse.json()) as { count: number }).count);
-    if (itemsResponse?.ok) setItems(((await itemsResponse.json()) as Notification[]).slice(0, 5));
+    if (countResponse?.ok) {
+      const payload = (await countResponse.json()) as { count?: unknown };
+      setCount(typeof payload.count === "number" ? payload.count : 0);
+    }
+    if (itemsResponse?.ok) {
+      const payload = (await itemsResponse.json()) as NotificationsResponse;
+      setItems(extractNotificationItems(payload).slice(0, 5));
+    }
   }
 
   async function markAsRead(id: string) {
