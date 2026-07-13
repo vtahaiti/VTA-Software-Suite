@@ -1,5 +1,18 @@
 apply plugin: 'com.android.application'
 
+def releaseSigningFile = rootProject.file("release-signing.properties")
+def releaseSigningProperties = new Properties()
+if (releaseSigningFile.exists()) {
+    releaseSigningFile.withInputStream { stream ->
+        releaseSigningProperties.load(stream)
+    }
+}
+
+def signingValue = { String key ->
+    def envKey = "VTA_ANDROID_" + key.replace(".", "_").toUpperCase()
+    return System.getenv(envKey) ?: releaseSigningProperties.getProperty(key)
+}
+
 android {
     namespace "com.vtaerp.commerce"
     compileSdk rootProject.ext.compileSdkVersion
@@ -16,8 +29,22 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            def releaseStoreFile = signingValue("storeFile")
+            if (releaseStoreFile) {
+                storeFile file(releaseStoreFile)
+                storePassword signingValue("storePassword")
+                keyAlias signingValue("keyAlias")
+                keyPassword signingValue("keyPassword")
+            }
+        }
+    }
     buildTypes {
         release {
+            if (signingValue("storeFile")) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
