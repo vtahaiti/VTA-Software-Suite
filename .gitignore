@@ -146,6 +146,8 @@ vite.config.ts.timestamp-*
 apps/web/android/*.png
 apps/web/android/app/build/
 apps/web/android/release-signing.properties
+apps/web/android/key.properties
+key.properties
 *.apk
 *.aab
 *.jks
