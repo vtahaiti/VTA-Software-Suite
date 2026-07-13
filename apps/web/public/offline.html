@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Connexion indisponible | VTA Commerce</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body {
+        align-items: center;
+        background: #f8fafc;
+        color: #0f172a;
+        display: flex;
+        justify-content: center;
+        margin: 0;
+        min-height: 100dvh;
+        padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+      }
+
+      main {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        max-width: 420px;
+        padding: 24px;
+        text-align: center;
+      }
+
+      h1 {
+        font-size: 24px;
+        margin: 0 0 10px;
+      }
+
+      p {
+        color: #475569;
+        font-size: 15px;
+        line-height: 1.5;
+        margin: 0;
+      }
+
+      button {
+        background: #15803d;
+        border: 0;
+        border-radius: 10px;
+        color: #ffffff;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 700;
+        margin-top: 20px;
+        padding: 12px 18px;
+      }
+
+      .secondary {
+        background: transparent;
+        color: #334155;
+        margin-left: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Connexion indisponible</h1>
+      <p>V&eacute;rifiez Internet puis r&eacute;essayez. Les donn&eacute;es affich&eacute;es ici ne sont pas pr&eacute;sent&eacute;es comme actuelles.</p>
+      <button type="button" id="retry">R&eacute;essayer</button>
+      <button type="button" id="exit" class="secondary">Quitter</button>
+    </main>
+    <script>
+      document.getElementById("retry").addEventListener("click", () => {
+        window.location.href = "https://vtaerp.com";
+      });
+      document.getElementById("exit").addEventListener("click", () => {
+        if (window.Capacitor?.Plugins?.App?.exitApp) {
+          window.Capacitor.Plugins.App.exitApp();
+        }
+      });
+    </script>
+  </body>
+</html>

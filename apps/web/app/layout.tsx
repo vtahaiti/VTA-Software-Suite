@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CapacitorRuntime } from "@/components/capacitor-runtime";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import "./globals.css";
 
@@ -17,6 +18,7 @@ export default function RootLayout({
     <html lang="fr">
       <body>
         {children}
+        <CapacitorRuntime />
         <ServiceWorkerRegister />
       </body>
     </html>

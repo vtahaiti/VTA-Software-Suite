@@ -7,7 +7,7 @@ import { syncOfflineSalesNow } from "@/lib/offline-sync";
 import { useNetworkStatus } from "@/lib/network-status";
 import { getTenantBusinessConfiguration, type TenantBusinessConfiguration } from "@/lib/business-profiles";
 import { getReceiptPrintSettings, openPrintPreview } from "@/lib/print";
-import { Info, MoreHorizontal, Plus, Search, Trash2, X } from "lucide-react";
+import { Camera, Info, MoreHorizontal, Plus, Search, Trash2, X } from "lucide-react";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -70,6 +70,8 @@ export default function PosPage() {
   const [business, setBusiness] = useState<TenantBusinessConfiguration | null>(null);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [showCustomItemModal, setShowCustomItemModal] = useState(false);
+  const [isNativeScannerAvailable, setIsNativeScannerAvailable] = useState(false);
+  const [isScanningBarcode, setIsScanningBarcode] = useState(false);
   const [customerForm, setCustomerForm] = useState<CustomerForm>(emptyCustomerForm);
   const [customItemForm, setCustomItemForm] = useState<CustomItemForm>(emptyCustomItemForm);
   const scanInputRef = useRef<HTMLInputElement | null>(null);
@@ -171,6 +173,15 @@ export default function PosPage() {
     savePosDraft({ heldSaleId, heldSaleFinalizeKey, cart, customerId, payments, orderDiscount, taxRate, storeId, warehouseId, cashSessionId, updatedAt: new Date().toISOString() });
   }, [heldSaleId, heldSaleFinalizeKey, cart, customerId, payments, orderDiscount, taxRate, storeId, warehouseId, cashSessionId]);
   useEffect(() => { scanInputRef.current?.focus(); }, []);
+  useEffect(() => {
+    let cancelled = false;
+    void import("@capacitor/core")
+      .then(({ Capacitor }) => {
+        if (!cancelled) setIsNativeScannerAvailable(Capacitor.isNativePlatform());
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
   useEffect(() => { const timer = setTimeout(() => void loadProducts(), 200); return () => clearTimeout(timer); }, [loadProducts]);
   useEffect(() => { void refreshPendingCount(); }, []);
   useEffect(() => { if (isOnline) void synchronizeOfflineSales(false); }, [isOnline]);
@@ -261,6 +272,35 @@ export default function PosPage() {
     setQuery("");
     setMessage(`${product.name} ajoute au panier.`);
     scanInputRef.current?.focus();
+  }
+
+  async function scanBarcodeWithCamera() {
+    if (isScanningBarcode) return;
+    setIsScanningBarcode(true);
+    setError("");
+    try {
+      const { BarcodeScanner } = await import("@capacitor-mlkit/barcode-scanning");
+      const permission = await BarcodeScanner.checkPermissions();
+      const cameraPermission = permission.camera === "granted" ? permission : await BarcodeScanner.requestPermissions();
+      if (cameraPermission.camera !== "granted") {
+        setError("Autorisation caméra refusée. Activez-la pour scanner un code-barres.");
+        return;
+      }
+      const result = await BarcodeScanner.scan();
+      const value = result.barcodes?.[0]?.rawValue || result.barcodes?.[0]?.displayValue || "";
+      if (!value) {
+        setError("Aucun code-barres détecté.");
+        return;
+      }
+      setBarcode(value);
+      setQuery(value);
+      await scanBarcode(value);
+    } catch {
+      setError("Scanner indisponible sur cet appareil.");
+    } finally {
+      setIsScanningBarcode(false);
+      scanInputRef.current?.focus();
+    }
   }
 
   async function checkout() {
@@ -604,6 +644,11 @@ export default function PosPage() {
                 <button aria-label="Rechercher un produit" title="Rechercher" onClick={() => void scanBarcode(query)} className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-slate-950 text-white shadow-sm transition hover:bg-slate-800">
                   <Search aria-hidden="true" className="h-5 w-5" />
                 </button>
+                {isNativeScannerAvailable ? (
+                  <button type="button" aria-label="Scanner un code-barres avec la caméra" title="Scanner" disabled={isScanningBarcode} onClick={() => void scanBarcodeWithCamera()} className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-slate-300 bg-white text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
+                    <Camera aria-hidden="true" className="h-5 w-5" />
+                  </button>
+                ) : null}
               </div>
               <CustomerSelector customers={customers} customerId={customerId} defaultLabel={posTemplate.defaultCustomer} onChange={setCustomerId} onCreate={() => setShowCustomerModal(true)} />
             </div>

@@ -1,6 +1,6 @@
 {
-  "name": "VTA ERP",
-  "short_name": "VTA ERP",
+  "name": "VTA Commerce",
+  "short_name": "VTA Commerce",
   "description": "Application de gestion commerciale et POS utilisable en ligne et preparee pour le mode hors ligne.",
   "start_url": "/dashboard",
   "scope": "/",

@@ -6,6 +6,7 @@ const config: CapacitorConfig = {
   webDir: "public",
   server: {
     url: "https://vtaerp.com",
+    errorPath: "offline.html",
     cleartext: false
   },
   plugins: {
