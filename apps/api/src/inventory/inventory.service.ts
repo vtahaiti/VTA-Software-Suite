@@ -1,6 +1,7 @@
 ﻿import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { PhysicalInventoryStatus, Prisma, StockAlertStatus, StockAlertType, TransferStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import * as XLSX from "xlsx";
 import { StockService } from "../stock/stock.service";
 import { availableStock, countLowStockProducts, countOutOfStockProducts, countUnknownCostProducts, isLowStock, isOutOfStock, sumKnownStockValue } from "../common/stock-business-rules";
 import { CreateTransferDto } from "./dto/create-transfer.dto";
@@ -95,8 +96,8 @@ export class InventoryService {
     return { stockValue: value.totalStockValue, rotationPrepared: true, mostMoved: movements.slice(0, 10), leastMoved: movements.slice(-10), historyPrepared: true };
   }
 
-  async exportCsv(tenantId: string) { const data = await this.movements(tenantId, { limit: 1000 }); return [["Date", "Type", "Produit", "Depot", "Quantite", "Avant", "Apres", "Motif"], ...data.items.map((m) => [m.createdAt.toISOString(), m.type, m.product.name, m.warehouse.name, m.quantity, m.beforeQty, m.afterQty, m.note ?? m.reason ?? ""])].map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n"); }
-  async exportExcel(tenantId: string) { const data = await this.movements(tenantId, { limit: 1000 }); return `<table><thead><tr><th>Date</th><th>Type</th><th>Produit</th><th>Depot</th><th>Quantite</th><th>Avant</th><th>Apres</th></tr></thead><tbody>${data.items.map((m) => `<tr><td>${m.createdAt.toISOString()}</td><td>${m.type}</td><td>${m.product.name}</td><td>${m.warehouse.name}</td><td>${m.quantity}</td><td>${m.beforeQty}</td><td>${m.afterQty}</td></tr>`).join("")}</tbody></table>`; }
+  async exportCsv(tenantId: string) { return this.toCsv(await this.inventoryExportRows(tenantId)); }
+  async exportExcel(tenantId: string) { return this.toXlsx(await this.inventoryExportRows(tenantId), "inventaire"); }
   async exportPdf(tenantId: string) { const report = await this.reports(tenantId); return `Rapport inventaire VTA Commerce\nValeur stock: ${report.stockValue}\nMouvements analyses: ${report.mostMoved.length}`; }
 
   private async refreshAlerts(tenantId: string) {
@@ -118,5 +119,27 @@ export class InventoryService {
   }
 
   private dateFilter(dateFrom?: string, dateTo?: string): Prisma.DateTimeFilter | undefined { if (!dateFrom && !dateTo) return undefined; return { gte: dateFrom ? new Date(dateFrom) : undefined, lte: dateTo ? new Date(`${dateTo}T23:59:59.999Z`) : undefined }; }
+  private async inventoryExportRows(tenantId: string) {
+    const data = await this.movements(tenantId, { limit: 5000 });
+    return data.items.map((m) => ({ Date: m.createdAt, Type: m.type, Produit: m.product.name, "Dépôt": m.warehouse.name, "Quantité": m.quantity, Avant: m.beforeQty, "Après": m.afterQty, Motif: m.note ?? m.reason ?? "" }));
+  }
+  private toCsv(rows: Array<Record<string, unknown>>) {
+    const dataRows = rows.length ? rows : [{ Message: "Aucune donnée" }];
+    const headers = Object.keys(dataRows[0]);
+    return "\uFEFF" + [headers, ...dataRows.map((row) => headers.map((header) => this.csvValue(row[header])))].map((row) => row.join(";")).join("\n");
+  }
+  private toXlsx(rows: Array<Record<string, unknown>>, title: string) {
+    const dataRows = rows.length ? rows : [{ Message: "Aucune donnée" }];
+    const worksheet = XLSX.utils.json_to_sheet(dataRows);
+    worksheet["!cols"] = Object.keys(dataRows[0]).map((key) => ({ wch: Math.max(14, key.length + 2) }));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, title.slice(0, 31));
+    return Buffer.from(XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }));
+  }
+  private csvValue(value: unknown) {
+    const raw = value instanceof Date ? value.toISOString() : String(value ?? "");
+    const protectedValue = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
+    return `"${protectedValue.replace(/"/g, '""')}"`;
+  }
 }
 

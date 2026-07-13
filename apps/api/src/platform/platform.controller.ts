@@ -1,5 +1,6 @@
-﻿import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { CreatePlatformNoteDto } from "./dto/create-platform-note.dto";
 import { SendPlatformMessageDto } from "./dto/send-platform-message.dto";
 import { ToggleTenantModuleDto } from "./dto/toggle-tenant-module.dto";
@@ -34,8 +35,8 @@ export class PlatformController {
   }
 
   @Patch("tenants/:id/subscription")
-  updateSubscription(@Param("id") id: string, @Body() dto: UpdateTenantSubscriptionDto) {
-    return this.platform.updateSubscription(id, dto);
+  updateSubscription(@Param("id") id: string, @Body() dto: UpdateTenantSubscriptionDto, @Req() request: AuthenticatedRequest) {
+    return this.platform.updateSubscription(id, dto, request.user.id);
   }
 
   @Patch("tenants/:id/modules/:moduleKey")

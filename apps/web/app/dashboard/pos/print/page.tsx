@@ -162,8 +162,8 @@ export default function PosTicketPrintPage() {
           <div className="no-print rounded-2xl bg-white p-8 text-sm text-slate-500 shadow-sm">Chargement du ticket...</div>
         )}
       </section>
-      <section className="no-print mx-auto mt-4 max-w-3xl rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">
-        <strong>Note impression :</strong> {nativePrint ? "l'application Android utilise le dialogue d'impression du système et le partage PDF, sans pop-up." : "les navigateurs demandent normalement une action utilisateur. Pour une impression silencieuse, utilisez un mode kiosque contrôlé, une application locale, ou QZ Tray / service d'impression local sécurisé."}
+      <section className="no-print mx-auto mt-4 max-w-3xl rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900">
+        Impression prête. Vérifiez le format du papier dans le dialogue d’impression avant de valider.
       </section>
     </main>
   );
@@ -188,14 +188,15 @@ async function readError(response: Response) {
 }
 
 function buildDemoTicket(width: ReceiptWidth) {
-  const usefulWidth = width === "58" ? "54mm" : "76mm";
+  const usefulWidth = width === "58" ? "58mm" : "80mm";
+  const safePadding = width === "58" ? "2mm" : "3mm";
   const fontSize = width === "58" ? "10px" : "11px";
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Aperçu ticket</title><style>
     @page { size: ${width}mm auto; margin: 0; }
     @media print { @page { margin: 0; } html, body { margin: 0; padding: 0; } .no-print { display: none !important; } }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; background: #fff; }
-    body { width: ${usefulWidth}; margin: 0 auto; padding: 2mm; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: ${fontSize}; color: #111; }
+    body { width: ${usefulWidth}; margin: 0 auto; padding: ${safePadding}; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: ${fontSize}; color: #111; }
     .center { text-align: center; } .line { border-top: 1px dashed #111; margin: 7px 0; } .row { display: flex; justify-content: space-between; gap: 8px; } .name { font-weight: 700; overflow-wrap: anywhere; } .total { border-top: 1px solid #111; padding-top: 5px; font-size: 1.15em; font-weight: 900; }
   </style></head><body><div class="center"><strong>MON ENTREPRISE</strong><br>Adresse principale<br>Tel: 0000-0000</div><div class="line"></div><div class="row"><span>Ticket</span><strong>TEST-001</strong></div><div class="row"><span>Date</span><strong>${new Date().toLocaleString("fr-HT")}</strong></div><div class="row"><span>Caissier</span><strong>Test</strong></div><div class="line"></div><div><div class="name">Produit avec nom très long qui doit passer sur plusieurs lignes</div><div class="row"><span>2 x 125,00 G</span><strong>250,00 G</strong></div></div><div><div class="name">Service personnalisé</div><div class="row"><span>1 x 500,00 G</span><strong>500,00 G</strong></div></div><div class="line"></div><div class="row"><span>Sous-total</span><strong>750,00 G</strong></div><div class="row"><span>Remise</span><strong>0,00 G</strong></div><div class="row"><span>Taxe</span><strong>0,00 G</strong></div><div class="row total"><span>Total</span><strong>750,00 G</strong></div><div class="row"><span>Espèces</span><strong>750,00 G</strong></div><div class="row"><span>Montant reçu</span><strong>1 000,00 G</strong></div><div class="row"><span>Monnaie rendue</span><strong>250,00 G</strong></div><div class="line"></div><div class="center"><strong>Merci pour votre achat</strong><br>Conservez ce ticket.</div></body></html>`;
 }

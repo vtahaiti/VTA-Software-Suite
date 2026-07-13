@@ -1,7 +1,8 @@
 ﻿"use client";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
+import { downloadAuthenticatedFile } from "@/lib/authenticated-download";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 const statusLabels: Record<string, string> = { DRAFT: "Brouillon", SENT: "Envoyée", APPROVED: "Approuvée", PARTIALLY_RECEIVED: "Partiellement reçue", FULLY_RECEIVED: "Reçue", RECEIVED: "Reçue", CANCELLED: "Annulée" };
@@ -19,11 +20,8 @@ export default function PurchasesPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
 
-  useEffect(() => { void loadDashboard(); }, []);
-  useEffect(() => { const timer = setTimeout(() => void loadPurchases(), 250); return () => clearTimeout(timer); }, [search, status, page]);
-
   async function authHeaders() { return { Authorization: `Bearer ${getAccessToken()}` }; }
-  async function loadDashboard() {
+  const loadDashboard = useCallback(async function loadDashboard() {
     setDashboardLoading(true);
     try {
       const response = await fetch(`${apiUrl}/purchase-orders/dashboard`, { headers: await authHeaders() });
@@ -34,8 +32,8 @@ export default function PurchasesPage() {
     } finally {
       setDashboardLoading(false);
     }
-  }
-  async function loadPurchases() {
+  }, []);
+  const loadPurchases = useCallback(async function loadPurchases() {
     setListLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page), limit: "10" });
@@ -51,8 +49,17 @@ export default function PurchasesPage() {
     } finally {
       setListLoading(false);
     }
+  }, [page, search, status]);
+  useEffect(() => { void loadDashboard(); }, [loadDashboard]);
+  useEffect(() => { const timer = setTimeout(() => void loadPurchases(), 250); return () => clearTimeout(timer); }, [loadPurchases]);
+  async function exportFile(format: "csv" | "excel" | "pdf") {
+    setError("");
+    try {
+      await downloadAuthenticatedFile(`${apiUrl}/purchase-orders/export/${format}`, `achats.${format === "excel" ? "xlsx" : format}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Téléchargement impossible.");
+    }
   }
-  async function exportFile(format: "csv" | "excel" | "pdf") { const response = await fetch(`${apiUrl}/purchase-orders/export/${format}`, { headers: await authHeaders() }); if (!response.ok) return; const blob = await response.blob(); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = `achats.${format === "excel" ? "xls" : format}`; link.click(); URL.revokeObjectURL(url); }
 
   const pages = useMemo(() => Math.max(1, Math.ceil(total / 10)), [total]);
   const purchasesToday = dashboard?.purchasesToday ?? dashboard?.todayPurchases ?? 0;

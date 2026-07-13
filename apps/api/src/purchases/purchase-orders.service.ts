@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, PurchaseOrderStatus, SupplierInvoiceStatus, SupplierPaymentMethod } from "@prisma/client";
+import * as XLSX from "xlsx";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreatePurchaseOrderDto } from "./dto/create-purchase-order.dto";
 import { PurchaseOrderQueryDto } from "./dto/purchase-order-query.dto";
@@ -73,8 +74,8 @@ export class PurchaseOrdersService {
   supplierInvoices(tenantId: string) { return this.prisma.supplierInvoice.findMany({ where: { tenantId }, include: { supplier: true, purchaseOrder: true, payments: true }, orderBy: { createdAt: "desc" } }); }
   supplierPayments(tenantId: string) { return this.prisma.supplierPayment.findMany({ where: { tenantId }, include: { supplier: true, supplierInvoice: true }, orderBy: { paidAt: "desc" } }); }
 
-  async exportCsv(tenantId: string) { const orders = await this.prisma.purchaseOrder.findMany({ where: { tenantId }, include: { supplier: true }, orderBy: { createdAt: "desc" } }); return [["Numero","Fournisseur","Statut","Sous-total","Remise","Taxe","Total","Date"], ...orders.map((o)=>[o.number,o.supplier.name,o.status,o.subtotal,o.discount,o.tax,o.total,o.createdAt.toISOString()])].map((row)=>row.map((v)=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n"); }
-  async exportExcel(tenantId: string) { const orders = await this.prisma.purchaseOrder.findMany({ where: { tenantId }, include: { supplier: true }, orderBy: { createdAt: "desc" } }); return `<table><thead><tr><th>Numero</th><th>Fournisseur</th><th>Statut</th><th>Total</th></tr></thead><tbody>${orders.map((o)=>`<tr><td>${o.number}</td><td>${o.supplier.name}</td><td>${o.status}</td><td>${o.total}</td></tr>`).join("")}</tbody></table>`; }
+  async exportCsv(tenantId: string) { return this.toCsv(await this.purchaseExportRows(tenantId)); }
+  async exportExcel(tenantId: string) { return this.toXlsx(await this.purchaseExportRows(tenantId), "achats"); }
   async exportPdf(tenantId: string) { const dashboard = await this.dashboard(tenantId); return `Rapport achats\nAchats du jour: ${dashboard.purchasesToday}\nAchats du mois: ${dashboard.purchasesMonth}\nCommandes en attente: ${dashboard.pendingOrders}`; }
   async printPurchaseOrder(tenantId: string, id: string) { const order = await this.findOne(tenantId, id); return this.printDocument("BON DE COMMANDE", order.number, order.supplier.name, order.total); }
   async printSupplierInvoice(tenantId: string, id: string) { const invoice = await this.prisma.supplierInvoice.findFirst({ where: { id, tenantId }, include: { supplier: true } }); if (!invoice) throw new NotFoundException("Facture fournisseur introuvable"); return this.printDocument("FACTURE FOURNISSEUR", invoice.number, invoice.supplier.name, invoice.total); }
@@ -83,5 +84,27 @@ export class PurchaseOrdersService {
   private async ensureProducts(tenantId: string, productIds: string[]) { const uniqueIds = [...new Set(productIds)]; const count = await this.prisma.product.count({ where: { tenantId, id: { in: uniqueIds } } }); if (count !== uniqueIds.length) throw new NotFoundException("Un ou plusieurs produits sont introuvables"); }
   private calculateTotals(items: { quantity: number; unitCost: number; discount?: number; tax?: number }[], orderDiscount = 0) { const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitCost, 0); const itemDiscount = items.reduce((sum, item) => sum + (item.discount ?? 0), 0); const discount = orderDiscount + itemDiscount; const tax = items.reduce((sum, item) => sum + (item.tax ?? 0), 0); return { subtotal, discount, tax, total: subtotal - discount + tax }; }
   private generateNumber(prefix: string) { return `${prefix}-${Date.now().toString(36).toUpperCase()}`; }
-  private printDocument(title: string, number: string, partner: string, total: unknown) { return `${title}\nEntreprise\nDocument: ${number}\nPartenaire: ${partner}\nDate: ${new Date().toLocaleString("fr-HT")}\nUtilisateur: utilisateur connecte\nTotal: ${total}\n\nLogo entreprise et informations magasin prepares.`; }
+  private async purchaseExportRows(tenantId: string) {
+    const orders = await this.prisma.purchaseOrder.findMany({ where: { tenantId }, include: { supplier: true }, orderBy: { createdAt: "desc" } });
+    return orders.map((o) => ({ "Numéro": o.number, Fournisseur: o.supplier.name, Statut: o.status, "Sous-total": Number(o.subtotal), Remise: Number(o.discount), Taxe: Number(o.tax), Total: Number(o.total), Date: o.createdAt }));
+  }
+  private toCsv(rows: Array<Record<string, unknown>>) {
+    const dataRows = rows.length ? rows : [{ Message: "Aucune donnée" }];
+    const headers = Object.keys(dataRows[0]);
+    return "\uFEFF" + [headers, ...dataRows.map((row) => headers.map((header) => this.csvValue(row[header])))].map((row) => row.join(";")).join("\n");
+  }
+  private toXlsx(rows: Array<Record<string, unknown>>, title: string) {
+    const dataRows = rows.length ? rows : [{ Message: "Aucune donnée" }];
+    const worksheet = XLSX.utils.json_to_sheet(dataRows);
+    worksheet["!cols"] = Object.keys(dataRows[0]).map((key) => ({ wch: Math.max(14, key.length + 2) }));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, title.slice(0, 31));
+    return Buffer.from(XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }));
+  }
+  private csvValue(value: unknown) {
+    const raw = value instanceof Date ? value.toISOString() : String(value ?? "");
+    const protectedValue = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
+    return `"${protectedValue.replace(/"/g, '""')}"`;
+  }
+  private printDocument(title: string, number: string, partner: string, total: unknown) { return `${title}\nEntreprise\nDocument: ${number}\nPartenaire: ${partner}\nDate: ${new Date().toLocaleString("fr-HT")}\nUtilisateur: utilisateur connecté\nTotal: ${total}\n\nSignature autorisée : ______________________________`; }
 }

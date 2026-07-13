@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, OnModuleInit } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, OnModuleInit } from "@nestjs/common";
 import { Prisma, SubscriptionPlan, SubscriptionStatus, TenantStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { defaultFeatures, defaultPlans, planFeatureMatrix, type SubscriptionFeatureKey } from "./subscription-features";
@@ -115,7 +115,7 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
     const cached = this.cache.get(tenantId);
     if (cached && cached.expiresAt > Date.now()) return cached.entitlements;
     const subscription = await this.getSubscription(tenantId);
-    const entitlements = this.buildEntitlements(subscription);
+    const entitlements = { ...this.buildEntitlements(subscription), pendingRequest: await this.getPendingPlanRequest(tenantId) };
     this.cache.set(tenantId, { expiresAt: Date.now() + 30_000, entitlements });
     return entitlements;
   }
@@ -164,6 +164,59 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
       trialDays: plan.trialDays,
       features: plan.features.map((entry) => ({ key: entry.feature.key, name: entry.feature.name, category: entry.feature.category, enabled: entry.enabled, limit: entry.limit }))
     }));
+  }
+
+  async requestPlanChange(tenantId: string, actorUserId: string | undefined, planCode: string) {
+    await this.ensureCatalogOnce();
+    const normalizedCode = planCode.trim().toUpperCase();
+    if (!normalizedCode || normalizedCode === "TRIAL" || normalizedCode === "FREE") {
+      throw new BadRequestException("Choisissez un plan payant valide.");
+    }
+    const plan = await this.prisma.plan.findFirst({ where: { code: normalizedCode, isActive: true } });
+    if (!plan) throw new BadRequestException("Plan introuvable ou inactif.");
+    const subscription = await this.getSubscription(tenantId);
+    const currentPlanCode = subscription.planRecord?.code ?? this.legacyPlanCode(subscription.plan);
+    if (currentPlanCode === plan.code && subscription.status === SubscriptionStatus.ACTIVE) {
+      throw new BadRequestException("Ce plan est déjà actif.");
+    }
+    await this.prisma.subscriptionEvent.create({
+      data: {
+        tenantId,
+        subscriptionId: subscription.id,
+        actorUserId,
+        eventType: "PLAN_CHANGE_REQUESTED",
+        previousStatus: subscription.status,
+        newStatus: subscription.status,
+        metadata: {
+          requestStatus: "PENDING",
+          requestedPlanCode: plan.code,
+          requestedPlanName: plan.name,
+          currentPlanCode
+        }
+      }
+    });
+    this.invalidate(tenantId);
+    return { pendingRequest: await this.getPendingPlanRequest(tenantId), subscription: this.buildEntitlements(subscription) };
+  }
+
+  async getPendingPlanRequest(tenantId: string) {
+    const events = await this.prisma.subscriptionEvent.findMany({
+      where: { tenantId, eventType: { in: ["PLAN_CHANGE_REQUESTED", "PLAN_CHANGE_CONFIRMED", "PLAN_CHANGE_REFUSED"] } },
+      orderBy: { createdAt: "desc" },
+      take: 20
+    });
+    const latest = events[0];
+    if (!latest || latest.eventType !== "PLAN_CHANGE_REQUESTED") return null;
+    const metadata = latest.metadata && typeof latest.metadata === "object" && !Array.isArray(latest.metadata) ? latest.metadata as Record<string, unknown> : {};
+    if (metadata.requestStatus !== "PENDING") return null;
+    return {
+      id: latest.id,
+      status: "PENDING",
+      requestedPlanCode: String(metadata.requestedPlanCode ?? ""),
+      requestedPlanName: String(metadata.requestedPlanName ?? metadata.requestedPlanCode ?? ""),
+      currentPlanCode: String(metadata.currentPlanCode ?? ""),
+      createdAt: latest.createdAt
+    };
   }
 
   private async createMissingTrial(tenantId: string) {

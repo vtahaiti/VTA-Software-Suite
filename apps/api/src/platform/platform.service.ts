@@ -209,7 +209,7 @@ export class PlatformService {
     return updated;
   }
 
-  async updateSubscription(id: string, data: { plan?: SubscriptionPlan; status?: SubscriptionStatus; startedAt?: string; endsAt?: string; autoRenew?: boolean; reason?: string }) {
+  async updateSubscription(id: string, data: { plan?: SubscriptionPlan; status?: SubscriptionStatus; startedAt?: string; endsAt?: string; autoRenew?: boolean; reason?: string }, actorUserId?: string) {
     const tenant = await this.ensureTenantCanBeManaged(id);
     const previous = await this.prisma.tenantSubscription.findUnique({ where: { tenantId: id } });
     const plan = data.plan ?? previous?.plan ?? SubscriptionPlan.ESSENTIAL;
@@ -249,14 +249,29 @@ export class PlatformService {
         eventType: "SUBSCRIPTION_UPDATED",
         previousStatus: previous?.status,
         newStatus: subscription.status,
+        actorUserId,
         metadata: { reason: data.reason?.trim() ?? null, previousPlan: previous?.plan ?? null, newPlan: subscription.plan, planCode: planRecord?.code ?? null }
       }
     }).catch(() => undefined);
+    if (data.plan) {
+      await this.prisma.subscriptionEvent.create({
+        data: {
+          tenantId: id,
+          subscriptionId: subscription.id,
+          eventType: "PLAN_CHANGE_CONFIRMED",
+          previousStatus: previous?.status,
+          newStatus: subscription.status,
+          actorUserId,
+          metadata: { reason: data.reason?.trim() ?? null, previousPlan: previous?.plan ?? null, newPlan: subscription.plan, planCode: planRecord?.code ?? null }
+        }
+      }).catch(() => undefined);
+    }
     this.entitlements.invalidate(id);
     await this.writePlatformAudit(id, tenant.name, AuditAction.UPDATE, "PLATFORM_SUBSCRIPTION", "Abonnement modifié depuis le Control Center.", {
       oldValue: previous ? this.serializeSubscription(previous) : undefined,
       newValue: this.serializeSubscription(subscription),
-      metadata: { reason: data.reason?.trim() ?? null }
+      userId: actorUserId,
+      metadata: { reason: data.reason?.trim() ?? null, actorUserId: actorUserId ?? null }
     });
     return subscription;
   }
@@ -341,12 +356,13 @@ export class PlatformService {
 
   async subscriptions() {
     const tenants = await this.prisma.tenant.findMany({ where: this.customerTenantWhere(), include: { companyProfile: true, subscription: { include: { planRecord: true } }, _count: { select: { users: true, stores: true } } }, orderBy: { createdAt: "desc" } });
+    const pendingRequests = await this.latestPendingPlanRequests(tenants.map((tenant) => tenant.id));
     return tenants.map((tenant) => ({
       id: tenant.id,
       name: tenant.companyProfile?.companyName ?? tenant.name,
       activity: tenant.primaryActivity,
       status: tenant.status,
-      subscription: this.serializeSubscription(tenant.subscription),
+      subscription: { ...this.serializeSubscription(tenant.subscription), pendingRequest: pendingRequests.get(tenant.id) ?? null },
       licenses: { users: tenant._count.users, stores: tenant._count.stores },
       createdAt: tenant.createdAt
     }));
@@ -492,6 +508,33 @@ export class PlatformService {
     return map;
   }
 
+  private async latestPendingPlanRequests(tenantIds: string[]) {
+    if (!tenantIds.length) return new Map<string, { requestedPlanCode: string; requestedPlanName: string; createdAt: Date }>();
+    const events = await this.prisma.subscriptionEvent.findMany({
+      where: { tenantId: { in: tenantIds }, eventType: { in: ["PLAN_CHANGE_REQUESTED", "PLAN_CHANGE_CONFIRMED", "PLAN_CHANGE_REFUSED"] } },
+      orderBy: { createdAt: "desc" },
+      take: Math.max(tenantIds.length * 5, 20)
+    });
+    const map = new Map<string, { requestedPlanCode: string; requestedPlanName: string; createdAt: Date }>();
+    const closed = new Set<string>();
+    for (const event of events) {
+      if (closed.has(event.tenantId) || map.has(event.tenantId)) continue;
+      if (event.eventType !== "PLAN_CHANGE_REQUESTED") {
+        closed.add(event.tenantId);
+        continue;
+      }
+      const metadata = event.metadata && typeof event.metadata === "object" && !Array.isArray(event.metadata) ? event.metadata as Record<string, unknown> : {};
+      if (metadata.requestStatus === "PENDING") {
+        map.set(event.tenantId, {
+          requestedPlanCode: String(metadata.requestedPlanCode ?? ""),
+          requestedPlanName: String(metadata.requestedPlanName ?? metadata.requestedPlanCode ?? ""),
+          createdAt: event.createdAt
+        });
+      }
+    }
+    return map;
+  }
+
   private customerTenantWhere(): Prisma.TenantWhereInput {
     return {
       status: { not: TenantStatus.DELETED },
@@ -581,7 +624,7 @@ export class PlatformService {
     action: AuditAction,
     entity: string,
     message: string,
-    extra: { oldValue?: Prisma.InputJsonValue; newValue?: Prisma.InputJsonValue; metadata?: Prisma.InputJsonValue } = {}
+    extra: { userId?: string; oldValue?: Prisma.InputJsonValue; newValue?: Prisma.InputJsonValue; metadata?: Prisma.InputJsonValue } = {}
   ) {
     await this.prisma.auditLog.create({
       data: {

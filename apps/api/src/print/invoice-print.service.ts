@@ -24,9 +24,9 @@ export class InvoicePrintService {
     const received = paymentSummary.receivedAmount;
     const change = paymentSummary.changeAmount;
     const widthMm = width === "58" ? 58 : 80;
-    const usefulWidth = width === "58" ? "54mm" : "76mm";
+    const usefulWidth = width === "58" ? "58mm" : "80mm";
+    const safePadding = width === "58" ? "2mm" : "3mm";
     const fontSize = width === "58" ? "10px" : "11px";
-    const paymentMethods = sale.payments.length ? sale.payments.map((payment) => payment.method).join(", ") : "Cash";
     return this.page(`Ticket ${sale.receipt?.number ?? sale.id}`, `
       <style>
         @page { size: ${widthMm}mm auto; margin: 0; }
@@ -37,7 +37,7 @@ export class InvoicePrintService {
         }
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; background: #fff; }
-        body { width: ${usefulWidth}; margin: 0 auto; padding: 2mm; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: ${fontSize}; line-height: 1.25; color: #111827; }
+        body { width: ${usefulWidth}; margin: 0 auto; padding: ${safePadding}; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: ${fontSize}; line-height: 1.25; color: #111827; }
         .ticket { width: 100%; overflow: hidden; }
         .center { text-align: center; }
         .logo { width: ${width === "58" ? "36px" : "44px"}; height: ${width === "58" ? "36px" : "44px"}; margin: 0 auto 5px; border: 1px solid #d1d5db; border-radius: 999px; display: grid; place-items: center; font-weight: 800; font-size: 12px; overflow: hidden; }
@@ -55,7 +55,6 @@ export class InvoicePrintService {
         .total-row td { padding-top: 5px; font-size: ${width === "58" ? "12px" : "14px"}; font-weight: 900; border-top: 1px solid #111827; }
         .thanks { margin-top: 8px; font-weight: 800; text-align: center; }
         .legal { margin-top: 2px; text-align: center; font-size: 9px; color: #6b7280; }
-        .qr { margin: 8px auto 0; width: ${width === "58" ? "40px" : "48px"}; height: ${width === "58" ? "40px" : "48px"}; border: 1px dashed #6b7280; display: grid; place-items: center; font-size: 9px; color: #6b7280; }
       </style>
       <div class="ticket">
         <div class="center">
@@ -75,7 +74,6 @@ export class InvoicePrintService {
         <div class="line"></div>
         <div class="thanks">Merci pour votre achat</div>
         <div class="legal">Conservez ce ticket comme preuve de paiement.</div>
-        <div class="qr">QR</div>
       </div>
     `);
   }
@@ -94,15 +92,15 @@ export class InvoicePrintService {
     const pageSize = format === "a4" ? "A4" : "Letter";
     return this.page(`Facture ${invoice.documentNumber}`, `
       <style>
-        @page { size: ${pageSize}; margin: 16mm; }
-        body { font-family: Arial, sans-serif; color: #111827; font-size: 12px; } .top { display: flex; justify-content: space-between; gap: 24px; } .logo { width: 64px; height: 64px; border: 1px solid #111827; border-radius: 10px; display: grid; place-items: center; font-weight: 700; margin-bottom: 8px; overflow: hidden; } .logo img { width: 100%; height: 100%; object-fit: cover; }
-        h1 { margin: 0; font-size: 28px; } .muted { color: #4b5563; } .box { border: 1px solid #d1d5db; border-radius: 8px; padding: 12px; } table { width: 100%; border-collapse: collapse; margin-top: 18px; } th { background: #f3f4f6; text-align: left; } th, td { border-bottom: 1px solid #e5e7eb; padding: 9px; } .right { text-align: right; } .summary { margin-left: auto; width: 260px; } .signature { margin-top: 44px; border-top: 1px solid #111827; width: 220px; padding-top: 6px; text-align: center; }
+        @page { size: ${pageSize}; margin: ${format === "a4" ? "12mm" : "12.7mm"}; }
+        body { font-family: Arial, sans-serif; color: #111827; font-size: 12px; } .top { display: flex; justify-content: space-between; gap: 24px; } .logo { width: 64px; height: 64px; border: 1px solid #111827; border-radius: 10px; display: grid; place-items: center; font-weight: 700; margin-bottom: 8px; overflow: hidden; } .logo img { width: 100%; height: 100%; object-fit: contain; }
+        h1 { margin: 0; font-size: 28px; } .muted { color: #4b5563; } .box { border: 1px solid #d1d5db; border-radius: 8px; padding: 12px; } table { width: 100%; border-collapse: collapse; margin-top: 18px; page-break-inside: auto; } thead { display: table-header-group; } tr { page-break-inside: avoid; } th { background: #f3f4f6; text-align: left; } th, td { border-bottom: 1px solid #e5e7eb; padding: 9px; } .right { text-align: right; } .summary { margin-left: auto; width: 260px; } .signature { break-inside: avoid; margin-top: 44px; padding-top: 12px; font-weight: 700; }
       </style>
       <div class="top"><div><div class="logo">${this.logoContent(tenant)}</div><strong>${this.escape(this.companyName(tenant))}</strong><br/><span class="muted">${this.escape(this.companyAddress(tenant) || "Adresse non définie")}</span><br/><span class="muted">${this.escape(this.companyPhone(tenant) || "Téléphone non défini")}</span><br/><span class="muted">${this.escape(this.companyEmail(tenant) || "Email non d?fini")}</span>${this.companyTax(tenant) ? `<br/><span class="muted">NIF: ${this.escape(this.companyTax(tenant))}</span>` : ""}</div><div class="right"><h1>FACTURE</h1><p><strong>${this.escape(invoice.documentNumber)}</strong></p><p>Date: ${this.date(invoice.createdAt)}<br/>Échéance: ${this.date(invoice.issuedAt ?? invoice.createdAt)}</p></div></div>
       <div class="box" style="margin-top:24px"><strong>Client</strong><br/>${this.escape(invoice.customer?.displayName ?? "Client comptoir")}<br/><span class="muted">${this.escape(invoice.customer?.address ?? "Adresse client non d?finie")}</span><br/><span class="muted">${this.escape(invoice.customer?.email ?? "Email client non defini")}</span></div>
       <table><thead><tr><th>Produits / services</th><th class="right">Qte</th><th class="right">Prix</th><th class="right">Remise</th><th class="right">Taxes</th><th class="right">Total</th></tr></thead><tbody>${invoice.items.map((item) => `<tr><td>${this.escape(this.itemName(item))}${item.productId ? "" : `<br/><span class="muted">Article personnalisé</span>`}</td><td class="right">${item.quantity}</td><td class="right">${this.money(item.unitPrice)}</td><td class="right">${this.money(item.discount)}</td><td class="right">${this.money(item.tax)}</td><td class="right">${this.money(item.total)}</td></tr>`).join("")}</tbody></table>
       <table class="summary"><tr><td>Sous-total</td><td class="right">${this.money(invoice.subtotal)}</td></tr><tr><td>Remise</td><td class="right">${this.money(invoice.discount)}</td></tr><tr><td>Taxes</td><td class="right">${this.money(invoice.tax)}</td></tr><tr><td><strong>Total</strong></td><td class="right"><strong>${this.money(invoice.total)}</strong></td></tr><tr><td>Montant réglé</td><td class="right">${this.money(paid)}</td></tr><tr><td>Montant reçu</td><td class="right">${this.money(received)}</td></tr><tr><td>Monnaie rendue</td><td class="right">${this.money(change)}</td></tr><tr><td>Solde</td><td class="right">${this.money(invoice.balance)}</td></tr></table>
-      <p><strong>Notes</strong><br/>${this.escape(invoice.notes ?? "Aucune note")}</p><div class="signature">Signature préparée</div>
+      <p><strong>Notes</strong><br/>${this.escape(invoice.notes ?? "Aucune note")}</p><div class="signature">Signature autorisée : ______________________________</div>
     `);
   }
 

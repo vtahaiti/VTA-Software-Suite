@@ -2,6 +2,7 @@
 import { Prisma } from "@prisma/client";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { PrismaService } from "../prisma/prisma.service";
+import * as XLSX from "xlsx";
 import { CreateSupplierDto } from "./dto/create-supplier.dto";
 import { SupplierQueryDto } from "./dto/supplier-query.dto";
 import { UpdateSupplierDto } from "./dto/update-supplier.dto";
@@ -42,9 +43,31 @@ export class SuppliersService {
   async update(tenantId: string, id: string, dto: UpdateSupplierDto) { await this.findOne(tenantId, id); return this.prisma.supplier.update({ where: { id }, data: dto }); }
   async deactivate(tenantId: string, id: string) { await this.findOne(tenantId, id); return this.prisma.supplier.update({ where: { id }, data: { status: "INACTIVE" } }); }
 
-  async exportCsv(tenantId: string) { const suppliers = await this.prisma.supplier.findMany({ where: { tenantId }, orderBy: { name: "asc" } }); return [["Code","Nom","Societe","Téléphone","WhatsApp","Email","Ville","Pays","Contact","Devise","Statut"], ...suppliers.map((s)=>[s.code,s.name,s.company??"",s.phone??"",s.whatsapp??"",s.email??"",s.city??"",s.country??"",s.primaryContact??"",s.currency,s.status])].map((row)=>row.map((v)=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n"); }
-  async exportExcel(tenantId: string) { const suppliers = await this.prisma.supplier.findMany({ where: { tenantId }, orderBy: { name: "asc" } }); return `<table><thead><tr><th>Code</th><th>Nom</th><th>Societe</th><th>Telephone</th><th>Email</th><th>Statut</th></tr></thead><tbody>${suppliers.map((s)=>`<tr><td>${s.code}</td><td>${s.name}</td><td>${s.company??""}</td><td>${s.phone??""}</td><td>${s.email??""}</td><td>${s.status}</td></tr>`).join("")}</tbody></table>`; }
+  async exportCsv(tenantId: string) { return this.toCsv(await this.supplierExportRows(tenantId)); }
+  async exportExcel(tenantId: string) { return this.toXlsx(await this.supplierExportRows(tenantId), "fournisseurs"); }
   async exportPdf(tenantId: string) { const suppliers = await this.prisma.supplier.findMany({ where: { tenantId }, orderBy: { name: "asc" }, take: 500 }); return `Rapport fournisseurs VTA Commerce\n\n${suppliers.map((s)=>`${s.code} - ${s.name} - ${s.phone??""}`).join("\n")}`; }
+  private async supplierExportRows(tenantId: string) {
+    const suppliers = await this.prisma.supplier.findMany({ where: { tenantId }, orderBy: { name: "asc" } });
+    return suppliers.map((s) => ({ Code: s.code, Nom: s.name, "Société": s.company ?? "", "Téléphone": s.phone ?? "", WhatsApp: s.whatsapp ?? "", Email: s.email ?? "", Ville: s.city ?? "", Pays: s.country ?? "", Contact: s.primaryContact ?? "", Devise: s.currency, Statut: s.status }));
+  }
+  private toCsv(rows: Array<Record<string, unknown>>) {
+    const dataRows = rows.length ? rows : [{ Message: "Aucune donnée" }];
+    const headers = Object.keys(dataRows[0]);
+    return "\uFEFF" + [headers, ...dataRows.map((row) => headers.map((header) => this.csvValue(row[header])))].map((row) => row.join(";")).join("\n");
+  }
+  private toXlsx(rows: Array<Record<string, unknown>>, title: string) {
+    const dataRows = rows.length ? rows : [{ Message: "Aucune donnée" }];
+    const worksheet = XLSX.utils.json_to_sheet(dataRows);
+    worksheet["!cols"] = Object.keys(dataRows[0]).map((key) => ({ wch: Math.max(14, key.length + 2) }));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, title.slice(0, 31));
+    return Buffer.from(XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }));
+  }
+  private csvValue(value: unknown) {
+    const raw = value instanceof Date ? value.toISOString() : String(value ?? "");
+    const protectedValue = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
+    return `"${protectedValue.replace(/"/g, '""')}"`;
+  }
   private generateCode() { return `SUP-${Date.now().toString(36).toUpperCase()}`; }
 }
 

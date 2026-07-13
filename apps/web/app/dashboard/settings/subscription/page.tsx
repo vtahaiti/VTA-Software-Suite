@@ -42,8 +42,10 @@ type SubscriptionPayload = {
     planCode?: string | null;
     status?: string | null;
     active?: boolean;
+    isActive?: boolean;
     features?: string[];
     featureDetails?: Array<{ key?: string; name?: string; category?: string; enabled?: boolean; limit?: number | null }>;
+    pendingRequest?: { status?: string; requestedPlanCode?: string; requestedPlanName?: string; createdAt?: string } | null;
   } | null;
 };
 
@@ -52,6 +54,7 @@ export default function SubscriptionSettingsPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
 
   async function load() {
     setLoading(true);
@@ -78,15 +81,35 @@ export default function SubscriptionSettingsPage() {
     void load();
   }, []);
 
-  const subscription = data?.subscription ?? null;
-  const entitlements = data?.entitlements ?? null;
+  const rootEntitlements = data && !data.entitlements ? data as NonNullable<SubscriptionPayload["entitlements"]> : data?.entitlements ?? null;
+  const subscription = (data?.subscription ?? rootEntitlements) as (NonNullable<SubscriptionPayload["subscription"]> & NonNullable<SubscriptionPayload["entitlements"]>) | null;
+  const entitlements = rootEntitlements;
   const planCode = subscription?.planCode ?? entitlements?.planCode ?? subscription?.plan ?? "FREE";
   const featureDetails = entitlements?.featureDetails ?? [];
   const payments = subscription?.payments ?? [];
   const currentPlan = useMemo(() => plans.find((plan) => plan.code === planCode), [plans, planCode]);
   const price = Number(subscription?.price ?? currentPlan?.monthlyPrice ?? 0);
   const currency = subscription?.currency ?? currentPlan?.currency ?? "HTG";
-  const isActive = Boolean(entitlements?.active);
+  const isActive = Boolean(entitlements?.active ?? entitlements?.isActive);
+  const pendingRequest = entitlements?.pendingRequest ?? null;
+
+  async function requestPlan(planCode?: string | null) {
+    if (!planCode) return;
+    setError("");
+    setActionMessage("");
+    try {
+      const response = await fetchWithAuth(`${apiUrl}/subscription/plan-requests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planCode })
+      });
+      if (!response.ok) throw new Error(await readError(response));
+      setActionMessage("Demande envoyée. VTA Commerce doit valider le plan avant activation.");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Demande impossible.");
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -115,9 +138,13 @@ export default function SubscriptionSettingsPage() {
                 <Info label="Jours restants" value={typeof subscription?.daysRemaining === "number" ? subscription.daysRemaining : "Non défini"} />
                 <Info label="Prochain renouvellement" value={formatDate(subscription?.currentPeriodEnd ?? subscription?.trialEndsAt)} />
               </div>
+              {pendingRequest ? <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">Demande en attente : {pendingRequest.requestedPlanName || labelPlan(pendingRequest.requestedPlanCode)}. Les fonctionnalités payantes commenceront après confirmation par VTA Commerce.</div> : null}
+              {actionMessage ? <div className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-100">{actionMessage}</div> : null}
               <div className="mt-5 flex flex-wrap gap-2">
-                <button className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Changer de plan</button>
-                <button className="rounded-md border px-4 py-2 text-sm font-semibold">Renouveler</button>
+                {plans.filter((plan) => plan.code && plan.code !== planCode && plan.code !== "TRIAL").map((plan) => (
+                  <button key={plan.code} type="button" onClick={() => void requestPlan(plan.code)} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Demander {plan.name ?? labelPlan(plan.code)}</button>
+                ))}
+                <button type="button" className="rounded-md border px-4 py-2 text-sm font-semibold" onClick={() => setActionMessage("Le renouvellement est validé par VTA Commerce après confirmation du paiement.")}>Renouveler</button>
                 <button className="rounded-md border px-4 py-2 text-sm font-semibold opacity-60" title="Disponible après paiement validé">Télécharger le reçu</button>
               </div>
               <p className="mt-3 text-xs text-slate-500">Le paiement automatique n’est pas activé. Les renouvellements restent validés par VTA Commerce ou par le futur fournisseur de paiement configuré.</p>

@@ -1,4 +1,4 @@
-﻿import { Body, Controller, Get, Header, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Header, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
@@ -15,15 +15,15 @@ export class InventoryController {
 
   @Get()
   @Permissions("inventory.view")
-  dashboardLegacy(@Req() req: AuthenticatedRequest, @Query() query: any) { return this.service.dashboard(req.user.tenantId, query); }
+  dashboardLegacy(@Req() req: AuthenticatedRequest, @Query() query: Parameters<InventoryService["dashboard"]>[1]) { return this.service.dashboard(req.user.tenantId, query); }
 
   @Get("dashboard")
   @Permissions("inventory.view")
-  dashboard(@Req() req: AuthenticatedRequest, @Query() query: any) { return this.service.dashboard(req.user.tenantId, query); }
+  dashboard(@Req() req: AuthenticatedRequest, @Query() query: Parameters<InventoryService["dashboard"]>[1]) { return this.service.dashboard(req.user.tenantId, query); }
 
   @Get("movements")
   @Permissions("inventory.audit")
-  movements(@Req() req: AuthenticatedRequest, @Query() query: any) { return this.service.movements(req.user.tenantId, query); }
+  movements(@Req() req: AuthenticatedRequest, @Query() query: Parameters<InventoryService["movements"]>[1]) { return this.service.movements(req.user.tenantId, query); }
 
   @Get("alerts")
   @Permissions("inventory.low_stock.view")
@@ -31,7 +31,7 @@ export class InventoryController {
 
   @Post("adjustments/manual")
   @Permissions("inventory.adjust")
-  adjustment(@Req() req: AuthenticatedRequest, @Body() dto: any) { return this.service.createAdjustment(req.user.tenantId, dto); }
+  adjustment(@Req() req: AuthenticatedRequest, @Body() dto: Parameters<InventoryService["createAdjustment"]>[1]) { return this.service.createAdjustment(req.user.tenantId, dto); }
 
   @Get("physical-inventories")
   @Permissions("inventory.view")
@@ -39,7 +39,7 @@ export class InventoryController {
 
   @Post("physical-inventories")
   @Permissions("inventory.adjust")
-  createPhysicalInventory(@Req() req: AuthenticatedRequest, @Body() dto: any) { return this.service.createPhysicalInventory(req.user.tenantId, req.user.id, dto); }
+  createPhysicalInventory(@Req() req: AuthenticatedRequest, @Body() dto: Parameters<InventoryService["createPhysicalInventory"]>[2]) { return this.service.createPhysicalInventory(req.user.tenantId, req.user.id, dto); }
 
   @Post("physical-inventories/:id/validate")
   @Permissions("inventory.adjust")
@@ -80,8 +80,8 @@ export class InventoryController {
   exportCsv(@Req() req: AuthenticatedRequest) { return this.service.exportCsv(req.user.tenantId); }
 
   @Get("export/excel")
-  @Header("Content-Type", "application/vnd.ms-excel")
-  @Header("Content-Disposition", "attachment; filename=inventory.xls")
+  @Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+  @Header("Content-Disposition", "attachment; filename=inventory.xlsx")
   @Permissions("export.inventory")
   exportExcel(@Req() req: AuthenticatedRequest) { return this.service.exportExcel(req.user.tenantId); }
 

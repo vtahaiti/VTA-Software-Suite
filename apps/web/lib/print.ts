@@ -1,4 +1,5 @@
 import { getAccessToken } from "@/lib/auth";
+import { downloadAuthenticatedFile } from "@/lib/authenticated-download";
 import { isNativePrintAvailable, printHtmlNative, type NativePrintFormat } from "@/lib/native-print";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -49,38 +50,50 @@ export async function printHtmlContent(html: string, options: PrintHtmlContentOp
     return;
   }
 
-  const preview = window.open("", "_blank", "noopener,noreferrer");
-  if (!preview) {
-    throw new Error("Le navigateur a bloqué l'aperçu d'impression. Autorisez les pop-ups pour VTA Commerce, puis réessayez.");
-  }
-  preview.document.open();
-  preview.document.write(html);
-  preview.document.close();
-  preview.focus?.();
-  preview.print();
+  await printHtmlInHiddenFrame(html);
 }
 
 export async function downloadPdf(path: string, filename: string) {
-  const response = await fetch(`${apiUrl}${path}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
-  if (!response.ok) throw new Error("Téléchargement PDF impossible");
-  const blob = await response.blob();
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  window.URL.revokeObjectURL(url);
+  await downloadAuthenticatedFile(`${apiUrl}${path}`, filename);
 }
 
 async function openInternalOrPopup(url: string) {
-  if (await isNativePrintAvailable()) {
-    window.location.assign(url);
-    return;
-  }
+  window.location.assign(url);
+}
 
-  const preview = window.open(url, "_blank", "noopener,noreferrer");
-  if (!preview) {
-    throw new Error("Le navigateur a bloqué l'aperçu du ticket. Autorisez les pop-ups pour VTA Commerce, puis réessayez.");
+async function printHtmlInHiddenFrame(html: string) {
+  const iframe = document.createElement("iframe");
+  iframe.title = "Impression VTA Commerce";
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  iframe.style.opacity = "0";
+  iframe.style.pointerEvents = "none";
+  document.body.appendChild(iframe);
+
+  try {
+    const doc = iframe.contentDocument;
+    const win = iframe.contentWindow;
+    if (!doc || !win) throw new Error("Impression impossible pour le moment.");
+    doc.open();
+    doc.write(html);
+    doc.close();
+    await waitForPrintableDocument(doc);
+    win.focus();
+    win.print();
+  } finally {
+    window.setTimeout(() => iframe.remove(), 1500);
   }
-  preview.focus?.();
+}
+
+async function waitForPrintableDocument(doc: Document) {
+  if (doc.fonts?.ready) await doc.fonts.ready.catch(() => undefined);
+  const images = Array.from(doc.images ?? []);
+  await Promise.all(images.map((image) => image.complete ? Promise.resolve() : new Promise<void>((resolve) => {
+    image.onload = () => resolve();
+    image.onerror = () => resolve();
+  })));
 }

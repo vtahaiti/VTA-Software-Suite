@@ -26,8 +26,8 @@ export class SuppliersController {
   exportCsv(@Req() request: AuthenticatedRequest) { return this.suppliersService.exportCsv(request.user.tenantId); }
 
   @Get("export/excel")
-  @Header("Content-Type", "application/vnd.ms-excel")
-  @Header("Content-Disposition", "attachment; filename=suppliers.xls")
+  @Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+  @Header("Content-Disposition", "attachment; filename=suppliers.xlsx")
   @Permissions("suppliers.export")
   exportExcel(@Req() request: AuthenticatedRequest) { return this.suppliersService.exportExcel(request.user.tenantId); }
 
