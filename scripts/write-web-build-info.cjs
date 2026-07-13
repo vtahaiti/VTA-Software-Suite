@@ -28,9 +28,9 @@ const buildInfo = {
     process.env.COOLIFY_GIT_COMMIT,
     process.env.COMMIT_SHA,
     process.env.BUILD_COMMIT_SHA,
+    gitCommitSha(),
     process.env.NEXT_PUBLIC_BUILD_COMMIT_SHA,
-    process.env.NEXT_PUBLIC_BUILD_SHA,
-    gitCommitSha()
+    process.env.NEXT_PUBLIC_BUILD_SHA
   ),
   buildTime: firstRealValue(process.env.NEXT_PUBLIC_BUILD_TIME, process.env.BUILD_TIME, new Date().toISOString())
 };
