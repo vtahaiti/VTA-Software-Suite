@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Download, FileSpreadsheet, RefreshCw, Upload } from "lucide-react";
 import { getAccessToken } from "@/lib/auth";
+import { downloadAuthenticatedFile } from "@/lib/authenticated-download";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -128,6 +129,15 @@ export default function ImportExportPage() {
     URL.revokeObjectURL(url);
   }
 
+  async function downloadFile(path: string, fileName: string) {
+    setMessage("");
+    try {
+      await downloadAuthenticatedFile(`${apiUrl}${path}`, fileName);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Téléchargement impossible.");
+    }
+  }
+
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -146,8 +156,8 @@ export default function ImportExportPage() {
               <p className="text-sm text-slate-500">CSV UTF-8, CSV BOM, séparateurs virgule/point-virgule/tabulation, ou XLSX.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <a href={`${apiUrl}/import-export/products/template/csv`} className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700"><Download className="h-4 w-4" /> Modèle CSV</a>
-              <a href={`${apiUrl}/import-export/products/template/xlsx`} className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700"><FileSpreadsheet className="h-4 w-4" /> Modèle XLSX</a>
+              <button type="button" onClick={() => void downloadFile("/import-export/products/template/csv", "modele-produits.csv")} className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700"><Download className="h-4 w-4" /> Modèle CSV</button>
+              <button type="button" onClick={() => void downloadFile("/import-export/products/template/xlsx", "modele-produits.xlsx")} className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700"><FileSpreadsheet className="h-4 w-4" /> Modèle XLSX</button>
             </div>
           </div>
 
@@ -211,8 +221,8 @@ export default function ImportExportPage() {
             <div key={path} className="rounded-md border border-slate-200 p-3 dark:border-slate-800">
               <p className="font-semibold">{label}</p>
               <div className="mt-2 flex gap-2">
-                <a href={`${apiUrl}/import-export/${path}/export/csv`} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700">CSV</a>
-                <a href={`${apiUrl}/import-export/${path}/export/xlsx`} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700">XLSX</a>
+                <button type="button" onClick={() => void downloadFile(`/import-export/${path}/export/csv`, `${path.replaceAll("/", "-")}.csv`)} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700">CSV</button>
+                <button type="button" onClick={() => void downloadFile(`/import-export/${path}/export/xlsx`, `${path.replaceAll("/", "-")}.xlsx`)} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700">XLSX</button>
               </div>
             </div>
           ))}

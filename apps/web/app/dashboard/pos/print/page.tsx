@@ -1,9 +1,10 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { getAccessToken } from "@/lib/auth";
+import { isNativePrintAvailable, printHtmlNative, sharePdfNative } from "@/lib/native-print";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 type ReceiptWidth = "58" | "80";
@@ -18,9 +19,14 @@ export default function PosTicketPrintPage() {
   const [html, setHtml] = useState("");
   const [status, setStatus] = useState("Préparation du ticket...");
   const [error, setError] = useState("");
+  const [nativePrint, setNativePrint] = useState(false);
   const [printedAutomatically, setPrintedAutomatically] = useState(false);
   const frameWidth = width === "58" ? "58mm" : "80mm";
   const demoHtml = useMemo(() => buildDemoTicket(width), [width]);
+
+  useEffect(() => {
+    void isNativePrintAvailable().then(setNativePrint).catch(() => setNativePrint(false));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,6 +63,21 @@ export default function PosTicketPrintPage() {
   }, [demoHtml, isDemo, path]);
 
   const printFrame = useCallback(async () => {
+    if (nativePrint) {
+      if (!html) {
+        setError("L'aperçu n'est pas encore prêt. Réessayez dans quelques secondes.");
+        return;
+      }
+      try {
+        setStatus("Ouverture de l'impression Android...");
+        await printHtmlNative({ html, title: `Ticket VTA Commerce ${width} mm`, format: width });
+        setStatus("Dialogue d'impression Android ouvert.");
+      } catch {
+        setError("Impossible d'ouvrir l'impression Android. Essayez le partage PDF.");
+      }
+      return;
+    }
+
     const frame = iframeRef.current;
     const win = frame?.contentWindow;
     const doc = frame?.contentDocument;
@@ -69,11 +90,30 @@ export default function PosTicketPrintPage() {
       await waitForPrintableDocument(doc);
       win.focus();
       win.print();
-      setStatus("Dialogue d'impression ouvert. Si rien ne s'affiche, vérifiez les pop-ups et l'imprimante.");
+      setStatus("Dialogue d'impression ouvert.");
     } catch {
       setError("Impossible d'ouvrir l'impression. Vous pouvez réessayer avec le bouton Imprimer.");
     }
-  }, []);
+  }, [html, nativePrint, width]);
+
+  const sharePdf = useCallback(async () => {
+    if (!html) {
+      setError("L'aperçu n'est pas encore prêt. Réessayez dans quelques secondes.");
+      return;
+    }
+    try {
+      setStatus("Préparation du PDF...");
+      await sharePdfNative({
+        html,
+        title: `Ticket VTA Commerce ${width} mm`,
+        fileName: `ticket-vta-${width}mm.pdf`,
+        format: width
+      });
+      setStatus("Partage PDF ouvert.");
+    } catch {
+      setError("Impossible de préparer le partage PDF.");
+    }
+  }, [html, width]);
 
   useEffect(() => {
     if (!autoPrint || printedAutomatically || !html || error) return;
@@ -104,6 +144,7 @@ export default function PosTicketPrintPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/dashboard/pos" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold">Retour au POS</Link>
+          {nativePrint ? <button onClick={() => void sharePdf()} disabled={!html || Boolean(error)} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">Partager en PDF</button> : null}
           <button onClick={() => void printFrame()} disabled={!html || Boolean(error)} className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">Imprimer</button>
         </div>
       </section>
@@ -122,7 +163,7 @@ export default function PosTicketPrintPage() {
         )}
       </section>
       <section className="no-print mx-auto mt-4 max-w-3xl rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">
-        <strong>Note impression silencieuse :</strong> les navigateurs demandent normalement une action utilisateur. Pour une impression sans dialogue, utilisez un mode kiosque contrôlé, une application locale, ou QZ Tray / service d&apos;impression local sécurisé.
+        <strong>Note impression :</strong> {nativePrint ? "l'application Android utilise le dialogue d'impression du système et le partage PDF, sans pop-up." : "les navigateurs demandent normalement une action utilisateur. Pour une impression silencieuse, utilisez un mode kiosque contrôlé, une application locale, ou QZ Tray / service d'impression local sécurisé."}
       </section>
     </main>
   );
@@ -156,6 +197,5 @@ function buildDemoTicket(width: ReceiptWidth) {
     html, body { margin: 0; padding: 0; background: #fff; }
     body { width: ${usefulWidth}; margin: 0 auto; padding: 2mm; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: ${fontSize}; color: #111; }
     .center { text-align: center; } .line { border-top: 1px dashed #111; margin: 7px 0; } .row { display: flex; justify-content: space-between; gap: 8px; } .name { font-weight: 700; overflow-wrap: anywhere; } .total { border-top: 1px solid #111; padding-top: 5px; font-size: 1.15em; font-weight: 900; }
-  </style></head><body><div class="center"><strong>MON ENTREPRISE</strong><br>Adresse principale<br>Tel: 0000-0000</div><div class="line"></div><div class="row"><span>Ticket</span><strong>TEST-001</strong></div><div class="row"><span>Date</span><strong>${new Date().toLocaleString("fr-HT")}</strong></div><div class="row"><span>Caissier</span><strong>Test</strong></div><div class="line"></div><div><div class="name">Produit avec nom très long qui doit passer sur plusieurs lignes</div><div class="row"><span>2 x 125,00 G</span><strong>250,00 G</strong></div></div><div><div class="name">Service personnalisé</div><div class="row"><span>1 x 500,00 G</span><strong>500,00 G</strong></div></div><div class="line"></div><div class="row"><span>Sous-total</span><strong>750,00 G</strong></div><div class="row"><span>Remise</span><strong>0,00 G</strong></div><div class="row"><span>Taxe</span><strong>0,00 G</strong></div><div class="row total"><span>Total</span><strong>750,00 G</strong></div><div class="row"><span>Cash</span><strong>750,00 G</strong></div><div class="row"><span>Montant reçu</span><strong>1 000,00 G</strong></div><div class="row"><span>Monnaie rendue</span><strong>250,00 G</strong></div><div class="line"></div><div class="center"><strong>Merci pour votre achat</strong><br>Conservez ce ticket.</div></body></html>`;
+  </style></head><body><div class="center"><strong>MON ENTREPRISE</strong><br>Adresse principale<br>Tel: 0000-0000</div><div class="line"></div><div class="row"><span>Ticket</span><strong>TEST-001</strong></div><div class="row"><span>Date</span><strong>${new Date().toLocaleString("fr-HT")}</strong></div><div class="row"><span>Caissier</span><strong>Test</strong></div><div class="line"></div><div><div class="name">Produit avec nom très long qui doit passer sur plusieurs lignes</div><div class="row"><span>2 x 125,00 G</span><strong>250,00 G</strong></div></div><div><div class="name">Service personnalisé</div><div class="row"><span>1 x 500,00 G</span><strong>500,00 G</strong></div></div><div class="line"></div><div class="row"><span>Sous-total</span><strong>750,00 G</strong></div><div class="row"><span>Remise</span><strong>0,00 G</strong></div><div class="row"><span>Taxe</span><strong>0,00 G</strong></div><div class="row total"><span>Total</span><strong>750,00 G</strong></div><div class="row"><span>Espèces</span><strong>750,00 G</strong></div><div class="row"><span>Montant reçu</span><strong>1 000,00 G</strong></div><div class="row"><span>Monnaie rendue</span><strong>250,00 G</strong></div><div class="line"></div><div class="center"><strong>Merci pour votre achat</strong><br>Conservez ce ticket.</div></body></html>`;
 }
-
