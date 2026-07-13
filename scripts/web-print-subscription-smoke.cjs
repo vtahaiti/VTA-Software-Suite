@@ -19,8 +19,15 @@ assert(!invoicePrint.includes('<div class="qr">'), "Les tickets imprimes ne doiv
 assert(!invoicePrint.includes(".qr {"), "Le style QR ne doit plus reserver d'espace.");
 assert(invoicePrint.includes("Signature autorisée : ______________________________"), "La signature autorisee doit apparaitre sur les documents.");
 assert(invoicePrint.includes('size: ${pageSize}; margin: ${format === "a4" ? "12mm" : "12.7mm"}'), "Les marges A4/Letter doivent etre explicites.");
-assert(invoicePrint.includes('width === "58" ? "58mm" : "80mm"'), "Les tickets 58/80 mm doivent avoir des largeurs physiques distinctes.");
-assert(invoicePrint.includes('width === "58" ? "2mm" : "3mm"'), "Les tickets 58/80 mm doivent avoir des marges internes distinctes.");
+assert(invoicePrint.includes('const widthMm = width === "58" ? 58 : 80'), "Les tickets 58/80 mm doivent avoir des largeurs physiques distinctes.");
+assert(invoicePrint.includes("@page { size: ${widthMm}mm auto; margin: 0; }"), "Le format thermique doit fixer la taille physique sans marge page.");
+assert(invoicePrint.includes("html, body { width: ${widthMm}mm; max-width: ${widthMm}mm; margin: 0; padding: 0;"), "Le body du ticket ne doit pas depasser la largeur papier.");
+assert(invoicePrint.includes(".ticket { width: 100%; max-width: ${widthMm}mm; padding: ${safePadding};"), "Le padding doit etre inclus dans la largeur papier.");
+assert(invoicePrint.includes('width === "58" ? "54mm" : "74mm"'), "La largeur utile doit rester 54mm en 58mm et 74mm en 80mm.");
+assert(invoicePrint.includes('width === "58" ? "23mm" : "30mm"'), "La colonne montant doit rester bornee pour eviter les coupures.");
+assert(invoicePrint.includes("Reste à payer"), "Le ticket doit afficher le reste a payer quand un solde existe.");
+assert(invoicePrint.includes("grid-template-columns: minmax(0, 1fr) minmax(0, ${amountWidth})"), "Les lignes ticket doivent utiliser une grille reductible.");
+assert(!invoicePrint.includes("body { width: ${usefulWidth}; margin: 0 auto; padding: ${safePadding};"), "Le ticket ne doit jamais cumuler largeur papier et padding sur body.");
 
 for (const file of [
   "apps/api/src/inventory/inventory.controller.ts",

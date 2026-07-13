@@ -23,40 +23,44 @@ export class InvoicePrintService {
     const paid = paymentSummary.settledAmount;
     const received = paymentSummary.receivedAmount;
     const change = paymentSummary.changeAmount;
+    const balance = Math.max(0, Number(sale.total ?? 0) - Number(paid ?? 0));
     const widthMm = width === "58" ? 58 : 80;
-    const usefulWidth = width === "58" ? "58mm" : "80mm";
     const safePadding = width === "58" ? "2mm" : "3mm";
+    const usefulWidth = width === "58" ? "54mm" : "74mm";
+    const amountWidth = width === "58" ? "23mm" : "30mm";
     const fontSize = width === "58" ? "10px" : "11px";
     return this.page(`Ticket ${sale.receipt?.number ?? sale.id}`, `
       <style>
         @page { size: ${widthMm}mm auto; margin: 0; }
         @media print {
-          @page { margin: 0; }
-          html, body { margin: 0; padding: 0; }
+          @page { size: ${widthMm}mm auto; margin: 0; }
+          html, body { width: ${widthMm}mm; margin: 0; padding: 0; }
           .no-print { display: none !important; }
         }
-        * { box-sizing: border-box; }
-        html, body { margin: 0; padding: 0; background: #fff; }
-        body { width: ${usefulWidth}; margin: 0 auto; padding: ${safePadding}; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: ${fontSize}; line-height: 1.25; color: #111827; }
-        .ticket { width: 100%; overflow: hidden; }
+        *, *::before, *::after { box-sizing: border-box; max-width: 100%; }
+        html, body { width: ${widthMm}mm; max-width: ${widthMm}mm; margin: 0; padding: 0; background: #fff; overflow-x: hidden; }
+        body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: ${fontSize}; line-height: 1.25; color: #111827; }
+        .ticket { width: 100%; max-width: ${widthMm}mm; padding: ${safePadding}; overflow: hidden; }
+        .ticket-inner { width: 100%; max-width: ${usefulWidth}; margin: 0 auto; overflow: hidden; }
         .center { text-align: center; }
         .logo { width: ${width === "58" ? "36px" : "44px"}; height: ${width === "58" ? "36px" : "44px"}; margin: 0 auto 5px; border: 1px solid #d1d5db; border-radius: 999px; display: grid; place-items: center; font-weight: 800; font-size: 12px; overflow: hidden; }
         .logo img { width: 100%; height: 100%; object-fit: contain; padding: 4px; filter: grayscale(1) contrast(1.15); }
         .company { display: block; font-size: ${width === "58" ? "11px" : "13px"}; letter-spacing: .2px; text-transform: uppercase; overflow-wrap: anywhere; }
         .muted { color: #4b5563; overflow-wrap: anywhere; }
         .line { border-top: 1px dashed #6b7280; margin: 7px 0; }
-        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        td { padding: 2px 0; vertical-align: top; }
-        .right { text-align: right; }
-        .meta td:first-child, .summary td:first-child { color: #4b5563; width: 42%; }
+        .row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, ${amountWidth}); column-gap: 2mm; align-items: start; padding: 2px 0; width: 100%; }
+        .label { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+        .amount { min-width: 0; justify-self: end; text-align: right; overflow-wrap: anywhere; word-break: break-word; font-variant-numeric: tabular-nums; }
+        .meta .label, .summary .label { color: #4b5563; }
+        .meta .amount { color: #111827; }
         .item-name { font-weight: 800; overflow-wrap: anywhere; word-break: break-word; }
         .item-note { color: #4b5563; font-size: 9px; overflow-wrap: anywhere; }
-        .line-total { width: 34%; text-align: right; white-space: nowrap; }
-        .total-row td { padding-top: 5px; font-size: ${width === "58" ? "12px" : "14px"}; font-weight: 900; border-top: 1px solid #111827; }
+        .total-row { margin-top: 3px; padding-top: 5px; font-size: ${width === "58" ? "12px" : "14px"}; font-weight: 900; border-top: 1px solid #111827; }
         .thanks { margin-top: 8px; font-weight: 800; text-align: center; }
         .legal { margin-top: 2px; text-align: center; font-size: 9px; color: #6b7280; }
       </style>
       <div class="ticket">
+      <div class="ticket-inner">
         <div class="center">
           <div class="logo">${this.logoContent(tenant)}</div>
           <strong class="company">${this.escape(this.companyName(tenant))}</strong><br/>
@@ -66,14 +70,15 @@ export class InvoicePrintService {
           ${this.companyTax(tenant) ? `<span class="muted">NIF: ${this.escape(this.companyTax(tenant))}</span><br/>` : ""}
         </div>
         <div class="line"></div>
-        <table class="meta"><tr><td>Ticket</td><td class="right">${this.escape(sale.receipt?.number ?? sale.id)}</td></tr><tr><td>Date</td><td class="right">${this.date(sale.createdAt)}</td></tr><tr><td>Caissier</td><td class="right">${this.escape(cashier?.name ?? sale.cashSession?.cashRegister?.name ?? "Caisse")}</td></tr><tr><td>Client</td><td class="right">${this.escape(sale.customer?.displayName ?? "Client comptoir")}</td></tr></table>
+        <div class="meta"><div class="row"><span class="label">Ticket</span><strong class="amount">${this.escape(sale.receipt?.number ?? sale.id)}</strong></div><div class="row"><span class="label">Date</span><strong class="amount">${this.date(sale.createdAt)}</strong></div><div class="row"><span class="label">Caissier</span><strong class="amount">${this.escape(cashier?.name ?? sale.cashSession?.cashRegister?.name ?? "Caisse")}</strong></div><div class="row"><span class="label">Client</span><strong class="amount">${this.escape(sale.customer?.displayName ?? "Client comptoir")}</strong></div></div>
         <div class="line"></div>
-        <table>${sale.items.map((item) => `<tr><td><div class="item-name">${this.escape(this.itemName(item))}</div>${item.productId ? "" : `<div class="item-note">Article personnalisé</div>`}<div class="item-note">${item.quantity} x ${this.money(item.unitPrice)}${Number(item.discount) > 0 ? ` - remise ${this.money(item.discount)}` : ""}</div></td><td class="line-total"><strong>${this.money(item.total)}</strong></td></tr>`).join("")}</table>
+        <div>${sale.items.map((item) => `<div class="row"><div class="label"><div class="item-name">${this.escape(this.itemName(item))}</div>${item.productId ? "" : `<div class="item-note">Article personnalisé</div>`}<div class="item-note">${item.quantity} x ${this.money(item.unitPrice)}${Number(item.discount) > 0 ? ` - remise ${this.money(item.discount)}` : ""}</div></div><strong class="amount">${this.money(item.total)}</strong></div>`).join("")}</div>
         <div class="line"></div>
-        <table class="summary"><tr><td>Sous-total</td><td class="right">${this.money(sale.subtotal)}</td></tr>${Number(sale.discount) > 0 ? `<tr><td>Remise</td><td class="right">${this.money(sale.discount)}</td></tr>` : ""}${Number(sale.tax) > 0 ? `<tr><td>Taxes</td><td class="right">${this.money(sale.tax)}</td></tr>` : ""}<tr class="total-row"><td>Total</td><td class="right">${this.money(sale.total)}</td></tr><tr><td>Montant réglé</td><td class="right">${this.money(paid)}</td></tr><tr><td>Montant reçu</td><td class="right">${this.money(received)}</td></tr><tr><td>Monnaie rendue</td><td class="right">${this.money(change)}</td></tr></table>
+        <div class="summary"><div class="row"><span class="label">Sous-total</span><strong class="amount">${this.money(sale.subtotal)}</strong></div>${Number(sale.discount) > 0 ? `<div class="row"><span class="label">Remise</span><strong class="amount">${this.money(sale.discount)}</strong></div>` : ""}${Number(sale.tax) > 0 ? `<div class="row"><span class="label">Taxes</span><strong class="amount">${this.money(sale.tax)}</strong></div>` : ""}<div class="row total-row"><span class="label">Total</span><strong class="amount">${this.money(sale.total)}</strong></div><div class="row"><span class="label">Montant réglé</span><strong class="amount">${this.money(paid)}</strong></div><div class="row"><span class="label">Montant reçu</span><strong class="amount">${this.money(received)}</strong></div><div class="row"><span class="label">Monnaie rendue</span><strong class="amount">${this.money(change)}</strong></div>${balance > 0 ? `<div class="row"><span class="label">Reste à payer</span><strong class="amount">${this.money(balance)}</strong></div>` : ""}</div>
         <div class="line"></div>
         <div class="thanks">Merci pour votre achat</div>
         <div class="legal">Conservez ce ticket comme preuve de paiement.</div>
+      </div>
       </div>
     `);
   }

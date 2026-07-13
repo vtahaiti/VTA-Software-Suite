@@ -22,7 +22,7 @@ export default function PosTicketPrintPage() {
   const [nativePrint, setNativePrint] = useState(false);
   const [printedAutomatically, setPrintedAutomatically] = useState(false);
   const frameWidth = width === "58" ? "58mm" : "80mm";
-  const demoHtml = useMemo(() => buildDemoTicket(width), [width]);
+  const demoHtml = useMemo(() => buildSafeDemoTicket(width), [width]);
 
   useEffect(() => {
     void isNativePrintAvailable().then(setNativePrint).catch(() => setNativePrint(false));
@@ -185,6 +185,31 @@ async function readError(response: Response) {
   } catch {
     return "Impossible de charger le ticket.";
   }
+}
+
+function buildSafeDemoTicket(width: ReceiptWidth) {
+  const safePadding = width === "58" ? "2mm" : "3mm";
+  const usefulWidth = width === "58" ? "54mm" : "74mm";
+  const amountWidth = width === "58" ? "23mm" : "30mm";
+  const fontSize = width === "58" ? "10px" : "11px";
+
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Aperçu ticket</title><style>
+    @page { size: ${width}mm auto; margin: 0; }
+    @media print { @page { size: ${width}mm auto; margin: 0; } html, body { width: ${width}mm; margin: 0; padding: 0; } .no-print { display: none !important; } }
+    *, *::before, *::after { box-sizing: border-box; max-width: 100%; }
+    html, body { width: ${width}mm; max-width: ${width}mm; margin: 0; padding: 0; background: #fff; overflow-x: hidden; }
+    body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: ${fontSize}; color: #111; }
+    .ticket { width: 100%; max-width: ${width}mm; padding: ${safePadding}; overflow: hidden; }
+    .ticket-inner { width: 100%; max-width: ${usefulWidth}; margin: 0 auto; overflow: hidden; }
+    .center { text-align: center; }
+    .line { border-top: 1px dashed #111; margin: 7px 0; }
+    .row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, ${amountWidth}); column-gap: 2mm; align-items: start; padding: 2px 0; width: 100%; }
+    .label { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+    .amount { min-width: 0; justify-self: end; text-align: right; overflow-wrap: anywhere; word-break: break-word; font-variant-numeric: tabular-nums; }
+    .name { font-weight: 700; overflow-wrap: anywhere; word-break: break-word; }
+    .note { color: #555; font-size: 9px; overflow-wrap: anywhere; }
+    .total { border-top: 1px solid #111; padding-top: 5px; font-size: 1.15em; font-weight: 900; }
+  </style></head><body><div class="ticket"><div class="ticket-inner"><div class="center"><strong>MON ENTREPRISE</strong><br>Adresse principale<br>Tel: 0000-0000</div><div class="line"></div><div class="row"><span class="label">Ticket</span><strong class="amount">TEST-001</strong></div><div class="row"><span class="label">Date</span><strong class="amount">${new Date().toLocaleString("fr-HT")}</strong></div><div class="row"><span class="label">Caissier</span><strong class="amount">Test</strong></div><div class="line"></div><div class="row"><div class="label"><div class="name">Produit avec nom très long qui doit passer sur plusieurs lignes sans couper le montant à droite</div><div class="note">123 x 1 000 000,00 G</div></div><strong class="amount">123 000 000,00 G</strong></div><div class="row"><div class="label"><div class="name">Service personnalisé</div><div class="note">2 x 100 000,00 USD</div></div><strong class="amount">200 000,00 USD</strong></div><div class="line"></div><div class="row"><span class="label">Sous-total</span><strong class="amount">123 200 000,00 G</strong></div><div class="row"><span class="label">Remise</span><strong class="amount">1 000,00 G</strong></div><div class="row"><span class="label">Taxe</span><strong class="amount">0,00 G</strong></div><div class="row total"><span class="label">Total</span><strong class="amount">123 199 000,00 G</strong></div><div class="row"><span class="label">Montant reçu</span><strong class="amount">100 000,00 G</strong></div><div class="row"><span class="label">Monnaie rendue</span><strong class="amount">25 000,00 G</strong></div><div class="row"><span class="label">Reste à payer</span><strong class="amount">23 199 000,00 G</strong></div><div class="line"></div><div class="center"><strong>Signature autorisée : ______________________________</strong><br>Conservez ce ticket.</div></div></div></body></html>`;
 }
 
 function buildDemoTicket(width: ReceiptWidth) {
