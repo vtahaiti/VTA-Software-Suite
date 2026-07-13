@@ -6,6 +6,7 @@ import { getOfflinePosContext, getOfflineProducts, getPendingOfflineSales, saveO
 import { syncOfflineSalesNow } from "@/lib/offline-sync";
 import { useNetworkStatus } from "@/lib/network-status";
 import { getTenantBusinessConfiguration, type TenantBusinessConfiguration } from "@/lib/business-profiles";
+import { normalizeBarcodePayload } from "@/lib/barcode-payload";
 import { getReceiptPrintSettings, openPrintPreview } from "@/lib/print";
 import { Camera, Info, MoreHorizontal, Plus, Search, Trash2, X } from "lucide-react";
 
@@ -239,8 +240,8 @@ export default function PosPage() {
     setPayments([{ method: "CASH", amount, reference: "" }]);
   }
 
-  async function scanBarcode(value = barcode || query) {
-    const term = value.trim();
+  async function scanBarcode(value: unknown = barcode || query) {
+    const term = normalizeBarcodePayload(value).value;
     if (!term) return;
     setError("");
     const localProduct = products.find((product) => product.primaryBarcode === term || product.sku.toLowerCase() === term.toLowerCase() || product.name.toLowerCase().includes(term.toLowerCase()));
@@ -286,15 +287,14 @@ export default function PosPage() {
         setError("Autorisation caméra refusée. Activez-la pour scanner un code-barres.");
         return;
       }
-      const result = await BarcodeScanner.scan();
-      const value = result.barcodes?.[0]?.rawValue || result.barcodes?.[0]?.displayValue || "";
-      if (!value) {
+      const result = normalizeBarcodePayload(await BarcodeScanner.scan());
+      if (result.cancelled || !result.value) {
         setError("Aucun code-barres détecté.");
         return;
       }
-      setBarcode(value);
-      setQuery(value);
-      await scanBarcode(value);
+      setBarcode(result.value);
+      setQuery(result.value);
+      await scanBarcode(result);
     } catch {
       setError("Scanner indisponible sur cet appareil.");
     } finally {
@@ -302,6 +302,25 @@ export default function PosPage() {
       scanInputRef.current?.focus();
     }
   }
+
+  useEffect(() => {
+    (window as typeof window & { __vtaBarcodeEventHandlerReady?: boolean }).__vtaBarcodeEventHandlerReady = true;
+    function handleNativeBarcode(event: Event) {
+      const payload = normalizeBarcodePayload((event as CustomEvent).detail);
+      if (payload.cancelled || !payload.value) {
+        setError("Aucun code-barres détecté.");
+        return;
+      }
+      setBarcode(payload.value);
+      setQuery(payload.value);
+      void scanBarcode(payload);
+    }
+    window.addEventListener("vta:barcode-scanned", handleNativeBarcode);
+    return () => {
+      delete (window as typeof window & { __vtaBarcodeEventHandlerReady?: boolean }).__vtaBarcodeEventHandlerReady;
+      window.removeEventListener("vta:barcode-scanned", handleNativeBarcode);
+    };
+  }, [barcode, query, products, isOnline, warehouseId]);
 
   async function checkout() {
     setError("");
