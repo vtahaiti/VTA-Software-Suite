@@ -199,10 +199,35 @@ export class BusinessProfilesService {
   private buildSimpleMenuSections(modules: Array<ReturnType<BusinessProfilesService["serializeModule"]>>, profileType = "commerce", primaryActivity?: string | null) {
     const activeKeys = new Set(modules.map((module) => module.key));
     const specialized = this.resolveSimpleMenu(profileType, primaryActivity);
-    const items = specialized
+    const items = this.withCommonCapabilities(specialized, activeKeys)
       .filter((item) => activeKeys.has(item.module))
       .map(({ module: _module, ...item }) => { void _module; return item; });
     return [{ title: "Menu", items }];
+  }
+
+  private withCommonCapabilities(items: Array<{ label: string; href: string; module: string }>, activeKeys: Set<string>) {
+    const commonItems: Array<{ label: string; href: string; module: string }> = [
+      { label: "Accueil", href: "/dashboard", module: "dashboard" },
+      { label: "Nouvelle vente", href: "/dashboard/pos", module: "pos" },
+      { label: "Ventes en attente", href: "/dashboard/sales/in-progress", module: "pos" },
+      { label: "Historique des ventes", href: "/dashboard/sales/completed", module: "pos" },
+      { label: "Produits", href: "/dashboard/products", module: "products" },
+      { label: "Catégories", href: "/dashboard/products/categories", module: "products" },
+      { label: "Inventaire", href: "/dashboard/inventory", module: "inventory" },
+      { label: "Clients", href: "/dashboard/customers", module: "customers" },
+      { label: "Fournisseurs", href: "/dashboard/suppliers", module: "suppliers" },
+      { label: "Achats", href: "/dashboard/purchases", module: "suppliers" },
+      { label: "Rapports", href: "/dashboard/reports", module: "reports" },
+      { label: "Paramètres", href: "/dashboard/settings/company", module: "settings" },
+      { label: "Abonnement", href: "/dashboard/settings/subscription", module: "settings" },
+      { label: "Emails", href: "/dashboard/settings/emails", module: "settings" }
+    ];
+    const merged = new Map<string, { label: string; href: string; module: string }>();
+    for (const item of [...items, ...commonItems]) {
+      if (!activeKeys.has(item.module) || merged.has(item.href)) continue;
+      merged.set(item.href, item);
+    }
+    return Array.from(merged.values());
   }
 
   private resolveSimpleMenu(profileType = "commerce", primaryActivity?: string | null) {
