@@ -48,6 +48,14 @@ const requiredFeatures = [
   "MULTI_WAREHOUSE",
   "THERMAL_PRINTING",
   "LETTER_REPORT_PRINTING",
+  "NOTIFICATIONS",
+  "IMPORT_EXPORT",
+  "LOW_STOCK_ALERTS",
+  "PRINT_SETTINGS",
+  "STOCK_TRANSFERS",
+  "ADVANCED_AUDIT",
+  "ADVANCED_ANALYTICS",
+  "MULTI_ACTIVITY",
   "EXPERT_MODE"
 ];
 
@@ -63,6 +71,10 @@ for (const model of ["model Plan", "model Feature", "model PlanFeature", "model 
 
 assertIncludes(source.entitlements, "assertFeature", "SubscriptionEntitlementsService doit exposer assertFeature.");
 assertIncludes(source.entitlements, "assertSubscriptionActive", "SubscriptionEntitlementsService doit exposer assertSubscriptionActive.");
+assertIncludes(source.entitlements, "assertWithinLimit", "SubscriptionEntitlementsService doit exposer assertWithinLimit.");
+assertIncludes(source.entitlements, "SUBSCRIPTION_LIMIT_REACHED", "Erreur SUBSCRIPTION_LIMIT_REACHED absente.");
+assertIncludes(source.entitlements, "planLimitMatrix", "Les limites de plans doivent venir du catalogue central API.");
+assertIncludes(source.entitlements, "getUsage", "L'usage actuel des limites doit etre calcule cote API.");
 assertIncludes(source.entitlements, "FEATURE_NOT_INCLUDED", "Erreur FEATURE_NOT_INCLUDED absente.");
 assertIncludes(source.entitlements, "SUBSCRIPTION_INACTIVE", "Erreur SUBSCRIPTION_INACTIVE absente.");
 assertIncludes(source.guard, "Reflector", "Guard de feature non connecté au reflector.");
@@ -73,6 +85,8 @@ assertIncludes(source.onboarding, "createTrialSubscription", "Création entrepri
 assertIncludes(source.navigation, "/dashboard/settings/subscription", "Route Abonnement absente de la navigation.");
 assertIncludes(source.subscriptionPage, "/subscription/me", "Page Abonnement ne lit pas /subscription/me.");
 assertIncludes(source.subscriptionPage, "/subscription/plans", "Page Abonnement ne lit pas /subscription/plans.");
+assertIncludes(source.subscriptionPage, "Limites utilisées", "La page Abonnement doit afficher les limites utilisees.");
+assertIncludes(source.subscriptionPage, "Professionnel", "Le plan STANDARD doit etre presente comme Professionnel.");
 assertIncludes(source.productsController, '@RequiresFeature("PRODUCTS")', "Produits non protégés par PRODUCTS.");
 assertIncludes(source.productsController, '@RequiresFeature("CATEGORIES")', "Catégories non protégées par CATEGORIES.");
 assertIncludes(source.posController, '@RequiresFeature("POS")', "POS non protégé par POS.");

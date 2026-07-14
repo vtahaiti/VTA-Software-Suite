@@ -48,6 +48,8 @@ assert(platformService.includes("TenantStatus.DELETED"), "Les tenants supprimes 
 assert(platformService.includes("status: { in: [TenantStatus.ACTIVE, TenantStatus.TRIAL] }"), "L'envoi a tous doit exclure les tenants suspendus, expires, pauses ou supprimes.");
 assert(platformService.includes("this.entitlements.invalidate(result.tenantId)"), "Les droits doivent etre invalides apres decision.");
 assert(platformService.includes("updated.status") && platformService.includes("newPlanCode"), "L'audit doit conserver ancien et nouveau plan.");
+assert(platformService.includes("planDecisionRecipients"), "Une decision de plan doit creer une notification meme si le role proprietaire historique differe.");
+assert(platformService.includes("OWNER_ROLE_NAMES"), "Les variantes de role proprietaire doivent etre centralisees.");
 assert(platformService.includes("NotificationType.ERROR") && platformService.includes("urgent"), "Le niveau urgent doit etre mappe sans nouvel enum.");
 assert(platformService.includes("!link.includes(\"://\")") && platformService.includes("!link.toLowerCase().startsWith(\"javascript:\")"), "Les liens externes/javascript doivent etre refuses.");
 assert(platformService.includes("/<[^>]+>/"), "Le HTML arbitraire doit etre refuse dans les notifications.");
@@ -73,5 +75,12 @@ const notificationsService = read("apps/api/src/notifications/notifications.serv
 assert(notificationsService.includes("tenantId: user.tenantId"), "La lecture des notifications doit etre isolee par tenant.");
 assert(notificationsService.includes("markAllAsRead"), "Le marquage global lu doit rester disponible.");
 assert(notificationsService.includes("tenantId_userId_dedupKey"), "La deduplication notification doit rester en base.");
+assert(notificationsService.includes("status: NotificationStatus.READ") && notificationsService.includes("readAt: new Date()"), "La lecture doit uniquement marquer READ/readAt.");
+assert(!notificationsService.includes("deleteMany") && !notificationsService.includes("delete({"), "Le service notifications ne doit pas supprimer immediatement les notifications.");
+
+const notificationsPage = read("apps/web/app/dashboard/notifications/page.tsx");
+assert(notificationsPage.includes('useState("")'), "Le centre de notifications doit afficher toutes les notifications par defaut.");
+assert(notificationsPage.includes('{ value: "", label: "Toutes" }'), "Le filtre Toutes doit rester disponible.");
+assert(notificationsPage.includes("/notifications/${item.id}/read"), "La lecture doit passer par l'endpoint read.");
 
 console.log("Subscription notifications smoke OK");

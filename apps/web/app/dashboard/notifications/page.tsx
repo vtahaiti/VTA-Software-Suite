@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Archive, Bell, CheckCheck, RefreshCw } from "lucide-react";
 import { getAccessToken } from "@/lib/auth";
@@ -38,7 +38,7 @@ export default function NotificationsPage() {
   const [unread, setUnread] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [status, setStatus] = useState("unread");
+  const [status, setStatus] = useState("");
   const [type, setType] = useState("");
   const [moduleName, setModuleName] = useState("");
   const [message, setMessage] = useState("");
@@ -46,11 +46,7 @@ export default function NotificationsPage() {
   const [error, setError] = useState("");
   const token = useMemo(() => getAccessToken(), []);
 
-  useEffect(() => {
-    void load(1);
-  }, [status, type, moduleName]);
-
-  async function load(nextPage = page) {
+  const load = useCallback(async (nextPage: number) => {
     if (!token) return;
     setLoading(true);
     setError("");
@@ -73,7 +69,11 @@ export default function NotificationsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [moduleName, status, token, type]);
+
+  useEffect(() => {
+    void load(1);
+  }, [load]);
 
   async function patch(path: string, success: string) {
     if (!token) return;

@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, OnModuleInit } from "@nestjs/common";
 import { Prisma, SubscriptionPlan, SubscriptionStatus, TenantStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
-import { defaultFeatures, defaultPlans, planFeatureMatrix, type SubscriptionFeatureKey } from "./subscription-features";
+import { defaultFeatures, defaultPlans, planFeatureMatrix, planLimitMatrix, type SubscriptionFeatureKey, type SubscriptionLimitKey } from "./subscription-features";
 
 const inactiveStatuses = new Set<SubscriptionStatus>([
   SubscriptionStatus.PAST_DUE,
@@ -14,10 +14,15 @@ const inactiveStatuses = new Set<SubscriptionStatus>([
 type SubscriptionWithPlan = Prisma.TenantSubscriptionGetPayload<{
   include: { planRecord: { include: { features: { include: { feature: true } } } }, payments: { orderBy: { createdAt: "desc" }, take: 10 } };
 }>;
+type SubscriptionUsage = Record<SubscriptionLimitKey, number>;
+type CachedEntitlements = Awaited<ReturnType<SubscriptionEntitlementsService["buildEntitlements"]>> & {
+  usage: SubscriptionUsage;
+  pendingRequest: Awaited<ReturnType<SubscriptionEntitlementsService["getPendingPlanRequest"]>>;
+};
 
 @Injectable()
 export class SubscriptionEntitlementsService implements OnModuleInit {
-  private readonly cache = new Map<string, { expiresAt: number; entitlements: Awaited<ReturnType<SubscriptionEntitlementsService["buildEntitlements"]>> }>();
+  private readonly cache = new Map<string, { expiresAt: number; entitlements: CachedEntitlements }>();
   private catalogReady: Promise<void> | null = null;
 
   constructor(private readonly prisma: PrismaService) {}
@@ -115,7 +120,7 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
     const cached = this.cache.get(tenantId);
     if (cached && cached.expiresAt > Date.now()) return cached.entitlements;
     const subscription = await this.getSubscription(tenantId);
-    const entitlements = { ...this.buildEntitlements(subscription), pendingRequest: await this.getPendingPlanRequest(tenantId) };
+    const entitlements = { ...this.buildEntitlements(subscription), usage: await this.getUsage(tenantId), pendingRequest: await this.getPendingPlanRequest(tenantId) };
     this.cache.set(tenantId, { expiresAt: Date.now() + 30_000, entitlements });
     return entitlements;
   }
@@ -143,6 +148,15 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
     }
   }
 
+  async assertWithinLimit(tenantId: string, limitKey: SubscriptionLimitKey) {
+    const entitlements = await this.getEntitlements(tenantId);
+    const max = entitlements.limits[limitKey];
+    const used = entitlements.usage[limitKey];
+    if (used >= max) {
+      throw new ForbiddenException({ code: "SUBSCRIPTION_LIMIT_REACHED", limitKey, planCode: entitlements.planCode, limit: max, used, message: "La limite de votre plan est atteinte." });
+    }
+  }
+
   invalidate(tenantId: string) {
     this.cache.delete(tenantId);
   }
@@ -162,7 +176,8 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
       monthlyPrice: Number(plan.monthlyPrice),
       currency: plan.currency,
       trialDays: plan.trialDays,
-      features: plan.features.map((entry) => ({ key: entry.feature.key, name: entry.feature.name, category: entry.feature.category, enabled: entry.enabled, limit: entry.limit }))
+      limits: this.limitsForPlan(plan.code),
+      features: plan.features.filter((entry) => entry.enabled).map((entry) => ({ key: entry.feature.key, name: entry.feature.name, category: entry.feature.category, enabled: entry.enabled, limit: entry.limit }))
     }));
   }
 
@@ -255,7 +270,7 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
 
   private buildEntitlements(subscription: SubscriptionWithPlan) {
     const planCode = subscription.planRecord?.code ?? this.legacyPlanCode(subscription.plan);
-    const features = subscription.planRecord?.features.map((entry) => ({
+    const features = subscription.planRecord?.features.filter((entry) => entry.enabled).map((entry) => ({
       key: entry.feature.key,
       name: entry.feature.name,
       category: entry.feature.category,
@@ -279,9 +294,25 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
       daysRemaining: end ? Math.max(0, Math.ceil((end.getTime() - Date.now()) / (24 * 60 * 60 * 1000))) : null,
       price: Number(subscription.price),
       currency: subscription.currency,
+      limits: this.limitsForPlan(planCode),
       features,
+      featureDetails: features,
       payments: subscription.payments.map((payment) => ({ id: payment.id, amount: Number(payment.amount), currency: payment.currency, status: payment.status, provider: payment.provider, periodStart: payment.periodStart, periodEnd: payment.periodEnd, paidAt: payment.paidAt, createdAt: payment.createdAt }))
     };
+  }
+
+  private limitsForPlan(planCode: string) {
+    return planLimitMatrix[planCode] ?? planLimitMatrix.TRIAL;
+  }
+
+  private async getUsage(tenantId: string) {
+    const [users, stores, warehouses, cashRegisters] = await Promise.all([
+      this.prisma.user.count({ where: { tenantId, isActive: true } }),
+      this.prisma.store.count({ where: { tenantId, status: "ACTIVE" } }),
+      this.prisma.warehouse.count({ where: { tenantId, isActive: true } }),
+      this.prisma.cashRegister.count({ where: { tenantId, isActive: true } })
+    ]);
+    return { users, stores, warehouses, cashRegisters };
   }
 
   private legacyPlanCode(plan: SubscriptionPlan) {

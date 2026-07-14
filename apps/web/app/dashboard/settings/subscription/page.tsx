@@ -21,7 +21,15 @@ type Plan = {
   monthlyPrice?: number | string | null;
   currency?: string | null;
   trialDays?: number | null;
+  limits?: PlanLimits | null;
   features?: Array<{ key?: string; name?: string; category?: string; enabled?: boolean; limit?: number | null }>;
+};
+
+type PlanLimits = {
+  users?: number;
+  stores?: number;
+  warehouses?: number;
+  cashRegisters?: number;
 };
 
 type SubscriptionPayload = {
@@ -45,6 +53,8 @@ type SubscriptionPayload = {
     isActive?: boolean;
     features?: string[];
     featureDetails?: Array<{ key?: string; name?: string; category?: string; enabled?: boolean; limit?: number | null }>;
+    limits?: PlanLimits | null;
+    usage?: PlanLimits | null;
     pendingRequest?: { status?: string; requestedPlanCode?: string; requestedPlanName?: string; createdAt?: string } | null;
   } | null;
 };
@@ -92,6 +102,8 @@ export default function SubscriptionSettingsPage() {
   const currency = subscription?.currency ?? currentPlan?.currency ?? "HTG";
   const isActive = Boolean(entitlements?.active ?? entitlements?.isActive);
   const pendingRequest = entitlements?.pendingRequest ?? null;
+  const limits = entitlements?.limits ?? currentPlan?.limits ?? null;
+  const usage = entitlements?.usage ?? null;
 
   async function requestPlan(planCode?: string | null) {
     if (!planCode) return;
@@ -139,10 +151,11 @@ export default function SubscriptionSettingsPage() {
                 <Info label="Prochain renouvellement" value={formatDate(subscription?.currentPeriodEnd ?? subscription?.trialEndsAt)} />
               </div>
               {pendingRequest ? <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">Demande en attente : {pendingRequest.requestedPlanName || labelPlan(pendingRequest.requestedPlanCode)}. Les fonctionnalités payantes commenceront après confirmation par VTA Commerce.</div> : null}
+              {limits ? <LimitsPanel limits={limits} usage={usage} /> : null}
               {actionMessage ? <div className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-100">{actionMessage}</div> : null}
               <div className="mt-5 flex flex-wrap gap-2">
                 {plans.filter((plan) => plan.code && plan.code !== planCode && plan.code !== "TRIAL").map((plan) => (
-                  <button key={plan.code} type="button" onClick={() => void requestPlan(plan.code)} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Demander {plan.name ?? labelPlan(plan.code)}</button>
+                  <button key={plan.code} type="button" disabled={Boolean(pendingRequest)} onClick={() => void requestPlan(plan.code)} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Demander {plan.name ?? labelPlan(plan.code)}</button>
                 ))}
                 <button type="button" className="rounded-md border px-4 py-2 text-sm font-semibold" onClick={() => setActionMessage("Le renouvellement est validé par VTA Commerce après confirmation du paiement.")}>Renouveler</button>
                 <button className="rounded-md border px-4 py-2 text-sm font-semibold opacity-60" title="Disponible après paiement validé">Télécharger le reçu</button>
@@ -158,6 +171,27 @@ export default function SubscriptionSettingsPage() {
                 <p className="font-semibold">{featureDetails.length} fonctionnalités autorisées</p>
                 <p className="text-slate-500">Plan {labelPlan(planCode)}</p>
               </div>
+            </div>
+          </section>
+
+          <section className="rounded-lg border bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-sm font-semibold text-brand-600">Comparaison des plans</p>
+            <h2 className="text-2xl font-bold">Choisir le bon niveau</h2>
+            <div className="mt-4 grid gap-3 lg:grid-cols-3">
+              {plans.filter((plan) => plan.code !== "TRIAL").map((plan) => (
+                <div key={plan.code} className="rounded-lg border p-4 dark:border-slate-800">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-lg font-bold">{plan.name ?? labelPlan(plan.code)}</p>
+                      <p className="mt-1 text-sm text-slate-500">{plan.description}</p>
+                    </div>
+                    <p className="whitespace-nowrap text-sm font-bold">{formatMoney(plan.monthlyPrice ?? 0, plan.currency ?? "HTG")}</p>
+                  </div>
+                  {plan.limits ? <div className="mt-3 grid gap-1 text-xs text-slate-600 dark:text-slate-300">
+                    {limitRows(plan.limits).map((row) => <span key={row.label}>{row.label} : {row.max}</span>)}
+                  </div> : null}
+                </div>
+              ))}
             </div>
           </section>
 
@@ -216,6 +250,26 @@ function Info({ label, value }: { label: string; value: string | number }) {
   return <div className="rounded-lg border bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 font-bold">{value}</p></div>;
 }
 
+function LimitsPanel({ limits, usage }: { limits: PlanLimits; usage?: PlanLimits | null }) {
+  return (
+    <div className="mt-5 rounded-lg border bg-slate-50 p-3 text-sm dark:border-slate-800 dark:bg-slate-950">
+      <p className="font-semibold">Limites utilisées</p>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        {limitRows(limits).map((row) => <span key={row.key}>{row.label} : <strong>{usage?.[row.key] ?? 0}</strong> / {row.max}</span>)}
+      </div>
+    </div>
+  );
+}
+
+function limitRows(limits: PlanLimits) {
+  return [
+    { key: "users" as const, label: "Utilisateurs", max: limits.users ?? 0 },
+    { key: "stores" as const, label: "Magasins", max: limits.stores ?? 0 },
+    { key: "warehouses" as const, label: "Dépôts", max: limits.warehouses ?? 0 },
+    { key: "cashRegisters" as const, label: "Caisses", max: limits.cashRegisters ?? 0 }
+  ];
+}
+
 function formatMoney(value: number | string | null | undefined, currency = "HTG") {
   return new Intl.NumberFormat("fr-HT", { style: "currency", currency, maximumFractionDigits: 0 }).format(Number(value ?? 0));
 }
@@ -225,7 +279,7 @@ function formatDate(value?: string | null) {
 }
 
 function labelPlan(code?: string | null) {
-  const labels: Record<string, string> = { TRIAL: "Essai gratuit", FREE: "Essai gratuit", ESSENTIAL: "Essentiel", STARTER: "Essentiel", STANDARD: "Standard", PRO: "Standard", EXPERT: "Expert", ENTERPRISE: "Expert" };
+  const labels: Record<string, string> = { TRIAL: "Essai gratuit", FREE: "Essai gratuit", ESSENTIAL: "Essentiel", STARTER: "Essentiel", STANDARD: "Professionnel", PRO: "Professionnel", EXPERT: "Expert", ENTERPRISE: "Expert" };
   return labels[code ?? ""] ?? code ?? "Non défini";
 }
 

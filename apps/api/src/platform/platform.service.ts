@@ -15,6 +15,7 @@ const PLAN_PRICES_HTG: Record<SubscriptionPlan, number> = {
 };
 
 const PLATFORM_ROLE_NAMES = ["SUPER_ADMIN", "PlatformAdmin"];
+const OWNER_ROLE_NAMES = ["OWNER", "Owner", "PROPRIETAIRE", "PROPRIÉTAIRE", "Propriétaire", "Proprietaire"];
 const CUSTOMER_VISIBLE_STATUSES: TenantStatus[] = [TenantStatus.ACTIVE, TenantStatus.TRIAL, TenantStatus.PAUSED, TenantStatus.SUSPENDED, TenantStatus.EXPIRED];
 const BILLABLE_SUBSCRIPTION_STATUSES: SubscriptionStatus[] = [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING];
 const BLOCKING_TENANT_STATUSES: TenantStatus[] = [TenantStatus.PAUSED, TenantStatus.SUSPENDED, TenantStatus.EXPIRED, TenantStatus.DELETED];
@@ -377,7 +378,7 @@ export class PlatformService {
           metadata: { action: "APPROVE", requestId: request.id }
         }
       });
-      const users = await this.notificationRecipients(tx, [request.tenantId], { ownersOnly: true });
+      const users = await this.planDecisionRecipients(tx, request.tenantId);
       await this.createNotifications(tx, request.tenantId, users, {
         title: "Plan approuvé",
         message: `Votre demande de plan ${planRecord.name} a été approuvée.`,
@@ -434,7 +435,7 @@ export class PlatformService {
           metadata: { action: "REFUSE", requestId: request.id, reason: trimmedReason }
         }
       });
-      const users = await this.notificationRecipients(tx, [request.tenantId], { ownersOnly: true });
+      const users = await this.planDecisionRecipients(tx, request.tenantId);
       await this.createNotifications(tx, request.tenantId, users, {
         title: "Demande de plan refusée",
         message: `Votre demande de changement de plan a été refusée. Motif : ${trimmedReason}`,
@@ -820,7 +821,7 @@ export class PlatformService {
   }
 
   private async notificationRecipients(client: Prisma.TransactionClient | PrismaService, tenantIds: string[], options: { ownersOnly?: boolean; role?: string } = {}) {
-    const roleFilter = options.ownersOnly ? ["OWNER", "Owner"] : options.role ? [options.role, options.role.toUpperCase(), options.role.toLowerCase()] : undefined;
+    const roleFilter = options.ownersOnly ? OWNER_ROLE_NAMES : options.role ? [options.role, options.role.toUpperCase(), options.role.toLowerCase()] : undefined;
     return client.user.findMany({
       where: {
         tenantId: { in: tenantIds },
@@ -829,6 +830,12 @@ export class PlatformService {
       },
       select: { id: true, tenantId: true }
     });
+  }
+
+  private async planDecisionRecipients(client: Prisma.TransactionClient, tenantId: string) {
+    const owners = await this.notificationRecipients(client, [tenantId], { ownersOnly: true });
+    if (owners.length) return owners;
+    return this.notificationRecipients(client, [tenantId]);
   }
 
   private async createNotifications(

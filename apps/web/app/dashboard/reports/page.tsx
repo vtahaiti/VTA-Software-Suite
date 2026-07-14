@@ -179,7 +179,7 @@ export default function ReportsPage() {
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Analyse des ventes, produits, stocks, clients, achats et profits.</p>
         </div>
         <details className="rounded-md border border-slate-300 px-4 py-2 text-sm dark:border-slate-700">
-          <summary className="cursor-pointer font-semibold">Mode expert</summary>
+          <summary className="cursor-pointer font-semibold">Options avancées</summary>
           <div className="mt-3 flex flex-wrap gap-2">
             <button onClick={() => prepareExport("CSV")} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">Exporter CSV</button>
             <button onClick={() => prepareExport("Excel")} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">Exporter Excel</button>
