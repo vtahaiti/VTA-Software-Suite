@@ -1,0 +1,62 @@
+const fs = require("node:fs");
+const path = require("node:path");
+
+const root = path.resolve(__dirname, "..");
+const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
+const assert = (condition, message) => {
+  if (!condition) throw new Error(message);
+};
+
+const entitlements = read("apps/api/src/subscriptions/subscription-entitlements.service.ts");
+assert(entitlements.includes('eventType: "PLAN_CHANGE_REQUESTED"'), "Une demande de plan doit rester un evenement PENDING.");
+assert(entitlements.includes("Une demande identique est déjà en attente"), "Les demandes identiques actives doivent etre bloquees.");
+assert(entitlements.includes("Une demande de changement de plan est déjà en attente"), "Une seule demande active doit etre autorisee par tenant.");
+assert(!entitlements.includes("status: SubscriptionStatus.ACTIVE") || entitlements.indexOf("requestPlanChange") < entitlements.indexOf("createMissingTrial"), "La demande tenant ne doit pas activer directement le plan.");
+
+const platformController = read("apps/api/src/platform/platform.controller.ts");
+assert(platformController.includes("@UseGuards(JwtAuthGuard, PlatformAdminGuard)"), "Les routes plateforme doivent etre protegees par le guard Super Admin.");
+assert(platformController.includes('Post("subscription-requests/:requestId/approve")'), "Endpoint Super Admin d'approbation manquant.");
+assert(platformController.includes('Post("subscription-requests/:requestId/reject")'), "Endpoint Super Admin de refus manquant.");
+assert(platformController.includes('Get("notifications")') && platformController.includes('Post("notifications")'), "Endpoints Super Admin de notifications manquants.");
+
+const platformService = read("apps/api/src/platform/platform.service.ts");
+for (const token of [
+  "approvePlanChangeRequest",
+  "rejectPlanChangeRequest",
+  "requestStatus !== \"PENDING\"",
+  "PLAN_CHANGE_CONFIRMED",
+  "PLAN_CHANGE_REFUSED",
+  "PLATFORM_SUBSCRIPTION_REQUEST",
+  "Plan approuvé",
+  "Demande de plan refusée",
+  "sendPlatformNotifications",
+  "recipient === \"all-active\"",
+  "tenantId_userId_dedupKey",
+  "assertPlainNotification",
+  "isSafeInternalLink",
+  "notificationRecipients"
+]) {
+  assert(platformService.includes(token), `Contrat plateforme manquant: ${token}`);
+}
+assert(platformService.includes("ownersOnly") && platformService.includes("roleFilter"), "Le ciblage proprietaires/roles doit etre explicite.");
+assert(platformService.includes("TenantStatus.DELETED"), "Les tenants supprimes doivent etre exclus des actions.");
+assert(platformService.includes("this.entitlements.invalidate(result.tenantId)"), "Les droits doivent etre invalides apres decision.");
+
+const adminSubscriptions = read("apps/web/app/admin/subscriptions/page.tsx");
+assert(adminSubscriptions.includes("Approuver") && adminSubscriptions.includes("Refuser"), "Les boutons Super Admin doivent etre visibles.");
+assert(adminSubscriptions.includes("window.confirm") && adminSubscriptions.includes("window.prompt"), "L'approbation/refus doit demander confirmation/motif.");
+assert(adminSubscriptions.includes("/platform/subscription-requests/"), "L'interface admin doit appeler les endpoints dedies.");
+
+const adminNotifications = read("apps/web/app/admin/notifications/page.tsx");
+assert(adminNotifications.includes("all-active"), "La page admin doit permettre l'envoi a tous les tenants actifs.");
+assert(adminNotifications.includes("Plusieurs entreprises"), "La page admin doit permettre l'envoi multi-tenants.");
+assert(adminNotifications.includes("Propriétaires uniquement"), "La page admin doit permettre le ciblage proprietaires.");
+assert(adminNotifications.includes("Clé anti-doublon"), "La page admin doit exposer dedupKey.");
+assert(adminNotifications.includes("link.startsWith(\"/dashboard\")"), "Les liens doivent rester internes.");
+
+const notificationsService = read("apps/api/src/notifications/notifications.service.ts");
+assert(notificationsService.includes("tenantId: user.tenantId"), "La lecture des notifications doit etre isolee par tenant.");
+assert(notificationsService.includes("markAllAsRead"), "Le marquage global lu doit rester disponible.");
+assert(notificationsService.includes("tenantId_userId_dedupKey"), "La deduplication notification doit rester en base.");
+
+console.log("Subscription notifications smoke OK");

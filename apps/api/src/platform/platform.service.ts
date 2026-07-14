@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { AuditAction, NotificationStatus, NotificationType, Prisma, SubscriptionPlan, SubscriptionStatus, TenantStatus } from "@prisma/client";
 import { AuthService } from "../auth/auth.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -18,6 +18,28 @@ const PLATFORM_ROLE_NAMES = ["SUPER_ADMIN", "PlatformAdmin"];
 const CUSTOMER_VISIBLE_STATUSES: TenantStatus[] = [TenantStatus.ACTIVE, TenantStatus.TRIAL, TenantStatus.PAUSED, TenantStatus.SUSPENDED, TenantStatus.EXPIRED];
 const BILLABLE_SUBSCRIPTION_STATUSES: SubscriptionStatus[] = [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING];
 const BLOCKING_TENANT_STATUSES: TenantStatus[] = [TenantStatus.PAUSED, TenantStatus.SUSPENDED, TenantStatus.EXPIRED, TenantStatus.DELETED];
+const PLAN_CODES_TO_LEGACY: Record<string, SubscriptionPlan> = {
+  TRIAL: SubscriptionPlan.FREE,
+  FREE: SubscriptionPlan.FREE,
+  ESSENTIAL: SubscriptionPlan.ESSENTIAL,
+  STANDARD: SubscriptionPlan.STANDARD,
+  EXPERT: SubscriptionPlan.EXPERT
+};
+type PlatformNotificationLevel = "info" | "success" | "warning" | "error" | "urgent";
+type PlatformNotificationRecipient = "tenant" | "tenants" | "all-active";
+type PlatformNotificationPayload = {
+  tenantId?: string;
+  tenantIds?: string[];
+  recipient?: PlatformNotificationRecipient;
+  ownersOnly?: boolean;
+  role?: string;
+  title: string;
+  message: string;
+  level?: PlatformNotificationLevel;
+  link?: string;
+  expiresAt?: string;
+  dedupKey?: string;
+};
 
 type TenantWithAdminRelations = Prisma.TenantGetPayload<{
   include: {
@@ -277,6 +299,157 @@ export class PlatformService {
     return subscription;
   }
 
+  async approvePlanChangeRequest(requestId: string, actorUserId: string) {
+    const result = await this.prisma.$transaction(async (tx) => {
+      const request = await tx.subscriptionEvent.findUnique({
+        where: { id: requestId },
+        include: { tenant: { include: { companyProfile: true } }, subscription: true }
+      });
+      if (!request || request.eventType !== "PLAN_CHANGE_REQUESTED") throw new NotFoundException("Demande de plan introuvable.");
+      const metadata = this.planRequestMetadata(request.metadata);
+      if (metadata.requestStatus !== "PENDING") throw new ConflictException("Cette demande a déjà été traitée.");
+      if (request.tenant.status === TenantStatus.DELETED) throw new BadRequestException("Entreprise supprimée: action impossible.");
+      const requestedPlanCode = metadata.requestedPlanCode;
+      const planRecord = await tx.plan.findFirst({ where: { code: requestedPlanCode, isActive: true } });
+      if (!planRecord) throw new BadRequestException("Plan demandé introuvable ou inactif.");
+      const previous = await tx.tenantSubscription.findUnique({ where: { tenantId: request.tenantId }, include: { planRecord: true } });
+      const now = new Date();
+      const legacyPlan = PLAN_CODES_TO_LEGACY[planRecord.code] ?? SubscriptionPlan.ESSENTIAL;
+      const updated = await tx.tenantSubscription.upsert({
+        where: { tenantId: request.tenantId },
+        update: {
+          plan: legacyPlan,
+          planId: planRecord.id,
+          status: SubscriptionStatus.ACTIVE,
+          price: planRecord.monthlyPrice,
+          currency: planRecord.currency,
+          paymentStatus: "MANUAL_CONFIRMED",
+          startedAt: previous?.startedAt ?? now,
+          currentPeriodStart: now,
+          currentPeriodEnd: null,
+          endsAt: null,
+          suspendedAt: null,
+          canceledAt: null
+        },
+        create: {
+          tenantId: request.tenantId,
+          plan: legacyPlan,
+          planId: planRecord.id,
+          status: SubscriptionStatus.ACTIVE,
+          price: planRecord.monthlyPrice,
+          currency: planRecord.currency,
+          paymentStatus: "MANUAL_CONFIRMED",
+          startedAt: now,
+          currentPeriodStart: now
+        }
+      });
+      await tx.subscriptionEvent.update({
+        where: { id: request.id },
+        data: { metadata: { ...metadata, requestStatus: "APPROVED", decidedAt: now.toISOString(), decidedByUserId: actorUserId } }
+      });
+      await tx.subscriptionEvent.create({
+        data: {
+          tenantId: request.tenantId,
+          subscriptionId: updated.id,
+          actorUserId,
+          eventType: "PLAN_CHANGE_CONFIRMED",
+          previousStatus: previous?.status,
+          newStatus: updated.status,
+          metadata: {
+            requestId: request.id,
+            previousPlanCode: previous?.planRecord?.code ?? this.planCodeFor(previous?.plan ?? SubscriptionPlan.FREE),
+            newPlanCode: planRecord.code,
+            approvedAt: now.toISOString()
+          }
+        }
+      });
+      await tx.auditLog.create({
+        data: {
+          tenantId: request.tenantId,
+          tenantName: request.tenant.companyProfile?.companyName ?? request.tenant.name,
+          userId: actorUserId,
+          action: AuditAction.UPDATE,
+          entity: "PLATFORM_SUBSCRIPTION_REQUEST",
+          entityId: request.id,
+          message: "Demande de changement de plan approuvée par le Super Admin.",
+          oldValue: { planCode: previous?.planRecord?.code ?? this.planCodeFor(previous?.plan ?? SubscriptionPlan.FREE), status: previous?.status ?? null },
+          newValue: { planCode: planRecord.code, status: updated.status },
+          metadata: { action: "APPROVE", requestId: request.id }
+        }
+      });
+      const users = await this.notificationRecipients(tx, [request.tenantId], { ownersOnly: true });
+      await this.createNotifications(tx, request.tenantId, users, {
+        title: "Plan approuvé",
+        message: `Votre demande de plan ${planRecord.name} a été approuvée.`,
+        level: "success",
+        module: "subscriptions",
+        link: "/dashboard/settings/subscription",
+        dedupKey: `plan-request-approved:${request.id}`,
+        metadata: { requestId: request.id, planCode: planRecord.code }
+      });
+      return { requestId: request.id, tenantId: request.tenantId, planCode: planRecord.code, status: updated.status };
+    });
+    this.entitlements.invalidate(result.tenantId);
+    return result;
+  }
+
+  async rejectPlanChangeRequest(requestId: string, reason: string | undefined, actorUserId: string) {
+    const trimmedReason = reason?.trim();
+    if (!trimmedReason) throw new BadRequestException("Un motif est obligatoire pour refuser une demande.");
+    const result = await this.prisma.$transaction(async (tx) => {
+      const request = await tx.subscriptionEvent.findUnique({
+        where: { id: requestId },
+        include: { tenant: { include: { companyProfile: true } }, subscription: { include: { planRecord: true } } }
+      });
+      if (!request || request.eventType !== "PLAN_CHANGE_REQUESTED") throw new NotFoundException("Demande de plan introuvable.");
+      const metadata = this.planRequestMetadata(request.metadata);
+      if (metadata.requestStatus !== "PENDING") throw new ConflictException("Cette demande a déjà été traitée.");
+      const now = new Date();
+      await tx.subscriptionEvent.update({
+        where: { id: request.id },
+        data: { metadata: { ...metadata, requestStatus: "REFUSED", refusedAt: now.toISOString(), refusedByUserId: actorUserId, reason: trimmedReason } }
+      });
+      await tx.subscriptionEvent.create({
+        data: {
+          tenantId: request.tenantId,
+          subscriptionId: request.subscriptionId,
+          actorUserId,
+          eventType: "PLAN_CHANGE_REFUSED",
+          previousStatus: request.subscription.status,
+          newStatus: request.subscription.status,
+          metadata: { requestId: request.id, requestedPlanCode: metadata.requestedPlanCode, reason: trimmedReason, refusedAt: now.toISOString() }
+        }
+      });
+      await tx.auditLog.create({
+        data: {
+          tenantId: request.tenantId,
+          tenantName: request.tenant.companyProfile?.companyName ?? request.tenant.name,
+          userId: actorUserId,
+          action: AuditAction.UPDATE,
+          entity: "PLATFORM_SUBSCRIPTION_REQUEST",
+          entityId: request.id,
+          message: "Demande de changement de plan refusée par le Super Admin.",
+          oldValue: { requestedPlanCode: metadata.requestedPlanCode, status: "PENDING" },
+          newValue: { requestedPlanCode: metadata.requestedPlanCode, status: "REFUSED" },
+          metadata: { action: "REFUSE", requestId: request.id, reason: trimmedReason }
+        }
+      });
+      const users = await this.notificationRecipients(tx, [request.tenantId], { ownersOnly: true });
+      await this.createNotifications(tx, request.tenantId, users, {
+        title: "Demande de plan refusée",
+        message: `Votre demande de changement de plan a été refusée. Motif : ${trimmedReason}`,
+        level: "warning",
+        module: "subscriptions",
+        link: "/dashboard/settings/subscription",
+        dedupKey: `plan-request-refused:${request.id}`,
+        metadata: { requestId: request.id, requestedPlanCode: metadata.requestedPlanCode }
+      });
+      return { requestId: request.id, tenantId: request.tenantId, status: "REFUSED" };
+    });
+    this.entitlements.invalidate(result.tenantId);
+    return result;
+  }
+
   async toggleTenantModule(id: string, moduleKey: string, isActive: boolean, reason?: string) {
     const tenant = await this.ensureTenantCanBeManaged(id);
     const module = await this.prisma.businessModule.findUnique({ where: { key: moduleKey } });
@@ -307,28 +480,81 @@ export class PlatformService {
     });
   }
 
-  async sendTenantNotification(id: string, data: { title: string; message: string }) {
+  async sendTenantNotification(id: string, data: { title: string; message: string; level?: PlatformNotificationLevel; link?: string; dedupKey?: string; role?: string }) {
     const tenant = await this.ensureTenantCanBeManaged(id);
-    const users = await this.prisma.user.findMany({ where: { tenantId: id, isActive: true }, select: { id: true } });
-    if (!users.length) return { delivered: 0 };
-
-    await this.prisma.notification.createMany({
-      data: users.map((user) => ({
-        tenantId: id,
-        userId: user.id,
-        title: data.title,
-        message: data.message,
-        type: NotificationType.INFO,
-        status: NotificationStatus.UNREAD,
-        module: "platform"
-      }))
+    this.assertPlainNotification(data.title, data.message, data.link);
+    const users = await this.notificationRecipients(this.prisma, [id], { role: data.role });
+    await this.createNotifications(this.prisma, id, users, {
+      title: data.title,
+      message: data.message,
+      level: data.level ?? "info",
+      module: "platform",
+      link: data.link,
+      dedupKey: data.dedupKey
     });
-
     await this.writePlatformAudit(id, tenant.name, AuditAction.UPDATE, "PLATFORM_NOTIFICATION", data.message, {
       metadata: { title: data.title, delivered: users.length }
     });
 
     return { delivered: users.length };
+  }
+
+  async platformNotificationHistory() {
+    const [tenants, logs] = await this.prisma.$transaction([
+      this.prisma.tenant.findMany({ where: this.customerTenantWhere(), include: { companyProfile: true }, orderBy: { name: "asc" } }),
+      this.prisma.auditLog.findMany({ where: { entity: "PLATFORM_NOTIFICATION" }, orderBy: { createdAt: "desc" }, take: 50 })
+    ]);
+    return {
+      tenants: tenants.map((tenant) => ({ id: tenant.id, name: tenant.companyProfile?.companyName ?? tenant.name, status: tenant.status })),
+      history: logs.map((log) => ({ id: log.id, tenantId: log.tenantId, tenantName: log.tenantName, message: log.message, metadata: log.metadata, createdAt: log.createdAt }))
+    };
+  }
+
+  async sendPlatformNotifications(data: PlatformNotificationPayload, actorUserId: string) {
+    this.assertPlainNotification(data.title, data.message, data.link);
+    const targetTenantIds = await this.resolveNotificationTenantIds(data);
+    if (!targetTenantIds.length) throw new BadRequestException("Sélectionnez au moins une entreprise.");
+    const result = await this.prisma.$transaction(async (tx) => {
+      const recipients = await this.notificationRecipients(tx, targetTenantIds, { ownersOnly: data.ownersOnly, role: data.role });
+      const byTenant = new Map<string, Array<{ id: string }>>();
+      for (const user of recipients) {
+        const bucket = byTenant.get(user.tenantId) ?? [];
+        bucket.push({ id: user.id });
+        byTenant.set(user.tenantId, bucket);
+      }
+      let delivered = 0;
+      for (const tenantId of targetTenantIds) {
+        const users = byTenant.get(tenantId) ?? [];
+        delivered += users.length;
+        await this.createNotifications(tx, tenantId, users, {
+          title: data.title,
+          message: data.message,
+          level: data.level ?? "info",
+          module: "platform",
+          link: data.link,
+          dedupKey: data.dedupKey,
+          metadata: { expiresAt: data.expiresAt ?? null, sentByPlatformUserId: actorUserId }
+        });
+      }
+      await tx.auditLog.create({
+        data: {
+          action: AuditAction.CREATE,
+          entity: "PLATFORM_NOTIFICATION",
+          message: "Notification plateforme envoyée.",
+          userId: actorUserId,
+          metadata: {
+            tenantCount: targetTenantIds.length,
+            delivered,
+            level: data.level ?? "info",
+            ownersOnly: Boolean(data.ownersOnly),
+            role: data.role ?? null,
+            dedupKey: data.dedupKey ?? null
+          }
+        }
+      });
+      return { tenantCount: targetTenantIds.length, delivered };
+    });
+    return result;
   }
 
   async prepareTenantEmail(id: string, data: { title: string; message: string; subject?: string }) {
@@ -532,13 +758,13 @@ export class PlatformService {
   }
 
   private async latestPendingPlanRequests(tenantIds: string[]) {
-    if (!tenantIds.length) return new Map<string, { requestedPlanCode: string; requestedPlanName: string; createdAt: Date }>();
+    if (!tenantIds.length) return new Map<string, { id: string; status: "PENDING"; requestedPlanCode: string; requestedPlanName: string; currentPlanCode: string; createdAt: Date }>();
     const events = await this.prisma.subscriptionEvent.findMany({
       where: { tenantId: { in: tenantIds }, eventType: { in: ["PLAN_CHANGE_REQUESTED", "PLAN_CHANGE_CONFIRMED", "PLAN_CHANGE_REFUSED"] } },
       orderBy: { createdAt: "desc" },
       take: Math.max(tenantIds.length * 5, 20)
     });
-    const map = new Map<string, { requestedPlanCode: string; requestedPlanName: string; createdAt: Date }>();
+    const map = new Map<string, { id: string; status: "PENDING"; requestedPlanCode: string; requestedPlanName: string; currentPlanCode: string; createdAt: Date }>();
     const closed = new Set<string>();
     for (const event of events) {
       if (closed.has(event.tenantId) || map.has(event.tenantId)) continue;
@@ -549,13 +775,99 @@ export class PlatformService {
       const metadata = event.metadata && typeof event.metadata === "object" && !Array.isArray(event.metadata) ? event.metadata as Record<string, unknown> : {};
       if (metadata.requestStatus === "PENDING") {
         map.set(event.tenantId, {
+          id: event.id,
+          status: "PENDING",
           requestedPlanCode: String(metadata.requestedPlanCode ?? ""),
           requestedPlanName: String(metadata.requestedPlanName ?? metadata.requestedPlanCode ?? ""),
+          currentPlanCode: String(metadata.currentPlanCode ?? ""),
           createdAt: event.createdAt
         });
       }
     }
     return map;
+  }
+
+  private planRequestMetadata(metadata: Prisma.JsonValue | null) {
+    const value = metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata as Record<string, unknown> : {};
+    return {
+      requestStatus: String(value.requestStatus ?? ""),
+      requestedPlanCode: String(value.requestedPlanCode ?? "").trim().toUpperCase(),
+      requestedPlanName: String(value.requestedPlanName ?? value.requestedPlanCode ?? ""),
+      currentPlanCode: String(value.currentPlanCode ?? "")
+    };
+  }
+
+  private assertPlainNotification(title: string, message: string, link?: string) {
+    if (!title?.trim() || !message?.trim()) throw new BadRequestException("Titre et message sont obligatoires.");
+    if (/<[^>]+>/.test(title) || /<[^>]+>/.test(message)) throw new BadRequestException("Les notifications acceptent uniquement du texte brut.");
+    if (link && !this.isSafeInternalLink(link)) throw new BadRequestException("Lien de notification invalide.");
+  }
+
+  private isSafeInternalLink(link: string) {
+    return link.startsWith("/dashboard") && !link.startsWith("//") && !link.includes("://") && !link.toLowerCase().startsWith("javascript:");
+  }
+
+  private async resolveNotificationTenantIds(data: PlatformNotificationPayload) {
+    if (data.recipient === "all-active") {
+      const tenants = await this.prisma.tenant.findMany({ where: { ...this.customerTenantWhere(), status: { in: [TenantStatus.ACTIVE, TenantStatus.TRIAL] } }, select: { id: true } });
+      return tenants.map((tenant) => tenant.id);
+    }
+    const ids = data.recipient === "tenants" ? data.tenantIds ?? [] : [data.tenantId].filter(Boolean) as string[];
+    const uniqueIds = Array.from(new Set(ids));
+    if (!uniqueIds.length) return [];
+    const tenants = await this.prisma.tenant.findMany({ where: { id: { in: uniqueIds }, ...this.customerTenantWhere() }, select: { id: true } });
+    return tenants.map((tenant) => tenant.id);
+  }
+
+  private async notificationRecipients(client: Prisma.TransactionClient | PrismaService, tenantIds: string[], options: { ownersOnly?: boolean; role?: string } = {}) {
+    const roleFilter = options.ownersOnly ? ["OWNER", "Owner"] : options.role ? [options.role, options.role.toUpperCase(), options.role.toLowerCase()] : undefined;
+    return client.user.findMany({
+      where: {
+        tenantId: { in: tenantIds },
+        isActive: true,
+        ...(roleFilter ? { roles: { some: { role: { name: { in: roleFilter } } } } } : {})
+      },
+      select: { id: true, tenantId: true }
+    });
+  }
+
+  private async createNotifications(
+    client: Prisma.TransactionClient | PrismaService,
+    tenantId: string,
+    users: Array<{ id: string }>,
+    data: { title: string; message: string; level: PlatformNotificationLevel; module: string; link?: string; dedupKey?: string; metadata?: Prisma.InputJsonValue }
+  ) {
+    const type = this.notificationType(data.level);
+    for (const user of users) {
+      const payload = {
+        tenantId,
+        userId: user.id,
+        title: data.title.trim(),
+        message: data.message.trim(),
+        type,
+        status: NotificationStatus.UNREAD,
+        module: data.module,
+        link: data.link,
+        dedupKey: data.dedupKey,
+        metadata: data.metadata
+      };
+      if (data.dedupKey) {
+        await client.notification.upsert({
+          where: { tenantId_userId_dedupKey: { tenantId, userId: user.id, dedupKey: data.dedupKey } },
+          create: payload,
+          update: { ...payload, readAt: null }
+        });
+      } else {
+        await client.notification.create({ data: payload });
+      }
+    }
+  }
+
+  private notificationType(level: PlatformNotificationLevel) {
+    if (level === "success") return NotificationType.SUCCESS;
+    if (level === "warning") return NotificationType.WARNING;
+    if (level === "error" || level === "urgent") return NotificationType.ERROR;
+    return NotificationType.INFO;
   }
 
   private customerTenantWhere(): Prisma.TenantWhereInput {

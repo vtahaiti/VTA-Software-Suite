@@ -179,6 +179,13 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
     if (currentPlanCode === plan.code && subscription.status === SubscriptionStatus.ACTIVE) {
       throw new BadRequestException("Ce plan est déjà actif.");
     }
+    const pendingRequest = await this.getPendingPlanRequest(tenantId);
+    if (pendingRequest) {
+      if (pendingRequest.requestedPlanCode === plan.code) {
+        throw new BadRequestException("Une demande identique est déjà en attente de validation.");
+      }
+      throw new BadRequestException("Une demande de changement de plan est déjà en attente de validation.");
+    }
     await this.prisma.subscriptionEvent.create({
       data: {
         tenantId,

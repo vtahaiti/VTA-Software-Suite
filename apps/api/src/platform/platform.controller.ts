@@ -39,6 +39,16 @@ export class PlatformController {
     return this.platform.updateSubscription(id, dto, request.user.id);
   }
 
+  @Post("subscription-requests/:requestId/approve")
+  approveSubscriptionRequest(@Param("requestId") requestId: string, @Req() request: AuthenticatedRequest) {
+    return this.platform.approvePlanChangeRequest(requestId, request.user.id);
+  }
+
+  @Post("subscription-requests/:requestId/reject")
+  rejectSubscriptionRequest(@Param("requestId") requestId: string, @Body() dto: { reason?: string }, @Req() request: AuthenticatedRequest) {
+    return this.platform.rejectPlanChangeRequest(requestId, dto.reason, request.user.id);
+  }
+
   @Patch("tenants/:id/modules/:moduleKey")
   toggleModule(@Param("id") id: string, @Param("moduleKey") moduleKey: string, @Body() dto: ToggleTenantModuleDto) {
     return this.platform.toggleTenantModule(id, moduleKey, dto.isActive, dto.reason);
@@ -52,6 +62,16 @@ export class PlatformController {
   @Post("tenants/:id/notifications")
   sendNotification(@Param("id") id: string, @Body() dto: SendPlatformMessageDto) {
     return this.platform.sendTenantNotification(id, dto);
+  }
+
+  @Get("notifications")
+  notificationHistory() {
+    return this.platform.platformNotificationHistory();
+  }
+
+  @Post("notifications")
+  sendPlatformNotifications(@Body() dto: SendPlatformMessageDto & { tenantId?: string; tenantIds?: string[]; recipient?: "tenant" | "tenants" | "all-active"; ownersOnly?: boolean; role?: string; level?: "info" | "success" | "warning" | "error" | "urgent"; link?: string; expiresAt?: string; dedupKey?: string }, @Req() request: AuthenticatedRequest) {
+    return this.platform.sendPlatformNotifications(dto, request.user.id);
   }
 
   @Post("tenants/:id/email")

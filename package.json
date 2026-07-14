@@ -35,6 +35,7 @@
     "test:navigation": "node scripts/navigation-smoke.cjs",
     "test:business-profile-navigation": "node scripts/business-profile-navigation-smoke.cjs",
     "test:subscriptions": "node scripts/subscription-entitlements-smoke.cjs",
+    "test:subscription-notifications": "node scripts/subscription-notifications-smoke.cjs",
     "test:production-priority": "node scripts/production-priority-smoke.cjs",
     "test:performance": "node scripts/performance-list-contract-smoke.cjs",
     "test:held-sales-tax": "node scripts/held-sales-tax-contract-smoke.cjs",
