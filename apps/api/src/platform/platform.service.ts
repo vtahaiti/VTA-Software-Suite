@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { AuditAction, NotificationStatus, NotificationType, Prisma, SubscriptionPlan, SubscriptionStatus, TenantStatus } from "@prisma/client";
+import { AuthService } from "../auth/auth.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { SubscriptionEntitlementsService } from "../subscriptions/subscription-entitlements.service";
 
@@ -32,7 +33,7 @@ type SecurityLogSummary = { createdAt?: Date; ipAddress?: string | null };
 
 @Injectable()
 export class PlatformService {
-  constructor(private readonly prisma: PrismaService, private readonly entitlements: SubscriptionEntitlementsService) {}
+  constructor(private readonly prisma: PrismaService, private readonly entitlements: SubscriptionEntitlementsService, private readonly auth: AuthService) {}
 
   async stats() {
     const now = new Date();
@@ -390,7 +391,9 @@ export class PlatformService {
     const tenant = await this.ensureTenantCanBeManaged(id);
     if (!reason?.trim()) throw new BadRequestException("Un motif est obligatoire avant toute suppression.");
     const updated = await this.prisma.$transaction(async (tx) => {
-      const users = await tx.user.findMany({ where: { tenantId: id }, select: { id: true } });
+      const users = await tx.user.findMany({ where: { tenantId: id }, select: { id: true, email: true } });
+      const userIds = users.map((user) => user.id);
+      const userEmails = users.map((user) => user.email);
       const result = await tx.tenant.update({
         where: { id },
         data: {
@@ -408,6 +411,12 @@ export class PlatformService {
           }
         });
       }
+      if (userIds.length) {
+        await tx.passwordResetToken.updateMany({ where: { userId: { in: userIds }, usedAt: null }, data: { usedAt: new Date() } });
+      }
+      if (userEmails.length) {
+        await tx.pendingRegistration.deleteMany({ where: { email: { in: userEmails } } });
+      }
       await tx.auditLog.create({
         data: {
           tenantId: id,
@@ -416,11 +425,12 @@ export class PlatformService {
           entity: "PLATFORM_TENANT",
           entityId: id,
           message: "Entreprise désactivée depuis la zone dangereuse du Control Center.",
-          metadata: { reason: reason.trim(), mode: "soft-delete", usersAnonymized: users.length }
+          metadata: { reason: reason.trim(), mode: "soft-delete", usersAnonymized: users.length, resetTokensInvalidated: userIds.length }
         }
       });
       return result;
     });
+    this.auth.revokeTenantSessions(id);
     return { deleted: true, softDeleted: true, tenant: updated };
   }
 

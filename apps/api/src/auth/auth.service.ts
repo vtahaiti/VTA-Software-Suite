@@ -302,6 +302,18 @@ export class AuthService {
     }
   }
 
+  revokeTenantSessions(tenantId: string, userIds: string[] = []) {
+    const userSet = new Set(userIds);
+    let revoked = 0;
+    for (const [sessionId, session] of this.sessions.entries()) {
+      if (session.user.tenantId === tenantId || userSet.has(session.user.id)) {
+        this.sessions.delete(sessionId);
+        revoked += 1;
+      }
+    }
+    return revoked;
+  }
+
   async verifyAccessToken(accessToken: string): Promise<AuthUser> {
     let payload: AuthUser;
     try {
