@@ -28,9 +28,10 @@ assert(
 
 assert(
   platformService.includes("status: TenantStatus.DELETED") &&
-    platformService.includes("users: { updateMany") &&
+    platformService.includes("deletedUserEmail") &&
+    platformService.includes("usersAnonymized") &&
     platformService.includes("isActive: false"),
-  "La suppression d'entreprise doit desactiver les utilisateurs du tenant supprime."
+  "La suppression d'entreprise doit desactiver et anonymiser les utilisateurs du tenant supprime."
 );
 
 assert(

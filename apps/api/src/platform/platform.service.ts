@@ -390,15 +390,24 @@ export class PlatformService {
     const tenant = await this.ensureTenantCanBeManaged(id);
     if (!reason?.trim()) throw new BadRequestException("Un motif est obligatoire avant toute suppression.");
     const updated = await this.prisma.$transaction(async (tx) => {
+      const users = await tx.user.findMany({ where: { tenantId: id }, select: { id: true } });
       const result = await tx.tenant.update({
         where: { id },
         data: {
           status: TenantStatus.DELETED,
-          deletedAt: new Date(),
-          users: { updateMany: { where: { tenantId: id }, data: { isActive: false } } }
+          deletedAt: new Date()
         },
         select: { id: true, name: true, status: true, deletedAt: true }
       });
+      for (const user of users) {
+        await tx.user.update({
+          where: { id: user.id },
+          data: {
+            isActive: false,
+            email: this.deletedUserEmail(user.id)
+          }
+        });
+      }
       await tx.auditLog.create({
         data: {
           tenantId: id,
@@ -407,12 +416,16 @@ export class PlatformService {
           entity: "PLATFORM_TENANT",
           entityId: id,
           message: "Entreprise désactivée depuis la zone dangereuse du Control Center.",
-          metadata: { reason: reason.trim(), mode: "soft-delete" }
+          metadata: { reason: reason.trim(), mode: "soft-delete", usersAnonymized: users.length }
         }
       });
       return result;
     });
     return { deleted: true, softDeleted: true, tenant: updated };
+  }
+
+  private deletedUserEmail(userId: string) {
+    return `deleted+${userId}@deleted.vtaerp.local`;
   }
 
   async deleteDemoTenants() {
