@@ -31,10 +31,14 @@ type PosDraft = { heldSaleId?: string; heldSaleFinalizeKey?: string; cart: Cart;
 const emptyCart: Cart = { items: [], subtotal: 0, itemDiscount: 0, discount: 0, tax: 0, total: 0, taxRate: 0, canCheckout: false };
 const emptyCustomerForm: CustomerForm = { name: "", phone: "", address: "", email: "", notes: "" };
 const emptyCustomItemForm: CustomItemForm = { name: "", price: "", quantity: "1", discount: "0", note: "", type: "SERVICE" };
+const POS_PRODUCT_PAGE_SIZE = 24;
 
 export default function PosPage() {
   const { isOnline } = useNetworkStatus();
   const [products, setProducts] = useState<Product[]>([]);
+  const [productTotal, setProductTotal] = useState(0);
+  const [productPage, setProductPage] = useState(1);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [stores, setStores] = useState<Store[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [sessions, setSessions] = useState<CashSession[]>([]);
@@ -83,15 +87,22 @@ export default function PosPage() {
     items: cart.items.map(cartLineToPayload)
   }), [cart.items, orderDiscount, storeId, taxRate, warehouseId]);
 
-  const loadProducts = useCallback(async () => {
+  const loadProducts = useCallback(async (pageToLoad = 1, append = false) => {
+    setIsLoadingProducts(true);
     try {
-      const params = new URLSearchParams({ search: query, limit: "24" });
+      const params = new URLSearchParams({ search: query, limit: String(POS_PRODUCT_PAGE_SIZE), page: String(pageToLoad) });
       if (warehouseId) params.set("warehouseId", warehouseId);
       const response = await fetch(`${apiUrl}/pos/products?${params.toString()}`, { headers: authHeaders() });
       if (response.ok) {
-        const data = await response.json() as { items: Product[] };
-        setProducts(data.items ?? []);
-        await saveOfflineProducts(data.items ?? []);
+        const data = await response.json() as { items: Product[]; meta?: { page?: number; total?: number } };
+        const nextItems = data.items ?? [];
+        setProducts((current) => {
+          const merged = append ? mergeProductsById(current, nextItems) : nextItems;
+          void saveOfflineProducts(merged);
+          return merged;
+        });
+        setProductPage(data.meta?.page ?? pageToLoad);
+        setProductTotal(data.meta?.total ?? nextItems.length);
         setError("");
         return;
       }
@@ -101,8 +112,13 @@ export default function PosPage() {
     } catch (error) {
       const cachedProducts = await getOfflineProducts();
       const normalizedQuery = query.trim().toLowerCase();
-      setProducts(normalizedQuery ? cachedProducts.filter((product) => product.name.toLowerCase().includes(normalizedQuery) || product.sku.toLowerCase().includes(normalizedQuery) || product.primaryBarcode?.includes(normalizedQuery)) : cachedProducts);
+      const fallbackProducts = normalizedQuery ? cachedProducts.filter((product) => product.name.toLowerCase().includes(normalizedQuery) || product.sku.toLowerCase().includes(normalizedQuery) || product.primaryBarcode?.includes(normalizedQuery)) : cachedProducts;
+      setProducts(fallbackProducts);
+      setProductPage(1);
+      setProductTotal(fallbackProducts.length);
       setError(error instanceof Error ? error.message : "Impossible de charger les produits du POS.");
+    } finally {
+      setIsLoadingProducts(false);
     }
   }, [authHeaders, query, warehouseId]);
 
@@ -171,7 +187,13 @@ export default function PosPage() {
     savePosDraft({ heldSaleId, heldSaleFinalizeKey, cart, customerId, payments, orderDiscount, taxRate, storeId, warehouseId, cashSessionId, updatedAt: new Date().toISOString() });
   }, [heldSaleId, heldSaleFinalizeKey, cart, customerId, payments, orderDiscount, taxRate, storeId, warehouseId, cashSessionId]);
   useEffect(() => { scanInputRef.current?.focus(); }, []);
-  useEffect(() => { const timer = setTimeout(() => void loadProducts(), 200); return () => clearTimeout(timer); }, [loadProducts]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setProductPage(1);
+      void loadProducts(1, false);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [loadProducts]);
   useEffect(() => { void refreshPendingCount(); }, []);
   useEffect(() => { if (isOnline) void synchronizeOfflineSales(false); }, [isOnline]);
 
@@ -557,6 +579,10 @@ export default function PosPage() {
   const posTemplate = getPosTemplate(business?.businessProfileType, business?.primaryActivity);
   const categories = useMemo(() => Array.from(new Set(products.map((product) => product.category).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)), [products]);
   const visibleProducts = useMemo(() => categoryFilter ? products.filter((product) => product.category === categoryFilter) : products, [categoryFilter, products]);
+  const hasMoreProducts = products.length < productTotal;
+  const productCountLabel = categoryFilter
+    ? `${visibleProducts.length} affiché${visibleProducts.length > 1 ? "s" : ""} dans ${categoryFilter} (${products.length} / ${productTotal || products.length} chargés)`
+    : `${products.length} / ${productTotal || products.length} produit${(productTotal || products.length) > 1 ? "s" : ""} affiché${(productTotal || products.length) > 1 ? "s" : ""}`;
 
   return (
     <div className="min-h-screen bg-slate-100 font-sans text-slate-950 lg:-m-6">
@@ -615,7 +641,7 @@ export default function PosPage() {
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-semibold">Produits</h2>
-                <p className="text-sm text-slate-500">{visibleProducts.length} produit{visibleProducts.length > 1 ? "s" : ""} affiché{visibleProducts.length > 1 ? "s" : ""}</p>
+                <p className="text-sm text-slate-500">{productCountLabel}</p>
               </div>
               <select aria-label="Filtrer par catégorie" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="hidden rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold sm:block">
                 <option value="">Toutes</option>
@@ -639,6 +665,18 @@ export default function PosPage() {
           ) : (
             <EmptyProductsState />
           )}
+          {hasMoreProducts ? (
+            <div className="mt-5 flex justify-center">
+              <button
+                type="button"
+                onClick={() => void loadProducts(productPage + 1, true)}
+                disabled={isLoadingProducts}
+                className="min-h-12 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isLoadingProducts ? "Chargement..." : `Charger plus (${Math.min(products.length + POS_PRODUCT_PAGE_SIZE, productTotal)} / ${productTotal})`}
+              </button>
+            </div>
+          ) : null}
         </main>
 
         <div className="hidden min-h-0 lg:block">
@@ -1566,6 +1604,12 @@ function savePosDraft(draft: PosDraft) {
 function clearPosDraft() {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(posDraftKey());
+}
+
+function mergeProductsById(current: Product[], next: Product[]) {
+  const byId = new Map(current.map((product) => [product.id, product]));
+  for (const product of next) byId.set(product.id, product);
+  return Array.from(byId.values());
 }
 
 async function readError(response: Response) {
