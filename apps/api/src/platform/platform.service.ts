@@ -443,7 +443,7 @@ export class PlatformService {
         module: "subscriptions",
         link: "/dashboard/settings/subscription",
         dedupKey: `plan-request-refused:${request.id}`,
-        metadata: { requestId: request.id, requestedPlanCode: metadata.requestedPlanCode }
+        metadata: { requestId: request.id, requestedPlanCode: metadata.requestedPlanCode, reason: trimmedReason }
       });
       return { requestId: request.id, tenantId: request.tenantId, status: "REFUSED" };
     });

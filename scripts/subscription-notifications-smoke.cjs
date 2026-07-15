@@ -43,6 +43,8 @@ for (const token of [
 assert(platformService.includes("this.prisma.$transaction(async (tx)") && platformService.includes("tx.tenantSubscription.upsert"), "L'approbation doit etre atomique dans une transaction.");
 assert(platformService.includes("throw new ConflictException(\"Cette demande a déjà été traitée.\""), "Une demande traitee ne doit pas etre retraitable.");
 assert(platformService.includes("if (!trimmedReason) throw new BadRequestException"), "Le refus doit exiger un motif.");
+assert(platformService.includes("Motif : ${trimmedReason}"), "La notification de refus doit inclure le motif saisi.");
+assert(platformService.includes("reason: trimmedReason"), "Le motif de refus doit etre conserve dans les metadonnees de la demande et de la notification.");
 assert(platformService.includes("ownersOnly") && platformService.includes("roleFilter"), "Le ciblage proprietaires/roles doit etre explicite.");
 assert(platformService.includes("TenantStatus.DELETED"), "Les tenants supprimes doivent etre exclus des actions.");
 assert(platformService.includes("status: { in: [TenantStatus.ACTIVE, TenantStatus.TRIAL] }"), "L'envoi a tous doit exclure les tenants suspendus, expires, pauses ou supprimes.");
@@ -82,5 +84,6 @@ const notificationsPage = read("apps/web/app/dashboard/notifications/page.tsx");
 assert(notificationsPage.includes('useState("")'), "Le centre de notifications doit afficher toutes les notifications par defaut.");
 assert(notificationsPage.includes('{ value: "", label: "Toutes" }'), "Le filtre Toutes doit rester disponible.");
 assert(notificationsPage.includes("/notifications/${item.id}/read"), "La lecture doit passer par l'endpoint read.");
+assert(notificationsPage.includes("notificationReason(item)") && notificationsPage.includes("Motif :"), "Le centre de notifications doit afficher le motif de refus conserve en metadata.");
 
 console.log("Subscription notifications smoke OK");

@@ -16,6 +16,9 @@ type Notification = {
   module?: string;
   referenceId?: string;
   link?: string;
+  metadata?: {
+    reason?: string | null;
+  } | null;
   createdAt: string;
   readAt?: string;
 };
@@ -122,6 +125,7 @@ export default function NotificationsPage() {
               </div>
               <h2 className="mt-2 text-base font-bold text-slate-950 dark:text-white">{item.title}</h2>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{item.message}</p>
+              {notificationReason(item) ? <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">Motif : {notificationReason(item)}</p> : null}
               <p className="mt-1 text-xs text-slate-400">Module : {item.module ?? "général"} {item.referenceId ? `- Réf. ${item.referenceId}` : ""}</p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -155,4 +159,9 @@ function badgeClass(type: string) {
   if (value === "warning") return "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-200";
   if (value === "error") return "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-200";
   return "bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-200";
+}
+
+function notificationReason(item: Notification) {
+  const reason = item.metadata?.reason;
+  return typeof reason === "string" ? reason.trim() : "";
 }
