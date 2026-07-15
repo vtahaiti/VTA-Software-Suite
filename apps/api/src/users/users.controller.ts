@@ -5,6 +5,7 @@ import { Permissions } from "../rbac/decorators/permissions.decorator";
 import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
 import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { CreateUserDto } from "./dto/create-user.dto";
+import { ResetUserPasswordDto } from "./dto/reset-user-password.dto";
 import { UpdateUserRoleDto } from "./dto/update-user-role.dto";
 import { UsersService } from "./users.service";
 
@@ -36,6 +37,18 @@ export class UsersController {
   @Permissions("users.update")
   disable(@Req() request: AuthenticatedRequest, @Param("id") id: string) {
     return this.users.disable(request.user.tenantId, id, request.user.id);
+  }
+
+  @Patch(":id/reactivate")
+  @Permissions("users.update")
+  reactivate(@Req() request: AuthenticatedRequest, @Param("id") id: string) {
+    return this.users.reactivate(request.user.tenantId, id);
+  }
+
+  @Patch(":id/password")
+  @Permissions("users.reset_password", "users.update")
+  resetPassword(@Req() request: AuthenticatedRequest, @Param("id") id: string, @Body() dto: ResetUserPasswordDto) {
+    return this.users.resetPassword(request.user.tenantId, id, dto.temporaryPassword);
   }
 
   @Get("roles")

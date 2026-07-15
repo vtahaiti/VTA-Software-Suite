@@ -560,7 +560,7 @@ export class AuthService {
     }
   }
 
-  private invalidateUserSessions(userId: string) {
+  invalidateUserSessions(userId: string) {
     for (const [sessionId, session] of this.sessions.entries()) {
       if (session.user.id === userId) this.sessions.delete(sessionId);
     }

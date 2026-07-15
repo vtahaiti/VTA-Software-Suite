@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { AuthService } from "../auth/auth.service";
 import { hashPassword } from "../auth/password-hashing";
 import { PrismaService } from "../prisma/prisma.service";
 import { defaultPermissions } from "../rbac/default-permissions";
@@ -7,7 +8,7 @@ import { tenantRolePresets } from "./tenant-role-presets";
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly authService: AuthService) {}
 
   async findAll(tenantId: string) {
     await this.ensureTenantRolePresets(tenantId);
@@ -65,6 +66,7 @@ export class UsersService {
 
   async updateRole(tenantId: string, userId: string, roleName: TenantRoleName) {
     const user = await this.userOrFail(tenantId, userId);
+    this.assertNotPlatformUser(user);
     const role = await this.roleOrFail(tenantId, roleName);
     await this.prisma.userRole.deleteMany({ where: { userId: user.id } });
     await this.prisma.userRole.create({ data: { userId: user.id, roleId: role.id } });
@@ -78,7 +80,8 @@ export class UsersService {
 
   async disable(tenantId: string, userId: string, actorId: string) {
     if (userId === actorId) throw new BadRequestException("Vous ne pouvez pas désactiver votre propre compte.");
-    await this.userOrFail(tenantId, userId);
+    const user = await this.userOrFail(tenantId, userId);
+    this.assertNotPlatformUser(user);
     const activeOwners = await this.prisma.user.count({
       where: { tenantId, isActive: true, roles: { some: { role: { name: { in: ["Owner", "OWNER"] } } } } }
     });
@@ -86,6 +89,25 @@ export class UsersService {
     if (targetIsOwner && activeOwners <= 1) throw new BadRequestException("Impossible de désactiver le dernier propriétaire actif.");
     await this.prisma.user.update({ where: { id: userId }, data: { isActive: false } });
     await this.prisma.storeUser.updateMany({ where: { tenantId, userId }, data: { isActive: false } });
+    return { success: true };
+  }
+
+  async reactivate(tenantId: string, userId: string) {
+    const user = await this.userOrFail(tenantId, userId);
+    this.assertNotPlatformUser(user);
+    await this.prisma.user.update({ where: { id: user.id }, data: { isActive: true } });
+    await this.prisma.storeUser.updateMany({ where: { tenantId, userId: user.id }, data: { isActive: true } });
+    return { success: true };
+  }
+
+  async resetPassword(tenantId: string, userId: string, temporaryPassword: string) {
+    const user = await this.userOrFail(tenantId, userId);
+    this.assertNotPlatformUser(user);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: user.id }, data: { password: await hashPassword(temporaryPassword) } });
+      await tx.passwordResetToken.updateMany({ where: { userId: user.id, usedAt: null }, data: { usedAt: new Date() } });
+    });
+    this.authService.invalidateUserSessions(user.id);
     return { success: true };
   }
 
@@ -121,9 +143,16 @@ export class UsersService {
   }
 
   private async userOrFail(tenantId: string, userId: string) {
-    const user = await this.prisma.user.findFirst({ where: { id: userId, tenantId } });
+    const user = await this.prisma.user.findFirst({ where: { id: userId, tenantId }, include: { roles: { include: { role: true } } } });
     if (!user) throw new NotFoundException("Utilisateur introuvable");
     return user;
+  }
+
+  private assertNotPlatformUser(user: { roles?: Array<{ role?: { name?: string | null } | null }> }) {
+    const roles = new Set((user.roles ?? []).map((entry) => entry.role?.name).filter(Boolean));
+    if (roles.has("SUPER_ADMIN") || roles.has("PlatformAdmin")) {
+      throw new BadRequestException("Action interdite sur un compte administrateur plateforme.");
+    }
   }
 
   private async roleOrFail(tenantId: string, roleName: TenantRoleName) {

@@ -36,6 +36,7 @@
     "test:business-profile-navigation": "node scripts/business-profile-navigation-smoke.cjs",
     "test:inventory-stock-status": "node scripts/inventory-stock-status-smoke.cjs",
     "test:orders-deposits": "node scripts/orders-deposits-smoke.cjs",
+    "test:users-management": "node scripts/users-management-smoke.cjs",
     "test:subscriptions": "node scripts/subscription-entitlements-smoke.cjs",
     "test:subscription-notifications": "node scripts/subscription-notifications-smoke.cjs",
     "test:production-priority": "node scripts/production-priority-smoke.cjs",
