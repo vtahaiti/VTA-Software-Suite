@@ -24,3 +24,24 @@ html[data-capacitor="true"] body {
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+@media print {
+  body:has(.printable-document) * {
+    visibility: hidden;
+  }
+
+  .printable-document,
+  .printable-document * {
+    visibility: visible;
+  }
+
+  .printable-document {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    max-width: 190mm;
+    background: white;
+    color: #0f172a;
+    padding: 12mm;
+  }
+}

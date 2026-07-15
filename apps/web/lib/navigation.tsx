@@ -85,6 +85,7 @@ const routeOrder: NavigationSection[] = [
         icon: navigationIcons.Ventes,
         children: [
           { id: "new-sale", label: "Nouvelle vente", href: "/dashboard/pos", icon: navigationIcons.NouvelleVente },
+          { id: "quotes-orders", label: "Devis & Commandes", href: "/dashboard/sales", icon: navigationIcons.Facturation },
           { id: "pending-sales", label: "Ventes en attente", href: "/dashboard/sales/in-progress", icon: navigationIcons.VentesAttente },
           { id: "sales-history", label: "Historique des ventes", href: "/dashboard/sales/completed", icon: navigationIcons.Historique }
         ]
@@ -171,6 +172,7 @@ function isKnownOrSource(href: string, sourceHrefs: Set<string>, allowBySource: 
   if (sourceHrefs.has(href)) return true;
   if (href === "/dashboard/sales/in-progress" && sourceHrefs.has("/dashboard/pos")) return true;
   if (href === "/dashboard/sales/completed" && sourceHrefs.has("/dashboard/pos")) return true;
+  if (href === "/dashboard/sales" && sourceHrefs.has("/dashboard/pos")) return true;
   if (href === "/dashboard/products/categories" && sourceHrefs.has("/dashboard/products")) return true;
   if (href === "/dashboard/settings/emails" && sourceHrefs.has("/dashboard/settings/company")) return true;
   if (href === "/dashboard/settings/pos" && sourceHrefs.has("/dashboard/settings/company")) return true;

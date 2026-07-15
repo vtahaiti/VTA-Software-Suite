@@ -2,9 +2,12 @@ import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { CreateSalesDocumentDto, SalesDocumentQueryDto, UpdateSalesDocumentDto } from "./dto/sales-document.dto";
 import { QuotesService } from "./quotes.service";
-@UseGuards(JwtAuthGuard)
+@RequiresFeature("QUOTES")
+@UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("quotes")
 export class QuotesController { constructor(private readonly service: QuotesService) {}
   @Get() @Permissions("quote.read") findAll(@Req() req: AuthenticatedRequest, @Query() query: SalesDocumentQueryDto) { return this.service.findAll(req.user.tenantId, query); }

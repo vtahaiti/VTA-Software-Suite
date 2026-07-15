@@ -1,10 +1,23 @@
-import { PaymentMethod } from "@prisma/client";
+import { PaymentMethod, SalesDocumentStatus } from "@prisma/client";
 import { Type } from "class-transformer";
 import { ArrayMinSize, IsArray, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min, ValidateNested } from "class-validator";
 
 export class SalesDocumentItemDto {
+  @IsOptional()
   @IsString()
-  productId!: string;
+  productId?: string;
+
+  @IsOptional()
+  @IsString()
+  customName?: string;
+
+  @IsOptional()
+  @IsString()
+  customType?: string;
+
+  @IsOptional()
+  @IsString()
+  customNote?: string;
 
   @IsInt()
   @Min(1)
@@ -85,4 +98,9 @@ export class CreateInvoicePaymentDto {
   @IsOptional()
   @IsString()
   notes?: string;
+}
+
+export class UpdateSalesDocumentStatusDto {
+  @IsEnum(SalesDocumentStatus)
+  status!: SalesDocumentStatus;
 }
