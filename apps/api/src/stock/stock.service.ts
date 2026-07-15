@@ -64,7 +64,7 @@ export class StockService {
         warehouse: stock.warehouse
       }));
     });
-    const filteredItems = query.lowStock ? items.filter((item) => item.quantity > 0 && item.quantity <= item.minimumStock) : items;
+    const filteredItems = query.lowStock ? items.filter((item) => item.quantity <= item.minimumStock) : items;
     return { items: filteredItems, meta: { page, limit, total: query.lowStock ? filteredItems.length : total, pageCount: Math.ceil((query.lowStock ? filteredItems.length : total) / limit) } };
   }
 

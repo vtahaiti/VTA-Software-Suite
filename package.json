@@ -34,6 +34,7 @@
     "test:password-reset": "node scripts/password-reset-smoke.cjs",
     "test:navigation": "node scripts/navigation-smoke.cjs",
     "test:business-profile-navigation": "node scripts/business-profile-navigation-smoke.cjs",
+    "test:inventory-stock-status": "node scripts/inventory-stock-status-smoke.cjs",
     "test:subscriptions": "node scripts/subscription-entitlements-smoke.cjs",
     "test:subscription-notifications": "node scripts/subscription-notifications-smoke.cjs",
     "test:production-priority": "node scripts/production-priority-smoke.cjs",

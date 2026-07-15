@@ -38,7 +38,7 @@ export default function InventoryPage() {
     return () => clearTimeout(timer);
   }, [query]);
 
-  const lowStockCount = useMemo(() => stocks.filter((stock) => stock.quantity > 0 && stock.quantity <= stock.minimumStock).length, [stocks]);
+  const lowStockCount = useMemo(() => stocks.filter((stock) => stock.quantity <= stock.minimumStock).length, [stocks]);
 
   async function loadStocks() {
     setIsLoading(true);
@@ -145,13 +145,14 @@ export default function InventoryPage() {
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <table className="w-full min-w-[760px] text-left text-sm">
         <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950">
-          <tr><th className="p-3">Produit</th><th className="p-3">Dépôt</th><th className="p-3">Stock actuel</th><th className="p-3">Stock minimum</th><th className="p-3">Fournisseur</th><th className="p-3">Actions</th></tr>
+          <tr><th className="p-3">Produit</th><th className="p-3">Dépôt</th><th className="p-3">Stock actuel</th><th className="p-3">Statut</th><th className="p-3">Stock minimum</th><th className="p-3">Fournisseur</th><th className="p-3">Actions</th></tr>
         </thead>
         <tbody>
           {stocks.map((stock) => <tr key={stock.id} className="border-t border-slate-100 dark:border-slate-800">
             <td className="p-3"><p className="font-semibold">{stock.product?.name ?? "Produit"}</p><p className="text-xs text-slate-500">{stock.product?.sku}{unitLabel(stock) ? ` · ${unitLabel(stock)}` : ""}</p></td>
             <td className="p-3">{stock.warehouse?.name ?? "-"}</td>
             <td className="p-3 text-lg font-bold">{stock.quantity}{unitLabel(stock) ? ` ${unitLabel(stock)}` : ""}</td>
+            <td className="p-3"><StockStatusBadge stock={stock} /></td>
             <td className="p-3">{stock.minimumStock}</td>
             <td className="p-3">{stock.product?.supplier?.name ?? "-"}</td>
             <td className="p-3">
@@ -227,6 +228,19 @@ function actionLabel(action: StockAction) {
   if (action === "adjust") return "Ajustement manuel";
   if (action === "in") return "Entrée stock";
   return "Sortie stock";
+}
+
+function stockStatus(stock: Pick<StockLine, "quantity" | "minimumStock">) {
+  if (stock.quantity <= 0) return "OUT_OF_STOCK";
+  if (stock.quantity <= stock.minimumStock) return "LOW_STOCK";
+  return "IN_STOCK";
+}
+
+function StockStatusBadge({ stock }: { stock: StockLine }) {
+  const status = stockStatus(stock);
+  if (status === "OUT_OF_STOCK") return <span className="inline-flex rounded-full bg-red-50 px-2 py-1 text-xs font-bold text-red-700">Rupture</span>;
+  if (status === "LOW_STOCK") return <span className="inline-flex rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700">Stock faible</span>;
+  return <span className="inline-flex rounded-full bg-green-50 px-2 py-1 text-xs font-bold text-green-700">En stock</span>;
 }
 
 function unitLabel(stock: StockLine) {
