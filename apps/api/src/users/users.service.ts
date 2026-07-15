@@ -100,7 +100,8 @@ export class UsersService {
     return { success: true };
   }
 
-  async resetPassword(tenantId: string, userId: string, temporaryPassword: string) {
+  async resetPassword(tenantId: string, userId: string, temporaryPassword?: string) {
+    if (!temporaryPassword) throw new BadRequestException("Le nouveau mot de passe est obligatoire.");
     const user = await this.userOrFail(tenantId, userId);
     this.assertNotPlatformUser(user);
     await this.prisma.$transaction(async (tx) => {

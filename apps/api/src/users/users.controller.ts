@@ -46,9 +46,9 @@ export class UsersController {
   }
 
   @Patch(":id/password")
-  @Permissions("users.reset_password", "users.update")
+  @Permissions("users.update")
   resetPassword(@Req() request: AuthenticatedRequest, @Param("id") id: string, @Body() dto: ResetUserPasswordDto) {
-    return this.users.resetPassword(request.user.tenantId, id, dto.temporaryPassword);
+    return this.users.resetPassword(request.user.tenantId, id, dto.temporaryPassword ?? dto.newPassword ?? dto.password);
   }
 
   @Get("roles")
