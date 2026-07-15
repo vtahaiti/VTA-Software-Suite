@@ -18,6 +18,7 @@ const commonRoutes = [
   ["/dashboard/pos", "pos"],
   ["/dashboard/sales/in-progress", "pos"],
   ["/dashboard/sales/completed", "pos"],
+  ["/dashboard/sales", "sales"],
   ["/dashboard/products", "products"],
   ["/dashboard/products/categories", "products"],
   ["/dashboard/inventory", "inventory"],
@@ -47,6 +48,13 @@ for (const moduleKey of ["dashboard", "pos", "products", "inventory", "customers
   }
 }
 
+const multiActivitiesProfile = catalogSource.match(/\{\s*slug:\s*"multi-activities"[\s\S]*?\}/)?.[0] ?? "";
+for (const moduleKey of ["dashboard", "pos", "products", "inventory", "customers", "suppliers", "sales", "reports", "settings", "printing", "services", "it-services", "measurements"]) {
+  if (!multiActivitiesProfile.includes(`"${moduleKey}"`)) {
+    failures.push(`Profil Multi-activite / Commerce & Services: module requis absent: ${moduleKey}`);
+  }
+}
+
 for (const profileSlug of ["hardware", "construction-materials"]) {
   const profile = catalogSource.match(new RegExp(`\\{\\s*slug:\\s*"${profileSlug}"[\\s\\S]*?\\}`))?.[0] ?? "";
   for (const moduleKey of ["dashboard", "pos", "products", "inventory", "customers", "suppliers", "sales", "reports", "settings", "measurements"]) {
@@ -56,7 +64,7 @@ for (const profileSlug of ["hardware", "construction-materials"]) {
   }
 }
 
-for (const label of ["Materiaux de construction", "Quincaillerie"]) {
+for (const label of ["Materiaux de construction", "Quincaillerie", "Multi-activite / Commerce & Services"]) {
   if (!onboardingSource.includes(label)) {
     failures.push(`Onboarding: activité absente: ${label}`);
   }
@@ -66,6 +74,16 @@ for (const unit of ["pièce", "sac", "tonne", "kg", "mètre", "pied", "feuille",
   if (!productFormSource.includes(unit)) {
     failures.push(`Formulaire produit: unité matériaux absente: ${unit}`);
   }
+}
+
+for (const suggestion of ["Accessoires / Cadeaux", "Informatique", "Impression", "Studio photo", "Bois / Fabrication", "Services"]) {
+  if (!catalogSource.includes(suggestion) && !onboardingSource.includes(suggestion)) {
+    failures.push(`Suggestions Multi-activite absentes: ${suggestion}`);
+  }
+}
+
+if (catalogSource.includes("VTA Enterprise") || onboardingSource.includes("VTA Enterprise")) {
+  failures.push("Le nom VTA Enterprise ne doit pas etre utilise comme profil public.");
 }
 
 for (const expected of ["assertQuantityAllowed", "Quantite decimale autorisee seulement", "Number.isInteger(item.quantity)"]) {

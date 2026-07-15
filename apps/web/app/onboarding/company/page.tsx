@@ -32,7 +32,7 @@ const fallbackActivityTemplates: BusinessActivityTemplate[] = [
   { label: "Materiaux de construction", categoryKey: "construction", profileType: "construction-materials", categories: ["Ciment", "Fer", "Bois", "Peinture", "Plomberie", "Electricite"] },
   { label: "Quincaillerie", categoryKey: "construction", profileType: "hardware", categories: ["Ciment", "Fer", "Bois", "Peinture", "Plomberie", "Electricite"] },
   { label: "Ecole", categoryKey: "education", profileType: "school", categories: ["Frais scolaires", "Uniformes", "Livres", "Services", "Transport"] },
-  { label: "Multi-activites", categoryKey: "multi-activities", profileType: "multi-activities", categories: ["Commerce", "Services", "Production"] },
+  { label: "Multi-activite / Commerce & Services", categoryKey: "multi-activities", profileType: "multi-activities", categories: ["Accessoires / Cadeaux", "Informatique", "Impression", "Studio photo", "Bois / Fabrication", "Services"] },
   { label: "Autre", categoryKey: "other", profileType: "commerce", categories: ["General"] }
 ];
 

@@ -211,6 +211,7 @@ export class BusinessProfilesService {
       { label: "Nouvelle vente", href: "/dashboard/pos", module: "pos" },
       { label: "Ventes en attente", href: "/dashboard/sales/in-progress", module: "pos" },
       { label: "Historique des ventes", href: "/dashboard/sales/completed", module: "pos" },
+      { label: "Devis & Commandes", href: "/dashboard/sales", module: "sales" },
       { label: "Produits", href: "/dashboard/products", module: "products" },
       { label: "Catégories", href: "/dashboard/products/categories", module: "products" },
       { label: "Inventaire", href: "/dashboard/inventory", module: "inventory" },
