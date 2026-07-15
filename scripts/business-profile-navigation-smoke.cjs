@@ -48,6 +48,13 @@ for (const moduleKey of ["dashboard", "pos", "products", "inventory", "customers
   }
 }
 
+const windowsProfile = catalogSource.match(/\{\s*slug:\s*"windows-aluminium"[\s\S]*?\}/)?.[0] ?? "";
+for (const moduleKey of ["dashboard", "pos", "products", "inventory", "customers", "suppliers", "sales", "reports", "settings", "measurements"]) {
+  if (!windowsProfile.includes(`"${moduleKey}"`)) {
+    failures.push(`Profil Fabrication fenetres/portes: module requis absent: ${moduleKey}`);
+  }
+}
+
 const multiActivitiesProfile = catalogSource.match(/\{\s*slug:\s*"multi-activities"[\s\S]*?\}/)?.[0] ?? "";
 for (const moduleKey of ["dashboard", "pos", "products", "inventory", "customers", "suppliers", "sales", "reports", "settings", "printing", "services", "it-services", "measurements"]) {
   if (!multiActivitiesProfile.includes(`"${moduleKey}"`)) {
@@ -73,6 +80,23 @@ for (const label of ["Materiaux de construction", "Quincaillerie", "Multi-activi
 for (const unit of ["pièce", "sac", "tonne", "kg", "mètre", "pied", "feuille", "gallon", "litre", "boîte", "paquet", "verge"]) {
   if (!productFormSource.includes(unit)) {
     failures.push(`Formulaire produit: unité matériaux absente: ${unit}`);
+  }
+}
+
+if (!onboardingSource.includes("Fabrication fenetres/portes")) {
+  failures.push("Onboarding: activite absente: Fabrication fenetres/portes");
+}
+
+for (const expected of ["Fabrication fenêtres/portes", "Fenêtres", "Moustiquaires", "PVC", "Métal"]) {
+  if (!catalogSource.includes(expected)) {
+    failures.push(`Catalogue API fabrication fenetres/portes incomplet: ${expected}`);
+  }
+}
+
+const salesDocumentPageSource = fs.readFileSync(path.join(root, "apps/web/app/dashboard/sales/sales-document-page.tsx"), "utf8");
+for (const expected of ["showFabricationFields", "Notes de mesure", "Livraison / installation", "En cours / En fabrication", "Prete pour livraison/installation"]) {
+  if (!salesDocumentPageSource.includes(expected)) {
+    failures.push(`UI Devis & Commandes fabrication incomplete: ${expected}`);
   }
 }
 

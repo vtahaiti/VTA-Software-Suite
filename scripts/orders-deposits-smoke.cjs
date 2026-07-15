@@ -41,4 +41,27 @@ assert.strictEqual(paid.balance, 0);
 assert.strictEqual(paid.status, "PAID");
 assert.throws(() => calculateTotals([{ quantity: 1, unitPrice: 1 }]), /produit ou un service/);
 
+const fabricationLine = {
+  customName: "Fenetre aluminium QA",
+  customType: "FENETRE",
+  customNote: [
+    "Materiau: Aluminium",
+    "Largeur: 120 cm",
+    "Hauteur: 90 cm",
+    "Couleur: Blanc",
+    "Epaisseur / verre: 6 mm",
+    "Date prevue: 2026-07-30",
+    "Livraison / installation: Adresse QA",
+    "Notes de mesure: Mesures QA non persistantes"
+  ].join("\n"),
+  quantity: 2,
+  unitPrice: 1500,
+  discount: 0,
+  tax: 0
+};
+const fabricationQuote = calculateTotals([fabricationLine]);
+assert.strictEqual(fabricationQuote.total, 3000);
+assert.match(fabricationLine.customNote, /Largeur: 120 cm/);
+assert.match(fabricationLine.customNote, /Livraison \/ installation: Adresse QA/);
+
 console.log("orders-deposits smoke: ok");

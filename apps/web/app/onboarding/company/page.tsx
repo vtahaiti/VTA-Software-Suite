@@ -28,6 +28,7 @@ const fallbackActivityTemplates: BusinessActivityTemplate[] = [
   { label: "Hotel", categoryKey: "hotel", profileType: "hotel", categories: ["Chambres", "Services", "Restaurant", "Blanchisserie"] },
   { label: "Restaurant", categoryKey: "restaurant-food", profileType: "restaurant", categories: ["Plats", "Boissons", "Desserts", "Menus"] },
   { label: "Fabrication", categoryKey: "manufacturing", profileType: "manufacturing", categories: ["Matieres premieres", "Produits finis", "Aluminium", "Vitres", "Portes", "Fenetres", "Accessoires"] },
+  { label: "Fabrication fenetres/portes", categoryKey: "construction", profileType: "windows-aluminium", categories: ["Fenetres", "Portes", "Cadres", "Vitrines", "Moustiquaires", "Aluminium", "Bois", "PVC", "Metal", "Verre", "Accessoires"] },
   { label: "Portes / Fenetres / Aluminium", categoryKey: "construction", profileType: "windows-aluminium", categories: ["Aluminium", "Vitres", "Portes", "Fenetres", "Accessoires", "Matieres premieres", "Produits finis"] },
   { label: "Materiaux de construction", categoryKey: "construction", profileType: "construction-materials", categories: ["Ciment", "Fer", "Bois", "Peinture", "Plomberie", "Electricite"] },
   { label: "Quincaillerie", categoryKey: "construction", profileType: "hardware", categories: ["Ciment", "Fer", "Bois", "Peinture", "Plomberie", "Electricite"] },

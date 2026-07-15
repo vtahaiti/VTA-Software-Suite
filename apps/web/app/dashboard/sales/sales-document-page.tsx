@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
+import { getTenantBusinessConfiguration } from "@/lib/business-profiles";
 import { downloadPdf, openPrintPreview } from "@/lib/print";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -11,8 +12,8 @@ const statusLabels: Record<string, string> = {
   SENT: "Envoye",
   ACCEPTED: "Accepte",
   CONFIRMED: "Confirmee",
-  IN_PROGRESS: "En cours",
-  READY: "Prete",
+  IN_PROGRESS: "En cours / En fabrication",
+  READY: "Prete pour livraison/installation",
   DELIVERED: "Livree",
   COMPLETED: "Terminee",
   REJECTED: "Refuse",
@@ -57,7 +58,24 @@ type SalesDocument = {
   items: DocumentItem[];
   payments?: Payment[];
 };
-type Line = { productId: string; customName: string; quantity: number; unitPrice: number; discount: number; tax: number };
+type Line = {
+  productId: string;
+  customName: string;
+  customType: string;
+  material: string;
+  width: string;
+  height: string;
+  color: string;
+  thickness: string;
+  length: string;
+  measurementNotes: string;
+  installationDate: string;
+  installationNotes: string;
+  quantity: number;
+  unitPrice: number;
+  discount: number;
+  tax: number;
+};
 type Summary = { ordersInProgress: number; depositsReceived: number; balancesToCollect: number; readyUnpaidOrders: number; completedOrders: number };
 
 type Props = { type: DocType; title: string; eyebrow: string; createLabel: string; transformLabel?: string; transformAction?: string };
@@ -72,8 +90,31 @@ function documentKind(type: DocType) {
   return "Facture";
 }
 
+const fabricationTypes = ["Fenetre", "Porte", "Cadre", "Vitrine", "Moustiquaire", "Structure simple", "Autre"];
+const fabricationMaterials = ["Aluminium", "Bois", "PVC", "Metal", "Verre", "Autre"];
+
 function newLine(): Line {
-  return { productId: "", customName: "", quantity: 1, unitPrice: 0, discount: 0, tax: 0 };
+  return { productId: "", customName: "", customType: "SERVICE", material: "", width: "", height: "", color: "", thickness: "", length: "", measurementNotes: "", installationDate: "", installationNotes: "", quantity: 1, unitPrice: 0, discount: 0, tax: 0 };
+}
+
+function isFabricationProfile(profileType?: string, primaryActivity?: string) {
+  const source = `${profileType ?? ""} ${primaryActivity ?? ""}`.toLowerCase();
+  return source.includes("windows-aluminium") || source.includes("manufacturing") || source.includes("fabrication") || source.includes("aluminium") || source.includes("fenetre") || source.includes("fenetre") || source.includes("porte");
+}
+
+function composeFabricationNote(line: Line) {
+  const details = [
+    line.material ? `Materiau: ${line.material}` : "",
+    line.width ? `Largeur: ${line.width}` : "",
+    line.height ? `Hauteur: ${line.height}` : "",
+    line.length ? `Longueur: ${line.length}` : "",
+    line.color ? `Couleur: ${line.color}` : "",
+    line.thickness ? `Epaisseur / verre: ${line.thickness}` : "",
+    line.installationDate ? `Date prevue: ${line.installationDate}` : "",
+    line.installationNotes ? `Livraison / installation: ${line.installationNotes}` : "",
+    line.measurementNotes ? `Notes de mesure: ${line.measurementNotes}` : ""
+  ].filter(Boolean);
+  return details.length ? details.join("\n") : undefined;
 }
 
 export function SalesDocumentPage({ type, title, eyebrow, createLabel, transformLabel, transformAction }: Props) {
@@ -91,6 +132,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentReference, setPaymentReference] = useState("");
   const [message, setMessage] = useState("");
+  const [showFabricationFields, setShowFabricationFields] = useState(false);
 
   const apiFetch = useCallback(async (path: string, init?: RequestInit) => {
     return fetch(`${apiUrl}${path}`, {
@@ -116,12 +158,14 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
 
   async function loadReferences() {
     const headers = { Authorization: `Bearer ${getAccessToken()}` };
-    const [customersResponse, productsResponse] = await Promise.all([
+    const [customersResponse, productsResponse, tenantConfiguration] = await Promise.all([
       fetch(`${apiUrl}/customers?limit=100`, { headers }),
-      fetch(`${apiUrl}/products?limit=100`, { headers })
+      fetch(`${apiUrl}/products?limit=100`, { headers }),
+      getTenantBusinessConfiguration().catch(() => null)
     ]);
     if (customersResponse.ok) setCustomers((await customersResponse.json()).items ?? []);
     if (productsResponse.ok) setProducts((await productsResponse.json()).items ?? []);
+    setShowFabricationFields(isFabricationProfile(tenantConfiguration?.businessProfileType, tenantConfiguration?.primaryActivity));
   }
 
   async function refreshSelected(id: string) {
@@ -133,9 +177,9 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
     setLines((current) => current.map((line, lineIndex) => lineIndex === index ? { ...line, ...values } : line));
   }
 
-  function selectProduct(index: number, productId: string) {
+function selectProduct(index: number, productId: string) {
     const product = products.find((item) => item.id === productId);
-    updateLine(index, { productId, customName: "", unitPrice: Number(product?.salePrice ?? 0) });
+    updateLine(index, { productId, customName: "", customType: "SERVICE", material: "", width: "", height: "", color: "", thickness: "", length: "", measurementNotes: "", installationDate: "", installationNotes: "", unitPrice: Number(product?.salePrice ?? 0) });
   }
 
   async function submit(event: FormEvent) {
@@ -148,7 +192,8 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
       items: lines.map((line) => ({
         productId: line.productId || undefined,
         customName: line.productId ? undefined : line.customName,
-        customType: line.productId ? undefined : "SERVICE",
+        customType: line.productId ? undefined : line.customType || "SERVICE",
+        customNote: line.productId ? undefined : composeFabricationNote(line),
         quantity: line.quantity,
         unitPrice: line.unitPrice,
         discount: line.discount,
@@ -255,6 +300,26 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
                   {products.map((product) => <option key={product.id} value={product.id}>{product.sku} - {product.name}</option>)}
                 </select>
                 {!line.productId ? <input required value={line.customName} onChange={(event) => updateLine(index, { customName: event.target.value })} placeholder="Nom du service ou de la commande speciale" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /> : null}
+                {!line.productId && showFabricationFields ? (
+                  <div className="grid gap-2 rounded-md bg-slate-50 p-3 dark:bg-slate-950 md:grid-cols-2">
+                    <select value={line.customType} onChange={(event) => updateLine(index, { customType: event.target.value })} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+                      <option value="SERVICE">Service personnalise</option>
+                      {fabricationTypes.map((item) => <option key={item} value={item.toUpperCase().replaceAll(" ", "_")}>{item}</option>)}
+                    </select>
+                    <select value={line.material} onChange={(event) => updateLine(index, { material: event.target.value })} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+                      <option value="">Materiau</option>
+                      {fabricationMaterials.map((item) => <option key={item} value={item}>{item}</option>)}
+                    </select>
+                    <input value={line.width} onChange={(event) => updateLine(index, { width: event.target.value })} placeholder="Largeur" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+                    <input value={line.height} onChange={(event) => updateLine(index, { height: event.target.value })} placeholder="Hauteur" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+                    <input value={line.length} onChange={(event) => updateLine(index, { length: event.target.value })} placeholder="Longueur" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+                    <input value={line.thickness} onChange={(event) => updateLine(index, { thickness: event.target.value })} placeholder="Epaisseur / verre" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+                    <input value={line.color} onChange={(event) => updateLine(index, { color: event.target.value })} placeholder="Couleur" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+                    <input type="date" value={line.installationDate} onChange={(event) => updateLine(index, { installationDate: event.target.value })} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+                    <textarea value={line.measurementNotes} onChange={(event) => updateLine(index, { measurementNotes: event.target.value })} placeholder="Notes de mesure" className="min-h-20 rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950 md:col-span-2" />
+                    <textarea value={line.installationNotes} onChange={(event) => updateLine(index, { installationNotes: event.target.value })} placeholder="Adresse ou notes livraison / installation" className="min-h-20 rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950 md:col-span-2" />
+                  </div>
+                ) : null}
                 <div className="grid grid-cols-4 gap-2">
                   <input type="number" min="1" value={line.quantity} onChange={(event) => updateLine(index, { quantity: Number(event.target.value) })} className="rounded-md border px-2 py-2 dark:border-slate-700 dark:bg-slate-950" />
                   <input type="number" min="0" step="0.01" value={line.unitPrice} onChange={(event) => updateLine(index, { unitPrice: Number(event.target.value) })} className="rounded-md border px-2 py-2 dark:border-slate-700 dark:bg-slate-950" />
@@ -355,7 +420,11 @@ function DocumentDetail(props: {
             <tbody>
               {selected.items.map((item) => (
                 <tr key={item.id} className="border-t border-slate-100 dark:border-slate-800">
-                  <td className="p-2">{item.product?.name ?? item.customName ?? "Service"}</td>
+                  <td className="p-2">
+                    <span className="font-medium">{item.product?.name ?? item.customName ?? "Service"}</span>
+                    {item.customType && !item.product ? <span className="mt-1 block text-xs text-slate-500">Type: {item.customType.replaceAll("_", " ")}</span> : null}
+                    {item.customNote ? <span className="mt-1 block whitespace-pre-wrap text-xs leading-5 text-slate-500">{item.customNote}</span> : null}
+                  </td>
                   <td className="p-2">{item.quantity}</td>
                   <td className="p-2">{money(item.unitPrice)}</td>
                   <td className="p-2">{money(item.discount)}</td>
