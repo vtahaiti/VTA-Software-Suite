@@ -7,7 +7,7 @@ import { getAccessToken } from "@/lib/auth";
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 type Supplier = { id: string; name: string; phone?: string | null };
-type Product = { id: string; name: string; sku: string; purchasePrice?: string | number };
+type Product = { id: string; name: string; sku: string; purchasePrice?: string | number; unit?: { name?: string | null; symbol?: string | null } | null };
 type Line = { productId: string; quantity: number; unitCost: number; tax: number };
 type SupplierForm = { name: string; phone: string; address: string; email: string };
 type ProductForm = { name: string; salePrice: string; purchasePrice: string; stockInitial: string };
@@ -168,7 +168,7 @@ export default function CreatePurchasePage() {
             updateLine(index, { productId: event.target.value, unitCost: Number(product?.purchasePrice ?? item.unitCost ?? 0) });
           }} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
             <option value="">Produit</option>
-            {products.map((product) => <option key={product.id} value={product.id}>{product.sku} - {product.name}</option>)}
+            {products.map((product) => <option key={product.id} value={product.id}>{product.sku} - {product.name}{product.unit ? ` (${product.unit.symbol ?? product.unit.name})` : ""}</option>)}
           </select>
           <input type="number" min="1" value={item.quantity} onChange={(event) => updateLine(index, { quantity: Number(event.target.value) })} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
           <input type="number" min="0" step="0.01" value={item.unitCost} onChange={(event) => updateLine(index, { unitCost: Number(event.target.value) })} placeholder="Coût" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />

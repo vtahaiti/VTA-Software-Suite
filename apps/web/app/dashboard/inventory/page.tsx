@@ -11,7 +11,7 @@ type StockLine = {
   warehouseId: string;
   quantity: number;
   minimumStock: number;
-  product?: { id: string; name: string; sku: string; salePrice?: string | number } | null;
+  product?: { id: string; name: string; sku: string; salePrice?: string | number; minimumStock?: number; unit?: { name?: string | null; symbol?: string | null } | null; supplier?: { name?: string | null } | null } | null;
   warehouse?: { id: string; name: string; storeId?: string | null } | null;
 };
 type ProductForm = { name: string; salePrice: string; purchasePrice: string; stockInitial: string; minimumStock: string };
@@ -145,14 +145,15 @@ export default function InventoryPage() {
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <table className="w-full min-w-[760px] text-left text-sm">
         <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950">
-          <tr><th className="p-3">Produit</th><th className="p-3">Dépôt</th><th className="p-3">Stock actuel</th><th className="p-3">Stock minimum</th><th className="p-3">Actions</th></tr>
+          <tr><th className="p-3">Produit</th><th className="p-3">Dépôt</th><th className="p-3">Stock actuel</th><th className="p-3">Stock minimum</th><th className="p-3">Fournisseur</th><th className="p-3">Actions</th></tr>
         </thead>
         <tbody>
           {stocks.map((stock) => <tr key={stock.id} className="border-t border-slate-100 dark:border-slate-800">
-            <td className="p-3"><p className="font-semibold">{stock.product?.name ?? "Produit"}</p><p className="text-xs text-slate-500">{stock.product?.sku}</p></td>
+            <td className="p-3"><p className="font-semibold">{stock.product?.name ?? "Produit"}</p><p className="text-xs text-slate-500">{stock.product?.sku}{unitLabel(stock) ? ` · ${unitLabel(stock)}` : ""}</p></td>
             <td className="p-3">{stock.warehouse?.name ?? "-"}</td>
-            <td className="p-3 text-lg font-bold">{stock.quantity}</td>
+            <td className="p-3 text-lg font-bold">{stock.quantity}{unitLabel(stock) ? ` ${unitLabel(stock)}` : ""}</td>
             <td className="p-3">{stock.minimumStock}</td>
+            <td className="p-3">{stock.product?.supplier?.name ?? "-"}</td>
             <td className="p-3">
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => openStockModal(stock, "adjust")} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">Ajuster</button>
@@ -226,6 +227,10 @@ function actionLabel(action: StockAction) {
   if (action === "adjust") return "Ajustement manuel";
   if (action === "in") return "Entrée stock";
   return "Sortie stock";
+}
+
+function unitLabel(stock: StockLine) {
+  return stock.product?.unit?.symbol ?? stock.product?.unit?.name ?? "";
 }
 
 function authHeaders() {

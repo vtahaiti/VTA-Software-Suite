@@ -168,7 +168,7 @@ export class PosService {
     const productIds = dto.items.map((item) => item.productId).filter((productId): productId is string => Boolean(productId));
     const products = await this.prisma.product.findMany({
       where: { tenantId, id: { in: productIds }, isActive: true },
-      include: { barcodes: true, stocks: true }
+      include: { barcodes: true, stocks: true, unit: true }
     });
     const productMap = new Map(products.map((product) => [product.id, product]));
     const taxRate = dto.taxRate ?? 0;
@@ -182,6 +182,7 @@ export class PosService {
         const unitPrice = Number(item.unitPrice ?? NaN);
         if (!customName) throw new BadRequestException("Le nom de l'article personnalise est obligatoire");
         if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new BadRequestException("Le prix de l'article personnalise est obligatoire");
+        if (!Number.isInteger(item.quantity)) throw new BadRequestException("Quantite decimale autorisee seulement pour les produits avec unite mesurable.");
         const discount = item.discount ?? 0;
         const base = unitPrice * item.quantity;
         const taxable = base - discount;
@@ -212,6 +213,7 @@ export class PosService {
       }
       const product = productMap.get(item.productId);
       if (!product) throw new NotFoundException("Produit introuvable");
+      this.assertQuantityAllowed(item.quantity, product.unit);
       const availableStock = this.availableStock(product.stocks, dto.warehouseId);
       const unitPrice = Number(product.salePrice);
       const discount = item.discount ?? 0;
@@ -233,6 +235,7 @@ export class PosService {
         tax: this.round(lineTax),
         total: this.round(total),
         availableStock,
+        unit: product.unit?.symbol ?? product.unit?.name ?? null,
         primaryBarcode: product.barcodes.find((barcode) => barcode.isPrimary)?.value ?? product.barcodes[0]?.value ?? null,
         hasEnoughStock: availableStock >= item.quantity,
         isCustom: false
@@ -564,6 +567,15 @@ export class PosService {
     return stocks
       .filter((stock) => !warehouseId || stock.warehouseId === warehouseId)
       .reduce((sum, stock) => sum + computeAvailableStock(stock), 0);
+  }
+
+  private assertQuantityAllowed(quantity: number, unit?: { name?: string | null; symbol?: string | null } | null) {
+    if (Number.isInteger(quantity)) return;
+    const label = `${unit?.symbol ?? ""} ${unit?.name ?? ""}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const tokens = label.split(/[^a-z0-9]+/).filter(Boolean);
+    const decimalUnits = ["kg", "kilo", "tonne", "metre", "meter", "m", "pied", "gallon", "litre", "l", "verge"];
+    if (decimalUnits.some((entry) => tokens.includes(entry) || (entry.length > 1 && label.includes(entry)))) return;
+    throw new BadRequestException("Quantite decimale autorisee seulement pour les unites mesurables.");
   }
 
   private emptyCart(taxRate: number, discount: number) {

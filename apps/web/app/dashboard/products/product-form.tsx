@@ -12,7 +12,7 @@ type Store = { id: string; name: string };
 type Warehouse = { id: string; name: string };
 type CategoryForm = { name: string; icon: string };
 
-const unitOptions = ["Piece", "Boite", "Carton", "Kg", "Litre", "Metre", "Paquet"];
+const unitOptions = ["pièce", "sac", "tonne", "kg", "mètre", "pied", "feuille", "gallon", "litre", "boîte", "paquet", "verge"];
 const emptyCategoryForm: CategoryForm = { name: "", icon: "" };
 
 export function ProductForm({ productId }: { productId?: string }) {
@@ -153,6 +153,8 @@ export function ProductForm({ productId }: { productId?: string }) {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    const unitId = await resolveUnitId();
+    if (unitId === null) return;
     const gallery = form.galleryUrls.split(/\r?\n/).map((url) => url.trim()).filter(Boolean);
     const variants = form.variantName || form.variantColor || form.variantSize || form.variantStock !== "0"
       ? [{
@@ -176,7 +178,7 @@ export function ProductForm({ productId }: { productId?: string }) {
       subCategory: form.subCategory || undefined,
       brandId: form.brandId || undefined,
       supplierId: form.supplierId || undefined,
-      unitId: form.unitId || undefined,
+      unitId,
       purchasePrice: Number(form.purchasePrice || 0),
       salePrice: Number(form.salePrice || 0),
       promotionalPrice: form.promotionalPrice ? Number(form.promotionalPrice) : undefined,
@@ -206,6 +208,26 @@ export function ProductForm({ productId }: { productId?: string }) {
     });
     setMessage(response.ok ? "Produit enregistre." : "Impossible d'enregistrer le produit.");
     if (response.ok) router.push("/dashboard/products");
+  }
+
+  async function resolveUnitId() {
+    if (form.unitId) return form.unitId;
+    const name = form.customUnit.trim();
+    if (!name) return undefined;
+    const existing = refs.units.find((unit) => [unit.name, unit.symbol].filter(Boolean).some((value) => value?.toLowerCase() === name.toLowerCase()));
+    if (existing) return existing.id;
+    const response = await fetch(`${apiUrl}/products/units`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+      body: JSON.stringify({ name, symbol: name })
+    }).catch(() => null);
+    if (!response?.ok) {
+      setError(response ? await readError(response) : "Creation unite impossible.");
+      return null;
+    }
+    const unit = await response.json() as Ref;
+    setRefs((current) => ({ ...current, units: [unit, ...current.units.filter((item) => item.id !== unit.id)] }));
+    return unit.id;
   }
 
   async function createCategory() {
@@ -246,7 +268,7 @@ export function ProductForm({ productId }: { productId?: string }) {
     <Section title="Informations principales">
       <Input value={form.name} onChange={(value) => update("name", value)} placeholder="Nom du produit" />
       <Input value={form.sku} onChange={(value) => update("sku", value)} placeholder="SKU automatique si vide" />
-      <Input value={form.reference} onChange={(value) => update("reference", value)} placeholder="Référence interne" />
+      <Input value={form.reference} onChange={(value) => update("reference", value)} placeholder="Référence interne ou fournisseur" />
       <Input value={form.qrCode} onChange={(value) => update("qrCode", value)} placeholder="QR Code" />
       <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
         <Select value={form.categoryId} onChange={(value) => update("categoryId", value)} placeholder="Catégorie" items={refs.categories} />
@@ -255,8 +277,8 @@ export function ProductForm({ productId }: { productId?: string }) {
       <Input value={form.subCategory} onChange={(value) => update("subCategory", value)} placeholder="Sous-catégorie" />
       <Select value={form.brandId} onChange={(value) => update("brandId", value)} placeholder="Marque" items={refs.brands} />
       <Select value={form.supplierId} onChange={(value) => update("supplierId", value)} placeholder="Fournisseur principal" items={refs.suppliers} />
-      <Select value={form.unitId} onChange={(value) => update("unitId", value)} placeholder="Unite" items={refs.units.length ? refs.units : unitOptions.map((name) => ({ id: "", name }))} />
-      <Input value={form.customUnit} onChange={(value) => update("customUnit", value)} placeholder="Unite personnalisee a ajouter plus tard" />
+      <Select value={form.unitId} onChange={(value) => update("unitId", value)} placeholder="Unité de vente / stock" items={refs.units} />
+      <Input value={form.customUnit} onChange={(value) => update("customUnit", value)} placeholder={`Nouvelle unité (${unitOptions.join(", ")})`} />
     </Section>
     <Section title="Tarification">
       <Input value={form.purchasePrice} onChange={(value) => update("purchasePrice", value)} placeholder="Prix achat" />
@@ -292,9 +314,9 @@ export function ProductForm({ productId }: { productId?: string }) {
     <Section title="Variante principale">
       <Input value={form.variantName} onChange={(value) => update("variantName", value)} placeholder="Nom variante" />
       <Input value={form.variantColor} onChange={(value) => update("variantColor", value)} placeholder="Couleur" />
-      <Input value={form.variantSize} onChange={(value) => update("variantSize", value)} placeholder="Taille" />
-      <Input value={form.variantModel} onChange={(value) => update("variantModel", value)} placeholder="Modele" />
-      <Input value={form.variantCapacity} onChange={(value) => update("variantCapacity", value)} placeholder="Capacite" />
+      <Input value={form.variantSize} onChange={(value) => update("variantSize", value)} placeholder="Dimensions / taille" />
+      <Input value={form.variantModel} onChange={(value) => update("variantModel", value)} placeholder="Type / matériau" />
+      <Input value={form.variantCapacity} onChange={(value) => update("variantCapacity", value)} placeholder="Épaisseur / longueur" />
       <Input value={form.variantStock} onChange={(value) => update("variantStock", value)} placeholder="Stock variante" />
     </Section>
     <Section title="Dates">

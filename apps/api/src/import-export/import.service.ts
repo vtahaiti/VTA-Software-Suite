@@ -19,6 +19,8 @@ const productHeaderAliases: Record<string, string[]> = {
   purchasePrice: ["prix d'achat", "prix achat", "cout", "coût", "purchaseprice", "purchase price"],
   salePrice: ["prix de vente", "prix vente", "saleprice", "sale price", "prix"],
   supplier: ["fournisseur", "supplier"],
+  unit: ["unite", "unité", "unite de vente", "unité de vente", "unite d'achat", "unité d'achat", "unit"],
+  supplierReference: ["reference fournisseur", "référence fournisseur", "ref fournisseur", "supplier reference"],
   barcode: ["code-barres", "code barre", "barcode", "codebarres"],
   minimumStock: ["stock faible", "stock minimum", "minimumstock", "seuil", "seuil d'alerte"],
   description: ["description"],
@@ -85,12 +87,15 @@ export class ImportService {
         try {
           const categoryId = row.record.category ? await this.ensureCategory(tx, tenantId, row.record.category) : undefined;
           const supplierId = row.record.supplier ? await this.findSupplier(tx, tenantId, row.record.supplier) : undefined;
+          const unitId = row.record.unit ? await this.ensureUnit(tx, tenantId, row.record.unit) : undefined;
           const data = {
             tenantId,
             sku: row.record.sku || this.generateCode("SKU"),
             name: row.record.name,
             categoryId,
             supplierId,
+            unitId,
+            reference: row.record.supplierReference || undefined,
             description: row.record.description || undefined,
             purchasePrice: this.numberValue(row.record.purchasePrice),
             salePrice: this.numberValue(row.record.salePrice),
@@ -318,6 +323,7 @@ export class ImportService {
   private generateCode(prefix: string) { return `${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`; }
   private slug(value: string) { return this.normalizeKey(value).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || this.generateCode("cat").toLowerCase(); }
   private async ensureCategory(tx: Prisma.TransactionClient, tenantId: string, name: string) { const slug = this.slug(name); const existing = await tx.category.findFirst({ where: { tenantId, OR: [{ slug }, { name: { equals: name, mode: "insensitive" } }] } }); if (existing) return existing.id; const category = await tx.category.create({ data: { tenantId, name, slug } }); return category.id; }
+  private async ensureUnit(tx: Prisma.TransactionClient, tenantId: string, name: string) { const symbol = name.trim(); const existing = await tx.unit.findFirst({ where: { tenantId, OR: [{ symbol: { equals: symbol, mode: "insensitive" } }, { name: { equals: symbol, mode: "insensitive" } }] } }); if (existing) return existing.id; const unit = await tx.unit.create({ data: { tenantId, name: symbol, symbol } }); return unit.id; }
   private async findSupplier(tx: Prisma.TransactionClient, tenantId: string, name: string) { const supplier = await tx.supplier.findFirst({ where: { tenantId, name: { equals: name, mode: "insensitive" } } }); return supplier?.id; }
   private async applyInitialStock(tx: Prisma.TransactionClient, tenantId: string, productId: string, stockValue?: string, minimumStockValue?: string) {
     if (!stockValue || !this.isValidInteger(stockValue)) return;

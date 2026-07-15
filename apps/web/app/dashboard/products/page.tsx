@@ -16,6 +16,8 @@ type Product = {
   costKnown?: boolean;
   stockCurrent?: number;
   category?: { name: string } | null;
+  unit?: { name?: string | null; symbol?: string | null } | null;
+  supplier?: { name?: string | null } | null;
   minimumStock: number;
 };
 type Category = { id: string; name: string };
@@ -119,7 +121,7 @@ export default function ProductsPage() {
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">Produit</th><th className="p-3">Catégorie</th><th className="p-3">Prix</th><th className="p-3">Stock</th><th className="p-3">Actions</th></tr></thead>
-          <tbody>{items.map((product) => <tr key={product.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3"><p className="font-semibold">{product.name}</p><p className="font-mono text-xs text-slate-400">{product.sku}</p>{product.costKnown === false ? <p className="mt-1 text-xs font-semibold text-amber-600">Coût non renseigné</p> : null}</td><td className="p-3">{product.category?.name ?? "--"}</td><td className="p-3">{product.salePrice}</td><td className="p-3">{product.stockCurrent ?? 0}</td><td className="p-3"><Link className="text-brand-600" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link></td></tr>)}</tbody>
+          <tbody>{items.map((product) => <tr key={product.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3"><p className="font-semibold">{product.name}</p><p className="font-mono text-xs text-slate-400">{product.sku}{product.unit ? ` · ${product.unit.symbol ?? product.unit.name}` : ""}</p>{product.supplier?.name ? <p className="text-xs text-slate-500">Fournisseur: {product.supplier.name}</p> : null}{product.costKnown === false ? <p className="mt-1 text-xs font-semibold text-amber-600">Coût non renseigné</p> : null}</td><td className="p-3">{product.category?.name ?? "--"}</td><td className="p-3">{product.salePrice}</td><td className="p-3">{product.stockCurrent ?? 0}{product.unit ? ` ${product.unit.symbol ?? product.unit.name}` : ""}</td><td className="p-3"><Link className="text-brand-600" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link></td></tr>)}</tbody>
         </table>
         {!isLoading && !message && items.length === 0 ? <p className="p-5 text-sm text-slate-500">Aucun produit trouvé.</p> : null}
         {isLoading ? <p className="p-5 text-sm text-slate-500">Chargement des produits...</p> : null}

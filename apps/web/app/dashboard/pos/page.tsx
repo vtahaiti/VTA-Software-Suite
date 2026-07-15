@@ -11,14 +11,14 @@ import { Info, MoreHorizontal, Plus, Search, Trash2, X } from "lucide-react";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-type Product = { id: string; name: string; sku: string; salePrice: number; availableStock: number; image?: string | null; primaryBarcode?: string | null; category?: string | null };
+type Product = { id: string; name: string; sku: string; salePrice: number; availableStock: number; image?: string | null; primaryBarcode?: string | null; category?: string | null; unit?: string | null };
 type Store = { id: string; name: string; code: string };
 type Warehouse = { id: string; name: string; code: string; storeId?: string | null };
 type CashSession = { id: string; status: string; cashRegister?: { name: string } };
 type Customer = { id: string; displayName?: string | null; phone?: string | null; mobile?: string | null; whatsapp?: string | null };
 type CustomItemType = "OUT_OF_STOCK_PRODUCT" | "SERVICE" | "CUSTOM_WORK" | "OTHER";
 type CartPayloadItem = { productId?: string | null; customId?: string; customName?: string; customType?: CustomItemType; customNote?: string; unitPrice?: number; quantity: number; discount?: number };
-type CartLine = { productId?: string | null; customId?: string; sku: string; name: string; unitPrice: number; quantity: number; discount: number; tax: number; total: number; availableStock: number; hasEnoughStock: boolean; isCustom?: boolean; customName?: string; customType?: CustomItemType; customNote?: string };
+type CartLine = { productId?: string | null; customId?: string; sku: string; name: string; unitPrice: number; quantity: number; discount: number; tax: number; total: number; availableStock: number; hasEnoughStock: boolean; unit?: string | null; isCustom?: boolean; customName?: string; customType?: CustomItemType; customNote?: string };
 type Cart = { items: CartLine[]; subtotal: number; itemDiscount: number; discount: number; tax: number; total: number; taxRate: number; canCheckout: boolean };
 type SaleHistory = { id: string; total: string | number; createdAt: string; receipt?: { number: string } | null; invoice?: { documentNumber: string } | null };
 type SaleResponse = { id: string; total: string | number; receipt?: { number: string; content: string } | null; invoice?: { documentNumber: string; total: string | number } | null };
@@ -902,6 +902,7 @@ function ProductCard({ product, onAdd }: { product: Product; onAdd: () => void }
       <div className="flex flex-1 flex-col justify-between gap-3 p-3">
         <div className="min-w-0">
           <p className="line-clamp-2 min-h-[40px] text-sm font-semibold leading-5 text-slate-950">{product.name}</p>
+          {product.unit ? <p className="mt-1 text-xs font-semibold text-slate-600">Unité: {product.unit}</p> : null}
           <p className="mt-1 truncate text-xs font-medium text-slate-500">{product.category ?? "Sans catégorie"}</p>
         </div>
         <div className="flex items-end justify-between gap-2">
@@ -1019,11 +1020,13 @@ function CartPanel(props: CartPanelProps) {
 
 function CartLineItem({ item, updateQuantity, removeProduct }: { item: CartLine; updateQuantity: (lineId: string, quantity: number) => void; removeProduct: (lineId: string) => void }) {
   const id = lineKey(item);
+  const canUseDecimalQuantity = Boolean(item.productId && allowsDecimalUnit(item.unit));
   return (
     <div className={`rounded-xl border p-3 ${item.hasEnoughStock ? "border-slate-200" : "border-red-300 bg-red-50"}`}>
       <div className="flex justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate font-semibold">{item.name}</p>
+          {item.unit ? <p className="text-xs font-semibold text-slate-600">Unité: {item.unit}</p> : null}
           <p className="text-xs text-slate-500">{item.isCustom ? customTypeLabel(item.customType) : `${item.sku} · stock ${item.availableStock}`}</p>
           {item.isCustom ? <span className="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">Personnalisé</span> : null}
         </div>
@@ -1037,8 +1040,19 @@ function CartLineItem({ item, updateQuantity, removeProduct }: { item: CartLine;
           <input aria-label={`Quantité ${item.name}`} type="number" min={0} value={item.quantity} onChange={(event) => updateQuantity(id, Math.floor(parseMoney(event.target.value)))} className="h-11 w-14 border-x border-slate-300 bg-white text-center font-bold outline-none" />
           <button onClick={() => updateQuantity(id, item.quantity + 1)} className="h-11 w-11 text-lg font-bold">+</button>
         </div>
+        {canUseDecimalQuantity ? (
+          <input
+            aria-label={`Quantité décimale ${item.name}`}
+            type="number"
+            min={0}
+            step="0.01"
+            value={item.quantity}
+            onChange={(event) => updateQuantity(id, roundQuantity(parseMoney(event.target.value)))}
+            className="h-11 w-20 rounded-lg border border-slate-300 bg-white text-center font-bold outline-none"
+          />
+        ) : null}
         <div className="text-right text-sm">
-          <p className="text-slate-500">{formatMoney(item.unitPrice)}</p>
+          <p className="text-slate-500">{formatMoney(item.unitPrice)}{item.unit ? ` / ${item.unit}` : ""}</p>
           <p className="text-base font-bold tabular-nums">{formatMoney(item.total)}</p>
         </div>
       </div>
@@ -1301,6 +1315,16 @@ function parseMoney(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function allowsDecimalUnit(unit?: string | null) {
+  const normalized = String(unit ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const tokens = normalized.split(/[^a-z0-9]+/).filter(Boolean);
+  return ["kg", "kilo", "tonne", "metre", "meter", "m", "pied", "gallon", "litre", "l", "verge"].some((entry) => tokens.includes(entry) || (entry.length > 1 && normalized.includes(entry)));
+}
+
+function roundQuantity(value: number) {
+  return Math.round((value + Number.EPSILON) * 1000) / 1000;
+}
+
 function lineKey(item: Pick<CartLine, "productId" | "customId" | "name">) {
   return item.productId ?? item.customId ?? item.name;
 }
@@ -1491,6 +1515,7 @@ function calculateLocalCart(items: CartPayloadItem[], products: Product[], taxRa
       tax: lineTax,
       total,
       availableStock: product.availableStock,
+      unit: product.unit,
       hasEnoughStock: product.availableStock >= item.quantity
     };
   });

@@ -7,6 +7,7 @@ export class ProductQueryDto {
   @IsOptional() @IsString() categoryId?: string;
   @IsOptional() @IsString() brandId?: string;
   @IsOptional() @IsString() unitId?: string;
+  @IsOptional() @IsString() supplierId?: string;
   @IsOptional() @IsString() warehouseId?: string;
   @IsOptional() @Transform(({ value }) => value === "true" ? true : value === "false" ? false : value) @IsBoolean() costMissing?: boolean;
   @IsOptional() @Transform(({ value }) => value === "true" ? true : value === "false" ? false : value) @IsBoolean() isActive?: boolean;

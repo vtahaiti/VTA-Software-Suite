@@ -23,6 +23,8 @@ const productListSelect = {
   createdAt: true,
   updatedAt: true,
   category: { select: { id: true, name: true } },
+  unit: { select: { id: true, name: true, symbol: true } },
+  supplier: { select: { id: true, name: true } },
   stocks: { select: { quantity: true, reserved: true, minimumStock: true } }
 } satisfies Prisma.ProductSelect;
 
@@ -51,6 +53,7 @@ export class ProductsService {
       categoryId: query.categoryId,
       brandId: query.brandId,
       unitId: query.unitId,
+      supplierId: query.supplierId,
       isActive: query.isActive,
       ...(query.costMissing ? { averageCost: 0, purchasePrice: 0 } : {}),
       OR: search ? [

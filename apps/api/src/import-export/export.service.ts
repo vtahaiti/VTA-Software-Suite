@@ -11,6 +11,13 @@ const productTemplateRows = [
     "Produit / Nom": "Exemple produit",
     "Catégorie": "Catégorie exemple",
     "Stock / Quantité": 10,
+    "Unité": "sac",
+    "Référence fournisseur": "REF-FOURN-001",
+    "Dimensions": "2x4",
+    "Couleur": "",
+    "Épaisseur": "",
+    "Longueur": "",
+    "Type / Matériau": "ciment",
     "Prix d'achat": 100,
     "Prix de vente": 150,
     "Stock faible / Stock minimum": 5,
@@ -28,14 +35,20 @@ export class ExportService {
   }
 
   async products(tenantId: string, format: ExportFormat) {
-    const products = await this.prisma.product.findMany({ where: { tenantId }, include: { category: true, brand: true, unit: true, barcodes: true }, orderBy: { name: "asc" } });
+    const products = await this.prisma.product.findMany({ where: { tenantId }, include: { category: true, brand: true, unit: true, supplier: true, barcodes: true, variants: true }, orderBy: { name: "asc" } });
     const rows = products.map((product) => ({
       "Code / SKU": product.sku,
       "Produit": product.name,
+      "Référence fournisseur": product.reference ?? "",
       "Code-barres": product.barcodes[0]?.value ?? "",
       "Catégorie": product.category?.name ?? "",
       "Marque": product.brand?.name ?? "",
+      "Fournisseur": product.supplier?.name ?? "",
       "Unité": product.unit?.symbol ?? "",
+      "Dimensions": product.variants[0]?.size ?? "",
+      "Couleur": product.variants[0]?.color ?? "",
+      "Épaisseur / Longueur": product.variants[0]?.capacity ?? "",
+      "Type / Matériau": product.variants[0]?.model ?? "",
       "Prix d'achat": this.decimal(product.purchasePrice),
       "Prix de vente": this.decimal(product.salePrice),
       "Stock minimum": product.minimumStock,
@@ -77,13 +90,15 @@ export class ExportService {
   }
 
   async stock(tenantId: string, format: ExportFormat) {
-    const stocks = await this.prisma.stock.findMany({ where: { tenantId }, include: { product: true, warehouse: true }, orderBy: { updatedAt: "desc" } });
+    const stocks = await this.prisma.stock.findMany({ where: { tenantId }, include: { product: { include: { unit: true, supplier: true } }, warehouse: true }, orderBy: { updatedAt: "desc" } });
     const rows = stocks.map((stock) => {
       const available = stock.quantity - stock.reserved;
       const threshold = stock.minimumStock || stock.product.minimumStock;
       return {
         "Code / SKU": stock.product.sku,
         "Produit": stock.product.name,
+        "Unité": stock.product.unit?.symbol ?? "",
+        "Fournisseur": stock.product.supplier?.name ?? "",
         "Dépôt": stock.warehouse.name,
         "Quantité": stock.quantity,
         "Réservé": stock.reserved,
@@ -96,7 +111,7 @@ export class ExportService {
   }
 
   async movements(tenantId: string, format: ExportFormat) {
-    const movements = await this.prisma.inventoryMovement.findMany({ where: { tenantId }, include: { product: true, warehouse: true }, orderBy: { createdAt: "desc" }, take: 5000 });
+    const movements = await this.prisma.inventoryMovement.findMany({ where: { tenantId }, include: { product: { include: { unit: true, supplier: true } }, warehouse: true }, orderBy: { createdAt: "desc" }, take: 5000 });
     const rows = movements.map((movement) => ({
       "Date": movement.createdAt,
       "Code / SKU": movement.product.sku,
@@ -113,13 +128,15 @@ export class ExportService {
   }
 
   async lowStock(tenantId: string, format: ExportFormat) {
-    const stocks = await this.prisma.stock.findMany({ where: { tenantId }, include: { product: true, warehouse: true }, orderBy: { updatedAt: "desc" } });
+    const stocks = await this.prisma.stock.findMany({ where: { tenantId }, include: { product: { include: { unit: true, supplier: true } }, warehouse: true }, orderBy: { updatedAt: "desc" } });
     const rows = stocks.filter((stock) => (stock.quantity - stock.reserved) <= (stock.minimumStock || stock.product.minimumStock)).map((stock) => {
       const available = stock.quantity - stock.reserved;
       const threshold = stock.minimumStock || stock.product.minimumStock;
       return {
         "Code / SKU": stock.product.sku,
         "Produit": stock.product.name,
+        "Unité": stock.product.unit?.symbol ?? "",
+        "Fournisseur": stock.product.supplier?.name ?? "",
         "Dépôt": stock.warehouse.name,
         "Disponible": available,
         "Stock minimum": threshold,

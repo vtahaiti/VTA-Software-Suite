@@ -14,6 +14,9 @@ export class StockService {
     const productWhere: Prisma.ProductWhereInput = {
       tenantId,
       isActive: true,
+      categoryId: query.categoryId,
+      unitId: query.unitId,
+      supplierId: query.supplierId,
       OR: query.search
         ? [{ name: { contains: query.search, mode: "insensitive" } }, { sku: { contains: query.search, mode: "insensitive" } }]
         : undefined
@@ -23,7 +26,9 @@ export class StockService {
         where: productWhere,
         include: {
           stocks: { where: { warehouseId: query.warehouseId }, include: { warehouse: true }, orderBy: { updatedAt: "desc" } },
-          category: true
+          category: true,
+          unit: true,
+          supplier: true
         },
         skip: (page - 1) * limit,
         take: limit,

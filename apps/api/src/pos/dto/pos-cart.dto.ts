@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsArray, IsIn, IsInt, IsNumber, IsOptional, IsString, Min, ValidateNested } from "class-validator";
+import { IsArray, IsIn, IsNumber, IsOptional, IsString, Min, ValidateNested } from "class-validator";
 
 export class PosCartItemDto {
   @IsOptional()
@@ -29,7 +29,7 @@ export class PosCartItemDto {
   unitPrice?: number;
 
   @Type(() => Number)
-  @IsInt()
+  @IsNumber()
   @Min(1)
   quantity!: number;
 
@@ -73,7 +73,7 @@ export class PosCartAddDto extends PosCartDto {
 
   @IsOptional()
   @Type(() => Number)
-  @IsInt()
+  @IsNumber()
   @Min(1)
   quantity?: number;
 }
@@ -83,7 +83,7 @@ export class PosCartUpdateDto extends PosCartDto {
   productId!: string;
 
   @Type(() => Number)
-  @IsInt()
+  @IsNumber()
   @Min(0)
   quantity!: number;
 }
