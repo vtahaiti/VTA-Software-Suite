@@ -223,7 +223,36 @@ function SaleList({ sales, type, isLoading }: { sales: Sale[]; type: "completed"
     }
   }
 
-  return <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  return <section className="rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className="grid gap-3 p-3 md:hidden">
+      {sales.map((sale) => {
+        const paymentSummary = summarizePayments(sale.total, sale.payments ?? []);
+        const paid = paymentSummary.settledAmount;
+        const received = paymentSummary.receivedAmount;
+        const change = paymentSummary.changeAmount;
+        const total = paymentSummary.total;
+        return <article key={sale.id} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-950 dark:text-white">{new Date(sale.createdAt).toLocaleString("fr-HT")}</p>
+              <p className="mt-1 text-sm text-slate-500">{sale.customer?.displayName ?? sale.customer?.phone ?? "Client comptoir"}</p>
+            </div>
+            <p className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold dark:bg-slate-800">{type === "cancelled" ? "Annulee" : paid >= total ? "Payee" : "Partielle"}</p>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+            <div className="rounded-md bg-slate-50 p-2 dark:bg-slate-950"><span className="text-slate-500">Total</span><p className="font-bold">{formatMoney(total)}</p></div>
+            <div className="rounded-md bg-slate-50 p-2 dark:bg-slate-950"><span className="text-slate-500">Regle</span><p className="font-bold">{formatMoney(paid)}</p></div>
+            <div className="rounded-md bg-slate-50 p-2 dark:bg-slate-950"><span className="text-slate-500">Recu</span><p className="font-semibold">{formatMoney(received)}</p></div>
+            <div className="rounded-md bg-slate-50 p-2 dark:bg-slate-950"><span className="text-slate-500">Monnaie</span><p className="font-semibold">{paymentSummary.historicalDataUnavailable ? "Indisponible" : formatMoney(change)}</p></div>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button onClick={() => window.alert(`Vente ${sale.id}\nTotal: ${formatMoney(total)}\nMontant regle: ${formatMoney(paid)}\nMontant recu: ${formatMoney(received)}\nMonnaie rendue: ${formatMoney(change)}`)} className="rounded-md border border-slate-300 px-3 py-3 text-sm font-semibold dark:border-slate-700">Voir detail</button>
+            <button onClick={() => void printSale(sale.id)} className="rounded-md bg-brand-600 px-3 py-3 text-sm font-bold text-white disabled:bg-slate-300" disabled={type === "cancelled"}>Imprimer</button>
+          </div>
+        </article>;
+      })}
+    </div>
+    <div className="hidden overflow-x-auto md:block">
     <table className="w-full min-w-[920px] text-left text-sm">
       <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">Date</th><th className="p-3">Client</th><th className="p-3">Statut</th><th className="p-3">Total</th><th className="p-3">Montant réglé</th><th className="p-3">Montant reçu</th><th className="p-3">Monnaie</th><th className="p-3">Actions</th></tr></thead>
       <tbody>{sales.map((sale) => {
@@ -235,6 +264,7 @@ function SaleList({ sales, type, isLoading }: { sales: Sale[]; type: "completed"
         return <tr key={sale.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3">{new Date(sale.createdAt).toLocaleString("fr-HT")}</td><td className="p-3">{sale.customer?.displayName ?? sale.customer?.phone ?? "Client comptoir"}</td><td className="p-3">{type === "cancelled" ? "Annulée" : paid >= total ? "Payée" : "Partiellement payée"}</td><td className="p-3 font-bold">{formatMoney(total)}</td><td className="p-3">{formatMoney(paid)}</td><td className="p-3">{formatMoney(received)}</td><td className="p-3">{paymentSummary.historicalDataUnavailable ? "Donnée historique indisponible" : formatMoney(change)}</td><td className="p-3"><div className="flex gap-3"><button onClick={() => window.alert(`Vente ${sale.id}\nTotal: ${formatMoney(total)}\nMontant réglé: ${formatMoney(paid)}\nMontant reçu: ${formatMoney(received)}\nMonnaie rendue: ${formatMoney(change)}`)} className="text-slate-700 dark:text-slate-200">Voir détail</button><button onClick={() => void printSale(sale.id)} className="text-brand-600 disabled:text-slate-400" disabled={type === "cancelled"}>Imprimer</button></div></td></tr>;
       })}</tbody>
     </table>
+    </div>
     {isLoading ? <p className="p-5 text-sm text-slate-500">Chargement des ventes...</p> : null}
     {!isLoading && !sales.length ? <p className="p-5 text-sm text-slate-500">Aucune vente.</p> : null}
   </section>;

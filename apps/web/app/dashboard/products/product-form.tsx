@@ -265,20 +265,38 @@ export function ProductForm({ productId }: { productId?: string }) {
 
   return <form onSubmit={submit} className="space-y-5">
     {error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
-    <Section title="Informations principales">
+    <Section title="Essentiel produit">
       <Input value={form.name} onChange={(value) => update("name", value)} placeholder="Nom du produit" />
+      <Input value={form.salePrice} onChange={(value) => update("salePrice", value)} placeholder="Prix vente" />
+      <Input value={form.purchasePrice} onChange={(value) => update("purchasePrice", value)} placeholder="Prix achat / cout" />
+      <Input value={form.minimumStock} onChange={(value) => update("minimumStock", value)} placeholder="Seuil stock faible" />
       <Input value={form.sku} onChange={(value) => update("sku", value)} placeholder="SKU automatique si vide" />
+      <div className="flex gap-2">
+        <Input value={form.barcode} onChange={(value) => update("barcode", value)} placeholder="Code-barres UPC/EAN/QR" />
+        <button type="button" onClick={generateBarcode} className="rounded-md border px-3 py-2 text-sm font-semibold">Generer</button>
+      </div>
+      <details className="rounded-md border border-dashed border-slate-300 p-3 dark:border-slate-700 md:col-span-2">
+        <summary className="cursor-pointer text-sm font-semibold text-brand-600">Details avances produit</summary>
+        <div className="mt-3 grid gap-4 md:grid-cols-2">
       <Input value={form.reference} onChange={(value) => update("reference", value)} placeholder="Référence interne ou fournisseur" />
       <Input value={form.qrCode} onChange={(value) => update("qrCode", value)} placeholder="QR Code" />
+        </div>
+      </details>
       <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
         <Select value={form.categoryId} onChange={(value) => update("categoryId", value)} placeholder="Catégorie" items={refs.categories} />
         <button type="button" onClick={() => setShowCategoryModal(true)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">+ Nouvelle catégorie</button>
       </div>
+      <Select value={form.unitId} onChange={(value) => update("unitId", value)} placeholder="Unité de vente / stock" items={refs.units} />
+      <Input value={form.customUnit} onChange={(value) => update("customUnit", value)} placeholder={`Nouvelle unité (${unitOptions.join(", ")})`} />
+    </Section>
+    <details className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <summary className="cursor-pointer text-lg font-semibold text-slate-950 dark:text-white">Options avancees</summary>
+      <p className="mt-1 text-sm text-slate-500">Prix avances, fournisseur, images, variantes, dimensions et dates.</p>
+      <div className="mt-5 space-y-5">
+    <Section title="Classification et fournisseur">
       <Input value={form.subCategory} onChange={(value) => update("subCategory", value)} placeholder="Sous-catégorie" />
       <Select value={form.brandId} onChange={(value) => update("brandId", value)} placeholder="Marque" items={refs.brands} />
       <Select value={form.supplierId} onChange={(value) => update("supplierId", value)} placeholder="Fournisseur principal" items={refs.suppliers} />
-      <Select value={form.unitId} onChange={(value) => update("unitId", value)} placeholder="Unité de vente / stock" items={refs.units} />
-      <Input value={form.customUnit} onChange={(value) => update("customUnit", value)} placeholder={`Nouvelle unité (${unitOptions.join(", ")})`} />
     </Section>
     <Section title="Tarification">
       <Input value={form.purchasePrice} onChange={(value) => update("purchasePrice", value)} placeholder="Prix achat" />
@@ -325,6 +343,8 @@ export function ProductForm({ productId }: { productId?: string }) {
       <Input value={form.warrantyMonths} onChange={(value) => update("warrantyMonths", value)} placeholder="Garantie en mois" />
     </Section>
     <textarea value={form.description} onChange={(event) => update("description", event.target.value)} placeholder="Description" className="min-h-28 w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+      </div>
+    </details>
     <label className="flex items-center gap-2 text-sm">
       <input type="checkbox" checked={form.isActive} onChange={(event) => update("isActive", event.target.checked)} /> Produit actif
     </label>
