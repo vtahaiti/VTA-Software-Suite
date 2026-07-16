@@ -6,8 +6,13 @@ const bcrypt = require("bcryptjs");
 const root = path.resolve(__dirname, "..");
 const controller = fs.readFileSync(path.join(root, "apps/api/src/users/users.controller.ts"), "utf8");
 const service = fs.readFileSync(path.join(root, "apps/api/src/users/users.service.ts"), "utf8");
+const roleDto = fs.readFileSync(path.join(root, "apps/api/src/users/dto/create-user.dto.ts"), "utf8");
+const rolePresets = fs.readFileSync(path.join(root, "apps/api/src/users/tenant-role-presets.ts"), "utf8");
+const permissionsGuard = fs.readFileSync(path.join(root, "apps/api/src/rbac/guards/permissions.guard.ts"), "utf8");
+const roleAccess = fs.readFileSync(path.join(root, "apps/web/lib/role-access.ts"), "utf8");
 const dto = fs.readFileSync(path.join(root, "apps/api/src/users/dto/reset-user-password.dto.ts"), "utf8");
 const page = fs.readFileSync(path.join(root, "apps/web/app/dashboard/users/page.tsx"), "utf8");
+const shell = fs.readFileSync(path.join(root, "apps/web/components/protected-shell.tsx"), "utf8");
 
 assert(controller.includes('@Patch(":id/disable")'), "endpoint disable manquant");
 assert(controller.includes('@Patch(":id/reactivate")'), "endpoint reactivate manquant");
@@ -35,6 +40,26 @@ assert(page.includes("/password"), "UI changement mot de passe manquante");
 assert(page.includes("window.confirm"), "confirmation changement mot de passe manquante");
 assert(page.includes("PasswordVisibilityInput"), "afficher/masquer mot de passe manquant");
 assert(page.includes("Reactiver"), "bouton reactiver manquant");
+assert(roleDto.includes('"OBSERVATEUR"') && roleDto.includes('"BASIC"'), "roles observateur/basic manquants");
+assert(rolePresets.includes("OBSERVATEUR") && rolePresets.includes("BASIC"), "presets observateur/basic manquants");
+const cashierPreset = roleBlock(rolePresets, "CAISSIER");
+const stockPreset = roleBlock(rolePresets, "STOCK");
+const managerPreset = roleBlock(rolePresets, "MANAGER");
+assert(cashierPreset && !cashierPreset.includes("products.view"), "le caissier ne doit pas avoir products.view");
+for (const permissionPrefix of ["products.", "inventory.", "suppliers.", "purchases."]) {
+  assert(stockPreset.includes(permissionPrefix), `le role stock doit inclure ${permissionPrefix}`);
+}
+assert(!stockPreset.includes("pos.sell"), "le role stock ne doit pas avoir acces au POS");
+for (const permissionPrefix of ["products.", "inventory.", "suppliers.", "purchases.", "reports."]) {
+  assert(managerPreset.includes(permissionPrefix), `le manager doit inclure ${permissionPrefix}`);
+}
+assert(!permissionsGuard.includes("isPointOfSaleAccess"), "le guard ne doit pas accorder des permissions par raccourci de role");
+assert(roleAccess.includes('"/dashboard/pos"') && roleAccess.includes('permissions: ["pos.sell"]'), "route POS doit dependre de pos.sell");
+assert(roleAccess.includes('"/dashboard/products"') && roleAccess.includes('permissions: ["products.view"]'), "route produits doit dependre de products.view");
+assert(roleAccess.includes('"/dashboard/inventory"') && roleAccess.includes('permissions: ["inventory.view"]'), "route inventaire doit dependre de inventory.view");
+assert(roleAccess.includes("sort((a, b) => b.prefix.length - a.prefix.length)"), "les routes specifiques doivent primer sur les prefixes larges");
+assert(shell.includes("canAccessHref(user, pathname)") && shell.includes('router.replace("/dashboard")'), "les URLs directes Web non autorisees doivent etre bloquees");
+assert(page.includes("OBSERVATEUR") && page.includes("Utilisateur basique"), "UI roles observateur/basic manquante");
 
 async function runCompiledServiceSmoke() {
   const servicePath = path.join(root, "apps/api/dist/users/users.service.js");
@@ -91,3 +116,10 @@ runCompiledServiceSmoke()
     console.error(error);
     process.exit(1);
   });
+
+function roleBlock(source, roleName) {
+  const start = source.indexOf(`${roleName}:`);
+  if (start === -1) return "";
+  const next = source.indexOf("\n  },", start);
+  return next === -1 ? source.slice(start) : source.slice(start, next);
+}

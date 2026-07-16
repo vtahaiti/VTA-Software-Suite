@@ -11,14 +11,17 @@ type StoreRow = { id: string; name: string };
 type PaginatedStores = { items?: StoreRow[] };
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-const roleLabels: Record<string, string> = { OWNER: "Proprietaire", ADMIN: "Administrateur", CAISSIER: "Caissier", STOCK: "Stock", COMPTABLE: "Comptable", MANAGER: "Manager", Owner: "Proprietaire" };
+const tenantRoleNames = ["OWNER", "ADMIN", "CAISSIER", "STOCK", "COMPTABLE", "MANAGER", "OBSERVATEUR", "BASIC"];
+const roleLabels: Record<string, string> = { OWNER: "Proprietaire", ADMIN: "Administrateur", CAISSIER: "Caissier", STOCK: "Stock", COMPTABLE: "Comptable", MANAGER: "Manager", OBSERVATEUR: "Observateur", BASIC: "Utilisateur basique", Owner: "Proprietaire" };
 const defaultRoles: RoleRow[] = [
   { id: "OWNER", name: "OWNER" },
   { id: "ADMIN", name: "ADMIN" },
   { id: "CAISSIER", name: "CAISSIER" },
   { id: "STOCK", name: "STOCK" },
   { id: "COMPTABLE", name: "COMPTABLE" },
-  { id: "MANAGER", name: "MANAGER" }
+  { id: "MANAGER", name: "MANAGER" },
+  { id: "OBSERVATEUR", name: "OBSERVATEUR" },
+  { id: "BASIC", name: "BASIC" }
 ];
 
 export default function UsersPage() {
@@ -51,7 +54,7 @@ export default function UsersPage() {
 
       if (rolesResponse.ok) {
         const data = await rolesResponse.json();
-        const nextRoles = Array.isArray(data) ? data.filter((role: RoleRow) => ["OWNER", "ADMIN", "CAISSIER", "STOCK", "COMPTABLE", "MANAGER", "Owner"].includes(role.name)) : [];
+        const nextRoles = Array.isArray(data) ? data.filter((role: RoleRow) => [...tenantRoleNames, "Owner"].includes(role.name)) : [];
         setRoles(nextRoles.length ? nextRoles : defaultRoles);
       } else {
         setRoles(defaultRoles);
@@ -233,7 +236,7 @@ function availableRoles(roles: RoleRow[], currentRole?: string) {
 }
 
 function normalizeRole(role?: string | null) {
-  const map: Record<string, string> = { Owner: "OWNER", Administrator: "ADMIN", Cashier: "CAISSIER", Inventory: "STOCK", Accountant: "COMPTABLE", Manager: "MANAGER" };
+  const map: Record<string, string> = { Owner: "OWNER", Administrator: "ADMIN", Cashier: "CAISSIER", Inventory: "STOCK", Accountant: "COMPTABLE", Manager: "MANAGER", Observer: "OBSERVATEUR", ReadOnly: "OBSERVATEUR", Basic: "BASIC" };
   if (!role) return "CAISSIER";
   return map[role] ?? role;
 }

@@ -1,6 +1,6 @@
 import { IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 
-export const tenantRoleNames = ["OWNER", "ADMIN", "CAISSIER", "STOCK", "COMPTABLE", "MANAGER"] as const;
+export const tenantRoleNames = ["OWNER", "ADMIN", "CAISSIER", "STOCK", "COMPTABLE", "MANAGER", "OBSERVATEUR", "BASIC"] as const;
 export type TenantRoleName = (typeof tenantRoleNames)[number];
 
 export class CreateUserDto {

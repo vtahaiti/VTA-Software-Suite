@@ -2,9 +2,18 @@ import type { AuthUser } from "@/lib/auth";
 
 const adminRoles = new Set(["OWNER", "Owner", "ADMIN", "Admin", "Administrator", "PlatformAdmin"]);
 
-const routePermissions: Array<{ prefix: string; permissions: string[]; roles?: string[] }> = [
-  { prefix: "/dashboard/pos", permissions: ["pos.sell", "sales.create"], roles: ["CAISSIER", "Cashier"] },
-  { prefix: "/dashboard/sales", permissions: ["sales.view", "sales.read", "invoice.read"] },
+const routePermissions: Array<{ prefix: string; permissions: string[]; roles?: string[]; exact?: boolean }> = [
+  { prefix: "/dashboard/profile", permissions: ["dashboard.view"] },
+  { prefix: "/dashboard/notifications", permissions: ["notifications.read"] },
+  { prefix: "/dashboard/pos", permissions: ["pos.sell"], roles: ["CAISSIER", "Cashier"] },
+  { prefix: "/dashboard/sales/in-progress", permissions: ["pos.sell"] },
+  { prefix: "/dashboard/sales/completed", permissions: ["sales.view"] },
+  { prefix: "/dashboard/sales/cancelled", permissions: ["sales.view"] },
+  { prefix: "/dashboard/sales/quotes", permissions: ["quote.read"] },
+  { prefix: "/dashboard/sales/proformas", permissions: ["proforma.read"] },
+  { prefix: "/dashboard/sales/invoices", permissions: ["invoice.read"] },
+  { prefix: "/dashboard/sales/returns", permissions: ["return.read"] },
+  { prefix: "/dashboard/sales", permissions: ["quote.read", "proforma.read", "invoice.read", "return.read"], exact: true },
   { prefix: "/dashboard/products", permissions: ["products.view"] },
   { prefix: "/dashboard/inventory", permissions: ["inventory.view"] },
   { prefix: "/dashboard/customers", permissions: ["customer.read", "customers.view"] },
@@ -25,7 +34,9 @@ export function canAccessHref(user: AuthUser | null, href: string) {
   if (href === "/dashboard") return true;
   const permissions = new Set(user.permissions ?? []);
   const roles = new Set([user.role, ...(user.roles ?? [])].filter(Boolean));
-  const rule = routePermissions.find((entry) => href.startsWith(entry.prefix));
+  const rule = routePermissions
+    .filter((entry) => entry.exact ? href === entry.prefix : href.startsWith(entry.prefix))
+    .sort((a, b) => b.prefix.length - a.prefix.length)[0];
   if (!rule) return false;
   if (rule.roles?.some((role) => roles.has(role))) return true;
   return rule.permissions.some((permission) => permissions.has(permission));

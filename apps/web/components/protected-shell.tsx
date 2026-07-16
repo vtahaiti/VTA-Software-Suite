@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
 import { AuthUser, clearSession, getAccessToken, getCurrentUser, refreshSession } from "@/lib/auth";
+import { canAccessHref } from "@/lib/role-access";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -50,6 +51,11 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!isReady || !user) return;
+    if (!canAccessHref(user, pathname)) router.replace("/dashboard");
+  }, [isReady, pathname, router, user]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;

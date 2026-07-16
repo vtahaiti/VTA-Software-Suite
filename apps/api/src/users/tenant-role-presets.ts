@@ -12,7 +12,7 @@ export const tenantRolePresets: Record<TenantRoleName, { description: string; pe
   },
   CAISSIER: {
     description: "Caisse et ventes simples.",
-    permissions: ["dashboard.view", "pos.sell", "pos.open", "pos.close", "sales.view", "sales.create", "invoice.read", "invoice.print", "payment.create", "customer.read", "customer.create", "products.view"]
+    permissions: ["dashboard.view", "notifications.read", "notifications.update", "pos.sell", "pos.open", "pos.close", "sales.view", "invoice.print", "customer.read", "customer.create"]
   },
   STOCK: {
     description: "Produits, stock, fournisseurs et achats.",
@@ -24,6 +24,22 @@ export const tenantRolePresets: Record<TenantRoleName, { description: string; pe
   },
   MANAGER: {
     description: "Gestion quotidienne sans parametres critiques.",
-    permissions: ["dashboard.view", ...byPrefix("products.", "sales.", "customer.", "customers.", "reports."), "pos.sell", "pos.open", "payment.create"]
+    permissions: [
+      "dashboard.view",
+      "notifications.read",
+      "notifications.update",
+      ...byPrefix("products.", "inventory.", "suppliers.", "purchases.", "sales.", "quote.", "proforma.", "invoice.", "invoices.", "payment.", "customer.", "customers.", "reports.", "warehouse.", "store.", "transfer."),
+      "pos.sell",
+      "pos.open",
+      "pos.close"
+    ]
+  },
+  OBSERVATEUR: {
+    description: "Lecture seule, rapports et consultation sans operations.",
+    permissions: ["dashboard.view", "notifications.read", "notifications.update", ...byPrefix("reports.")]
+  },
+  BASIC: {
+    description: "Acces minimal au profil et aux notifications.",
+    permissions: ["dashboard.view", "notifications.read", "notifications.update"]
   }
 };
