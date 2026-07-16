@@ -27,7 +27,7 @@ export class UpdateInvoicingSettingsDto {
   @Transform(emptyToNull) @IsOptional() @IsString() invoicePrefix?: string;
   @Transform(emptyToNull) @IsOptional() @IsString() quotePrefix?: string;
   @Transform(emptyToNull) @IsOptional() @IsString() receiptPrefix?: string;
-  @IsOptional() @IsIn(["58", "80"]) posReceiptFormat?: "58" | "80";
+  @IsOptional() @IsIn(["58", "72", "80"]) posReceiptFormat?: "58" | "72" | "80";
   @IsOptional() @IsIn(["A4", "LETTER"]) invoiceFormat?: "A4" | "LETTER";
 }
 

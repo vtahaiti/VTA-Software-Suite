@@ -4,7 +4,7 @@ import { isNativePrintAvailable, printHtmlNative, type NativePrintFormat } from 
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-type ReceiptWidth = "58" | "80";
+type ReceiptWidth = "58" | "72" | "80";
 
 type PrintPreviewOptions = {
   autoPrint?: boolean;
@@ -25,7 +25,7 @@ export async function getReceiptPrintSettings(): Promise<{ width: ReceiptWidth; 
 
   const invoicing = invoicingResponse?.ok ? await invoicingResponse.json().catch(() => null) : null;
   const pos = posResponse?.ok ? await posResponse.json().catch(() => null) : null;
-  const width = invoicing?.posReceiptFormat === "58" ? "58" : "80";
+  const width = normalizeReceiptWidth(invoicing?.posReceiptFormat);
   return { width, autoPrintReceipt: Boolean(pos?.autoPrintReceipt) };
 }
 
@@ -59,6 +59,10 @@ export async function downloadPdf(path: string, filename: string) {
 
 async function openInternalOrPopup(url: string) {
   window.location.assign(url);
+}
+
+function normalizeReceiptWidth(value: unknown): ReceiptWidth {
+  return value === "58" || value === "72" || value === "80" ? value : "80";
 }
 
 async function printHtmlInHiddenFrame(html: string) {

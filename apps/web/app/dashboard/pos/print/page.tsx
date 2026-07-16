@@ -7,21 +7,22 @@ import { getAccessToken } from "@/lib/auth";
 import { isNativePrintAvailable, printHtmlNative, sharePdfNative } from "@/lib/native-print";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-type ReceiptWidth = "58" | "80";
+type ReceiptWidth = "58" | "72" | "80";
 
 export default function PosTicketPrintPage() {
   const searchParams = useSearchParams();
   const path = searchParams.get("path");
   const isDemo = searchParams.get("demo") === "1";
   const autoPrint = searchParams.get("autoPrint") === "1";
-  const width: ReceiptWidth = searchParams.get("width") === "58" ? "58" : "80";
+  const width = normalizeReceiptWidth(searchParams.get("width"));
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [html, setHtml] = useState("");
   const [status, setStatus] = useState("Préparation du ticket...");
   const [error, setError] = useState("");
   const [nativePrint, setNativePrint] = useState(false);
   const [printedAutomatically, setPrintedAutomatically] = useState(false);
-  const frameWidth = width === "58" ? "58mm" : "80mm";
+  const widthConfig = receiptWidthConfig(width);
+  const frameWidth = `${widthConfig.pageWidthMm}mm`;
   const demoHtml = useMemo(() => buildSafeDemoTicket(width), [width]);
 
   useEffect(() => {
@@ -70,7 +71,7 @@ export default function PosTicketPrintPage() {
       }
       try {
         setStatus("Ouverture de l'impression Android...");
-        await printHtmlNative({ html, title: `Ticket VTA Commerce ${width} mm`, format: width });
+        await printHtmlNative({ html, title: `Ticket VTA Commerce ${widthConfig.label}`, format: width === "58" ? "58" : "80" });
         setStatus("Dialogue d'impression Android ouvert.");
       } catch {
         setError("Impossible d'ouvrir l'impression Android. Essayez le partage PDF.");
@@ -94,7 +95,7 @@ export default function PosTicketPrintPage() {
     } catch {
       setError("Impossible d'ouvrir l'impression. Vous pouvez réessayer avec le bouton Imprimer.");
     }
-  }, [html, nativePrint, width]);
+  }, [html, nativePrint, width, widthConfig.label]);
 
   const sharePdf = useCallback(async () => {
     if (!html) {
@@ -105,15 +106,15 @@ export default function PosTicketPrintPage() {
       setStatus("Préparation du PDF...");
       await sharePdfNative({
         html,
-        title: `Ticket VTA Commerce ${width} mm`,
-        fileName: `ticket-vta-${width}mm.pdf`,
-        format: width
+        title: `Ticket VTA Commerce ${widthConfig.label}`,
+        fileName: `ticket-vta-${widthConfig.fileSuffix}.pdf`,
+        format: width === "58" ? "58" : "80"
       });
       setStatus("Partage PDF ouvert.");
     } catch {
       setError("Impossible de préparer le partage PDF.");
     }
-  }, [html, width]);
+  }, [html, width, widthConfig.fileSuffix, widthConfig.label]);
 
   useEffect(() => {
     if (!autoPrint || printedAutomatically || !html || error) return;
@@ -138,14 +139,16 @@ export default function PosTicketPrintPage() {
       `}</style>
       <section className="no-print mx-auto mb-4 flex max-w-3xl flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">Ticket thermique {width} mm</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">Ticket thermique {widthConfig.label}</p>
           <h1 className="text-xl font-black">Aperçu du ticket</h1>
           <p className="text-sm text-slate-500">{status || error || "Vérifiez le ticket avant impression."}</p>
           {error ? <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/dashboard/pos" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold">Retour au POS</Link>
-          <Link href="/dashboard/pos/print?demo=1&width=80" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold">Test 80 mm Windows</Link>
+          <Link href="/dashboard/pos/print?demo=1&width=58" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold">Test 58 mm</Link>
+          <Link href="/dashboard/pos/print?demo=1&width=72" className="rounded-xl border border-emerald-600 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800">Test POS80 72 mm</Link>
+          <Link href="/dashboard/pos/print?demo=1&width=80" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold">Test papier 80 mm</Link>
           {nativePrint ? <button onClick={() => void sharePdf()} disabled={!html || Boolean(error)} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">Partager en PDF</button> : null}
           <button onClick={() => void printFrame()} disabled={!html || Boolean(error)} className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">Imprimer</button>
         </div>
@@ -165,7 +168,7 @@ export default function PosTicketPrintPage() {
         )}
       </section>
       <section className="no-print mx-auto mt-4 max-w-3xl rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900">
-        Impression prête. Vérifiez le format du papier dans le dialogue d’impression avant de valider.
+        Windows POS80 : utilisez le mode 72 mm avec PaperSize 72.00 x 3276.00 mm, marges nulles et échelle 100 %. Le cadre vert représente la largeur réellement imprimable.
       </section>
     </main>
   );
@@ -189,25 +192,52 @@ async function readError(response: Response) {
   }
 }
 
+function normalizeReceiptWidth(value: string | null): ReceiptWidth {
+  return value === "58" || value === "72" || value === "80" ? value : "80";
+}
+
+function receiptWidthConfig(width: ReceiptWidth) {
+  if (width === "58") {
+    return {
+      pageWidthMm: 58,
+      contentWidthMm: 58,
+      safePadding: "2mm",
+      usefulWidth: "54mm",
+      amountWidth: "21mm",
+      fontSize: "10px",
+      label: "58 mm",
+      fileSuffix: "58mm"
+    };
+  }
+
+  return {
+    pageWidthMm: width === "80" ? 80 : 72,
+    contentWidthMm: 72,
+    safePadding: "3mm",
+    usefulWidth: "66mm",
+    amountWidth: "24mm",
+    fontSize: "11px",
+    label: width === "80" ? "80 mm papier / 72 mm imprimable" : "72 mm imprimable",
+    fileSuffix: width === "80" ? "80mm-72printable" : "72mm"
+  };
+}
+
 function buildSafeDemoTicket(width: ReceiptWidth) {
-  const safePadding = width === "58" ? "2mm" : "3mm";
-  const usefulWidth = width === "58" ? "54mm" : "74mm";
-  const amountWidth = width === "58" ? "21mm" : "28mm";
-  const fontSize = width === "58" ? "10px" : "12px";
+  const config = receiptWidthConfig(width);
 
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Aperçu ticket</title><style>
-    @page { size: ${width}mm auto; margin: 0; }
-    @media print { @page { size: ${width}mm auto; margin: 0; } html, body { width: ${width}mm; margin: 0; padding: 0; } .no-print { display: none !important; } }
+    @page { size: ${config.pageWidthMm}mm auto; margin: 0; }
+    @media print { @page { size: ${config.pageWidthMm}mm auto; margin: 0; } html, body { width: ${config.pageWidthMm}mm; margin: 0; padding: 0; } .no-print { display: none !important; } }
     *, *::before, *::after { box-sizing: border-box; max-width: 100%; }
-    html, body { width: ${width}mm; max-width: ${width}mm; margin: 0; padding: 0; background: #fff; overflow-x: hidden; }
-    body { font-family: Consolas, "Courier New", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: ${fontSize}; font-weight: 600; line-height: 1.25; color: #000; -webkit-font-smoothing: none; print-color-adjust: exact; }
-    .ticket { width: 100%; max-width: ${width}mm; padding: ${safePadding}; box-sizing: border-box; overflow: hidden; }
-    .ticket-inner { width: 100%; max-width: ${usefulWidth}; margin: 0 auto; overflow: hidden; }
+    html, body { width: ${config.pageWidthMm}mm; max-width: ${config.pageWidthMm}mm; margin: 0; padding: 0; background: #fff; overflow-x: hidden; }
+    body { font-family: Consolas, "Courier New", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: ${config.fontSize}; font-weight: 600; line-height: 1.25; color: #000; -webkit-font-smoothing: none; print-color-adjust: exact; }
+    .ticket { width: 100%; max-width: ${config.contentWidthMm}mm; margin: 0 auto; padding: ${config.safePadding}; box-sizing: border-box; overflow: hidden; outline: 1px solid #10b981; outline-offset: -1px; }
+    .ticket-inner { width: 100%; max-width: ${config.usefulWidth}; margin: 0 auto; overflow: hidden; }
     .center { text-align: center; }
     .line { border-top: 1px dashed #111; margin: 7px 0; }
-    .row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, ${amountWidth}); column-gap: 1.5mm; align-items: start; padding: 2px 0; width: 100%; }
+    .row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, ${config.amountWidth}); column-gap: 1.5mm; align-items: start; padding: 2px 0; width: 100%; }
     .label { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
-    .amount { min-width: 0; max-width: ${amountWidth}; justify-self: end; text-align: right; white-space: normal; overflow-wrap: anywhere; word-break: break-word; font-variant-numeric: tabular-nums; }
+    .amount { min-width: 0; max-width: ${config.amountWidth}; justify-self: end; text-align: right; white-space: normal; overflow-wrap: anywhere; word-break: break-word; font-variant-numeric: tabular-nums; }
     .name { font-weight: 700; overflow-wrap: anywhere; word-break: break-word; }
     .note { color: #555; font-size: 9px; overflow-wrap: anywhere; }
     .total { border-top: 1px solid #111; padding-top: 5px; font-size: 1.15em; font-weight: 900; }

@@ -69,7 +69,7 @@ export default function PosPage() {
   const [lastSale, setLastSale] = useState<SaleResponse | null>(null);
   const [lastPaymentSummary, setLastPaymentSummary] = useState<PaymentSummary | null>(null);
   const [branding, setBranding] = useState<CompanyBranding | null>(null);
-  const [receiptFormat, setReceiptFormat] = useState<"58" | "80">("80");
+  const [receiptFormat, setReceiptFormat] = useState<"58" | "72" | "80">("80");
   const [autoPrintReceipt, setAutoPrintReceipt] = useState(false);
   const [business, setBusiness] = useState<TenantBusinessConfiguration | null>(null);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
@@ -1018,7 +1018,7 @@ type CartPanelProps = {
   createOrder: () => void;
   updateQuantity: (productId: string, quantity: number) => void;
   removeProduct: (productId: string) => void;
-  receiptFormat: "58" | "80";
+  receiptFormat: "58" | "72" | "80";
   printSale: (sale: SaleResponse) => void;
 };
 

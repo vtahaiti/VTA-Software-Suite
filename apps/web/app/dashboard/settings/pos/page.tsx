@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 
@@ -16,9 +16,11 @@ type PosForm = {
   openCashDrawer: boolean;
 };
 
+type ReceiptPreviewWidth = "58" | "72" | "80";
+
 export default function PosSettingsPage() {
   const [form, setForm] = useState<PosForm>({ allowNegativeStock: false, allowDiscount: true, requireCustomer: false, autoPrintReceipt: false, openCashDrawer: false });
-  const [receiptWidth, setReceiptWidth] = useState<"58" | "80">("80");
+  const [receiptWidth, setReceiptWidth] = useState<ReceiptPreviewWidth>("80");
   const [msg, setMsg] = useState("");
   const [saving, setSaving] = useState(false);
 

@@ -4,7 +4,7 @@ import { PdfService } from "./pdf.service";
 import { summarizePayments } from "../common/payment-business-rules";
 
 type PaperFormat = "a4" | "letter";
-type ReceiptWidth = "58" | "80";
+type ReceiptWidth = "58" | "72" | "80";
 type BrandedTenant = { name: string; address?: string | null; phone?: string | null; email?: string | null; companyProfile?: { companyName?: string | null; name?: string | null; logoUrl?: string | null; phone?: string | null; email?: string | null; address?: string | null; taxNumber?: string | null } | null; logo?: { url?: string | null } | null };
 
 @Injectable()
@@ -24,38 +24,34 @@ export class InvoicePrintService {
     const received = paymentSummary.receivedAmount;
     const change = paymentSummary.changeAmount;
     const balance = Math.max(0, Number(sale.total ?? 0) - Number(paid ?? 0));
-    const widthMm = width === "58" ? 58 : 80;
-    const safePadding = width === "58" ? "2mm" : "3mm";
-    const usefulWidth = width === "58" ? "54mm" : "74mm";
-    const amountWidth = width === "58" ? "21mm" : "28mm";
-    const fontSize = width === "58" ? "10px" : "12px";
+    const widthConfig = receiptWidthConfig(width);
     return this.page(`Ticket ${sale.receipt?.number ?? sale.id}`, `
       <style>
-        @page { size: ${widthMm}mm auto; margin: 0; }
+        @page { size: ${widthConfig.pageWidthMm}mm auto; margin: 0; }
         @media print {
-          @page { size: ${widthMm}mm auto; margin: 0; }
-          html, body { width: ${widthMm}mm; margin: 0; padding: 0; }
+          @page { size: ${widthConfig.pageWidthMm}mm auto; margin: 0; }
+          html, body { width: ${widthConfig.pageWidthMm}mm; margin: 0; padding: 0; }
           .no-print { display: none !important; }
         }
         *, *::before, *::after { box-sizing: border-box; max-width: 100%; }
-        html, body { width: ${widthMm}mm; max-width: ${widthMm}mm; margin: 0; padding: 0; background: #fff; overflow-x: hidden; }
-        body { font-family: Consolas, "Courier New", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: ${fontSize}; font-weight: 600; line-height: 1.25; color: #000; -webkit-font-smoothing: none; print-color-adjust: exact; }
-        .ticket { width: 100%; max-width: ${widthMm}mm; padding: ${safePadding}; box-sizing: border-box; overflow: hidden; }
-        .ticket-inner { width: 100%; max-width: ${usefulWidth}; margin: 0 auto; overflow: hidden; }
+        html, body { width: ${widthConfig.pageWidthMm}mm; max-width: ${widthConfig.pageWidthMm}mm; margin: 0; padding: 0; background: #fff; overflow-x: hidden; }
+        body { font-family: Consolas, "Courier New", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: ${widthConfig.fontSize}; font-weight: 600; line-height: 1.25; color: #000; -webkit-font-smoothing: none; print-color-adjust: exact; }
+        .ticket { width: 100%; max-width: ${widthConfig.contentWidthMm}mm; margin: 0 auto; padding: ${widthConfig.safePadding}; box-sizing: border-box; overflow: hidden; }
+        .ticket-inner { width: 100%; max-width: ${widthConfig.usefulWidth}; margin: 0 auto; overflow: hidden; }
         .center { text-align: center; }
-        .logo { width: ${width === "58" ? "36px" : "44px"}; height: ${width === "58" ? "36px" : "44px"}; margin: 0 auto 5px; border: 1px solid #d1d5db; border-radius: 999px; display: grid; place-items: center; font-weight: 800; font-size: 12px; overflow: hidden; }
+        .logo { width: ${widthConfig.logoSize}; height: ${widthConfig.logoSize}; margin: 0 auto 5px; border: 1px solid #d1d5db; border-radius: 999px; display: grid; place-items: center; font-weight: 800; font-size: 12px; overflow: hidden; }
         .logo img { width: 100%; height: 100%; object-fit: contain; padding: 4px; filter: grayscale(1) contrast(1.15); }
-        .company { display: block; font-size: ${width === "58" ? "11px" : "13px"}; letter-spacing: .2px; text-transform: uppercase; overflow-wrap: anywhere; }
+        .company { display: block; font-size: ${widthConfig.companyFontSize}; letter-spacing: .2px; text-transform: uppercase; overflow-wrap: anywhere; }
         .muted { color: #4b5563; overflow-wrap: anywhere; }
         .line { border-top: 1px dashed #6b7280; margin: 7px 0; }
-        .row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, ${amountWidth}); column-gap: 1.5mm; align-items: start; padding: 2px 0; width: 100%; }
+        .row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, ${widthConfig.amountWidth}); column-gap: 1.5mm; align-items: start; padding: 2px 0; width: 100%; }
         .label { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
-        .amount { min-width: 0; max-width: ${amountWidth}; justify-self: end; text-align: right; white-space: normal; overflow-wrap: anywhere; word-break: break-word; font-variant-numeric: tabular-nums; }
+        .amount { min-width: 0; max-width: ${widthConfig.amountWidth}; justify-self: end; text-align: right; white-space: normal; overflow-wrap: anywhere; word-break: break-word; font-variant-numeric: tabular-nums; }
         .meta .label, .summary .label { color: #4b5563; }
         .meta .amount { color: #111827; }
         .item-name { font-weight: 800; overflow-wrap: anywhere; word-break: break-word; }
         .item-note { color: #4b5563; font-size: 9px; overflow-wrap: anywhere; }
-        .total-row { margin-top: 3px; padding-top: 5px; font-size: ${width === "58" ? "12px" : "14px"}; font-weight: 900; border-top: 1px solid #111827; }
+        .total-row { margin-top: 3px; padding-top: 5px; font-size: ${widthConfig.totalFontSize}; font-weight: 900; border-top: 1px solid #111827; }
         .thanks { margin-top: 8px; font-weight: 800; text-align: center; }
         .legal { margin-top: 2px; text-align: center; font-size: 9px; color: #6b7280; }
       </style>
@@ -145,6 +141,34 @@ export class InvoicePrintService {
   private money(value: unknown) { return new Intl.NumberFormat("fr-HT", { style: "currency", currency: "HTG", maximumFractionDigits: 2 }).format(Number(value ?? 0)); }
   private date(value: Date) { return new Intl.DateTimeFormat("fr-HT", { dateStyle: "medium", timeStyle: "short" }).format(value); }
   private escape(value: string) { return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+}
+
+function receiptWidthConfig(width: ReceiptWidth) {
+  if (width === "58") {
+    return {
+      pageWidthMm: 58,
+      contentWidthMm: 58,
+      safePadding: "2mm",
+      usefulWidth: "54mm",
+      amountWidth: "21mm",
+      fontSize: "10px",
+      totalFontSize: "12px",
+      companyFontSize: "11px",
+      logoSize: "36px"
+    };
+  }
+
+  return {
+    pageWidthMm: width === "80" ? 80 : 72,
+    contentWidthMm: 72,
+    safePadding: "3mm",
+    usefulWidth: "66mm",
+    amountWidth: "24mm",
+    fontSize: "11px",
+    totalFontSize: "13px",
+    companyFontSize: "12px",
+    logoSize: "40px"
+  };
 }
 
 
