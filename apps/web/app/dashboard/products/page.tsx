@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { getAccessToken } from "@/lib/auth";
+import { fetchWithAuth } from "@/lib/api-client";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -46,7 +46,7 @@ export default function ProductsPage() {
   }, [search, page, costMissingOnly]);
 
   async function loadCategories() {
-    const response = await fetch(`${apiUrl}/products/categories`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
+    const response = await fetchWithAuth(`${apiUrl}/products/categories`);
     if (response.ok) setCategories(await response.json());
   }
 
@@ -56,7 +56,7 @@ export default function ProductsPage() {
     const params = new URLSearchParams({ page: String(page), limit: "25", sortBy: "createdAt", sortOrder: "desc", isActive: "true" });
     if (search.trim()) params.set("search", search.trim());
     if (costMissingOnly) params.set("costMissing", "true");
-    const response = await fetch(`${apiUrl}/products?${params}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } }).catch(() => null);
+    const response = await fetchWithAuth(`${apiUrl}/products?${params}`).catch(() => null);
     setIsLoading(false);
     if (response?.ok) {
       const data = await response.json();
@@ -74,9 +74,9 @@ export default function ProductsPage() {
     event.preventDefault();
     setMessage("");
     setIsSaving(true);
-    const response = await fetch(`${apiUrl}/products`, {
+    const response = await fetchWithAuth(`${apiUrl}/products`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: form.name,
         salePrice: Number(form.salePrice || 0),

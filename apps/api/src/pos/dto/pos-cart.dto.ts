@@ -15,8 +15,8 @@ export class PosCartItemDto {
   customName?: string;
 
   @IsOptional()
-  @IsIn(["OUT_OF_STOCK_PRODUCT", "SERVICE", "CUSTOM_WORK", "OTHER"])
-  customType?: "OUT_OF_STOCK_PRODUCT" | "SERVICE" | "CUSTOM_WORK" | "OTHER";
+  @IsIn(["OUT_OF_STOCK_PRODUCT", "NON_STOCK_PRODUCT", "SERVICE", "CUSTOM_WORK", "OTHER"])
+  customType?: "OUT_OF_STOCK_PRODUCT" | "NON_STOCK_PRODUCT" | "SERVICE" | "CUSTOM_WORK" | "OTHER";
 
   @IsOptional()
   @IsString()

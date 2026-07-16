@@ -2,7 +2,8 @@
 
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getAccessToken } from "@/lib/auth";
+import { fetchWithAuth } from "@/lib/api-client";
+import type { TenantBusinessConfiguration } from "@/lib/business-profiles";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -11,9 +12,20 @@ type Supplier = { id: string; name: string };
 type Store = { id: string; name: string };
 type Warehouse = { id: string; name: string };
 type CategoryForm = { name: string; icon: string };
+type HardwareSuggestion = { type: string; units: string[]; keywords: string[] };
 
 const unitOptions = ["pièce", "sac", "tonne", "kg", "mètre", "pied", "feuille", "gallon", "litre", "boîte", "paquet", "verge"];
 const emptyCategoryForm: CategoryForm = { name: "", icon: "" };
+const hardwareSuggestions: HardwareSuggestion[] = [
+  { type: "Fer / acier", units: ["barre", "tonne", "kg", "mètre"], keywords: ["fer", "acier", "barre"] },
+  { type: "Ciment", units: ["sac", "palette"], keywords: ["ciment", "mortier"] },
+  { type: "Tôle", units: ["feuille", "paquet"], keywords: ["tôle", "tole", "feuille"] },
+  { type: "Peinture", units: ["gallon", "litre"], keywords: ["peinture", "vernis"] },
+  { type: "Bois", units: ["pied", "mètre", "planche"], keywords: ["bois", "planche", "contreplaque"] },
+  { type: "Tuyau", units: ["pièce", "mètre"], keywords: ["tuyau", "pvc", "pipe"] },
+  { type: "Vis / clous", units: ["boîte", "paquet", "kg"], keywords: ["vis", "clou", "clous", "boulon"] },
+  { type: "Général", units: ["pièce"], keywords: [] }
+];
 
 export function ProductForm({ productId }: { productId?: string }) {
   const router = useRouter();
@@ -69,6 +81,7 @@ export function ProductForm({ productId }: { productId?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [categoryForm, setCategoryForm] = useState<CategoryForm>(emptyCategoryForm);
+  const [business, setBusiness] = useState<TenantBusinessConfiguration | null>(null);
 
   useEffect(() => {
     void loadRefs();
@@ -82,14 +95,13 @@ export function ProductForm({ productId }: { productId?: string }) {
   }, [form.promotionalPrice, form.purchasePrice, form.salePrice]);
 
   async function loadRefs() {
-    const headers = { Authorization: `Bearer ${getAccessToken()}` };
     const [categoriesResponse, brands, units, suppliers, stores, warehouses] = await Promise.all([
-      fetch(`${apiUrl}/products/categories`, { headers }),
-      fetch(`${apiUrl}/products/brands`, { headers }),
-      fetch(`${apiUrl}/products/units`, { headers }),
-      fetch(`${apiUrl}/suppliers`, { headers }),
-      fetch(`${apiUrl}/stores`, { headers }),
-      fetch(`${apiUrl}/warehouses`, { headers })
+      fetchWithAuth(`${apiUrl}/products/categories`),
+      fetchWithAuth(`${apiUrl}/products/brands`),
+      fetchWithAuth(`${apiUrl}/products/units`),
+      fetchWithAuth(`${apiUrl}/suppliers`),
+      fetchWithAuth(`${apiUrl}/stores`),
+      fetchWithAuth(`${apiUrl}/warehouses`)
     ]);
     const suppliersData = suppliers.ok ? await suppliers.json() : [];
     const storesData = stores.ok ? await stores.json() : [];
@@ -102,10 +114,14 @@ export function ProductForm({ productId }: { productId?: string }) {
       stores: Array.isArray(storesData) ? storesData : storesData.items ?? [],
       warehouses: Array.isArray(warehousesData) ? warehousesData : warehousesData.items ?? []
     });
+    void fetchWithAuth(`${apiUrl}/business-profiles/tenant`, { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((configuration) => setBusiness(configuration as TenantBusinessConfiguration | null))
+      .catch(() => undefined);
   }
 
   async function loadProduct() {
-    const response = await fetch(`${apiUrl}/products/${productId}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
+    const response = await fetchWithAuth(`${apiUrl}/products/${productId}`);
     if (!response.ok) return;
     const product = await response.json();
     const variant = product.variants?.[0] ?? {};
@@ -156,7 +172,7 @@ export function ProductForm({ productId }: { productId?: string }) {
     const unitId = await resolveUnitId();
     if (unitId === null) return;
     const gallery = form.galleryUrls.split(/\r?\n/).map((url) => url.trim()).filter(Boolean);
-    const variants = form.variantName || form.variantColor || form.variantSize || form.variantStock !== "0"
+    const variants = form.variantName || form.variantColor || form.variantSize || form.variantModel || form.variantCapacity || form.variantStock !== "0"
       ? [{
         name: form.variantName || form.name,
         color: form.variantColor || undefined,
@@ -201,9 +217,9 @@ export function ProductForm({ productId }: { productId?: string }) {
       ],
       variants
     };
-    const response = await fetch(productId ? `${apiUrl}/products/${productId}` : `${apiUrl}/products`, {
+    const response = await fetchWithAuth(productId ? `${apiUrl}/products/${productId}` : `${apiUrl}/products`, {
       method: productId ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
     setMessage(response.ok ? "Produit enregistre." : "Impossible d'enregistrer le produit.");
@@ -216,9 +232,9 @@ export function ProductForm({ productId }: { productId?: string }) {
     if (!name) return undefined;
     const existing = refs.units.find((unit) => [unit.name, unit.symbol].filter(Boolean).some((value) => value?.toLowerCase() === name.toLowerCase()));
     if (existing) return existing.id;
-    const response = await fetch(`${apiUrl}/products/units`, {
+    const response = await fetchWithAuth(`${apiUrl}/products/units`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, symbol: name })
     }).catch(() => null);
     if (!response?.ok) {
@@ -237,9 +253,9 @@ export function ProductForm({ productId }: { productId?: string }) {
       setError("Nom de catégorie obligatoire.");
       return;
     }
-    const response = await fetch(`${apiUrl}/products/categories`, {
+    const response = await fetchWithAuth(`${apiUrl}/products/categories`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: categoryForm.name.trim(), icon: categoryForm.icon.trim() || undefined })
     }).catch(() => null);
     if (!response?.ok) {
@@ -261,6 +277,27 @@ export function ProductForm({ productId }: { productId?: string }) {
   function generateBarcode() {
     const value = Date.now().toString().slice(-12).padStart(12, "0");
     setForm((current) => ({ ...current, barcode: value, barcodeType: "EAN", qrCode: current.qrCode || `PROD:${current.sku || current.name}:${value}` }));
+  }
+
+  const selectedCategoryName = refs.categories.find((category) => category.id === form.categoryId)?.name ?? "";
+  const isHardwareProfile = ["hardware", "construction-materials"].includes(business?.businessProfileType ?? "") || /quinca|mat[ée]riaux|construction/i.test(`${business?.primaryActivity ?? ""} ${selectedCategoryName}`);
+  const hardwareContext = `${form.name} ${selectedCategoryName} ${form.variantModel}`.toLowerCase();
+  const recommendedHardwareSuggestions = useMemo(() => {
+    const matched = hardwareSuggestions.filter((suggestion) => suggestion.keywords.length > 0 && suggestion.keywords.some((keyword) => hardwareContext.includes(keyword)));
+    return matched.length ? matched : hardwareSuggestions.filter((suggestion) => ["Fer / acier", "Ciment", "Tôle", "Peinture", "Bois", "Tuyau", "Vis / clous", "Général"].includes(suggestion.type));
+  }, [hardwareContext]);
+
+  function applyHardwareSuggestion(suggestion: HardwareSuggestion, unitName?: string) {
+    setForm((current) => {
+      const nextUnit = unitName ?? suggestion.units[0] ?? "";
+      const existingUnit = refs.units.find((unit) => [unit.name, unit.symbol].filter(Boolean).some((value) => value?.toLowerCase() === nextUnit.toLowerCase()));
+      return {
+        ...current,
+        variantModel: suggestion.type,
+        unitId: existingUnit?.id ?? current.unitId,
+        customUnit: existingUnit ? "" : nextUnit
+      };
+    });
   }
 
   return <form onSubmit={submit} className="space-y-5">
@@ -288,6 +325,18 @@ export function ProductForm({ productId }: { productId?: string }) {
       </div>
       <Select value={form.unitId} onChange={(value) => update("unitId", value)} placeholder="Unité de vente / stock" items={refs.units} />
       <Input value={form.customUnit} onChange={(value) => update("customUnit", value)} placeholder={`Nouvelle unité (${unitOptions.join(", ")})`} />
+      {isHardwareProfile ? <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100 md:col-span-2">
+        <p className="font-bold">Suggestions Quincaillerie / Matériaux</p>
+        <p className="mt-1 text-xs">Choisissez un type et une unité adaptée. Vous pouvez toujours modifier l’unité manuellement.</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {recommendedHardwareSuggestions.map((suggestion) => <div key={suggestion.type} className="rounded-md bg-white/75 p-2 dark:bg-slate-900/60">
+            <button type="button" onClick={() => applyHardwareSuggestion(suggestion)} className="font-semibold text-brand-700 dark:text-brand-300">{suggestion.type}</button>
+            <div className="mt-2 flex flex-wrap gap-1">
+              {suggestion.units.map((unit) => <button key={`${suggestion.type}-${unit}`} type="button" onClick={() => applyHardwareSuggestion(suggestion, unit)} className="rounded-full border border-amber-300 px-2 py-1 text-xs font-semibold dark:border-amber-800">{unit}</button>)}
+            </div>
+          </div>)}
+        </div>
+      </div> : null}
       <ImagePicker label="Photo du produit" selected={Boolean(form.imageUrl)} onChange={(value) => update("imageUrl", value)} />
     </Section>
     <details className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">

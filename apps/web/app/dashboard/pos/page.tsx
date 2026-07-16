@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { clearSession, getAccessToken, getCurrentUser } from "@/lib/auth";
+import { fetchWithAuth } from "@/lib/api-client";
 import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
 import { getOfflinePosContext, getOfflineProducts, getPendingOfflineSales, saveOfflinePosContext, saveOfflineProducts, saveOfflineSale, updateOfflineProductStock } from "@/lib/offline-db";
 import { syncOfflineSalesNow } from "@/lib/offline-sync";
@@ -16,7 +17,7 @@ type Store = { id: string; name: string; code: string };
 type Warehouse = { id: string; name: string; code: string; storeId?: string | null };
 type CashSession = { id: string; status: string; cashRegister?: { name: string } };
 type Customer = { id: string; displayName?: string | null; phone?: string | null; mobile?: string | null; whatsapp?: string | null };
-type CustomItemType = "OUT_OF_STOCK_PRODUCT" | "SERVICE" | "CUSTOM_WORK" | "OTHER";
+type CustomItemType = "OUT_OF_STOCK_PRODUCT" | "NON_STOCK_PRODUCT" | "SERVICE" | "CUSTOM_WORK" | "OTHER";
 type CartPayloadItem = { productId?: string | null; customId?: string; customName?: string; customType?: CustomItemType; customNote?: string; unitPrice?: number; quantity: number; discount?: number };
 type CartLine = { productId?: string | null; customId?: string; sku: string; name: string; unitPrice: number; quantity: number; discount: number; tax: number; total: number; availableStock: number; hasEnoughStock: boolean; unit?: string | null; isCustom?: boolean; customName?: string; customType?: CustomItemType; customNote?: string };
 type Cart = { items: CartLine[]; subtotal: number; itemDiscount: number; discount: number; tax: number; total: number; taxRate: number; canCheckout: boolean };
@@ -78,7 +79,6 @@ export default function PosPage() {
   const [customItemForm, setCustomItemForm] = useState<CustomItemForm>(emptyCustomItemForm);
   const scanInputRef = useRef<HTMLInputElement | null>(null);
 
-  const authHeaders = useCallback(() => ({ Authorization: `Bearer ${getAccessToken()}` }), []);
   const cartPayload = useCallback(() => ({
     storeId: storeId || undefined,
     warehouseId: warehouseId || undefined,
@@ -92,7 +92,7 @@ export default function PosPage() {
     try {
       const params = new URLSearchParams({ search: query, limit: String(POS_PRODUCT_PAGE_SIZE), page: String(pageToLoad) });
       if (warehouseId) params.set("warehouseId", warehouseId);
-      const response = await fetch(`${apiUrl}/pos/products?${params.toString()}`, { headers: authHeaders() });
+      const response = await fetchWithAuth(`${apiUrl}/pos/products?${params.toString()}`);
       if (response.ok) {
         const data = await response.json() as { items: Product[]; meta?: { page?: number; total?: number } };
         const nextItems = data.items ?? [];
@@ -120,10 +120,10 @@ export default function PosPage() {
     } finally {
       setIsLoadingProducts(false);
     }
-  }, [authHeaders, query, warehouseId]);
+  }, [query, warehouseId]);
 
   const loadRefs = useCallback(async () => {
-    const response = await fetch(`${apiUrl}/pos/context`, { headers: authHeaders() }).catch(() => null);
+    const response = await fetchWithAuth(`${apiUrl}/pos/context`).catch(() => null);
     if (!response?.ok) {
       const cachedContext = await getOfflinePosContext();
       if (cachedContext) {
@@ -153,11 +153,11 @@ export default function PosPage() {
     setHistory(data.history ?? []);
     setCustomers(data.customers ?? []);
     await saveOfflinePosContext({ stores: data.stores ?? [], warehouses: data.warehouses ?? [], sessions: openSessions, customers: data.customers ?? [] });
-  }, [authHeaders]);
+  }, []);
 
   useEffect(() => { void loadRefs(); }, [loadRefs]);
   useEffect(() => { const token = getAccessToken(); if (token) void getCompanyBranding(token).then(setBranding).catch(() => undefined); void getTenantBusinessConfiguration().then(setBusiness).catch(() => undefined); void getReceiptPrintSettings().then((settings) => { setReceiptFormat(settings.width); setAutoPrintReceipt(settings.autoPrintReceipt); }).catch(() => undefined);
-    void fetch(`${apiUrl}/settings/invoicing`, { headers: { Authorization: `Bearer ${getAccessToken()}` } })
+    void fetchWithAuth(`${apiUrl}/settings/invoicing`)
       .then((response) => response.ok ? response.json() : null)
       .then((settings) => {
         if (settings?.taxEnabled && settings?.defaultTaxRate !== undefined) setTaxRate(String(Number(settings.defaultTaxRate) / 100)); else setTaxRate("0");
@@ -205,9 +205,9 @@ export default function PosPage() {
       return;
     }
     try {
-      const response = await fetch(`${apiUrl}/pos/cart/${endpoint}`, {
+      const response = await fetchWithAuth(`${apiUrl}/pos/cart/${endpoint}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
       if (!response.ok) {
@@ -263,7 +263,7 @@ export default function PosPage() {
       scanInputRef.current?.focus();
       return;
     }
-    const response = await fetch(`${apiUrl}/products/barcode/${encodeURIComponent(term)}`, { headers: authHeaders() }).catch(() => null);
+    const response = await fetchWithAuth(`${apiUrl}/products/barcode/${encodeURIComponent(term)}`).catch(() => null);
     if (!response?.ok) {
       if (localProduct) {
         await addProduct(localProduct.id);
@@ -334,9 +334,9 @@ export default function PosPage() {
     }
     const finalizeKey = heldSaleId ? (heldSaleFinalizeKey || makeClientId()) : undefined;
     if (finalizeKey && !heldSaleFinalizeKey) setHeldSaleFinalizeKey(finalizeKey);
-    const response = await fetch(heldSaleId ? `${apiUrl}/pos/held-sales/${heldSaleId}/finalize` : `${apiUrl}/pos/checkout`, {
+    const response = await fetchWithAuth(heldSaleId ? `${apiUrl}/pos/held-sales/${heldSaleId}/finalize` : `${apiUrl}/pos/checkout`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(heldSaleId ? { sale: payload, idempotencyKey: finalizeKey } : payload)
     }).catch(() => null);
     setIsLoading(false);
@@ -385,9 +385,9 @@ export default function PosPage() {
       setMessage("Vente mise en attente sur cet appareil. Elle sera disponible ici à la reprise.");
       return;
     }
-    const response = await fetch(`${apiUrl}/pos/held-sales`, {
+    const response = await fetchWithAuth(`${apiUrl}/pos/held-sales`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id: heldSaleId,
         cart,
@@ -421,9 +421,9 @@ export default function PosPage() {
       setError("Selectionnez un entrepot avant de continuer.");
       return;
     }
-    const response = await fetch(`${apiUrl}/pos/${endpoint}`, {
+    const response = await fetchWithAuth(`${apiUrl}/pos/${endpoint}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         storeId: storeId || undefined,
         warehouseId,
@@ -509,9 +509,9 @@ export default function PosPage() {
       setError("Nom et téléphone sont obligatoires.");
       return;
     }
-    const response = await fetch(`${apiUrl}/pos/customers`, {
+    const response = await fetchWithAuth(`${apiUrl}/pos/customers`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         displayName: customerForm.name.trim(),
         phone: customerForm.phone.trim(),
@@ -845,8 +845,8 @@ export default function PosPage() {
           <div className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white text-slate-950 shadow-2xl dark:bg-slate-900 dark:text-slate-100 sm:rounded-2xl">
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5 dark:border-slate-800">
               <div className="min-w-0">
-                <h2 className="text-xl font-bold">Article personnalisé</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Ajoutez un service ou un produit hors stock uniquement pour cette vente.</p>
+                <h2 className="text-xl font-bold">Service ou article ponctuel</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Ajoutez un service, un produit non stocké ou un article ponctuel. Ces lignes ne décrémentent pas le stock.</p>
               </div>
               <button onClick={() => setShowCustomItemModal(false)} className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-200" aria-label="Fermer">
                 <X aria-hidden="true" className="h-5 w-5" />
@@ -867,8 +867,9 @@ export default function PosPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="grid gap-1 text-sm font-semibold">Type
                   <select value={customItemForm.type} onChange={(event) => setCustomItemForm((current) => ({ ...current, type: event.target.value as CustomItemType }))} className="rounded-md border border-slate-300 bg-white px-3 py-3 font-normal dark:border-slate-700 dark:bg-slate-950">
-                    <option value="OUT_OF_STOCK_PRODUCT">Produit hors stock</option>
                     <option value="SERVICE">Service</option>
+                    <option value="NON_STOCK_PRODUCT">Produit non stocké</option>
+                    <option value="OUT_OF_STOCK_PRODUCT">Produit hors stock ponctuel</option>
                     <option value="CUSTOM_WORK">Travail personnalisé</option>
                     <option value="OTHER">Autre</option>
                   </select>
@@ -1066,7 +1067,7 @@ function CartLineItem({ item, updateQuantity, removeProduct }: { item: CartLine;
           <p className="truncate font-semibold">{item.name}</p>
           {item.unit ? <p className="text-xs font-semibold text-slate-600">Unité: {item.unit}</p> : null}
           <p className="text-xs text-slate-500">{item.isCustom ? customTypeLabel(item.customType) : `${item.sku} · stock ${item.availableStock}`}</p>
-          {item.isCustom ? <span className="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">Personnalisé</span> : null}
+          {item.isCustom ? <span className="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">{customTypeBadge(item.customType)}</span> : null}
         </div>
         <button onClick={() => removeProduct(id)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600" aria-label={`Retirer ${item.name}`}>
           <Trash2 aria-hidden="true" className="h-4 w-4" />
@@ -1384,9 +1385,17 @@ function cartLineToPayload(item: CartLine): CartPayloadItem {
 
 function customTypeLabel(type?: CustomItemType) {
   if (type === "OUT_OF_STOCK_PRODUCT") return "Produit hors stock";
+  if (type === "NON_STOCK_PRODUCT") return "Produit non stocké";
   if (type === "CUSTOM_WORK") return "Travail personnalisé";
   if (type === "SERVICE") return "Service";
   return "Article personnalisé";
+}
+
+function customTypeBadge(type?: CustomItemType) {
+  if (type === "SERVICE") return "Service";
+  if (type === "NON_STOCK_PRODUCT") return "Non stocké";
+  if (type === "OUT_OF_STOCK_PRODUCT") return "Hors stock";
+  return "Ponctuel";
 }
 
 async function printSaleReceipt(sale: SaleResponse) {

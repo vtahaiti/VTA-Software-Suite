@@ -4,7 +4,7 @@ export class SaleItemDto {
   @IsOptional() @IsString() productId?: string;
   @IsOptional() @IsString() customId?: string;
   @IsOptional() @IsString() customName?: string;
-  @IsOptional() @IsIn(["OUT_OF_STOCK_PRODUCT", "SERVICE", "CUSTOM_WORK", "OTHER"]) customType?: "OUT_OF_STOCK_PRODUCT" | "SERVICE" | "CUSTOM_WORK" | "OTHER";
+  @IsOptional() @IsIn(["OUT_OF_STOCK_PRODUCT", "NON_STOCK_PRODUCT", "SERVICE", "CUSTOM_WORK", "OTHER"]) customType?: "OUT_OF_STOCK_PRODUCT" | "NON_STOCK_PRODUCT" | "SERVICE" | "CUSTOM_WORK" | "OTHER";
   @IsOptional() @IsString() customNote?: string;
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) unitPrice?: number;
   @Type(() => Number) @IsInt() @Min(1) quantity!: number;
