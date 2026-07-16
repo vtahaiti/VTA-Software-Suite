@@ -24,7 +24,7 @@ type AuthResponse = {
   user: AuthUser;
 };
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 const accessTokenKey = "vta_access_token";
 const refreshTokenKey = "vta_refresh_token";
 const userKey = "vta_user";
@@ -40,7 +40,7 @@ export async function login(payload: LoginPayload) {
       body: JSON.stringify(payload)
     });
   } catch {
-    throw new Error("Impossible de joindre l'API. Verifiez que le backend tourne sur http://localhost:3001.");
+    throw new Error("Impossible de joindre le service VTA Commerce. Verifiez votre connexion puis reessayez.");
   }
 
   if (!response.ok) {

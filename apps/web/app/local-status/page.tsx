@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 type Status = "OK" | "KO" | "Verification";
 
@@ -38,7 +38,7 @@ export default function LocalStatusPage() {
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Derniere verification : {checkedAt || "en cours"}</p>
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           <Card label="Web" status="OK" detail="Cette page est chargee sur localhost:3000." />
-          <Card label="API" status={api} detail="Verification de http://localhost:3001/health." />
+          <Card label="API" status={api} detail={`Verification de ${apiUrl}/health.`} />
           <Card label="Base de donnees" status={database} detail="Verification PostgreSQL via l API." />
         </div>
         {(api === "KO" || database === "KO") ? (
