@@ -288,6 +288,7 @@ export function ProductForm({ productId }: { productId?: string }) {
       </div>
       <Select value={form.unitId} onChange={(value) => update("unitId", value)} placeholder="Unité de vente / stock" items={refs.units} />
       <Input value={form.customUnit} onChange={(value) => update("customUnit", value)} placeholder={`Nouvelle unité (${unitOptions.join(", ")})`} />
+      <ImagePicker label="Photo du produit" selected={Boolean(form.imageUrl)} onChange={(value) => update("imageUrl", value)} />
     </Section>
     <details className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <summary className="cursor-pointer text-lg font-semibold text-slate-950 dark:text-white">Options avancees</summary>
@@ -326,7 +327,6 @@ export function ProductForm({ productId }: { productId?: string }) {
         <option value="QR">QR code</option>
         <option value="CUSTOM">Personnalise</option>
       </select>
-      <ImagePicker label="📷 Choisir une photo" selected={Boolean(form.imageUrl)} onChange={(value) => update("imageUrl", value)} />
       <GalleryPicker selected={Boolean(form.galleryUrls)} onChange={(value) => update("galleryUrls", value)} />
     </Section>
     <Section title="Variante principale">
