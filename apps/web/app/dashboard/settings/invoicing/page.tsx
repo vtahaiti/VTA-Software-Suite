@@ -6,7 +6,7 @@ import { fetchWithAuth } from "@/lib/api-client";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-type ReceiptFormat = "58" | "72" | "80";
+type ReceiptFormat = "58" | "72";
 
 type InvoicingForm = {
   taxEnabled: boolean;
@@ -26,7 +26,7 @@ const initialForm: InvoicingForm = {
   invoicePrefix: "INV",
   quotePrefix: "QUO",
   receiptPrefix: "RCT",
-  posReceiptFormat: "80",
+  posReceiptFormat: "72",
   invoiceFormat: "LETTER"
 };
 
@@ -98,20 +98,20 @@ export default function InvoicingSettingsPage() {
         <Input label="Numerotation devis" value={form.quotePrefix} onChange={(value) => update("quotePrefix", value)} />
         <Input label="Numerotation recus" value={form.receiptPrefix} onChange={(value) => update("receiptPrefix", value)} />
         <label className="grid gap-1 text-sm font-medium">
-          Format ticket POS
+          {"Type d'impression ticket"}
           <select value={form.posReceiptFormat} onChange={(event) => update("posReceiptFormat", event.target.value)} className="rounded-md border px-3 py-2 dark:bg-slate-950">
-            <option value="58">58 mm</option>
-            <option value="72">80 mm POS80 Windows - largeur imprimable 72 mm</option>
-            <option value="80">80 mm papier</option>
+            <option value="72">Imprimante thermique 80mm (POS80 Windows)</option>
+            <option value="58">Imprimante thermique 58mm</option>
           </select>
-          <span className="text-xs font-normal text-slate-500">Pour le driver POS80 qui affiche PaperSize 72.00 x 3276.00 mm, choisissez 72 mm.</span>
+          <span className="text-xs font-normal text-slate-500">Pour POS80 Printer / POS80 Printer(2), choisissez le profil POS80 Windows. VTA utilise automatiquement la largeur imprimable interne 72 mm.</span>
         </label>
         <label className="grid gap-1 text-sm font-medium">
-          Format facture
+          A4 / Lettre
           <select value={form.invoiceFormat} onChange={(event) => update("invoiceFormat", event.target.value)} className="rounded-md border px-3 py-2 dark:bg-slate-950">
             <option value="A4">A4</option>
             <option value="LETTER">Letter 8.5 x 11</option>
           </select>
+          <span className="text-xs font-normal text-slate-500">Pour rapports et factures classiques, pas pour le ticket caisse.</span>
         </label>
         <div className="flex items-center gap-3 md:col-span-2">
           <button disabled={saving} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">
@@ -151,7 +151,7 @@ function toInvoicingPayload(form: InvoicingForm, defaultTaxRate: number, maxDisc
 }
 
 function normalizeReceiptFormat(value: unknown): ReceiptFormat {
-  return value === "58" || value === "72" || value === "80" ? value : "80";
+  return value === "58" ? "58" : "72";
 }
 
 function Header() {

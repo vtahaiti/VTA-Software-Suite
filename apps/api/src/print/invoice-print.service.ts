@@ -25,7 +25,9 @@ export class InvoicePrintService {
     const change = paymentSummary.changeAmount;
     const balance = Math.max(0, Number(sale.total ?? 0) - Number(paid ?? 0));
     const widthConfig = receiptWidthConfig(width);
-    return this.page(`Ticket ${sale.receipt?.number ?? sale.id}`, `
+    const receiptNumber = this.displayReceiptNumber(tenantId, sale.receipt?.number ?? sale.id);
+    const paymentMethods = this.paymentMethods(sale.payments);
+    return this.page(`Ticket ${receiptNumber}`, `
       <style>
         @page { size: ${widthConfig.pageWidthMm}mm auto; margin: 0; }
         @media print {
@@ -66,11 +68,11 @@ export class InvoicePrintService {
           ${this.companyTax(tenant) ? `<span class="muted">NIF: ${this.escape(this.companyTax(tenant))}</span><br/>` : ""}
         </div>
         <div class="line"></div>
-        <div class="meta"><div class="row"><span class="label">Ticket</span><strong class="amount">${this.escape(sale.receipt?.number ?? sale.id)}</strong></div><div class="row"><span class="label">Date</span><strong class="amount">${this.date(sale.createdAt)}</strong></div><div class="row"><span class="label">Caissier</span><strong class="amount">${this.escape(cashier?.name ?? sale.cashSession?.cashRegister?.name ?? "Caisse")}</strong></div><div class="row"><span class="label">Client</span><strong class="amount">${this.escape(sale.customer?.displayName ?? "Client comptoir")}</strong></div></div>
+        <div class="meta"><div class="row"><span class="label">Ticket</span><strong class="amount">#${this.escape(receiptNumber)}</strong></div><div class="row"><span class="label">Date</span><strong class="amount">${this.date(sale.createdAt)}</strong></div><div class="row"><span class="label">Caissier</span><strong class="amount">${this.escape(cashier?.name ?? sale.cashSession?.cashRegister?.name ?? "Caisse")}</strong></div><div class="row"><span class="label">Client</span><strong class="amount">${this.escape(sale.customer?.displayName ?? "Client comptoir")}</strong></div></div>
         <div class="line"></div>
-        <div>${sale.items.map((item) => `<div class="row"><div class="label"><div class="item-name">${this.escape(this.itemName(item))}</div>${item.productId ? "" : `<div class="item-note">Article personnalisé</div>`}<div class="item-note">${item.quantity} x ${this.money(item.unitPrice)}${Number(item.discount) > 0 ? ` - remise ${this.money(item.discount)}` : ""}</div></div><strong class="amount">${this.money(item.total)}</strong></div>`).join("")}</div>
+        <div>${sale.items.map((item) => `<div class="row"><div class="label"><div class="item-name">${this.escape(this.itemName(item))}</div>${item.productId ? "" : `<div class="item-note">${this.escape(this.customItemLabel(item.customType))}</div>`}<div class="item-note">${item.quantity} x ${this.money(item.unitPrice)}${Number(item.discount) > 0 ? ` - remise ${this.money(item.discount)}` : ""}</div></div><strong class="amount">${this.money(item.total)}</strong></div>`).join("")}</div>
         <div class="line"></div>
-        <div class="summary"><div class="row"><span class="label">Sous-total</span><strong class="amount">${this.money(sale.subtotal)}</strong></div>${Number(sale.discount) > 0 ? `<div class="row"><span class="label">Remise</span><strong class="amount">${this.money(sale.discount)}</strong></div>` : ""}${Number(sale.tax) > 0 ? `<div class="row"><span class="label">Taxes</span><strong class="amount">${this.money(sale.tax)}</strong></div>` : ""}<div class="row total-row"><span class="label">Total</span><strong class="amount">${this.money(sale.total)}</strong></div><div class="row"><span class="label">Montant réglé</span><strong class="amount">${this.money(paid)}</strong></div><div class="row"><span class="label">Montant reçu</span><strong class="amount">${this.money(received)}</strong></div><div class="row"><span class="label">Monnaie rendue</span><strong class="amount">${this.money(change)}</strong></div>${balance > 0 ? `<div class="row"><span class="label">Reste à payer</span><strong class="amount">${this.money(balance)}</strong></div>` : ""}</div>
+        <div class="summary"><div class="row"><span class="label">Sous-total</span><strong class="amount">${this.money(sale.subtotal)}</strong></div>${Number(sale.discount) > 0 ? `<div class="row"><span class="label">Remise</span><strong class="amount">${this.money(sale.discount)}</strong></div>` : ""}${Number(sale.tax) > 0 ? `<div class="row"><span class="label">Taxes</span><strong class="amount">${this.money(sale.tax)}</strong></div>` : ""}<div class="row total-row"><span class="label">Total</span><strong class="amount">${this.money(sale.total)}</strong></div><div class="row"><span class="label">Montant réglé</span><strong class="amount">${this.money(paid)}</strong></div><div class="row"><span class="label">Montant reçu</span><strong class="amount">${this.money(received)}</strong></div><div class="row"><span class="label">Monnaie rendue</span><strong class="amount">${this.money(change)}</strong></div>${paymentMethods ? `<div class="row"><span class="label">Méthode</span><strong class="amount">${this.escape(paymentMethods)}</strong></div>` : ""}${balance > 0 ? `<div class="row"><span class="label">Reste à payer</span><strong class="amount">${this.money(balance)}</strong></div>` : ""}</div>
         <div class="line"></div>
         <div class="thanks">Merci pour votre achat</div>
         <div class="legal">Conservez ce ticket comme preuve de paiement.</div>
@@ -136,7 +138,13 @@ export class InvoicePrintService {
   private logoUrl(tenant: BrandedTenant) { return tenant.companyProfile?.logoUrl ?? tenant.logo?.url ?? ""; }
   private logoContent(tenant: BrandedTenant) { const logo = this.logoUrl(tenant); return logo ? `<img src="${this.escape(logo)}" alt="Logo"/>` : this.escape(this.initials(this.companyName(tenant))); }
   private itemName(item: { product?: { name?: string | null } | null; customName?: string | null }) { return item.product?.name ?? item.customName ?? "Article personnalisé"; }
+  private customItemLabel(value?: string | null) { return value ? `Article personnalisé - ${value}` : "Article personnalisé"; }
+  private paymentMethods(payments: Array<{ method?: string | null }>) { return [...new Set(payments.map((payment) => payment.method).filter(Boolean))].join(", "); }
   private initials(name: string) { return name.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "ME"; }
+  private displayReceiptNumber(tenantId: string, receiptNumber: string) {
+    const prefix = `${tenantId}-`;
+    return receiptNumber.startsWith(prefix) ? receiptNumber.slice(prefix.length) : receiptNumber;
+  }
   private page(title: string, body: string) { return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${this.escape(title)}</title></head><body>${body}<script>window.addEventListener('load',()=>document.body.dataset.ready='true')</script></body></html>`; }
   private money(value: unknown) { return new Intl.NumberFormat("fr-HT", { style: "currency", currency: "HTG", maximumFractionDigits: 2 }).format(Number(value ?? 0)); }
   private date(value: Date) { return new Intl.DateTimeFormat("fr-HT", { dateStyle: "medium", timeStyle: "short" }).format(value); }

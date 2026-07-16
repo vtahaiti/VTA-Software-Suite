@@ -139,16 +139,15 @@ export default function PosTicketPrintPage() {
       `}</style>
       <section className="no-print mx-auto mb-4 flex max-w-3xl flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">Ticket thermique {widthConfig.label}</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">{widthConfig.label}</p>
           <h1 className="text-xl font-black">Aperçu du ticket</h1>
           <p className="text-sm text-slate-500">{status || error || "Vérifiez le ticket avant impression."}</p>
           {error ? <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/dashboard/pos" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold">Retour au POS</Link>
+          <Link href="/dashboard/pos/print?demo=1&width=72" className="rounded-xl border border-emerald-600 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800">Test POS80 Windows</Link>
           <Link href="/dashboard/pos/print?demo=1&width=58" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold">Test 58 mm</Link>
-          <Link href="/dashboard/pos/print?demo=1&width=72" className="rounded-xl border border-emerald-600 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800">Test POS80 72 mm</Link>
-          <Link href="/dashboard/pos/print?demo=1&width=80" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold">Test papier 80 mm</Link>
           {nativePrint ? <button onClick={() => void sharePdf()} disabled={!html || Boolean(error)} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">Partager en PDF</button> : null}
           <button onClick={() => void printFrame()} disabled={!html || Boolean(error)} className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">Imprimer</button>
         </div>
@@ -168,7 +167,7 @@ export default function PosTicketPrintPage() {
         )}
       </section>
       <section className="no-print mx-auto mt-4 max-w-3xl rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900">
-        Windows POS80 : utilisez le mode 72 mm avec PaperSize 72.00 x 3276.00 mm, marges nulles et échelle 100 %. Le cadre vert représente la largeur réellement imprimable.
+        Windows POS80 : dans le driver, choisissez PaperSize 72.00 x 3276.00 mm, marges nulles et échelle 100 %. Dans VTA, choisissez “Imprimante thermique 80mm (POS80 Windows)”.
       </section>
     </main>
   );
@@ -193,7 +192,7 @@ async function readError(response: Response) {
 }
 
 function normalizeReceiptWidth(value: string | null): ReceiptWidth {
-  return value === "58" || value === "72" || value === "80" ? value : "80";
+  return value === "58" || value === "72" || value === "80" ? value : "72";
 }
 
 function receiptWidthConfig(width: ReceiptWidth) {
@@ -205,7 +204,7 @@ function receiptWidthConfig(width: ReceiptWidth) {
       usefulWidth: "54mm",
       amountWidth: "21mm",
       fontSize: "10px",
-      label: "58 mm",
+      label: "Imprimante thermique 58mm",
       fileSuffix: "58mm"
     };
   }
@@ -217,8 +216,8 @@ function receiptWidthConfig(width: ReceiptWidth) {
     usefulWidth: "66mm",
     amountWidth: "24mm",
     fontSize: "11px",
-    label: width === "80" ? "80 mm papier / 72 mm imprimable" : "72 mm imprimable",
-    fileSuffix: width === "80" ? "80mm-72printable" : "72mm"
+    label: width === "80" ? "Ticket thermique 80mm standard" : "Imprimante thermique 80mm (POS80 Windows)",
+    fileSuffix: width === "80" ? "80mm-standard" : "pos80-windows"
   };
 }
 
@@ -241,7 +240,7 @@ function buildSafeDemoTicket(width: ReceiptWidth) {
     .name { font-weight: 700; overflow-wrap: anywhere; word-break: break-word; }
     .note { color: #555; font-size: 9px; overflow-wrap: anywhere; }
     .total { border-top: 1px solid #111; padding-top: 5px; font-size: 1.15em; font-weight: 900; }
-  </style></head><body><div class="ticket"><div class="ticket-inner"><div class="center"><strong>MON ENTREPRISE</strong><br>Adresse principale<br>Tel: 0000-0000</div><div class="line"></div><div class="row"><span class="label">Ticket</span><strong class="amount">TEST-001</strong></div><div class="row"><span class="label">Date</span><strong class="amount">${new Date().toLocaleString("fr-HT")}</strong></div><div class="row"><span class="label">Caissier</span><strong class="amount">Test</strong></div><div class="line"></div><div class="row"><div class="label"><div class="name">Produit avec nom très long qui doit passer sur plusieurs lignes sans couper le montant à droite</div><div class="note">123 x 1 000 000,00 G</div></div><strong class="amount">123 000 000,00 G</strong></div><div class="row"><div class="label"><div class="name">Service personnalisé</div><div class="note">2 x 100 000,00 USD</div></div><strong class="amount">200 000,00 USD</strong></div><div class="line"></div><div class="row"><span class="label">Sous-total</span><strong class="amount">123 200 000,00 G</strong></div><div class="row"><span class="label">Remise</span><strong class="amount">1 000,00 G</strong></div><div class="row"><span class="label">Taxe</span><strong class="amount">0,00 G</strong></div><div class="row total"><span class="label">Total</span><strong class="amount">123 199 000,00 G</strong></div><div class="row"><span class="label">Montant reçu</span><strong class="amount">100 000,00 G</strong></div><div class="row"><span class="label">Monnaie rendue</span><strong class="amount">25 000,00 G</strong></div><div class="row"><span class="label">Reste à payer</span><strong class="amount">23 199 000,00 G</strong></div><div class="line"></div><div class="center"><strong>Signature autorisée : ______________________________</strong><br>Conservez ce ticket.</div></div></div></body></html>`;
+  </style></head><body><div class="ticket"><div class="ticket-inner"><div class="center"><strong>MON ENTREPRISE</strong><br>Adresse principale<br>Tel: 0000-0000</div><div class="line"></div><div class="row"><span class="label">Ticket</span><strong class="amount">#00001</strong></div><div class="row"><span class="label">Date</span><strong class="amount">${new Date().toLocaleString("fr-HT")}</strong></div><div class="row"><span class="label">Caissier</span><strong class="amount">Test</strong></div><div class="line"></div><div class="row"><div class="label"><div class="name">Produit avec nom très long qui doit passer sur plusieurs lignes sans couper le montant à droite</div><div class="note">123 x 1 000 000,00 G</div></div><strong class="amount">123 000 000,00 G</strong></div><div class="row"><div class="label"><div class="name">Service personnalisé</div><div class="note">2 x 100 000,00 USD</div></div><strong class="amount">200 000,00 USD</strong></div><div class="line"></div><div class="row"><span class="label">Sous-total</span><strong class="amount">123 200 000,00 G</strong></div><div class="row"><span class="label">Remise</span><strong class="amount">1 000,00 G</strong></div><div class="row total"><span class="label">Total</span><strong class="amount">123 199 000,00 G</strong></div><div class="row"><span class="label">Montant réglé</span><strong class="amount">100 000,00 G</strong></div><div class="row"><span class="label">Montant reçu</span><strong class="amount">125 000,00 G</strong></div><div class="row"><span class="label">Monnaie rendue</span><strong class="amount">25 000,00 G</strong></div><div class="row"><span class="label">Reste à payer</span><strong class="amount">23 199 000,00 G</strong></div><div class="line"></div><div class="center"><strong>Merci pour votre achat</strong><br>Conservez ce ticket comme preuve de paiement.</div></div></div></body></html>`;
 }
 
 function buildDemoTicket(width: ReceiptWidth) {

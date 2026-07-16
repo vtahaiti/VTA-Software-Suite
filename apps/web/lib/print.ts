@@ -29,12 +29,12 @@ export async function getReceiptPrintSettings(): Promise<{ width: ReceiptWidth; 
   return { width, autoPrintReceipt: Boolean(pos?.autoPrintReceipt) };
 }
 
-export async function openThermalDemoPreview(width: ReceiptWidth = "80") {
+export async function openThermalDemoPreview(width: ReceiptWidth = "72") {
   await openInternalOrPopup(`/dashboard/pos/print?demo=1&width=${width}`);
 }
 
 export async function openPrintPreview(path: string, options: PrintPreviewOptions = {}) {
-  const width = options.width ?? "80";
+  const width = options.width ?? "72";
   const params = new URLSearchParams({ path, width });
   if (options.autoPrint) params.set("autoPrint", "1");
   await openInternalOrPopup(`/dashboard/pos/print?${params.toString()}`);
@@ -62,7 +62,7 @@ async function openInternalOrPopup(url: string) {
 }
 
 function normalizeReceiptWidth(value: unknown): ReceiptWidth {
-  return value === "58" || value === "72" || value === "80" ? value : "80";
+  return value === "58" || value === "72" || value === "80" ? value : "72";
 }
 
 async function printHtmlInHiddenFrame(html: string) {

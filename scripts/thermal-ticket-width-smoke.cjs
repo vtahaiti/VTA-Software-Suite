@@ -24,7 +24,10 @@ assert(apiPrint.includes('pageWidthMm: width === "80" ? 80 : 72'), "API 80mm mod
 assert(webPrint.includes('type ReceiptWidth = "58" | "72" | "80"'), "Web print helper must include 72.");
 assert(webPrintPage.includes('value === "58" || value === "72" || value === "80"'), "Print preview must parse 72mm width.");
 assert(webPrintPage.includes("contentWidthMm: 72"), "Print preview must cap POS80 printable content at 72mm.");
-assert(invoicingPage.includes('value="72"'), "Invoicing settings must expose 72mm POS80 option.");
-assert(invoicingPage.includes("PaperSize 72.00 x 3276.00 mm"), "Invoicing settings must explain POS80 Windows PaperSize.");
+assert(invoicingPage.includes('value="72"'), "Invoicing settings must keep 72mm as the internal POS80 profile value.");
+assert(invoicingPage.includes("Imprimante thermique 80mm (POS80 Windows)"), "Invoicing settings must expose a simple POS80 Windows client profile.");
+assert(invoicingPage.includes("largeur imprimable interne 72 mm"), "Invoicing settings must keep 72mm as an internal detail, not a main client choice.");
+assert(webPrintPage.includes("PaperSize 72.00 x 3276.00 mm"), "Print preview must provide simple POS80 Windows driver instructions.");
+assert(!webPrintPage.includes("Test POS80 72 mm"), "Print preview must not expose POS80 as a raw 72mm technical choice.");
 
 console.log("thermal-ticket-width smoke: ok");

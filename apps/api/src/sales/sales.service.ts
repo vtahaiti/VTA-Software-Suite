@@ -216,11 +216,12 @@ export class SalesService {
         });
       }
 
+      const receiptNumber = await this.nextReceiptNumber(tx, tenantId);
       const receipt = await tx.receipt.create({
         data: {
           saleId: sale.id,
-          number: this.documentNumber("RCT"),
-          content: this.receiptContent(sale.id, saleItems, total, settledAmount, receivedAmount, changeAmount)
+          number: receiptNumber,
+          content: this.receiptContent(receiptNumber, saleItems, total, settledAmount, receivedAmount, changeAmount)
         }
       });
 
@@ -287,14 +288,35 @@ export class SalesService {
     };
   }
 
-  private receiptContent(saleId: string, items: Array<{ product: { name: string } | null; customName?: string; productId?: string; quantity: number; total: number }>, total: number, settledAmount: number, receivedAmount: number, changeAmount: number) {
+  private receiptContent(receiptNumber: string, items: Array<{ product: { name: string } | null; customName?: string; productId?: string; quantity: number; total: number }>, total: number, settledAmount: number, receivedAmount: number, changeAmount: number) {
     const lines = items.map((item) => {
       const name = item.product?.name ?? item.customName ?? "Article personnalise";
       const suffix = item.productId ? "" : " (Article personnalise)";
       return `${name}${suffix} x${item.quantity} ${item.total.toFixed(2)}`;
     }).join("\n");
     const balance = Math.max(0, total - settledAmount);
-    return `Ticket de vente\nVente ${saleId}\n${lines}\nTotal: ${total.toFixed(2)}\nMontant réglé: ${settledAmount.toFixed(2)}\nMontant reçu: ${receivedAmount.toFixed(2)}\nMonnaie rendue: ${changeAmount.toFixed(2)}\nBalance: ${balance.toFixed(2)}`;
+    return `Ticket de vente\nRecu ${this.displayReceiptNumber(receiptNumber)}\n${lines}\nTotal: ${total.toFixed(2)}\nMontant regle: ${settledAmount.toFixed(2)}\nMontant recu: ${receivedAmount.toFixed(2)}\nMonnaie rendue: ${changeAmount.toFixed(2)}\nSolde: ${balance.toFixed(2)}`;
+  }
+
+  private async nextReceiptNumber(tx: Prisma.TransactionClient, tenantId: string) {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`receipt:${tenantId}`}))`.catch(() => undefined);
+    const prefix = this.receiptTenantPrefix(tenantId);
+    const count = await tx.receipt.count({
+      where: {
+        number: { startsWith: prefix },
+        sale: { tenantId }
+      }
+    });
+    return `${prefix}${String(count + 1).padStart(5, "0")}`;
+  }
+
+  private receiptTenantPrefix(tenantId: string) {
+    return `${tenantId}-`;
+  }
+
+  private displayReceiptNumber(receiptNumber: string) {
+    const match = receiptNumber.match(/^[a-z0-9]{10,}-(\d{5,})$/i);
+    return match?.[1] ?? receiptNumber;
   }
 
   private paymentRows(payments: Array<{ method: PaymentMethod; amount: number; reference?: string }>, total: number) {
