@@ -405,9 +405,8 @@ export default function PosPage() {
       setError(response ? await readError(response) : "Vente mise en attente localement, serveur indisponible.");
       return;
     }
-    const saved = await response.json() as { id: string };
-    setHeldSaleId(saved.id);
-    savePosDraft({ ...draft, heldSaleId: saved.id });
+    await response.json().catch(() => null);
+    clearCurrentSale();
     setMessage("Vente mise en attente.");
   }
   async function createPosDocument(endpoint: "orders" | "quotes", label: string) {
@@ -444,6 +443,19 @@ export default function PosPage() {
     setCart(emptyCart);
     setOrderDiscount("0");
     setCustomerId("");
+  }
+
+  function clearCurrentSale() {
+    clearPosDraft();
+    setHeldSaleId(undefined);
+    setHeldSaleFinalizeKey(undefined);
+    setCart(emptyCart);
+    setPayments([{ method: "CASH", amount: "", reference: "" }]);
+    setOrderDiscount("0");
+    setCustomerId("");
+    setLastPaymentSummary(null);
+    setShowPaymentModal(false);
+    setShowCartDrawer(false);
   }
 
   async function saveLocalSale(payload: { storeId: string; warehouseId: string; cashSessionId: string; customerId?: string; taxRate: number; discount: number; items: CartPayloadItem[]; payments: Array<{ method: string; amount: number }> }, amount: number) {

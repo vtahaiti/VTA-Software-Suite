@@ -13,11 +13,18 @@ const salesPage = read("apps/web/app/dashboard/sales/sales-status-page.tsx");
 assert(salesPage.includes("/pos/held-sales"), "In-progress sales page must use /pos/held-sales.");
 assert(!salesPage.includes('status: "PENDING"') && !salesPage.includes('status=PENDING'), "In-progress sales page must not call invalid PENDING sale status.");
 assert(salesPage.includes("/dashboard/pos"), "Held sale resume must route back to POS.");
+assert(salesPage.includes("uniqueDrafts([...(data.items ?? []), ...loadDrafts()].map(normalizeDraft))"), "In-progress sales page must de-duplicate server and local held-sale drafts.");
+assert(salesPage.includes("heldSaleId?: string") && salesPage.includes("id: draft.id ??"), "Local held-sale drafts must normalize heldSaleId to id.");
 
 const posPage = read("apps/web/app/dashboard/pos/page.tsx");
 assert(posPage.includes("taxEnabled") && posPage.includes('setTaxRate("0")'), "POS must default tax to 0 unless taxEnabled is true.");
 assert(posPage.includes("/pos/held-sales"), "POS hold action must persist held sales through /pos/held-sales.");
 assert(posPage.includes("heldSaleId"), "POS must track heldSaleId for cleanup after finalization.");
+assert(posPage.includes("function clearCurrentSale()"), "POS must expose a single local sale reset helper.");
+assert(
+  posPage.includes("clearCurrentSale();\n    setMessage(\"Vente mise en attente.\""),
+  "POS must reset cart and local draft after a held sale is saved on the server."
+);
 
 const apiSchema = read("apps/api/prisma/schema.prisma");
 assert(apiSchema.includes("model HeldSale"), "API Prisma schema must define HeldSale.");

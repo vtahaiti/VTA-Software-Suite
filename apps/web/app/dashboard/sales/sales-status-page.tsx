@@ -18,6 +18,7 @@ type Sale = {
 };
 type Draft = {
   id?: string;
+  heldSaleId?: string;
   storageKey?: string;
   cart?: { total: number; items: Array<{ name: string; quantity: number; total?: number }> };
   customerId?: string;
@@ -66,7 +67,7 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
       setIsLoading(false);
       if (response?.ok) {
         const data = await response.json();
-        setDrafts([...(data.items ?? []), ...loadDrafts()].map(normalizeDraft));
+        setDrafts(uniqueDrafts([...(data.items ?? []), ...loadDrafts()].map(normalizeDraft)));
         return;
       }
       setDrafts(loadDrafts());
@@ -158,7 +159,7 @@ function DraftList({ drafts, isLoading, onReload }: { drafts: Draft[]; isLoading
       {isLoading ? <p className="text-sm text-slate-500">Chargement des ventes en attente...</p> : null}
       {!isLoading && drafts.length ? drafts.map((draft, index) => {
         const lockedByOther = draft.lockState === "CLAIMED_BY_OTHER" || draft.lockState === "FINALIZING";
-        return <div key={`${draft.updatedAt}-${index}`} className="rounded-md border border-slate-200 p-4 dark:border-slate-800">
+        return <div key={draft.id ?? draft.storageKey ?? `${draft.updatedAt}-${index}`} className="rounded-md border border-slate-200 p-4 dark:border-slate-800">
           <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
             <div>
               <p className="font-semibold">Vente en cours</p>
@@ -294,6 +295,7 @@ function loadDrafts() {
 function normalizeDraft(draft: Draft): Draft {
   return {
     ...draft,
+    id: draft.id ?? draft.heldSaleId,
     storageKey: draft.storageKey,
     cart: draft.cart,
     customerId: draft.customerId ?? "",
@@ -306,6 +308,16 @@ function normalizeDraft(draft: Draft): Draft {
     version: draft.version,
     updatedAt: draft.updatedAt
   };
+}
+
+function uniqueDrafts(drafts: Draft[]) {
+  const seen = new Set<string>();
+  return drafts.filter((draft) => {
+    const key = draft.id ? `server:${draft.id}` : draft.storageKey ? `local:${draft.storageKey}` : `local:${draft.updatedAt ?? JSON.stringify(draft.cart ?? {})}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function heldSaleStatusLabel(draft: Draft) {
