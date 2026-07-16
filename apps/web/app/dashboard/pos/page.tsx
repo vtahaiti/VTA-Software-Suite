@@ -1417,12 +1417,12 @@ function getPosTemplate(profileType?: string, primaryActivity?: string | null) {
     return {
       eyebrow: "POS Restaurant",
       title: "Commande restaurant",
-      description: "Prise de commande, table, cuisine, paiement et ticket.",
+      description: "Prise de commande simple, paiement, ventes en attente et ticket.",
       searchPlaceholder: "Rechercher plat, boisson, menu ou scanner",
       defaultCustomer: "Client comptoir",
       cartTitle: "Commande",
       emptyCart: "Commande vide. Ajoutez un plat, une boisson ou un menu.",
-      pendingLabel: "Envoyer en cuisine"
+      pendingLabel: "Garder en commande ouverte"
     };
   }
   if (profileType === "pharmacy" || activity.includes("pharmacie")) {

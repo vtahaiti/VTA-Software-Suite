@@ -234,6 +234,19 @@ export class BusinessProfilesService {
   private resolveSimpleMenu(profileType = "commerce", primaryActivity?: string | null) {
     const activity = (primaryActivity ?? "").toLowerCase();
     const normalizedProfile = profileType === "windows-aluminium" || profileType === "manufacturing" || activity.includes("aluminium") || activity.includes("fabrication") ? "production" : profileType;
+    if (normalizedProfile === "restaurant") {
+      return [
+        { label: "Accueil", href: "/dashboard", module: "dashboard" },
+        { label: "POS / Nouvelle vente", href: "/dashboard/pos", module: "pos" },
+        { label: "Ventes en attente", href: "/dashboard/sales/in-progress", module: "pos" },
+        { label: "Historique des ventes", href: "/dashboard/sales/completed", module: "pos" },
+        { label: "Produits / menu", href: "/dashboard/products", module: "products" },
+        { label: "Categories", href: "/dashboard/products/categories", module: "products" },
+        { label: "Clients", href: "/dashboard/customers", module: "customers" },
+        { label: "Rapports", href: "/dashboard/reports", module: "reports" },
+        { label: "Parametres", href: "/dashboard/settings/company", module: "settings" }
+      ];
+    }
     const menus: Record<string, Array<{ label: string; href: string; module: string }>> = {
       commerce: [
         { label: "🏠 Accueil", href: "/dashboard", module: "dashboard" },
@@ -271,11 +284,10 @@ export class BusinessProfilesService {
       restaurant: [
         { label: "🏠 Accueil", href: "/dashboard", module: "dashboard" },
         { label: "🍽 POS Restaurant", href: "/dashboard/pos", module: "pos" },
-        { label: "📋 Commandes", href: "/dashboard/sales", module: "sales" },
-        { label: "🍽 Tables", href: "/dashboard/pos", module: "restaurant" },
-        { label: "👨‍🍳 Cuisine", href: "/dashboard/pos/history", module: "restaurant" },
-        { label: "🍹 Menu", href: "/dashboard/products", module: "products" },
-        { label: "📦 Stock", href: "/dashboard/inventory", module: "inventory" },
+        { label: "📋 Commandes ouvertes", href: "/dashboard/sales/in-progress", module: "pos" },
+        { label: "🧾 Historique", href: "/dashboard/sales/completed", module: "pos" },
+        { label: "🍹 Menu / Articles", href: "/dashboard/products", module: "products" },
+        { label: "🏷 Catégories", href: "/dashboard/products/categories", module: "products" },
         { label: "👥 Clients", href: "/dashboard/customers", module: "customers" },
         { label: "📈 Rapports", href: "/dashboard/reports", module: "reports" },
         { label: "⚙️ Paramètres", href: "/dashboard/settings/company", module: "settings" }

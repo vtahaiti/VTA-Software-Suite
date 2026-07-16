@@ -26,6 +26,13 @@ const hardwareSuggestions: HardwareSuggestion[] = [
   { type: "Vis / clous", units: ["boîte", "paquet", "kg"], keywords: ["vis", "clou", "clous", "boulon"] },
   { type: "Général", units: ["pièce"], keywords: [] }
 ];
+const restaurantSuggestions: HardwareSuggestion[] = [
+  { type: "Plat", units: ["pièce", "portion"], keywords: ["plat", "repas", "menu", "poulet", "riz"] },
+  { type: "Boisson", units: ["pièce", "verre", "bouteille"], keywords: ["boisson", "jus", "soda", "eau", "cafe"] },
+  { type: "Dessert", units: ["pièce", "portion"], keywords: ["dessert", "gateau", "glace"] },
+  { type: "Extra", units: ["pièce", "portion"], keywords: ["extra", "supplement", "sauce"] },
+  { type: "Service / autre", units: ["service", "pièce"], keywords: ["service", "autre"] }
+];
 
 export function ProductForm({ productId }: { productId?: string }) {
   const router = useRouter();
@@ -281,10 +288,15 @@ export function ProductForm({ productId }: { productId?: string }) {
 
   const selectedCategoryName = refs.categories.find((category) => category.id === form.categoryId)?.name ?? "";
   const isHardwareProfile = ["hardware", "construction-materials"].includes(business?.businessProfileType ?? "") || /quinca|mat[ée]riaux|construction/i.test(`${business?.primaryActivity ?? ""} ${selectedCategoryName}`);
+  const isRestaurantProfile = business?.businessProfileType === "restaurant" || /restaurant|bar|cafe|café|fast.?food/i.test(`${business?.primaryActivity ?? ""} ${selectedCategoryName}`);
   const hardwareContext = `${form.name} ${selectedCategoryName} ${form.variantModel}`.toLowerCase();
   const recommendedHardwareSuggestions = useMemo(() => {
     const matched = hardwareSuggestions.filter((suggestion) => suggestion.keywords.length > 0 && suggestion.keywords.some((keyword) => hardwareContext.includes(keyword)));
     return matched.length ? matched : hardwareSuggestions.filter((suggestion) => ["Fer / acier", "Ciment", "Tôle", "Peinture", "Bois", "Tuyau", "Vis / clous", "Général"].includes(suggestion.type));
+  }, [hardwareContext]);
+  const recommendedRestaurantSuggestions = useMemo(() => {
+    const matched = restaurantSuggestions.filter((suggestion) => suggestion.keywords.length > 0 && suggestion.keywords.some((keyword) => hardwareContext.includes(keyword)));
+    return matched.length ? matched : restaurantSuggestions;
   }, [hardwareContext]);
 
   function applyHardwareSuggestion(suggestion: HardwareSuggestion, unitName?: string) {
@@ -296,6 +308,20 @@ export function ProductForm({ productId }: { productId?: string }) {
         variantModel: suggestion.type,
         unitId: existingUnit?.id ?? current.unitId,
         customUnit: existingUnit ? "" : nextUnit
+      };
+    });
+  }
+
+  function applyRestaurantSuggestion(suggestion: HardwareSuggestion, unitName?: string) {
+    setForm((current) => {
+      const nextUnit = unitName ?? suggestion.units[0] ?? "";
+      const existingUnit = refs.units.find((unit) => [unit.name, unit.symbol].filter(Boolean).some((value) => value?.toLowerCase() === nextUnit.toLowerCase()));
+      return {
+        ...current,
+        variantModel: suggestion.type,
+        unitId: existingUnit?.id ?? current.unitId,
+        customUnit: existingUnit ? "" : nextUnit,
+        minimumStock: current.minimumStock || "0"
       };
     });
   }
@@ -333,6 +359,18 @@ export function ProductForm({ productId }: { productId?: string }) {
             <button type="button" onClick={() => applyHardwareSuggestion(suggestion)} className="font-semibold text-brand-700 dark:text-brand-300">{suggestion.type}</button>
             <div className="mt-2 flex flex-wrap gap-1">
               {suggestion.units.map((unit) => <button key={`${suggestion.type}-${unit}`} type="button" onClick={() => applyHardwareSuggestion(suggestion, unit)} className="rounded-full border border-amber-300 px-2 py-1 text-xs font-semibold dark:border-amber-800">{unit}</button>)}
+            </div>
+          </div>)}
+        </div>
+      </div> : null}
+      {isRestaurantProfile ? <div className="rounded-md border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950 dark:border-orange-900 dark:bg-orange-950 dark:text-orange-100 md:col-span-2">
+        <p className="font-bold">Suggestions Restaurant V1</p>
+        <p className="mt-1 text-xs">Classez rapidement plats, boissons, desserts et extras. En V1, le stock ingrédients automatique reste désactivé; utilisez le stock seulement si vous le suivez volontairement.</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {recommendedRestaurantSuggestions.map((suggestion) => <div key={suggestion.type} className="rounded-md bg-white/75 p-2 dark:bg-slate-900/60">
+            <button type="button" onClick={() => applyRestaurantSuggestion(suggestion)} className="font-semibold text-brand-700 dark:text-brand-300">{suggestion.type}</button>
+            <div className="mt-2 flex flex-wrap gap-1">
+              {suggestion.units.map((unit) => <button key={`${suggestion.type}-${unit}`} type="button" onClick={() => applyRestaurantSuggestion(suggestion, unit)} className="rounded-full border border-orange-300 px-2 py-1 text-xs font-semibold dark:border-orange-800">{unit}</button>)}
             </div>
           </div>)}
         </div>

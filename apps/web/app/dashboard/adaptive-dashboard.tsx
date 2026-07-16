@@ -11,6 +11,8 @@ const widgetRoutes: Record<string, string> = {
   revenue: "/dashboard/reports",
   "pending-purchases": "/dashboard/purchases",
   "restaurant-tables": "/dashboard/pos",
+  "restaurant-pos": "/dashboard/pos",
+  "restaurant-menu": "/dashboard/products",
   kitchen: "/dashboard/pos",
   repairs: "/dashboard/sales/invoices",
   appointments: "/dashboard/customers",
@@ -29,8 +31,8 @@ const activityCards: Record<string, Array<{ label: string; description: string; 
   ],
   restaurant: [
     { label: "Nouvelle commande", description: "Demarrer une commande au POS.", href: "/dashboard/pos" },
-    { label: "Tables", description: "Organisation des tables preparee.", href: "/dashboard/pos" },
-    { label: "Cuisine", description: "Suivi cuisine prepare.", href: "/dashboard/pos" },
+    { label: "Produits / menu", description: "Gerer plats, boissons et menus.", href: "/dashboard/products" },
+    { label: "Ventes en attente", description: "Reprendre une commande en attente.", href: "/dashboard/sales/in-progress" },
     { label: "Ventes du jour", description: "Suivre les ventes restaurant.", href: "/dashboard/reports" }
   ],
   hotel: [
