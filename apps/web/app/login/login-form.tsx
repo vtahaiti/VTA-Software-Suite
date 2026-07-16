@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { login } from "@/lib/auth";
+import { PasswordVisibilityInput } from "@/components/password-visibility-input";
 
 export function LoginForm() {
   const router = useRouter();
@@ -59,21 +60,7 @@ export function LoginForm() {
         />
       </div>
 
-      <div>
-        <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-slate-200">
-          Mot de passe
-        </label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          required
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          autoComplete="current-password"
-          className="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-50"
-        />
-      </div>
+      <PasswordVisibilityInput id="password" name="password" label="Mot de passe" required value={password} onChange={setPassword} autoComplete="current-password" className="mt-2" />
 
       <div className="flex items-center justify-between gap-4">
         <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">

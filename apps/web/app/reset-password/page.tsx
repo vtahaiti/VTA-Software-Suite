@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { resetPassword } from "@/lib/auth";
+import { PasswordVisibilityInput } from "@/components/password-visibility-input";
 import { isPasswordStrong, passwordPolicyMessage } from "@/lib/password-policy";
 
 export default function ResetPasswordPage() {
@@ -59,8 +60,8 @@ function ResetPasswordForm() {
     <ResetPasswordShell>
       <form method="post" onSubmit={submit} className="mt-8 space-y-5">
         <input type="hidden" name="token" value={token} />
-        <PasswordField label="Nouveau mot de passe" name="newPassword" value={password} onChange={setPassword} />
-        <PasswordField label="Confirmer le mot de passe" name="confirmPassword" value={confirmPassword} onChange={setConfirmPassword} />
+        <PasswordVisibilityInput label="Nouveau mot de passe" name="newPassword" required autoComplete="new-password" value={password} onChange={setPassword} />
+        <PasswordVisibilityInput label="Confirmer le mot de passe" name="confirmPassword" required autoComplete="new-password" value={confirmPassword} onChange={setConfirmPassword} />
 
         {error ? <div role="alert" aria-live="polite" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
         {message ? <div role="status" aria-live="polite" className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
@@ -91,24 +92,3 @@ function ResetPasswordShell({ children }: { children: React.ReactNode }) {
     </main>
   );
 }
-
-function PasswordField({ label, name, value, onChange }: { label: string; name: string; value: string; onChange: (value: string) => void }) {
-  return (
-    <div>
-      <label htmlFor={name} className="block text-sm font-medium text-slate-700 dark:text-slate-200">
-        {label}
-      </label>
-      <input
-        id={name}
-        name={name}
-        type="password"
-        required
-        value={value}
-        autoComplete="new-password"
-        onChange={(event) => onChange(event.target.value)}
-        className="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-50"
-      />
-    </div>
-  );
-}
-

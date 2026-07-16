@@ -4,9 +4,10 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createCompany } from "@/lib/auth";
 import { getBusinessCatalog, type BusinessActivityTemplate, type BusinessCategory } from "@/lib/business-profiles";
+import { citiesForHaitiDepartment, haitiDepartmentNames } from "@/lib/haiti-locations";
 
 const citiesByCountry: Record<string, string[]> = {
-  Haïti: ["Cap-Haïtien", "Trou-du-Nord", "Ouanaminthe", "Fort-Liberté", "Limonade", "Quartier-Morin", "Milot", "Caracol", "Hinche", "Port-au-Prince"],
+  Haïti: citiesForHaitiDepartment("Nord"),
   "Republique dominicaine": ["Santiago", "Santo Domingo", "Dajabon"],
   Canada: ["Montreal", "Ottawa", "Toronto"],
   "Etats-Unis": ["Miami", "New York", "Boston"]
@@ -50,7 +51,9 @@ const initialForm = {
   businessProfileSlug: "commerce",
   secondaryActivities: [] as string[],
   country: "Haïti",
-  city: "Cap-Haïtien",
+  department: "Nord",
+  city: "Cap-Haitien",
+  otherCity: "",
   address: "",
   phone: "",
   whatsapp: "",
@@ -78,7 +81,7 @@ export default function OnboardingCompanyPage() {
   const [hasCheckedPendingToken, setHasCheckedPendingToken] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const availableCities = citiesByCountry[form.country] ?? [];
+  const availableCities = form.country === "Haïti" ? [...citiesForHaitiDepartment(form.department), "Autre"] : citiesByCountry[form.country] ?? [];
   const initials = useMemo(() => getInitials(form.companyName), [form.companyName]);
 
   useEffect(() => {
@@ -99,8 +102,22 @@ export default function OnboardingCompanyPage() {
   }
 
   function updateCountry(country: string) {
+    if (country === "Haïti") {
+      const cities = citiesForHaitiDepartment("Nord");
+      setForm((current) => ({ ...current, country, department: "Nord", city: cities[0] ?? "", otherCity: "" }));
+      return;
+    }
     const cities = citiesByCountry[country] ?? [];
-    setForm((current) => ({ ...current, country, city: cities[0] ?? "" }));
+    setForm((current) => ({ ...current, country, department: "", city: cities[0] ?? "", otherCity: "" }));
+  }
+
+  function updateDepartment(department: string) {
+    const cities = citiesForHaitiDepartment(department);
+    setForm((current) => ({ ...current, department, city: cities[0] ?? "Autre", otherCity: "" }));
+  }
+
+  function updateCity(city: string) {
+    setForm((current) => ({ ...current, city, otherCity: city === "Autre" ? current.otherCity : "" }));
   }
 
   function updateActivity(label: string) {
@@ -123,6 +140,12 @@ export default function OnboardingCompanyPage() {
       setError("Session d'inscription introuvable ou expirée. Recommencez la création du compte.");
       return;
     }
+    const city = form.city === "Autre" ? form.otherCity.trim() : form.city;
+    if (!city) {
+      setError("Veuillez choisir ou saisir une commune/ville.");
+      return;
+    }
+    const address = form.country === "Haïti" ? withDepartmentInAddress(form.address, form.department) : form.address;
     setIsLoading(true);
     try {
       await createCompany({
@@ -134,8 +157,8 @@ export default function OnboardingCompanyPage() {
         secondaryActivities: form.secondaryActivities,
         industry: form.activityLabel,
         country: form.country,
-        city: form.city,
-        address: form.address,
+        city,
+        address,
         phone: form.phone,
         whatsapp: form.whatsapp,
         email: form.email,
@@ -168,7 +191,7 @@ export default function OnboardingCompanyPage() {
     return <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">Chargement de l&apos;inscription...</main>;
   }
 
-  return <main className="min-h-screen bg-gradient-to-br from-blue-700 via-blue-900 to-slate-950 px-6 py-10 text-slate-950"><section className="mx-auto grid min-h-[calc(100vh-5rem)] w-full max-w-6xl items-center gap-8 lg:grid-cols-[0.9fr_1.1fr]"><div className="text-white"><p className="text-sm font-semibold uppercase tracking-[0.28em] text-blue-100">Création entreprise</p><h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">Créez votre espace entreprise.</h1><p className="mt-5 max-w-xl text-lg leading-8 text-blue-50">Renseignez les informations essentielles pour commencer a utiliser votre espace.</p></div><form onSubmit={submit} className="rounded-[2rem] border border-white/20 bg-white p-6 shadow-2xl shadow-slate-950/30 dark:border-slate-800 dark:bg-slate-900 sm:p-8"><div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">Espace entreprise</p><h2 className="mt-2 text-2xl font-bold text-slate-950 dark:text-white">Informations essentielles</h2><p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Quelques informations suffisent pour ouvrir votre espace.</p></div><label className="group grid cursor-pointer justify-items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">{form.logoDataUrl ? <span className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-white shadow-xl shadow-slate-200 ring-4 ring-white dark:bg-slate-950 dark:shadow-slate-950 dark:ring-slate-800"><img src={form.logoDataUrl} alt="Logo entreprise" className="h-full w-full object-cover" /></span> : <span className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-blue-700 shadow-xl shadow-slate-200 ring-1 ring-slate-200 transition group-hover:scale-[1.02] dark:bg-slate-950 dark:text-blue-200 dark:shadow-slate-950 dark:ring-slate-700">📷 Choisir un logo</span>}<span className="text-xs text-blue-700 group-hover:underline dark:text-blue-300">{form.logoDataUrl ? "Changer le logo" : "Facultatif"}</span><input type="file" accept="image/*" onChange={uploadLogo} className="sr-only" /></label></div><div className="mt-8 grid gap-4 md:grid-cols-2"><Input label="Nom de l&apos;entreprise" value={form.companyName} required onChange={(value)=>updateField("companyName", value)} /><Select label="Activité principale" value={form.activityLabel} required options={activityTemplates.map((activity)=>activity.label)} onChange={updateActivity} /><Select label="Pays" value={form.country} required options={Object.keys(citiesByCountry)} onChange={updateCountry} /><Select label="Ville" value={form.city} required options={availableCities} onChange={(value)=>updateField("city", value)} /><Input label="Adresse" value={form.address} required onChange={(value)=>updateField("address", value)} /><Input label="Téléphone principal" value={form.phone} required type="tel" onChange={(value)=>updateField("phone", value)} /><Input label="Email principal" value={form.email} required type="email" onChange={(value)=>updateField("email", value)} /><Select label="Devise" value={form.currency} required options={currencies} onChange={(value)=>updateField("currency", value)} /></div><div className="mt-6"><p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Couleur principale</p><div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">{colorOptions.map((color)=><button type="button" key={color.value} onClick={()=>updateField("primaryColor", color.value)} className={`flex items-center gap-3 rounded-xl border px-3 py-2 text-sm font-medium transition ${form.primaryColor===color.value?"border-blue-600 bg-blue-50 text-blue-800 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-100":"border-slate-200 text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:text-slate-200"}`}><span className={`h-5 w-5 rounded-full ${color.className}`} />{color.label}</button>)}</div></div><details className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/60"><summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-100">Informations facultatives</summary><div className="mt-4 grid gap-4 md:grid-cols-2"><Input label="WhatsApp" value={form.whatsapp} type="tel" onChange={(value)=>updateField("whatsapp", value)} /><Input label="Site web" value={form.website} type="url" onChange={(value)=>updateField("website", value)} /><Input label="Numéro fiscal" value={form.taxNumber} onChange={(value)=>updateField("taxNumber", value)} /></div></details>{error ? <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{error}</div> : null}<button disabled={isLoading || !pendingToken} className="mt-6 w-full rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-green-600/20 transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60">{isLoading ? "Création en cours..." : "Créer mon entreprise"}</button></form></section></main>;
+  return <main className="min-h-screen bg-gradient-to-br from-blue-700 via-blue-900 to-slate-950 px-6 py-10 text-slate-950"><section className="mx-auto grid min-h-[calc(100vh-5rem)] w-full max-w-6xl items-center gap-8 lg:grid-cols-[0.9fr_1.1fr]"><div className="text-white"><p className="text-sm font-semibold uppercase tracking-[0.28em] text-blue-100">Création entreprise</p><h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">Créez votre espace entreprise.</h1><p className="mt-5 max-w-xl text-lg leading-8 text-blue-50">Renseignez les informations essentielles pour commencer a utiliser votre espace.</p></div><form onSubmit={submit} className="rounded-[2rem] border border-white/20 bg-white p-6 shadow-2xl shadow-slate-950/30 dark:border-slate-800 dark:bg-slate-900 sm:p-8"><div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">Espace entreprise</p><h2 className="mt-2 text-2xl font-bold text-slate-950 dark:text-white">Informations essentielles</h2><p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Quelques informations suffisent pour ouvrir votre espace.</p></div><label className="group grid cursor-pointer justify-items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">{form.logoDataUrl ? <span className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-white shadow-xl shadow-slate-200 ring-4 ring-white dark:bg-slate-950 dark:shadow-slate-950 dark:ring-slate-800"><img src={form.logoDataUrl} alt="Logo entreprise" className="h-full w-full object-cover" /></span> : <span className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-blue-700 shadow-xl shadow-slate-200 ring-1 ring-slate-200 transition group-hover:scale-[1.02] dark:bg-slate-950 dark:text-blue-200 dark:shadow-slate-950 dark:ring-slate-700">📷 Choisir un logo</span>}<span className="text-xs text-blue-700 group-hover:underline dark:text-blue-300">{form.logoDataUrl ? "Changer le logo" : "Facultatif"}</span><input type="file" accept="image/*" onChange={uploadLogo} className="sr-only" /></label></div><div className="mt-8 grid gap-4 md:grid-cols-2"><Input label="Nom de l&apos;entreprise" value={form.companyName} required onChange={(value)=>updateField("companyName", value)} /><Select label="Activité principale" value={form.activityLabel} required options={activityTemplates.map((activity)=>activity.label)} onChange={updateActivity} /><Select label="Pays" value={form.country} required options={Object.keys(citiesByCountry)} onChange={updateCountry} />{form.country==="Haïti" ? <Select label="Département" value={form.department} required options={haitiDepartmentNames} onChange={updateDepartment} /> : null}<Select label="Commune / Ville" value={form.city} required options={availableCities} onChange={updateCity} />{form.city==="Autre" ? <Input label="Commune / Ville autre" value={form.otherCity} required onChange={(value)=>updateField("otherCity", value)} /> : null}<Input label="Adresse" value={form.address} required onChange={(value)=>updateField("address", value)} /><Input label="Téléphone principal" value={form.phone} required type="tel" onChange={(value)=>updateField("phone", value)} /><Input label="Email principal" value={form.email} required type="email" onChange={(value)=>updateField("email", value)} /><Select label="Devise" value={form.currency} required options={currencies} onChange={(value)=>updateField("currency", value)} /></div><p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Pour Haïti, le département est conservé dans l&apos;adresse de l&apos;entreprise sans migration de base de données.</p><div className="mt-6"><p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Couleur principale</p><div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">{colorOptions.map((color)=><button type="button" key={color.value} onClick={()=>updateField("primaryColor", color.value)} className={`flex items-center gap-3 rounded-xl border px-3 py-2 text-sm font-medium transition ${form.primaryColor===color.value?"border-blue-600 bg-blue-50 text-blue-800 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-100":"border-slate-200 text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:text-slate-200"}`}><span className={`h-5 w-5 rounded-full ${color.className}`} />{color.label}</button>)}</div></div><details className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/60"><summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-100">Informations facultatives</summary><div className="mt-4 grid gap-4 md:grid-cols-2"><Input label="WhatsApp" value={form.whatsapp} type="tel" onChange={(value)=>updateField("whatsapp", value)} /><Input label="Site web" value={form.website} type="url" onChange={(value)=>updateField("website", value)} /><Input label="Numéro fiscal" value={form.taxNumber} onChange={(value)=>updateField("taxNumber", value)} /></div></details>{error ? <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{error}</div> : null}<button disabled={isLoading || !pendingToken} className="mt-6 w-full rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-green-600/20 transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60">{isLoading ? "Création en cours..." : "Créer mon entreprise"}</button></form></section></main>;
 }
 
 function Input({ label, value, onChange, required = false, type = "text" }: { label: string; value: string; required?: boolean; type?: string; onChange: (value: string) => void }) {
@@ -188,6 +211,13 @@ function getInitials(name: string) {
 function createInitialsLogoDataUrl(initials: string, color: string) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256"><rect width="256" height="256" rx="128" fill="${color}"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="82" font-weight="700" fill="#ffffff">${initials}</text></svg>`;
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function withDepartmentInAddress(address: string, department: string) {
+  const cleanAddress = address.trim();
+  if (!department) return cleanAddress;
+  if (cleanAddress.toLowerCase().includes(`departement: ${department.toLowerCase()}`)) return cleanAddress;
+  return `${cleanAddress} - Departement: ${department}`;
 }
 
 function fileToDataUrl(file: File) {

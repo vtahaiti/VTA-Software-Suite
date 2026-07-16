@@ -32,6 +32,7 @@
     "test:business-rules": "node scripts/business-rules-smoke.cjs",
     "test:text-quality": "node scripts/text-quality-smoke.cjs",
     "test:password-reset": "node scripts/password-reset-smoke.cjs",
+    "test:auth-onboarding-trust": "node scripts/auth-onboarding-trust-smoke.cjs",
     "test:navigation": "node scripts/navigation-smoke.cjs",
     "test:business-profile-navigation": "node scripts/business-profile-navigation-smoke.cjs",
     "test:inventory-stock-status": "node scripts/inventory-stock-status-smoke.cjs",

@@ -6,6 +6,7 @@ import { businessModules, businessProfiles, findActivityTemplate, resolveBusines
 import { AuthService } from "../auth/auth.service";
 import { hashPassword } from "../auth/password-hashing";
 import { isPasswordStrong, passwordPolicyMessage } from "../auth/password-policy";
+import { EmailService } from "../email/email.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { SubscriptionEntitlementsService } from "../subscriptions/subscription-entitlements.service";
 import { UploadsService } from "../uploads/uploads.service";
@@ -17,6 +18,7 @@ export class OnboardingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auth: AuthService,
+    private readonly email: EmailService,
     private readonly uploads: UploadsService,
     private readonly subscriptions: SubscriptionEntitlementsService
   ) {}
@@ -238,7 +240,15 @@ export class OnboardingService {
       throw error;
     }
 
-    return this.auth.issueSessionForUser(result.userId, true);
+    const session = await this.auth.issueSessionForUser(result.userId, true);
+    await this.email.sendCompanyWelcomeEmail({
+      tenantId: result.tenantId,
+      userId: result.userId,
+      to: pending.email,
+      userName: `${pending.firstName} ${pending.lastName}`.trim(),
+      companyName: dto.companyName
+    }).catch(() => undefined);
+    return session;
   }
 
   async status(userId?: string) {

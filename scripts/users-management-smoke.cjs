@@ -33,7 +33,7 @@ for (const field of ["temporaryPassword", "newPassword", "password"]) {
 assert(page.includes("/reactivate"), "UI reactivate manquante");
 assert(page.includes("/password"), "UI changement mot de passe manquante");
 assert(page.includes("window.confirm"), "confirmation changement mot de passe manquante");
-assert(page.includes("showTemporaryPassword"), "afficher/masquer mot de passe manquant");
+assert(page.includes("PasswordVisibilityInput"), "afficher/masquer mot de passe manquant");
 assert(page.includes("Reactiver"), "bouton reactiver manquant");
 
 async function runCompiledServiceSmoke() {

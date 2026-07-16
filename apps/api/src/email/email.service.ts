@@ -4,7 +4,7 @@ import { createHash, createHmac, timingSafeEqual } from "crypto";
 import nodemailer from "nodemailer";
 import type SMTPTransport from "nodemailer/lib/smtp-transport";
 import { PrismaService } from "../prisma/prisma.service";
-import { passwordChangedTemplate, passwordResetTemplate, type EmailTemplate } from "./email.templates";
+import { companyWelcomeTemplate, passwordChangedTemplate, passwordResetTemplate, type EmailTemplate } from "./email.templates";
 
 type EmailProvider = "resend" | "smtp" | "none";
 type EmailStatus = "accepted" | "configuration_missing" | "authentication_failed" | "domain_or_recipient_rejected" | "rate_limited" | "timeout" | "provider_failed" | "delivered" | "bounced" | "failed" | "complained";
@@ -90,6 +90,21 @@ export class EmailService {
       to: input.to,
       type: "PASSWORD_CHANGED",
       template: passwordChangedTemplate({ userName: input.userName, supportEmail: process.env.MAIL_REPLY_TO ?? "support@vtaerp.com" })
+    });
+  }
+
+  async sendCompanyWelcomeEmail(input: { tenantId?: string | null; userId?: string | null; to: string; userName?: string | null; companyName?: string | null }) {
+    return this.sendTransactionalEmail({
+      tenantId: input.tenantId,
+      userId: input.userId,
+      to: input.to,
+      type: "COMPANY_WELCOME",
+      template: companyWelcomeTemplate({
+        userName: input.userName,
+        companyName: input.companyName,
+        actionUrl: this.publicUrl() + "/login",
+        supportEmail: process.env.MAIL_REPLY_TO ?? "support@vtaerp.com"
+      })
     });
   }
 

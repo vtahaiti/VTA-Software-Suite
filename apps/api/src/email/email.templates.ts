@@ -1,6 +1,7 @@
 export type EmailTemplateInput = {
   appName?: string;
   userName?: string | null;
+  companyName?: string | null;
   actionUrl?: string;
   expiresInMinutes?: number;
   supportEmail?: string;
@@ -64,6 +65,30 @@ export function welcomeTemplate(input: EmailTemplateInput): EmailTemplate {
     subject: "Bienvenue sur VTA Commerce",
     text: [greeting, "", "Votre espace VTA Commerce est prêt.", "", brandName].join("\n"),
     html: layout(`<p>${escapeHtml(greeting)}</p><p>Votre espace VTA Commerce est prêt.</p>`)
+  };
+}
+
+export function companyWelcomeTemplate(input: EmailTemplateInput): EmailTemplate {
+  const greeting = input.userName ? `Bonjour ${input.userName},` : "Bonjour,";
+  const companyLine = input.companyName ? `Votre espace ${input.companyName} est pret sur VTA Commerce.` : "Votre espace VTA Commerce est pret.";
+  const actionUrl = input.actionUrl ?? "https://vtaerp.com/login";
+  const supportEmail = input.supportEmail ?? "support@vtaerp.com";
+  return {
+    subject: "Bienvenue sur VTA Commerce",
+    text: [
+      greeting,
+      "",
+      companyLine,
+      "Vous pouvez maintenant vous connecter et commencer a configurer vos produits, vos clients et vos ventes.",
+      "",
+      `Connexion : ${actionUrl}`,
+      `Support : ${supportEmail}`,
+      "",
+      "Pour votre securite, VTA Commerce ne vous demandera jamais votre mot de passe par email.",
+      "",
+      brandName
+    ].join("\n"),
+    html: layout(`<p>${escapeHtml(greeting)}</p><p>${escapeHtml(companyLine)}</p><p>Vous pouvez maintenant vous connecter et commencer a configurer vos produits, vos clients et vos ventes.</p><p><a class="button" href="${escapeHtml(actionUrl)}">Se connecter a VTA Commerce</a></p><p class="muted">Support : <a href="mailto:${escapeHtml(supportEmail)}">${escapeHtml(supportEmail)}</a></p><p class="muted">Pour votre securite, VTA Commerce ne vous demandera jamais votre mot de passe par email.</p>`)
   };
 }
 

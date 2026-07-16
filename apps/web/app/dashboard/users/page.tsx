@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
+import { PasswordVisibilityInput } from "@/components/password-visibility-input";
 import { canManageUsers } from "@/lib/role-access";
 
 type UserRow = { id: string; name: string; email: string; phone?: string; role: string; roles: string[]; isActive: boolean; createdAt: string };
@@ -28,7 +29,6 @@ export default function UsersPage() {
   const [form, setForm] = useState({ name: "", email: "", phone: "", temporaryPassword: "", role: "CAISSIER", storeId: "" });
   const [passwordTarget, setPasswordTarget] = useState<UserRow | null>(null);
   const [temporaryPassword, setTemporaryPassword] = useState("");
-  const [showTemporaryPassword, setShowTemporaryPassword] = useState(false);
   const currentUser = getCurrentUser();
   const canManage = canManageUsers(currentUser);
 
@@ -121,7 +121,6 @@ export default function UsersPage() {
       setMessage("Mot de passe temporaire mis a jour.");
       setPasswordTarget(null);
       setTemporaryPassword("");
-      setShowTemporaryPassword(false);
       return;
     }
     setMessage(await readError(response));
@@ -158,7 +157,7 @@ export default function UsersPage() {
             <input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Nom complet" className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
             <input required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="Email" className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
             <input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="Telephone" className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-            <input required type="password" minLength={8} value={form.temporaryPassword} onChange={(event) => setForm({ ...form, temporaryPassword: event.target.value })} placeholder="Mot de passe temporaire" className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+            <PasswordVisibilityInput required minLength={8} value={form.temporaryPassword} onChange={(value) => setForm({ ...form, temporaryPassword: value })} placeholder="Mot de passe temporaire" autoComplete="new-password" className="rounded-lg py-2" />
             <select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })} className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
               {availableRoles(roles).map((role) => <option key={role.id} value={role.name}>{roleLabels[role.name] ?? role.name}</option>)}
             </select>
@@ -195,7 +194,7 @@ export default function UsersPage() {
                         ) : (
                           <button onClick={() => void reactivateUser(user.id)} className="rounded-lg border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-300">Reactiver</button>
                         )}
-                        <button onClick={() => { setPasswordTarget(user); setTemporaryPassword(""); setShowTemporaryPassword(false); }} className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">Mot de passe</button>
+                        <button onClick={() => { setPasswordTarget(user); setTemporaryPassword(""); }} className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">Mot de passe</button>
                       </div>
                     </td>
                   </tr>
@@ -211,10 +210,9 @@ export default function UsersPage() {
           <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Changer le mot de passe</h2>
           <p className="mt-1 text-sm text-slate-500">Utilisateur : {passwordTarget.name}. Communiquez le mot de passe temporaire directement a la personne concernee.</p>
           <form onSubmit={resetUserPassword} className="mt-4 flex flex-col gap-3 sm:flex-row">
-            <input required type={showTemporaryPassword ? "text" : "password"} minLength={8} maxLength={120} value={temporaryPassword} onChange={(event) => setTemporaryPassword(event.target.value)} placeholder="Nouveau mot de passe temporaire" className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-            <button type="button" onClick={() => setShowTemporaryPassword((value) => !value)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">{showTemporaryPassword ? "Masquer" : "Afficher"}</button>
+            <PasswordVisibilityInput required minLength={8} maxLength={120} value={temporaryPassword} onChange={setTemporaryPassword} placeholder="Nouveau mot de passe temporaire" autoComplete="new-password" className="min-w-0 flex-1 rounded-lg py-2" />
             <button className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700">Enregistrer</button>
-            <button type="button" onClick={() => { setPasswordTarget(null); setTemporaryPassword(""); setShowTemporaryPassword(false); }} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">Annuler</button>
+            <button type="button" onClick={() => { setPasswordTarget(null); setTemporaryPassword(""); }} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">Annuler</button>
           </form>
         </section>
       ) : null}

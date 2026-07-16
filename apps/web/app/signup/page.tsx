@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { registerUser } from "@/lib/auth";
+import { PasswordVisibilityInput } from "@/components/password-visibility-input";
 import { isPasswordStrong, passwordPolicyMessage } from "@/lib/password-policy";
 
 export default function SignupPage() {
@@ -54,8 +55,8 @@ export default function SignupPage() {
           <Input label="Nom" name="lastName" autoComplete="family-name" value={form.lastName} onChange={(value) => setForm({ ...form, lastName: value })} />
           <Input label="Email" name="email" autoComplete="email" type="email" value={form.email} onChange={(value) => setForm({ ...form, email: value })} />
           <Input label="Téléphone" name="phone" autoComplete="tel" type="tel" value={form.phone} onChange={(value) => setForm({ ...form, phone: value })} />
-          <Input label="Mot de passe" name="password" autoComplete="new-password" type="password" value={form.password} onChange={(value) => setForm({ ...form, password: value })} />
-          <Input label="Confirmation du mot de passe" name="confirmPassword" autoComplete="new-password" type="password" value={form.confirmPassword} onChange={(value) => setForm({ ...form, confirmPassword: value })} />
+          <PasswordVisibilityInput label="Mot de passe" name="password" autoComplete="new-password" required value={form.password} onChange={(value) => setForm({ ...form, password: value })} />
+          <PasswordVisibilityInput label="Confirmation du mot de passe" name="confirmPassword" autoComplete="new-password" required value={form.confirmPassword} onChange={(value) => setForm({ ...form, confirmPassword: value })} />
           <p className="sm:col-span-2 text-xs leading-5 text-slate-500 dark:text-slate-400">{passwordPolicyMessage}</p>
           <label className="sm:col-span-2 flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
             <input
