@@ -132,6 +132,7 @@ export default function PosTicketPrintPage() {
           html, body { margin: 0; padding: 0; }
           .no-print { display: none !important; }
           .print-shell { margin: 0 !important; padding: 0 !important; background: white !important; }
+          .ticket-preview-boundary { outline: 0 !important; background: white !important; }
           .ticket-frame { border: 0 !important; box-shadow: none !important; display: block !important; margin: 0 !important; }
         }
       `}</style>
@@ -144,6 +145,7 @@ export default function PosTicketPrintPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/dashboard/pos" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold">Retour au POS</Link>
+          <Link href="/dashboard/pos/print?demo=1&width=80" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold">Test 80 mm Windows</Link>
           {nativePrint ? <button onClick={() => void sharePdf()} disabled={!html || Boolean(error)} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">Partager en PDF</button> : null}
           <button onClick={() => void printFrame()} disabled={!html || Boolean(error)} className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">Imprimer</button>
         </div>
@@ -154,7 +156,7 @@ export default function PosTicketPrintPage() {
             ref={iframeRef}
             title="Ticket POS"
             srcDoc={html}
-            className="ticket-frame min-h-[720px] bg-white shadow-2xl"
+            className="ticket-frame min-h-[720px] bg-white shadow-2xl outline outline-2 outline-emerald-500/70"
             style={{ width: frameWidth }}
             onLoad={() => setStatus("Aperçu prêt.")}
           />
@@ -190,22 +192,22 @@ async function readError(response: Response) {
 function buildSafeDemoTicket(width: ReceiptWidth) {
   const safePadding = width === "58" ? "2mm" : "3mm";
   const usefulWidth = width === "58" ? "54mm" : "74mm";
-  const amountWidth = width === "58" ? "23mm" : "30mm";
-  const fontSize = width === "58" ? "10px" : "11px";
+  const amountWidth = width === "58" ? "21mm" : "28mm";
+  const fontSize = width === "58" ? "10px" : "12px";
 
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Aperçu ticket</title><style>
     @page { size: ${width}mm auto; margin: 0; }
     @media print { @page { size: ${width}mm auto; margin: 0; } html, body { width: ${width}mm; margin: 0; padding: 0; } .no-print { display: none !important; } }
     *, *::before, *::after { box-sizing: border-box; max-width: 100%; }
     html, body { width: ${width}mm; max-width: ${width}mm; margin: 0; padding: 0; background: #fff; overflow-x: hidden; }
-    body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: ${fontSize}; color: #111; }
-    .ticket { width: 100%; max-width: ${width}mm; padding: ${safePadding}; overflow: hidden; }
+    body { font-family: Consolas, "Courier New", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: ${fontSize}; font-weight: 600; line-height: 1.25; color: #000; -webkit-font-smoothing: none; print-color-adjust: exact; }
+    .ticket { width: 100%; max-width: ${width}mm; padding: ${safePadding}; box-sizing: border-box; overflow: hidden; }
     .ticket-inner { width: 100%; max-width: ${usefulWidth}; margin: 0 auto; overflow: hidden; }
     .center { text-align: center; }
     .line { border-top: 1px dashed #111; margin: 7px 0; }
-    .row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, ${amountWidth}); column-gap: 2mm; align-items: start; padding: 2px 0; width: 100%; }
+    .row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, ${amountWidth}); column-gap: 1.5mm; align-items: start; padding: 2px 0; width: 100%; }
     .label { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
-    .amount { min-width: 0; justify-self: end; text-align: right; overflow-wrap: anywhere; word-break: break-word; font-variant-numeric: tabular-nums; }
+    .amount { min-width: 0; max-width: ${amountWidth}; justify-self: end; text-align: right; white-space: normal; overflow-wrap: anywhere; word-break: break-word; font-variant-numeric: tabular-nums; }
     .name { font-weight: 700; overflow-wrap: anywhere; word-break: break-word; }
     .note { color: #555; font-size: 9px; overflow-wrap: anywhere; }
     .total { border-top: 1px solid #111; padding-top: 5px; font-size: 1.15em; font-weight: 900; }

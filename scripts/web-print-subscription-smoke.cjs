@@ -24,9 +24,11 @@ assert(invoicePrint.includes("@page { size: ${widthMm}mm auto; margin: 0; }"), "
 assert(invoicePrint.includes("html, body { width: ${widthMm}mm; max-width: ${widthMm}mm; margin: 0; padding: 0;"), "Le body du ticket ne doit pas depasser la largeur papier.");
 assert(invoicePrint.includes(".ticket { width: 100%; max-width: ${widthMm}mm; padding: ${safePadding};"), "Le padding doit etre inclus dans la largeur papier.");
 assert(invoicePrint.includes('width === "58" ? "54mm" : "74mm"'), "La largeur utile doit rester 54mm en 58mm et 74mm en 80mm.");
-assert(invoicePrint.includes('width === "58" ? "23mm" : "30mm"'), "La colonne montant doit rester bornee pour eviter les coupures.");
+assert(invoicePrint.includes('width === "58" ? "21mm" : "28mm"'), "La colonne montant doit rester bornee pour eviter les coupures.");
 assert(invoicePrint.includes("Reste à payer"), "Le ticket doit afficher le reste a payer quand un solde existe.");
 assert(invoicePrint.includes("grid-template-columns: minmax(0, 1fr) minmax(0, ${amountWidth})"), "Les lignes ticket doivent utiliser une grille reductible.");
+assert(invoicePrint.includes("max-width: ${amountWidth}") && invoicePrint.includes("white-space: normal"), "Les montants longs doivent rester dans leur colonne.");
+assert(invoicePrint.includes("font-weight: 600") && invoicePrint.includes("Consolas"), "Le ticket thermique Windows doit utiliser une police plus nette et lisible.");
 assert(!invoicePrint.includes("body { width: ${usefulWidth}; margin: 0 auto; padding: ${safePadding};"), "Le ticket ne doit jamais cumuler largeur papier et padding sur body.");
 
 for (const file of [
