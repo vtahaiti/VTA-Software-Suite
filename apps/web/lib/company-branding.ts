@@ -20,7 +20,7 @@ export type CompanyBranding = {
 };
 
 export async function getCompanyBranding(token: string): Promise<CompanyBranding | null> {
-  const response = await fetch(`${apiUrl}/profile/me`, { headers: { Authorization: `Bearer ${token}` } });
+  const response = await fetch(`${apiUrl}/profile/me?branding=${Date.now()}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
   if (!response.ok) return null;
   const data = await response.json();
   const profile = data.tenant?.companyProfile;

@@ -8,7 +8,7 @@ export class ProfileService {
   async me(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { tenant: { include: { companyProfile: true, settings: true } }, profile: true, roles: { include: { role: true } } }
+      include: { tenant: { include: { companyProfile: true, logo: true, settings: true } }, profile: true, roles: { include: { role: true } } }
     });
     if (!user) throw new NotFoundException("Profil introuvable");
     return {
@@ -18,7 +18,13 @@ export class ProfileService {
       lastName: user.name.split(" ").slice(1).join(" "),
       email: user.email,
       role: user.roles[0]?.role.name ?? "Owner",
-      tenant: { id: user.tenantId, name: user.tenant.name, companyProfile: user.tenant.companyProfile },
+      tenant: {
+        id: user.tenantId,
+        name: user.tenant.name,
+        companyProfile: user.tenant.companyProfile
+          ? { ...user.tenant.companyProfile, logoUrl: user.tenant.companyProfile.logoUrl ?? user.tenant.logo?.url ?? null }
+          : { logoUrl: user.tenant.logo?.url ?? null }
+      },
       profile: user.profile,
       createdAt: user.createdAt
     };

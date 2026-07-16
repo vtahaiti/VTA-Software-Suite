@@ -135,8 +135,8 @@ export class InvoicePrintService {
   private companyEmail(tenant: BrandedTenant) { return tenant.companyProfile?.email ?? tenant.email ?? ""; }
   private companyAddress(tenant: BrandedTenant) { return tenant.companyProfile?.address ?? tenant.address ?? ""; }
   private companyTax(tenant: BrandedTenant) { return tenant.companyProfile?.taxNumber ?? ""; }
-  private logoUrl(tenant: BrandedTenant) { return tenant.companyProfile?.logoUrl ?? tenant.logo?.url ?? ""; }
-  private logoContent(tenant: BrandedTenant) { const logo = this.logoUrl(tenant); return logo ? `<img src="${this.escape(logo)}" alt="Logo"/>` : this.escape(this.initials(this.companyName(tenant))); }
+  private logoUrl(tenant: BrandedTenant) { return this.absoluteAssetUrl(tenant.companyProfile?.logoUrl ?? tenant.logo?.url ?? ""); }
+  private logoContent(tenant: BrandedTenant) { const logo = this.logoUrl(tenant); return logo ? `<img src="${this.escape(logo)}" alt="Logo" crossorigin="anonymous" onerror="this.remove()"/>` : this.escape(this.initials(this.companyName(tenant))); }
   private itemName(item: { product?: { name?: string | null } | null; customName?: string | null }) { return item.product?.name ?? item.customName ?? "Article personnalisé"; }
   private customItemLabel(value?: string | null) { return value ? `Article personnalisé - ${value}` : "Article personnalisé"; }
   private paymentMethods(payments: Array<{ method?: string | null }>) { return [...new Set(payments.map((payment) => payment.method).filter(Boolean))].join(", "); }
@@ -149,6 +149,12 @@ export class InvoicePrintService {
   private money(value: unknown) { return new Intl.NumberFormat("fr-HT", { style: "currency", currency: "HTG", maximumFractionDigits: 2 }).format(Number(value ?? 0)); }
   private date(value: Date) { return new Intl.DateTimeFormat("fr-HT", { dateStyle: "medium", timeStyle: "short" }).format(value); }
   private escape(value: string) { return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+  private absoluteAssetUrl(value: string) {
+    if (!value) return "";
+    if (value.startsWith("http://") || value.startsWith("https://") || value.startsWith("data:")) return value;
+    const baseUrl = process.env.API_PUBLIC_URL ?? process.env.PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "https://api.vtaerp.com";
+    return `${baseUrl.replace(/\/$/, "")}${value.startsWith("/") ? value : `/${value}`}`;
+  }
 }
 
 function receiptWidthConfig(width: ReceiptWidth) {

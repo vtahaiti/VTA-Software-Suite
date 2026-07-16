@@ -1,4 +1,4 @@
-﻿import { Body, Controller, Post, Req, UnauthorizedException, UploadedFile, UseInterceptors } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Post, Req, UnauthorizedException, UploadedFile, UseInterceptors } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { UploadsService } from "./uploads.service";
@@ -12,7 +12,8 @@ export class UploadsController {
   companyLogo(@Req() request: AuthenticatedRequest, @UploadedFile() file?: { originalname?: string; mimetype?: string; size?: number; buffer?: Buffer }, @Body() body?: { dataUrl?: string; fileName?: string }) {
     if (!request.user) throw new UnauthorizedException("Session requise");
     if (file) return { url: this.uploads.saveImageFile("tenants", file) };
-    return { url: this.uploads.saveDataUrl("tenants", body?.dataUrl) ?? this.uploads.normalizeUploadedName("tenants", body?.fileName) };
+    if (body?.dataUrl) throw new BadRequestException("Le logo entreprise doit etre envoye comme fichier.");
+    return { url: this.uploads.normalizeUploadedName("tenants", body?.fileName) };
   }
 
   @Post("user-photo")

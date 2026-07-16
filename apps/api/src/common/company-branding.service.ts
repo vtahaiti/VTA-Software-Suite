@@ -6,11 +6,11 @@ export class CompanyBrandingService {
   constructor(private readonly prisma: PrismaService) {}
 
   async forTenant(tenantId: string, userId?: string) {
-    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, include: { companyProfile: true } });
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, include: { companyProfile: true, logo: true } });
     const user = userId ? await this.prisma.user.findUnique({ where: { id: userId } }) : null;
     const profile = tenant?.companyProfile;
     return {
-      logoUrl: profile?.logoUrl ?? null,
+      logoUrl: profile?.logoUrl ?? tenant?.logo?.url ?? null,
       companyName: profile?.companyName ?? profile?.name ?? tenant?.name ?? "VTA ERP",
       address: profile?.address ?? tenant?.address ?? null,
       phone: profile?.phone ?? tenant?.phone ?? null,
