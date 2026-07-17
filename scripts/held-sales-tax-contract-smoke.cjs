@@ -15,6 +15,8 @@ assert(!salesPage.includes('status: "PENDING"') && !salesPage.includes('status=P
 assert(salesPage.includes("/dashboard/pos"), "Held sale resume must route back to POS.");
 assert(salesPage.includes("uniqueDrafts([...(data.items ?? []), ...loadDrafts()].map(normalizeDraft))"), "In-progress sales page must de-duplicate server and local held-sale drafts.");
 assert(salesPage.includes("heldSaleId?: string") && salesPage.includes("id: draft.id ??"), "Local held-sale drafts must normalize heldSaleId to id.");
+assert(salesPage.includes("userCanForceHeldSale") && salesPage.includes("Annuler (forcer)"), "Owner/Admin/Manager must be able to cancel a locked held sale from the UI.");
+assert(salesPage.includes("fetchWithAuth(apiUrl + \"/pos/held-sales/\" + draft.id"), "Held-sale claim/delete actions must refresh auth before failing.");
 
 const posPage = read("apps/web/app/dashboard/pos/page.tsx");
 assert(posPage.includes("taxEnabled") && posPage.includes('setTaxRate("0")'), "POS must default tax to 0 unless taxEnabled is true.");

@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { fetchWithAuth } from "@/lib/api-client";
 import { clearSession, getAccessToken, getCurrentUser, refreshSession } from "@/lib/auth";
 import { getReceiptPrintSettings, openPrintPreview } from "@/lib/print";
 import { summarizePayments } from "@/lib/payment-summary";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 type Sale = {
   id: string;
@@ -122,11 +123,12 @@ function DraftList({ drafts, isLoading, onReload }: { drafts: Draft[]; isLoading
   const [selectedDraft, setSelectedDraft] = useState<Draft | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Draft | null>(null);
   const [actionMessage, setActionMessage] = useState("");
+  const canForceHeldSale = userCanForceHeldSale();
 
   async function continueDraft(draft: Draft) {
     setActionMessage("");
     if (draft.id) {
-      const response = await fetch(apiUrl + "/pos/held-sales/" + draft.id + "/claim", { method: "POST", headers: authHeaders() }).catch(() => null);
+      const response = await fetchWithAuth(apiUrl + "/pos/held-sales/" + draft.id + "/claim", { method: "POST" }).catch(() => null);
       if (!response?.ok) {
         setActionMessage(response ? await readError(response) : "Impossible de reprendre cette vente en attente.");
         onReload();
@@ -141,7 +143,7 @@ function DraftList({ drafts, isLoading, onReload }: { drafts: Draft[]; isLoading
   async function cancelDraft(draft: Draft) {
     setActionMessage("");
     if (draft.id) {
-      const response = await fetch(apiUrl + "/pos/held-sales/" + draft.id, { method: "DELETE", headers: authHeaders() }).catch(() => null);
+      const response = await fetchWithAuth(apiUrl + "/pos/held-sales/" + draft.id, { method: "DELETE" }).catch(() => null);
       if (!response?.ok) {
         setActionMessage(response ? await readError(response) : "Annulation impossible.");
         return;
@@ -159,6 +161,7 @@ function DraftList({ drafts, isLoading, onReload }: { drafts: Draft[]; isLoading
       {isLoading ? <p className="text-sm text-slate-500">Chargement des ventes en attente...</p> : null}
       {!isLoading && drafts.length ? drafts.map((draft, index) => {
         const lockedByOther = draft.lockState === "CLAIMED_BY_OTHER" || draft.lockState === "FINALIZING";
+        const canCancelDraft = draft.lockState !== "FINALIZING" && (draft.canCancel !== false || canForceHeldSale);
         return <div key={draft.id ?? draft.storageKey ?? `${draft.updatedAt}-${index}`} className="rounded-md border border-slate-200 p-4 dark:border-slate-800">
           <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
             <div>
@@ -170,7 +173,7 @@ function DraftList({ drafts, isLoading, onReload }: { drafts: Draft[]; isLoading
               <p className="mr-2 text-xl font-bold text-brand-600">{formatMoney(draft.cart?.total ?? 0)}</p>
               <button onClick={() => void continueDraft(draft)} disabled={lockedByOther || draft.canClaim === false} className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Continuer</button>
               <button onClick={() => setSelectedDraft(draft)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">Voir détail</button>
-              <button onClick={() => setCancelTarget(draft)} disabled={lockedByOther || draft.canCancel === false} className="rounded-md border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900">Annuler</button>
+              <button onClick={() => setCancelTarget(draft)} disabled={!canCancelDraft} className="rounded-md border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900">{lockedByOther && canForceHeldSale ? "Annuler (forcer)" : "Annuler"}</button>
             </div>
           </div>
         </div>;
@@ -364,9 +367,10 @@ async function readError(response: Response) {
   }
 }
 
-function authHeaders(): Record<string, string> {
-  const token = getAccessToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+function userCanForceHeldSale() {
+  const user = getCurrentUser();
+  const roles = new Set([user?.role, ...(user?.roles ?? [])].filter(Boolean).map((role) => String(role).toUpperCase()));
+  return roles.has("OWNER") || roles.has("ADMIN") || roles.has("MANAGER");
 }
 
 function formatMoney(value: number) {
@@ -376,7 +380,3 @@ function formatMoney(value: number) {
 function Pagination({ page, pages, total, onPrev, onNext }: { page: number; pages: number; total: number; onPrev: () => void; onNext: () => void }) {
   return <div className="flex items-center justify-between"><p className="text-sm text-slate-500">{total} vente{total > 1 ? "s" : ""}</p><div className="flex gap-2"><button disabled={page <= 1} onClick={onPrev} className="rounded-md border px-3 py-2 disabled:opacity-50">Précédent</button><span className="px-3 py-2 text-sm">{page}/{pages}</span><button disabled={page >= pages} onClick={onNext} className="rounded-md border px-3 py-2 disabled:opacity-50">Suivant</button></div></div>;
 }
-
-
-
-
