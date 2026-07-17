@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { PurchaseOrderStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { StockService } from "../stock/stock.service";
+import { formatBusinessDateTime } from "../common/business-timezone";
 import { CreateGoodsReceiptDto } from "./dto/create-goods-receipt.dto";
 
 @Injectable()
@@ -76,7 +77,7 @@ export class GoodsReceiptsService {
   async printReceipt(tenantId: string, id: string) {
     const receipt = await this.prisma.goodsReceipt.findFirst({ where: { id, tenantId }, include: { purchaseOrder: { include: { supplier: true } }, warehouse: true, items: { include: { product: true } } } });
     if (!receipt) throw new NotFoundException("R?ception introuvable");
-    return `RÉCEPTION MARCHANDISES\nNuméro: ${receipt.number}\nFournisseur: ${receipt.purchaseOrder.supplier.name}\nDépôt: ${receipt.warehouse.name}\nDate: ${new Date().toLocaleString("fr-HT")}\nLignes: ${receipt.items.length}\n\nInformations entreprise, magasin et utilisateur préparées.`;
+    return `RÉCEPTION MARCHANDISES\nNuméro: ${receipt.number}\nFournisseur: ${receipt.purchaseOrder.supplier.name}\nDépôt: ${receipt.warehouse.name}\nDate: ${formatBusinessDateTime(new Date())}\nLignes: ${receipt.items.length}\n\nInformations entreprise, magasin et utilisateur préparées.`;
   }
 
   private async refreshPurchaseOrderStatus(tenantId: string, purchaseOrderId: string) {

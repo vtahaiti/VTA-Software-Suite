@@ -1,11 +1,12 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { clearSession, getAccessToken, getCurrentUser, refreshSession } from "@/lib/auth";
 import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
+import { businessDateKey, formatBusinessDateTime } from "@/lib/business-timezone";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 type Kpis = {
   revenueToday: number;
@@ -467,7 +468,7 @@ function buildEmptyTrend(): TrendPoint[] {
   return Array.from({ length: 30 }, (_, index) => {
     const date = new Date(today);
     date.setDate(today.getDate() - (29 - index));
-    return { date: date.toISOString().slice(0, 10), sales: 0, revenue: 0, profit: null, customers: 0, revenueWithoutCost: 0, missingCostLines: 0 };
+    return { date: businessDateKey(date), sales: 0, revenue: 0, profit: null, customers: 0, revenueWithoutCost: 0, missingCostLines: 0 };
   });
 }
 
@@ -493,7 +494,7 @@ function formatCompact(value: number) {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("fr-HT", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+  return formatBusinessDateTime(value);
 }
 
 function formatGrowth(value: number | null | undefined) {

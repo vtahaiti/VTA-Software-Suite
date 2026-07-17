@@ -1,7 +1,8 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "../../lib/auth";
+import { businessDateKey, formatBusinessDate } from "@/lib/business-timezone";
 
 type SalesPoint = { date: string; total: number; count: number };
 type DashboardSummary = {
@@ -13,7 +14,7 @@ type DashboardSummary = {
   salesLast30Days: SalesPoint[];
 };
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 const emptySummary: DashboardSummary = {
   databaseAvailable: true,
@@ -142,7 +143,7 @@ function buildEmptyTrend() {
   for (let index = 29; index >= 0; index -= 1) {
     const date = new Date(today);
     date.setDate(today.getDate() - index);
-    result.push({ date: date.toISOString().slice(0, 10), total: 0, count: 0 });
+    result.push({ date: businessDateKey(date), total: 0, count: 0 });
   }
   return result;
 }
@@ -153,5 +154,5 @@ function formatCurrency(value: number) {
 
 function formatShortDate(value?: string) {
   if (!value) return "";
-  return new Intl.DateTimeFormat("fr-HT", { day: "2-digit", month: "short" }).format(new Date(`${value}T00:00:00`));
+  return formatBusinessDate(`${value}T12:00:00`);
 }

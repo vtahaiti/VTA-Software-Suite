@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, PurchaseOrderStatus, SupplierInvoiceStatus, SupplierPaymentMethod } from "@prisma/client";
 import * as XLSX from "xlsx";
+import { businessDayRange, businessMonthRange, formatBusinessDateTime, normalizeBusinessTimeZone } from "../common/business-timezone";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreatePurchaseOrderDto } from "./dto/create-purchase-order.dto";
 import { PurchaseOrderQueryDto } from "./dto/purchase-order-query.dto";
@@ -11,14 +12,15 @@ export class PurchaseOrdersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async dashboard(tenantId: string) {
-    const today = new Date(); today.setHours(0,0,0,0);
-    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+    const timeZone = await this.tenantTimeZone(tenantId);
+    const { start: today, end: tomorrow } = businessDayRange(new Date(), timeZone);
+    const { start: monthStart, end: monthEnd } = businessMonthRange(new Date(), timeZone);
     const [todayAgg, monthAgg, activeSuppliers, pendingOrders, receiptsToday, unpaidInvoices] = await Promise.all([
-      this.prisma.purchaseOrder.aggregate({ where: { tenantId, createdAt: { gte: today } }, _sum: { total: true } }),
-      this.prisma.purchaseOrder.aggregate({ where: { tenantId, createdAt: { gte: monthStart } }, _sum: { total: true } }),
+      this.prisma.purchaseOrder.aggregate({ where: { tenantId, createdAt: { gte: today, lt: tomorrow } }, _sum: { total: true } }),
+      this.prisma.purchaseOrder.aggregate({ where: { tenantId, createdAt: { gte: monthStart, lt: monthEnd } }, _sum: { total: true } }),
       this.prisma.supplier.count({ where: { tenantId, status: "ACTIVE" } }),
       this.prisma.purchaseOrder.count({ where: { tenantId, status: { in: ["DRAFT", "SENT", "APPROVED", "PARTIALLY_RECEIVED"] } } }),
-      this.prisma.goodsReceipt.count({ where: { tenantId, createdAt: { gte: today } } }),
+      this.prisma.goodsReceipt.count({ where: { tenantId, createdAt: { gte: today, lt: tomorrow } } }),
       this.prisma.supplierInvoice.count({ where: { tenantId, balance: { gt: 0 }, status: { in: ["DRAFT", "APPROVED", "PARTIALLY_PAID"] } } }).catch(() => 0)
     ]);
     return { purchasesToday: todayAgg._sum.total ?? 0, purchasesMonth: monthAgg._sum.total ?? 0, activeSuppliers, pendingOrders, receiptsToday, unpaidInvoices };
@@ -77,8 +79,8 @@ export class PurchaseOrdersService {
   async exportCsv(tenantId: string) { return this.toCsv(await this.purchaseExportRows(tenantId)); }
   async exportExcel(tenantId: string) { return this.toXlsx(await this.purchaseExportRows(tenantId), "achats"); }
   async exportPdf(tenantId: string) { const dashboard = await this.dashboard(tenantId); return `Rapport achats\nAchats du jour: ${dashboard.purchasesToday}\nAchats du mois: ${dashboard.purchasesMonth}\nCommandes en attente: ${dashboard.pendingOrders}`; }
-  async printPurchaseOrder(tenantId: string, id: string) { const order = await this.findOne(tenantId, id); return this.printDocument("BON DE COMMANDE", order.number, order.supplier.name, order.total); }
-  async printSupplierInvoice(tenantId: string, id: string) { const invoice = await this.prisma.supplierInvoice.findFirst({ where: { id, tenantId }, include: { supplier: true } }); if (!invoice) throw new NotFoundException("Facture fournisseur introuvable"); return this.printDocument("FACTURE FOURNISSEUR", invoice.number, invoice.supplier.name, invoice.total); }
+  async printPurchaseOrder(tenantId: string, id: string) { const order = await this.findOne(tenantId, id); return this.printDocument(tenantId, "BON DE COMMANDE", order.number, order.supplier.name, order.total); }
+  async printSupplierInvoice(tenantId: string, id: string) { const invoice = await this.prisma.supplierInvoice.findFirst({ where: { id, tenantId }, include: { supplier: true } }); if (!invoice) throw new NotFoundException("Facture fournisseur introuvable"); return this.printDocument(tenantId, "FACTURE FOURNISSEUR", invoice.number, invoice.supplier.name, invoice.total); }
 
   private async ensureSupplier(tenantId: string, supplierId: string) { const supplier = await this.prisma.supplier.findFirst({ where: { id: supplierId, tenantId } }); if (!supplier) throw new NotFoundException("Fournisseur introuvable"); }
   private async ensureProducts(tenantId: string, productIds: string[]) { const uniqueIds = [...new Set(productIds)]; const count = await this.prisma.product.count({ where: { tenantId, id: { in: uniqueIds } } }); if (count !== uniqueIds.length) throw new NotFoundException("Un ou plusieurs produits sont introuvables"); }
@@ -106,5 +108,16 @@ export class PurchaseOrdersService {
     const protectedValue = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
     return `"${protectedValue.replace(/"/g, '""')}"`;
   }
-  private printDocument(title: string, number: string, partner: string, total: unknown) { return `${title}\nEntreprise\nDocument: ${number}\nPartenaire: ${partner}\nDate: ${new Date().toLocaleString("fr-HT")}\nUtilisateur: utilisateur connecté\nTotal: ${total}\n\nSignature autorisée : ______________________________`; }
+  private async tenantTimeZone(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { timezone: true, settings: { select: { timezone: true } }, companyProfile: { select: { timezone: true } } }
+    });
+    return normalizeBusinessTimeZone(tenant?.settings?.timezone ?? tenant?.companyProfile?.timezone ?? tenant?.timezone);
+  }
+
+  private async printDocument(tenantId: string, title: string, number: string, partner: string, total: unknown) {
+    const timeZone = await this.tenantTimeZone(tenantId);
+    return `${title}\nEntreprise\nDocument: ${number}\nPartenaire: ${partner}\nDate: ${formatBusinessDateTime(new Date(), timeZone)}\nUtilisateur: utilisateur connecté\nTotal: ${total}\n\nSignature autorisée : ______________________________`;
+  }
 }

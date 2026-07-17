@@ -5,6 +5,7 @@ import { fetchWithAuth } from "@/lib/api-client";
 import { clearSession, getAccessToken, getCurrentUser, refreshSession } from "@/lib/auth";
 import { getReceiptPrintSettings, openPrintPreview } from "@/lib/print";
 import { summarizePayments } from "@/lib/payment-summary";
+import { formatBusinessDateTime } from "@/lib/business-timezone";
 
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
@@ -166,7 +167,7 @@ function DraftList({ drafts, isLoading, onReload }: { drafts: Draft[]; isLoading
           <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
             <div>
               <p className="font-semibold">Vente en cours</p>
-              <p className="text-sm text-slate-500">{draft.cart?.items.length ?? 0} article(s) - Mise à jour {draft.updatedAt ? new Date(draft.updatedAt).toLocaleString("fr-HT") : "-"}</p>
+              <p className="text-sm text-slate-500">{draft.cart?.items.length ?? 0} article(s) - Mise à jour {formatBusinessDateTime(draft.updatedAt)}</p>
               <p className="mt-1 text-xs font-semibold text-slate-500">{heldSaleStatusLabel(draft)}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -238,7 +239,7 @@ function SaleList({ sales, type, isLoading }: { sales: Sale[]; type: "completed"
         return <article key={sale.id} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-slate-950 dark:text-white">{new Date(sale.createdAt).toLocaleString("fr-HT")}</p>
+              <p className="text-sm font-semibold text-slate-950 dark:text-white">{formatBusinessDateTime(sale.createdAt)}</p>
               <p className="mt-1 text-sm text-slate-500">{sale.customer?.displayName ?? sale.customer?.phone ?? "Client comptoir"}</p>
             </div>
             <p className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold dark:bg-slate-800">{type === "cancelled" ? "Annulee" : paid >= total ? "Payee" : "Partielle"}</p>
@@ -265,7 +266,7 @@ function SaleList({ sales, type, isLoading }: { sales: Sale[]; type: "completed"
         const received = paymentSummary.receivedAmount;
         const change = paymentSummary.changeAmount;
         const total = paymentSummary.total;
-        return <tr key={sale.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3">{new Date(sale.createdAt).toLocaleString("fr-HT")}</td><td className="p-3">{sale.customer?.displayName ?? sale.customer?.phone ?? "Client comptoir"}</td><td className="p-3">{type === "cancelled" ? "Annulée" : paid >= total ? "Payée" : "Partiellement payée"}</td><td className="p-3 font-bold">{formatMoney(total)}</td><td className="p-3">{formatMoney(paid)}</td><td className="p-3">{formatMoney(received)}</td><td className="p-3">{paymentSummary.historicalDataUnavailable ? "Donnée historique indisponible" : formatMoney(change)}</td><td className="p-3"><div className="flex gap-3"><button onClick={() => window.alert(`Vente ${sale.id}\nTotal: ${formatMoney(total)}\nMontant réglé: ${formatMoney(paid)}\nMontant reçu: ${formatMoney(received)}\nMonnaie rendue: ${formatMoney(change)}`)} className="text-slate-700 dark:text-slate-200">Voir détail</button><button onClick={() => void printSale(sale.id)} className="text-brand-600 disabled:text-slate-400" disabled={type === "cancelled"}>Imprimer</button></div></td></tr>;
+        return <tr key={sale.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3">{formatBusinessDateTime(sale.createdAt)}</td><td className="p-3">{sale.customer?.displayName ?? sale.customer?.phone ?? "Client comptoir"}</td><td className="p-3">{type === "cancelled" ? "Annulée" : paid >= total ? "Payée" : "Partiellement payée"}</td><td className="p-3 font-bold">{formatMoney(total)}</td><td className="p-3">{formatMoney(paid)}</td><td className="p-3">{formatMoney(received)}</td><td className="p-3">{paymentSummary.historicalDataUnavailable ? "Donnée historique indisponible" : formatMoney(change)}</td><td className="p-3"><div className="flex gap-3"><button onClick={() => window.alert(`Vente ${sale.id}\nTotal: ${formatMoney(total)}\nMontant réglé: ${formatMoney(paid)}\nMontant reçu: ${formatMoney(received)}\nMonnaie rendue: ${formatMoney(change)}`)} className="text-slate-700 dark:text-slate-200">Voir détail</button><button onClick={() => void printSale(sale.id)} className="text-brand-600 disabled:text-slate-400" disabled={type === "cancelled"}>Imprimer</button></div></td></tr>;
       })}</tbody>
     </table>
     </div>

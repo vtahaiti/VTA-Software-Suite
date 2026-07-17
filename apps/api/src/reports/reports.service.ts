@@ -2,9 +2,10 @@ import { Injectable } from "@nestjs/common";
 import { Prisma, SaleStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { availableStock, countLowStockProducts, countUnknownCostProducts, isLowStock, knownUnitCost, stockValue, sumKnownStockValue } from "../common/stock-business-rules";
+import { businessDayRangeForDateKey } from "../common/business-timezone";
 import { ReportQueryDto } from "./dto/report-query.dto";
 
-type DateRange = { gte?: Date; lte?: Date };
+type DateRange = { gte?: Date; lt?: Date };
 
 @Injectable()
 export class ReportsService {
@@ -383,14 +384,10 @@ export class ReportsService {
   private dateRange(query: ReportQueryDto): DateRange | undefined {
     const range: DateRange = {};
     if (query.dateFrom) {
-      const start = new Date(query.dateFrom);
-      start.setHours(0, 0, 0, 0);
-      range.gte = start;
+      range.gte = businessDayRangeForDateKey(query.dateFrom).start;
     }
     if (query.dateTo) {
-      const end = new Date(query.dateTo);
-      end.setHours(23, 59, 59, 999);
-      range.lte = end;
+      range.lt = businessDayRangeForDateKey(query.dateTo).end;
     }
     return Object.keys(range).length ? range : undefined;
   }

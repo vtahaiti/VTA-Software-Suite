@@ -1,6 +1,7 @@
 ﻿import { Injectable } from "@nestjs/common";
 import { PaymentMethod, Prisma, PurchaseOrderStatus, SaleStatus, SalesDocumentStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { addBusinessDays, businessDateKey, businessDayRange, businessMonthRange, businessYearRange, normalizeBusinessTimeZone } from "../common/business-timezone";
 import { availableStock, countLowStockProducts, countOutOfStockProducts, countUnknownCostProducts, knownUnitCost, sumKnownStockValue } from "../common/stock-business-rules";
 
 type CacheEntry = { expiresAt: number; data: unknown };
@@ -21,15 +22,15 @@ export class DashboardService {
 
     try {
       const now = new Date();
-      const startOfDay = this.startOfDay(now);
-      const endOfDay = this.addDays(startOfDay, 1);
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const timeZone = await this.tenantTimeZone(tenantId);
+      const { start: startOfDay, end: endOfDay } = businessDayRange(now, timeZone);
+      const { start: startOfMonth } = businessMonthRange(now, timeZone);
+      const startOfLastMonth = businessMonthRange(new Date(startOfMonth.getTime() - 12 * 60 * 60 * 1000), timeZone).start;
       const endOfLastMonth = startOfMonth;
-      const startOfYear = new Date(now.getFullYear(), 0, 1);
-      const startOfLastYear = new Date(now.getFullYear() - 1, 0, 1);
+      const { start: startOfYear } = businessYearRange(now, timeZone);
+      const startOfLastYear = businessYearRange(new Date(startOfYear.getTime() - 12 * 60 * 60 * 1000), timeZone).start;
       const endOfLastYear = startOfYear;
-      const start30Days = this.addDays(startOfDay, -29);
+      const start30Days = addBusinessDays(startOfDay, -29, timeZone);
       const completedSaleWhere: Prisma.SaleWhereInput = { tenantId, status: SaleStatus.COMPLETED };
 
       const [
@@ -93,11 +94,11 @@ export class DashboardService {
       const missingCostProductCount = countUnknownCostProducts(stocks);
       const paidInvoices = invoices.filter((invoice) => invoice.status === SalesDocumentStatus.PAID || this.money(invoice.balance) <= 0);
       const unpaidInvoices = invoices.filter((invoice) => invoice.status !== SalesDocumentStatus.CANCELLED && this.money(invoice.balance) > 0);
-      const overdueInvoices = unpaidInvoices.filter((invoice) => invoice.createdAt < this.addDays(startOfDay, -30));
+      const overdueInvoices = unpaidInvoices.filter((invoice) => invoice.createdAt < addBusinessDays(startOfDay, -30, timeZone));
       const averageOrderValue = allTimeSalesCount > 0 ? this.money(allTimeRevenue._sum.total) / allTimeSalesCount : 0;
       const averageDailySales = sales.length / 30;
 
-      const trend30Days = this.buildTrend(start30Days, sales, saleItems, customers);
+      const trend30Days = this.buildTrend(start30Days, sales, saleItems, customers, timeZone);
       const weeklySales = this.buildWeeklyTrend(trend30Days);
       const topProducts = this.topProducts(saleItems);
       const salesByCategory = this.salesByCategory(saleItems);
@@ -203,21 +204,21 @@ export class DashboardService {
     return { knownCost: this.round(knownCost), revenueWithoutCost: this.round(revenueWithoutCost), missingCostLines, reliable: missingCostLines === 0 };
   }
 
-  private buildTrend(startDate: Date, sales: Array<{ id: string; total: Prisma.Decimal; createdAt: Date }>, saleItems: SaleItemForProfit[], customers: Array<{ createdAt: Date }>): TrendPoint[] {
+  private buildTrend(startDate: Date, sales: Array<{ id: string; total: Prisma.Decimal; createdAt: Date }>, saleItems: SaleItemForProfit[], customers: Array<{ createdAt: Date }>, timeZone: string): TrendPoint[] {
     const days = new Map<string, TrendPoint>();
     for (let index = 0; index < 30; index += 1) {
-      const date = this.addDays(startDate, index);
-      const key = this.dateKey(date);
+      const date = addBusinessDays(startDate, index, timeZone);
+      const key = businessDateKey(date, timeZone);
       days.set(key, { date: key, sales: 0, revenue: 0, profit: 0, customers: 0, revenueWithoutCost: 0, missingCostLines: 0 });
     }
     for (const sale of sales) {
-      const point = days.get(this.dateKey(sale.createdAt));
+      const point = days.get(businessDateKey(sale.createdAt, timeZone));
       if (!point) continue;
       point.sales += 1;
       point.revenue += this.money(sale.total);
     }
     for (const item of saleItems) {
-      const point = days.get(this.dateKey(item.sale.createdAt));
+      const point = days.get(businessDateKey(item.sale.createdAt, timeZone));
       if (!point) continue;
       const revenue = this.money(item.total);
       if (!item.product) {
@@ -235,7 +236,7 @@ export class DashboardService {
     }
     for (const point of days.values()) if (point.missingCostLines > 0) point.profit = null;
     for (const customer of customers) {
-      const point = days.get(this.dateKey(customer.createdAt));
+      const point = days.get(businessDateKey(customer.createdAt, timeZone));
       if (point) point.customers += 1;
     }
     return Array.from(days.values()).map((point) => ({ ...point, revenue: this.round(point.revenue), profit: point.profit === null ? null : this.round(point.profit), revenueWithoutCost: this.round(point.revenueWithoutCost) }));
@@ -323,9 +324,14 @@ export class DashboardService {
     return { value: null, label: "Non calculable" };
   }
 
-  private startOfDay(date: Date) { const value = new Date(date); value.setHours(0, 0, 0, 0); return value; }
-  private addDays(date: Date, days: number) { const value = new Date(date); value.setDate(value.getDate() + days); return value; }
-  private dateKey(value: Date) { return value.toISOString().slice(0, 10); }
+  private async tenantTimeZone(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { timezone: true, settings: { select: { timezone: true } }, companyProfile: { select: { timezone: true } } }
+    });
+    return normalizeBusinessTimeZone(tenant?.settings?.timezone ?? tenant?.companyProfile?.timezone ?? tenant?.timezone);
+  }
+
   private money(value: Prisma.Decimal | number | string | null | undefined) { return Number(value ?? 0); }
   private sum(values: number[]) { return values.reduce((total, value) => total + value, 0); }
   private round(value: number) { return Math.round((value + Number.EPSILON) * 100) / 100; }

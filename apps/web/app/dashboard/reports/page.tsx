@@ -1,9 +1,10 @@
-﻿"use client";
+"use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
+import { businessDateKey, formatBusinessDateTime } from "@/lib/business-timezone";
 import { pluralize } from "@/lib/format";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 type Primitive = string | number | boolean | null | undefined;
 type ReportRow = Record<string, Primitive>;
@@ -124,7 +125,7 @@ const sections: SectionConfig[] = [
 ];
 
 export default function ReportsPage() {
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const today = useMemo(() => businessDateKey(new Date()), []);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState(today);
   const [reports, setReports] = useState<ReportsDashboard | null>(null);
@@ -264,7 +265,7 @@ function formatCell(value: Primitive, format?: Column["format"], key?: string) {
     return "--";
   }
   if (format === "money") return formatMoney(Number(value));
-  if (format === "date") return new Intl.DateTimeFormat("fr-HT", { dateStyle: "medium", timeStyle: "short" }).format(new Date(String(value)));
+  if (format === "date") return formatBusinessDateTime(String(value));
   if (format === "boolean") return value ? "Oui" : "Non";
   if (format === "status") return String(value).replaceAll("_", " ");
   return String(value);
