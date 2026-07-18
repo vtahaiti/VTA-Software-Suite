@@ -169,6 +169,11 @@ export default function PosPage() {
     async function restoreDraft() {
     const draft = loadPosDraft();
     if (!draft) return;
+    if (!draft.heldSaleId) {
+      clearPosDraft();
+      if (!cancelled) setMessage("Ancienne vente locale nettoyée: aucune vente en attente serveur associée.");
+      return;
+    }
     if (draft.heldSaleId) {
       const response = await fetchWithAuth(`${apiUrl}/pos/held-sales`).catch(() => null);
       if (!response?.ok) {
@@ -178,8 +183,9 @@ export default function PosPage() {
         }
         return;
       }
-      const data = await response.json().catch(() => ({ items: [] })) as { items?: Array<{ id?: string }> };
-      const existsOnServer = (data.items ?? []).some((item) => item.id === draft.heldSaleId);
+      const data = await response.json().catch(() => ({ items: [] })) as unknown;
+      const heldSales = normalizeHeldSalesResponse(data);
+      const existsOnServer = heldSales.some((item) => item.id === draft.heldSaleId);
       if (!existsOnServer) {
         if (!cancelled) {
           clearPosDraft();
@@ -1660,6 +1666,15 @@ function savePosDraft(draft: PosDraft) {
 function clearPosDraft() {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(posDraftKey());
+}
+
+function normalizeHeldSalesResponse(data: unknown): Array<{ id?: string }> {
+  if (Array.isArray(data)) return data as Array<{ id?: string }>;
+  if (!data || typeof data !== "object") return [];
+  const record = data as { items?: unknown; data?: unknown };
+  if (Array.isArray(record.items)) return record.items as Array<{ id?: string }>;
+  if (Array.isArray(record.data)) return record.data as Array<{ id?: string }>;
+  return [];
 }
 
 function mergeProductsById(current: Product[], next: Product[]) {

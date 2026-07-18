@@ -2,7 +2,7 @@
 import { PaymentMethod, Prisma, PurchaseOrderStatus, SaleStatus, SalesDocumentStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { addBusinessDays, businessDateKey, businessDayRange, businessMonthRange, businessYearRange, normalizeBusinessTimeZone } from "../common/business-timezone";
-import { availableStock, countLowStockProducts, countOutOfStockProducts, knownUnitCost } from "../common/stock-business-rules";
+import { availableStock, countLowStockProducts, countOutOfStockProducts, isLowStock, isOutOfStock, knownUnitCost } from "../common/stock-business-rules";
 
 type CacheEntry = { expiresAt: number; data: unknown };
 type TrendPoint = { date: string; sales: number; revenue: number; profit: number | null; customers: number; revenueWithoutCost: number; missingCostLines: number };
@@ -104,8 +104,8 @@ export class DashboardService {
       const activeStocks = stocks.filter((stock) => stock.product?.isActive !== false);
       const stockValuation = this.stockValuation(activeStocks);
       const stockValue = stockValuation.knownStockValue;
-      const lowStockProducts = activeStocks.filter((stock) => availableStock(stock) <= stock.minimumStock);
-      const outOfStockProducts = activeStocks.filter((stock) => availableStock(stock) <= 0);
+      const lowStockProducts = activeStocks.filter(isLowStock);
+      const outOfStockProducts = activeStocks.filter(isOutOfStock);
       const lowStockProductCount = countLowStockProducts(activeStocks);
       const outOfStockProductCount = countOutOfStockProducts(activeStocks);
       const missingCostProductCount = stockValuation.productsWithoutCost;

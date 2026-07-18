@@ -7,6 +7,7 @@ export type StockSnapshot = {
   quantity: number;
   reserved?: number | null;
   minimumStock?: number | null;
+  stockTracked?: boolean | null;
   product?: ProductCostSnapshot & { minimumStock?: DecimalLike };
 };
 
@@ -23,11 +24,17 @@ export function availableStock(stock: StockSnapshot) {
   return numeric(stock.quantity) - numeric(stock.reserved);
 }
 
+export function isStockTracked(stock: StockSnapshot) {
+  return stock.stockTracked !== false;
+}
+
 export function isLowStock(stock: StockSnapshot) {
+  if (!isStockTracked(stock)) return false;
   return availableStock(stock) <= numeric(stock.minimumStock);
 }
 
 export function isOutOfStock(stock: StockSnapshot) {
+  if (!isStockTracked(stock)) return false;
   return availableStock(stock) <= 0;
 }
 
@@ -66,6 +73,7 @@ export function isLowStockProduct(productStock: { available: number; minimumStoc
 export function summarizeStockByProduct(stocks: StockSnapshot[]) {
   const products = new Map<string, { productId: string; available: number; quantity: number; reserved: number; minimumStock: number }>();
   for (const stock of stocks) {
+    if (!isStockTracked(stock)) continue;
     const productId = stock.productId ?? "unknown";
     const current = products.get(productId) ?? { productId, available: 0, quantity: 0, reserved: 0, minimumStock: 0 };
     current.quantity += numeric(stock.quantity);

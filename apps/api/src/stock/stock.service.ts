@@ -38,6 +38,7 @@ export class StockService {
       this.prisma.warehouse.findFirst({ where: { tenantId, isActive: true }, orderBy: { createdAt: "asc" } })
     ]);
     const items = products.flatMap((product) => {
+      const stockTracked = product.stocks.length > 0 || Number(product.minimumStock ?? 0) > 0;
       const stocks = product.stocks.length ? product.stocks : [{
         id: `virtual-${product.id}-${defaultWarehouse?.id ?? "warehouse"}`,
         tenantId,
@@ -61,10 +62,11 @@ export class StockService {
         createdAt: stock.createdAt,
         updatedAt: stock.updatedAt,
         product,
-        warehouse: stock.warehouse
+        warehouse: stock.warehouse,
+        stockTracked
       }));
     });
-    const filteredItems = query.lowStock ? items.filter((item) => item.quantity <= item.minimumStock) : items;
+    const filteredItems = query.lowStock ? items.filter((item) => item.stockTracked && item.quantity <= item.minimumStock) : items;
     return { items: filteredItems, meta: { page, limit, total: query.lowStock ? filteredItems.length : total, pageCount: Math.ceil((query.lowStock ? filteredItems.length : total) / limit) } };
   }
 

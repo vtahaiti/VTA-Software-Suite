@@ -26,6 +26,8 @@ assert(dashboardWeb.includes("isCashierDashboardUser") && dashboardWeb.includes(
 assert(posPage.includes("isHoldingSale"), "POS must prevent double held sale submission.");
 assert(posPage.includes("clearCurrentSale()"), "POS must clear cart/customer/payments after held sale save.");
 assert(posPage.includes("Ancienne vente locale nettoy"), "POS must clear stale local drafts that no longer exist on the server.");
+assert(posPage.includes("aucune vente en attente serveur associ"), "POS must not restore a local draft that has no server held-sale id.");
+assert(posPage.includes("normalizeHeldSalesResponse"), "POS must normalize held-sale list responses before restoring local state.");
 assert(posPage.includes("Nouvelle vente vide"), "POS must expose a clean new-sale reset state.");
 assert(posPage.includes("Service / non stock"), "POS must distinguish services and non-stock products from out-of-stock products.");
 assert(posPage.includes("product.stockTracked !== false"), "POS must avoid decrementing stock locally for non-stock products.");

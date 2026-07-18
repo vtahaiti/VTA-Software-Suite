@@ -11,6 +11,7 @@ type StockLine = {
   warehouseId: string;
   quantity: number;
   minimumStock: number;
+  stockTracked?: boolean;
   product?: { id: string; name: string; sku: string; salePrice?: string | number; minimumStock?: number; unit?: { name?: string | null; symbol?: string | null } | null; supplier?: { name?: string | null } | null } | null;
   warehouse?: { id: string; name: string; storeId?: string | null } | null;
 };
@@ -38,7 +39,7 @@ export default function InventoryPage() {
     return () => clearTimeout(timer);
   }, [query]);
 
-  const lowStockCount = useMemo(() => stocks.filter((stock) => stock.quantity <= stock.minimumStock).length, [stocks]);
+  const lowStockCount = useMemo(() => stocks.filter((stock) => isStockTracked(stock) && stock.quantity <= stock.minimumStock).length, [stocks]);
 
   async function loadStocks() {
     setIsLoading(true);
@@ -230,7 +231,8 @@ function actionLabel(action: StockAction) {
   return "Sortie stock";
 }
 
-function stockStatus(stock: Pick<StockLine, "quantity" | "minimumStock">) {
+function stockStatus(stock: Pick<StockLine, "quantity" | "minimumStock" | "stockTracked">) {
+  if (!isStockTracked(stock)) return "NON_STOCK";
   if (stock.quantity <= 0) return "OUT_OF_STOCK";
   if (stock.quantity <= stock.minimumStock) return "LOW_STOCK";
   return "IN_STOCK";
@@ -238,9 +240,14 @@ function stockStatus(stock: Pick<StockLine, "quantity" | "minimumStock">) {
 
 function StockStatusBadge({ stock }: { stock: StockLine }) {
   const status = stockStatus(stock);
+  if (status === "NON_STOCK") return <span className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">Service / non stocké</span>;
   if (status === "OUT_OF_STOCK") return <span className="inline-flex rounded-full bg-red-50 px-2 py-1 text-xs font-bold text-red-700">Rupture</span>;
   if (status === "LOW_STOCK") return <span className="inline-flex rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700">Stock faible</span>;
   return <span className="inline-flex rounded-full bg-green-50 px-2 py-1 text-xs font-bold text-green-700">En stock</span>;
+}
+
+function isStockTracked(stock: Pick<StockLine, "stockTracked" | "minimumStock">) {
+  return stock.stockTracked === true || (stock.stockTracked !== false && Number(stock.minimumStock ?? 0) > 0);
 }
 
 function unitLabel(stock: StockLine) {
