@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 const modules = ["", "Auth", "Products", "Customers", "Suppliers", "Inventory", "Sales", "Invoices", "Payments", "Stores", "Warehouses", "Settings"];
 const actions = ["", "LOGIN", "LOGOUT", "LOGIN_FAILED", "CREATE_PRODUCT", "UPDATE_PRODUCT", "DELETE_PRODUCT", "CREATE_CUSTOMER", "UPDATE_CUSTOMER", "CREATE_INVOICE", "CREATE_PAYMENT", "UPDATE_SETTINGS"];
 

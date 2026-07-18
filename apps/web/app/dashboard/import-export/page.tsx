@@ -5,7 +5,7 @@ import { Download, FileSpreadsheet, RefreshCw, Upload } from "lucide-react";
 import { getAccessToken } from "@/lib/auth";
 import { downloadAuthenticatedFile } from "@/lib/authenticated-download";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 type Analysis = {
   headers: string[];

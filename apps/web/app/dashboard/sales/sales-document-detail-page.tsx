@@ -6,7 +6,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
 import { downloadPdf, openPrintPreview } from "@/lib/print";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 const statusLabels: Record<string, string> = {
   DRAFT: "Brouillon",

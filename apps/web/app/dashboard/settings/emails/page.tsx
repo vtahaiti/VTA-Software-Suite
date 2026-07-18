@@ -15,7 +15,7 @@ type EmailStatus = {
   recentFailures: Array<{ id: string; type: string; provider: string; status: string; errorCode?: string | null; createdAt: string }>;
 };
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 export default function EmailSettingsPage() {
   const [status, setStatus] = useState<EmailStatus | null>(null);
@@ -92,7 +92,7 @@ export default function EmailSettingsPage() {
 
       <form onSubmit={sendTest} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
         <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Envoyer un email de test</h2>
-        <p className="mt-2 text-sm text-slate-500">Laissez vide pour l'envoyer à votre adresse connectée.</p>
+        <p className="mt-2 text-sm text-slate-500">Laissez vide pour l&apos;envoyer à votre adresse connectée.</p>
         <label className="mt-4 block text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="test-email">Destinataire</label>
         <input id="test-email" type="email" value={to} onChange={(event) => setTo(event.target.value)} className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="exemple@domaine.com" />
         <button disabled={sending || !status.configured} className="mt-4 rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{sending ? "Envoi..." : "Envoyer un test"}</button>

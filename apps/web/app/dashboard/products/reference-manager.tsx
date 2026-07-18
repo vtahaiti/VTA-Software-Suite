@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
 
 type Item = { id: string; name: string; symbol?: string; isActive: boolean; archivedAt?: string | null; _count?: { products?: number } };
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 export function ReferenceManager({ title, endpoint, withSymbol = false, supportsArchive = false }: { title: string; endpoint: string; withSymbol?: boolean; supportsArchive?: boolean }) {
   const [items, setItems] = useState<Item[]>([]);

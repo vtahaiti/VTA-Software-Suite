@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -8,7 +8,7 @@ import { AuthUser, getAccessToken, logout } from "@/lib/auth";
 import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
 import { formatRole } from "@/lib/format";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 type HeaderProps = { user: AuthUser | null; onMenuClick?: () => void };
 type Notification = { id: string; title: string; message: string; type: string; status: string; module?: string; createdAt: string };

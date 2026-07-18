@@ -2,7 +2,7 @@ import { getAccessToken } from "@/lib/auth";
 import { downloadAuthenticatedFile } from "@/lib/authenticated-download";
 import { isNativePrintAvailable, printHtmlNative, type NativePrintFormat } from "@/lib/native-print";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 type ReceiptWidth = "58" | "72" | "80";
 

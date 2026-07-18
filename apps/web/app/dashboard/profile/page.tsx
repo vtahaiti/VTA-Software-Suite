@@ -1,11 +1,11 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useEffect, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
 import { initials, resolveAssetUrl } from "@/lib/company-branding";
 import { formatRole } from "@/lib/format";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 const roleLabels: Record<string, string> = { OWNER: "Propriétaire", Owner: "Propriétaire", ADMIN: "Administrateur", CAISSIER: "Caissier", STOCK: "Stock", COMPTABLE: "Comptable", MANAGER: "Manager" };
 
 type Profile = { name: string; firstName: string; lastName: string; email: string; role: string; createdAt: string; profile?: { photoUrl?: string | null; jobTitle?: string | null; phone?: string | null; language?: string | null }; tenant?: { name: string; companyProfile?: { companyName?: string | null; name?: string | null; logoUrl?: string | null } | null } };

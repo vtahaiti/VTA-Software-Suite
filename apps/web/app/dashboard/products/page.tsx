@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 type Product = {
   id: string;
@@ -124,7 +124,7 @@ export default function ProductsPage() {
             <div className="min-w-0">
               <h2 className="truncate font-semibold text-slate-950 dark:text-white">{product.name}</h2>
               <p className="font-mono text-xs text-slate-400">{product.sku || "SKU auto"}{product.unit ? ` - ${product.unit.symbol ?? product.unit.name}` : ""}</p>
-              <p className="mt-1 text-sm text-slate-500">{product.category?.name ?? "Sans categorie"}</p>
+              <p className="mt-1 text-sm text-slate-500">{product.category?.name ?? "Sans catégorie"}</p>
             </div>
             <p className="shrink-0 text-right text-sm font-bold text-slate-950 dark:text-white">{product.salePrice}</p>
           </div>
@@ -132,7 +132,7 @@ export default function ProductsPage() {
             <div className="rounded-md bg-slate-50 p-2 dark:bg-slate-950"><span className="text-slate-500">Stock</span><p className="font-semibold">{product.stockCurrent ?? 0}{product.unit ? ` ${product.unit.symbol ?? product.unit.name}` : ""}</p></div>
             <div className="rounded-md bg-slate-50 p-2 dark:bg-slate-950"><span className="text-slate-500">Fournisseur</span><p className="truncate font-semibold">{product.supplier?.name ?? "--"}</p></div>
           </div>
-          {product.costKnown === false ? <p className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">Cout non renseigne</p> : null}
+          {product.costKnown === false ? <p className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">Coût non renseigné</p> : null}
           <div className="mt-4 grid grid-cols-2 gap-2">
             <Link className="rounded-md bg-brand-600 px-3 py-3 text-center text-sm font-bold text-white" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link>
             <Link className="rounded-md border border-slate-300 px-3 py-3 text-center text-sm font-semibold dark:border-slate-700" href={`/dashboard/products/${product.id}/edit`}>Voir</Link>

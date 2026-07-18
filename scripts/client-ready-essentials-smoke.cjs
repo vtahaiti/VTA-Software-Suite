@@ -26,7 +26,7 @@ assert(salesStatusPage.includes("removeMatchingLocalDraft(draft)"), "Held sales 
 
 assert(productForm.includes("<Section title=\"Essentiel produit\">"), "Product form must start with an essential section.");
 assert(productForm.includes("Photo du produit"), "Product form must keep the product image option visible.");
-assert(productForm.includes("<summary className=\"cursor-pointer text-lg font-semibold text-slate-950 dark:text-white\">Options avancees</summary>"), "Advanced product fields must stay collapsed by default.");
+assert(productForm.includes("<summary className=\"cursor-pointer text-lg font-semibold text-slate-950 dark:text-white\">Options avancées</summary>"), "Advanced product fields must stay collapsed by default.");
 assert(!/Section title="Tarification"[\\s\\S]*placeholder="Prix achat"[\\s\\S]*placeholder="Prix vente"/.test(productForm), "Advanced pricing must not duplicate essential sale and purchase prices.");
 assert(productsPage.includes("px-3 py-3 text-center text-sm font-bold"), "Mobile product edit button must remain large enough to tap.");
 

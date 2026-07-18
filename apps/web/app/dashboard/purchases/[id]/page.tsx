@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 const statusLabels: Record<string, string> = { DRAFT: "Brouillon", APPROVED: "Valide", PARTIALLY_RECEIVED: "Reçu partiel", FULLY_RECEIVED: "Reçu complet", CANCELLED: "Annule" };
 type PurchaseOrder = { id: string; number: string; status: string; subtotal: string; tax: string; total: string; notes?: string; supplier?: { name: string }; items: { id: string; quantity: number; receivedQty: number; unitCost: string; total: string; product?: { name: string; sku: string } }[]; receipts: { id: string; number: string; createdAt: string; warehouse?: { name: string } }[] };
 

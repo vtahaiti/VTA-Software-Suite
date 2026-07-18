@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { fetchWithAuth } from "@/lib/api-client";
 import type { TenantBusinessConfiguration } from "@/lib/business-profiles";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 type Ref = { id: string; name: string; symbol?: string };
 type Supplier = { id: string; name: string };
@@ -229,7 +229,7 @@ export function ProductForm({ productId }: { productId?: string }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
-    setMessage(response.ok ? "Produit enregistre." : "Impossible d'enregistrer le produit.");
+    setMessage(response.ok ? "Produit enregistré." : "Impossible d'enregistrer le produit.");
     if (response.ok) router.push("/dashboard/products");
   }
 
@@ -245,7 +245,7 @@ export function ProductForm({ productId }: { productId?: string }) {
       body: JSON.stringify({ name, symbol: name })
     }).catch(() => null);
     if (!response?.ok) {
-      setError(response ? await readError(response) : "Creation unite impossible.");
+      setError(response ? await readError(response) : "Création unité impossible.");
       return null;
     }
     const unit = await response.json() as Ref;
@@ -331,15 +331,15 @@ export function ProductForm({ productId }: { productId?: string }) {
     <Section title="Essentiel produit">
       <Input value={form.name} onChange={(value) => update("name", value)} placeholder="Nom du produit" />
       <Input value={form.salePrice} onChange={(value) => update("salePrice", value)} placeholder="Prix vente" />
-      <Input value={form.purchasePrice} onChange={(value) => update("purchasePrice", value)} placeholder="Prix achat / cout" />
+      <Input value={form.purchasePrice} onChange={(value) => update("purchasePrice", value)} placeholder="Prix achat / coût" />
       <Input value={form.minimumStock} onChange={(value) => update("minimumStock", value)} placeholder="Seuil stock faible" />
       <Input value={form.sku} onChange={(value) => update("sku", value)} placeholder="SKU automatique si vide" />
       <div className="flex gap-2">
         <Input value={form.barcode} onChange={(value) => update("barcode", value)} placeholder="Code-barres UPC/EAN/QR" />
-        <button type="button" onClick={generateBarcode} className="rounded-md border px-3 py-2 text-sm font-semibold">Generer</button>
+        <button type="button" onClick={generateBarcode} className="rounded-md border px-3 py-2 text-sm font-semibold">Générer</button>
       </div>
       <details className="rounded-md border border-dashed border-slate-300 p-3 dark:border-slate-700 md:col-span-2">
-        <summary className="cursor-pointer text-sm font-semibold text-brand-600">Details avances produit</summary>
+        <summary className="cursor-pointer text-sm font-semibold text-brand-600">Détails avancés produit</summary>
         <div className="mt-3 grid gap-4 md:grid-cols-2">
       <Input value={form.reference} onChange={(value) => update("reference", value)} placeholder="Référence interne ou fournisseur" />
       <Input value={form.qrCode} onChange={(value) => update("qrCode", value)} placeholder="QR Code" />
@@ -378,8 +378,8 @@ export function ProductForm({ productId }: { productId?: string }) {
       <ImagePicker label="Photo du produit" selected={Boolean(form.imageUrl)} onChange={(value) => update("imageUrl", value)} />
     </Section>
     <details className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <summary className="cursor-pointer text-lg font-semibold text-slate-950 dark:text-white">Options avancees</summary>
-      <p className="mt-1 text-sm text-slate-500">Prix avances, fournisseur, images, variantes, dimensions et dates.</p>
+      <summary className="cursor-pointer text-lg font-semibold text-slate-950 dark:text-white">Options avancées</summary>
+      <p className="mt-1 text-sm text-slate-500">Prix avancés, fournisseur, images, variantes, dimensions et dates.</p>
       <div className="mt-5 space-y-5">
     <Section title="Classification et fournisseur">
       <Input value={form.subCategory} onChange={(value) => update("subCategory", value)} placeholder="Sous-catégorie" />
@@ -389,9 +389,9 @@ export function ProductForm({ productId }: { productId?: string }) {
     <Section title="Tarification">
       <Input value={form.promotionalPrice} onChange={(value) => update("promotionalPrice", value)} placeholder="Prix promotionnel" />
       <Input value={form.wholesalePrice} onChange={(value) => update("wholesalePrice", value)} placeholder="Prix gros" />
-      <Input value={form.averageCost} onChange={(value) => update("averageCost", value)} placeholder="Cout moyen" />
+      <Input value={form.averageCost} onChange={(value) => update("averageCost", value)} placeholder="Coût moyen" />
       <Input value={form.taxRate} onChange={(value) => update("taxRate", value)} placeholder="TVA / Taxe" />
-      <div className="rounded-md bg-green-50 px-3 py-2 text-sm font-semibold text-green-700 dark:bg-green-950 dark:text-green-200">Marge calculee : {margin}%</div>
+      <div className="rounded-md bg-green-50 px-3 py-2 text-sm font-semibold text-green-700 dark:bg-green-950 dark:text-green-200">Marge calculée : {margin}%</div>
     </Section>
     <Section title="Inventaire">
       <Input value={form.maximumStock} onChange={(value) => update("maximumStock", value)} placeholder="Stock maximum" />
@@ -479,7 +479,7 @@ function ImagePicker({ label, selected, onChange }: { label: string; selected: b
   return <label className="grid gap-2 rounded-md border border-dashed border-slate-300 px-3 py-3 text-sm font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">
     {label}
     <input type="file" accept="image/*" onChange={(event) => void loadImage(event.target.files?.[0], onChange)} className="sr-only" />
-    {selected ? <span className="text-xs font-normal text-green-600">Image selectionnee</span> : <span className="text-xs font-normal text-slate-400">Facultatif</span>}
+    {selected ? <span className="text-xs font-normal text-green-600">Image sélectionnée</span> : <span className="text-xs font-normal text-slate-400">Facultatif</span>}
   </label>;
 }
 
@@ -487,7 +487,7 @@ function GalleryPicker({ selected, onChange }: { selected: boolean; onChange: (v
   return <label className="grid gap-2 rounded-md border border-dashed border-slate-300 px-3 py-3 text-sm font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">
     📷 Ajouter des photos
     <input type="file" accept="image/*" multiple onChange={(event) => void loadImages(event.target.files, onChange)} className="sr-only" />
-    {selected ? <span className="text-xs font-normal text-green-600">Galerie selectionnee</span> : <span className="text-xs font-normal text-slate-400">Facultatif</span>}
+    {selected ? <span className="text-xs font-normal text-green-600">Galerie sélectionnée</span> : <span className="text-xs font-normal text-slate-400">Facultatif</span>}
   </label>;
 }
 
@@ -511,8 +511,8 @@ function loadImages(files: FileList | null, onDone: (value: string) => void) {
 async function readError(response: Response) {
   try {
     const body = await response.json() as { message?: string | string[] };
-    return Array.isArray(body.message) ? body.message[0] : body.message ?? "Operation impossible";
+    return Array.isArray(body.message) ? body.message[0] : body.message ?? "Opération impossible";
   } catch {
-    return "Operation impossible";
+    return "Opération impossible";
   }
 }

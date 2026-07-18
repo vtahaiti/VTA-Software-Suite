@@ -434,10 +434,10 @@ function PerformancePanel({ performance }: { performance: Performance }) {
     ["Valeur stock connue", formatMoney(performance.knownStockValue ?? performance.stockValue)],
     ["Valeur de vente potentielle", formatMoney(performance.salePotentialValue ?? performance.businessValue)],
     ["Marge potentielle connue", formatMoney(performance.potentialKnownMargin ?? 0)],
-    ["Produits sans cout d'achat", String(performance.missingCostProducts ?? 0)],
-    ["Benefices du mois", performance.profitReliable === false ? "Donnees de cout incompletes" : formatNullableMoney(performance.estimatedProfit)],
-    ["Revenu sans cout", formatMoney(performance.revenueWithoutCost ?? 0)],
-    ["Couverture des couts", `${performance.costCoverageRate ?? 0}%`],
+    ["Produits sans coût d'achat", String(performance.missingCostProducts ?? 0)],
+    ["Bénéfices du mois", performance.profitReliable === false ? "Données de coût incomplètes" : formatNullableMoney(performance.estimatedProfit)],
+    ["Revenu sans coût", formatMoney(performance.revenueWithoutCost ?? 0)],
+    ["Couverture des coûts", `${performance.costCoverageRate ?? 0}%`],
     ["Marge moyenne", performance.averageMargin === null ? "Non calculable" : `${performance.averageMargin}%`],
     ["Panier moyen", formatMoney(performance.averageOrderValue)],
     ["Ventes moyennes / jour", formatNumber(performance.averageDailySales)],
@@ -450,7 +450,7 @@ function PerformancePanel({ performance }: { performance: Performance }) {
       <h2 className="text-xl font-black text-slate-950 dark:text-white">Performance du business</h2>
       {(performance.missingCostProducts ?? 0) > 0 ? (
         <p className="mt-2 text-sm font-semibold text-amber-700 dark:text-amber-300">
-          {performance.missingCostProducts} produit(s) sans cout d&apos;achat - valeur stock incomplete.
+          {performance.missingCostProducts} produit(s) sans coût d&apos;achat - valeur stock incomplète.
         </p>
       ) : null}
       <div className="mt-5 grid gap-3 sm:grid-cols-2">

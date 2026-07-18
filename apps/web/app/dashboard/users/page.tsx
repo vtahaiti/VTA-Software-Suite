@@ -10,7 +10,7 @@ type RoleRow = { id: string; name: string; description?: string };
 type StoreRow = { id: string; name: string };
 type PaginatedStores = { items?: StoreRow[] };
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 const tenantRoleNames = ["OWNER", "ADMIN", "CAISSIER", "STOCK", "COMPTABLE", "MANAGER", "OBSERVATEUR", "BASIC"];
 const roleLabels: Record<string, string> = { OWNER: "Proprietaire", ADMIN: "Administrateur", CAISSIER: "Caissier", STOCK: "Stock", COMPTABLE: "Comptable", MANAGER: "Manager", OBSERVATEUR: "Observateur", BASIC: "Utilisateur basique", Owner: "Proprietaire" };
 const defaultRoles: RoleRow[] = [

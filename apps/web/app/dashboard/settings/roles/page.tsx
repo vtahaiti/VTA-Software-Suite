@@ -3,7 +3,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
 type Permission = { id: string; key: string; name: string; category: string };
 type Role = { id: string; name: string; description?: string; permissions?: { permission: Permission }[] };
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 export default function RolesSettingsPage() {
   const [roles,setRoles]=useState<Role[]>([]); const [permissions,setPermissions]=useState<Permission[]>([]); const [name,setName]=useState(""); const [description,setDescription]=useState(""); const [selectedPermissionIds,setSelectedPermissionIds]=useState<string[]>([]); const [selectedRole,setSelectedRole]=useState<Role|null>(null); const [message,setMessage]=useState<string|null>(null);
   useEffect(()=>{loadData();},[]);

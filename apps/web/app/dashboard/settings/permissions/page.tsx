@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 type Permission = { id: string; key: string; name: string; category: string; description?: string };
 type Role = { id: string; name: string; description?: string | null; isSystem?: boolean; permissions?: Array<{ permission: Permission }> };

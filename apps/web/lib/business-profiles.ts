@@ -1,4 +1,4 @@
-﻿import { getAccessToken } from "@/lib/auth";
+import { getAccessToken } from "@/lib/auth";
 
 export type BusinessMenuSection = { title: string; items: Array<{ label: string; href: string }> };
 export type BusinessActivity = { name: string; profileType: string };
@@ -22,7 +22,7 @@ export type TenantBusinessConfiguration = {
   offline?: { prepared: boolean; message: string };
 };
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 export const simpleMenuSections: BusinessMenuSection[] = [
   { title: "Menu", items: [

@@ -1,10 +1,10 @@
-﻿"use client";
+"use client";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
 import { downloadAuthenticatedFile } from "@/lib/authenticated-download";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 const statusLabels: Record<string, string> = { DRAFT: "Brouillon", SENT: "Envoyée", APPROVED: "Approuvée", PARTIALLY_RECEIVED: "Partiellement reçue", FULLY_RECEIVED: "Reçue", RECEIVED: "Reçue", CANCELLED: "Annulée" };
 type PurchaseOrder = { id: string; number: string; status: string; total: string; createdAt: string; supplier?: { name: string }; items: unknown[] };
 type Dashboard = { purchasesToday?: number; purchasesMonth?: number; todayPurchases?: number; monthPurchases?: number; activeSuppliers: number; pendingOrders: number; receiptsToday: number; unpaidInvoices: number };

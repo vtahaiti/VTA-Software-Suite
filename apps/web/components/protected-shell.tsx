@@ -7,7 +7,7 @@ import { Sidebar } from "@/components/sidebar";
 import { AuthUser, clearSession, getAccessToken, getCurrentUser, refreshSession } from "@/lib/auth";
 import { canAccessHref } from "@/lib/role-access";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 type ProtectedShellProps = {
   children: ReactNode | ((user: AuthUser) => ReactNode);

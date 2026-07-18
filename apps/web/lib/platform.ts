@@ -2,7 +2,7 @@
 
 import type { AuthUser } from "@/lib/auth";
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001").replace(/^"|"$/g, "");
+const apiUrl = ((process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"))).replace(/^"|"$/g, "");
 const accessTokenKey = "vta_platform_access_token";
 const refreshTokenKey = "vta_platform_refresh_token";
 const userKey = "vta_platform_user";

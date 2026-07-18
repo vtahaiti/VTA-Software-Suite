@@ -1,7 +1,7 @@
 "use client";
 import { FormEvent, useEffect, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 type Invoice = { id: string; number: string; customer?: { name?: string; displayName?: string }; items: { id: string; quantity: number; productId: string; product?: { name: string; sku: string } }[] };
 type Warehouse = { id: string; code: string; name: string };
 type SalesReturn = { id: string; number: string; total: string; createdAt: string; invoice?: { number: string }; customer?: { name?: string; displayName?: string } };

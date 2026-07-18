@@ -1,8 +1,8 @@
-﻿"use client";
+"use client";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 type OrderSummary = { id: string; number: string; supplier?: { name: string } };
 type Warehouse = { id: string; name: string; code: string };
 type OrderDetail = { id: string; items: { id: string; quantity: number; receivedQty: number; product?: { name: string; sku: string } }[] };
