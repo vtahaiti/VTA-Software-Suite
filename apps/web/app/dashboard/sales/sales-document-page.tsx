@@ -90,6 +90,12 @@ function documentKind(type: DocType) {
   return "Facture";
 }
 
+function documentHelpText(type: DocType) {
+  if (type === "quotes") return "Devis = proposition de prix. Il ne modifie pas le stock tant qu'il n'est pas converti en commande ou vente.";
+  if (type === "proformas") return "Commande = vente confirmee qui peut recevoir un acompte puis un solde.";
+  return "Facture = document de vente finalise ou a encaisser selon le statut.";
+}
+
 const fabricationTypes = ["Fenetre", "Porte", "Cadre", "Vitrine", "Moustiquaire", "Structure simple", "Autre"];
 const fabricationMaterials = ["Aluminium", "Bois", "PVC", "Metal", "Verre", "Autre"];
 
@@ -125,6 +131,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
   const [summary, setSummary] = useState<Summary | null>(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
+  const [productSearch, setProductSearch] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [notes, setNotes] = useState("");
   const [discount, setDiscount] = useState(0);
@@ -261,6 +268,11 @@ function selectProduct(index: number, productId: string) {
 
   const totalPreview = useMemo(() => lines.reduce((sum, line) => sum + line.quantity * line.unitPrice - line.discount + line.tax, 0) - discount, [lines, discount]);
   const canTakePayment = selected && (type === "proformas" || type === "invoices") && Number(selected.balance) > 0 && selected.status !== "CANCELLED";
+  const compactProducts = useMemo(() => {
+    const term = productSearch.trim().toLowerCase();
+    const filtered = term ? products.filter((product) => `${product.sku} ${product.name}`.toLowerCase().includes(term)) : products;
+    return filtered.slice(0, 25);
+  }, [productSearch, products]);
 
   return (
     <div className="space-y-5">
@@ -268,6 +280,9 @@ function selectProduct(index: number, productId: string) {
         <p className="text-sm font-medium text-brand-600">{eyebrow}</p>
         <h1 className="text-2xl font-bold text-slate-950 dark:text-white">{title}</h1>
         <p className="mt-1 text-sm text-slate-500">Devis, commandes, acomptes, soldes et impression simple.</p>
+        <div className="mt-3 rounded-md border border-brand-100 bg-brand-50 px-3 py-2 text-sm text-slate-700 dark:border-brand-900 dark:bg-slate-950 dark:text-slate-200">
+          {documentHelpText(type)}
+        </div>
         {message ? <p className="mt-3 rounded-md bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800">{message}</p> : null}
       </div>
 
@@ -284,6 +299,7 @@ function selectProduct(index: number, productId: string) {
       <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
         <form onSubmit={submit} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <h2 className="text-lg font-semibold">{createLabel}</h2>
+          <p className="mt-1 text-sm text-slate-500">Ajoutez un client si besoin, puis choisissez un produit existant ou saisissez une ligne de service personnalisee.</p>
           <div className="mt-4 space-y-3">
             <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
               <option value="">Client facultatif</option>
@@ -295,9 +311,10 @@ function selectProduct(index: number, productId: string) {
           <div className="mt-4 space-y-3">
             {lines.map((line, index) => (
               <div key={index} className="grid gap-2 rounded-md border border-slate-200 p-3 dark:border-slate-800">
+                <input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Rechercher un produit ou service" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
                 <select value={line.productId} onChange={(event) => selectProduct(index, event.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
                   <option value="">Service / ligne personnalisée</option>
-                  {products.map((product) => <option key={product.id} value={product.id}>{product.sku} - {product.name}</option>)}
+                  {compactProducts.map((product) => <option key={product.id} value={product.id}>{product.sku} - {product.name}</option>)}
                 </select>
                 {!line.productId ? <input required value={line.customName} onChange={(event) => updateLine(index, { customName: event.target.value })} placeholder="Nom du service ou de la commande speciale" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /> : null}
                 {!line.productId && showFabricationFields ? (
