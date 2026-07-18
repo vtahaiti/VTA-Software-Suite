@@ -2,12 +2,26 @@
 import { PaymentMethod, Prisma, PurchaseOrderStatus, SaleStatus, SalesDocumentStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { addBusinessDays, businessDateKey, businessDayRange, businessMonthRange, businessYearRange, normalizeBusinessTimeZone } from "../common/business-timezone";
-import { availableStock, countLowStockProducts, countOutOfStockProducts, countUnknownCostProducts, knownUnitCost, sumKnownStockValue } from "../common/stock-business-rules";
+import { availableStock, countLowStockProducts, countOutOfStockProducts, knownUnitCost } from "../common/stock-business-rules";
 
 type CacheEntry = { expiresAt: number; data: unknown };
 type TrendPoint = { date: string; sales: number; revenue: number; profit: number | null; customers: number; revenueWithoutCost: number; missingCostLines: number };
 type ProductCostProduct = { averageCost: Prisma.Decimal | number | string | null; purchasePrice: Prisma.Decimal | number | string | null };
 type SaleItemForProfit = { productId: string | null; quantity: number; total: Prisma.Decimal; sale: { createdAt: Date }; product: (ProductCostProduct & { name?: string; sku?: string; category?: { name: string } | null }) | null };
+type DashboardUser = { role?: string | null; roles?: string[] | null; permissions?: string[] | null };
+type DashboardAccess = "FULL" | "MANAGER" | "CASHIER" | "STOCK" | "OBSERVER" | "BASIC";
+type StockForValuation = {
+  productId?: string | null;
+  quantity: number;
+  reserved?: number | null;
+  minimumStock?: number | null;
+  product: ProductCostProduct & {
+    id?: string;
+    isActive?: boolean | null;
+    salePrice?: Prisma.Decimal | number | string | null;
+    minimumStock?: Prisma.Decimal | number | string | null;
+  };
+};
 
 @Injectable()
 export class DashboardService {
@@ -15,8 +29,9 @@ export class DashboardService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async summary(tenantId: string) {
-    const cacheKey = `dashboard:${tenantId}`;
+  async summary(tenantId: string, user?: DashboardUser) {
+    const access = this.dashboardAccess(user);
+    const cacheKey = `dashboard:${tenantId}:${access}`;
     const cached = this.cache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return cached.data;
 
@@ -86,12 +101,14 @@ export class DashboardService {
       const revenueLastMonth = this.sum(salesLastMonth.map((sale) => this.money(sale.total)));
       const monthProfit = this.profitSummary(saleItems.filter((item) => item.sale.createdAt >= startOfMonth));
       const profitMonth = monthProfit.reliable ? this.round(revenueMonth - monthProfit.knownCost) : null;
-      const stockValue = sumKnownStockValue(stocks);
-      const lowStockProducts = stocks.filter((stock) => availableStock(stock) <= stock.minimumStock);
-      const outOfStockProducts = stocks.filter((stock) => availableStock(stock) <= 0);
-      const lowStockProductCount = countLowStockProducts(stocks);
-      const outOfStockProductCount = countOutOfStockProducts(stocks);
-      const missingCostProductCount = countUnknownCostProducts(stocks);
+      const activeStocks = stocks.filter((stock) => stock.product?.isActive !== false);
+      const stockValuation = this.stockValuation(activeStocks);
+      const stockValue = stockValuation.knownStockValue;
+      const lowStockProducts = activeStocks.filter((stock) => availableStock(stock) <= stock.minimumStock);
+      const outOfStockProducts = activeStocks.filter((stock) => availableStock(stock) <= 0);
+      const lowStockProductCount = countLowStockProducts(activeStocks);
+      const outOfStockProductCount = countOutOfStockProducts(activeStocks);
+      const missingCostProductCount = stockValuation.productsWithoutCost;
       const paidInvoices = invoices.filter((invoice) => invoice.status === SalesDocumentStatus.PAID || this.money(invoice.balance) <= 0);
       const unpaidInvoices = invoices.filter((invoice) => invoice.status !== SalesDocumentStatus.CANCELLED && this.money(invoice.balance) > 0);
       const overdueInvoices = unpaidInvoices.filter((invoice) => invoice.createdAt < addBusinessDays(startOfDay, -30, timeZone));
@@ -112,6 +129,7 @@ export class DashboardService {
 
       const result = {
         databaseAvailable: true,
+        dashboardScope: access,
         generatedAt: now.toISOString(),
         kpis: {
           revenueToday,
@@ -131,9 +149,12 @@ export class DashboardService {
         },
         performance: {
           stockValue,
+          knownStockValue: stockValuation.knownStockValue,
+          salePotentialValue: stockValuation.salePotentialValue,
+          potentialKnownMargin: stockValuation.potentialKnownMargin,
           stockValuePartial: missingCostProductCount > 0,
           missingCostProducts: missingCostProductCount,
-          businessValue: stockValue + this.money(allTimeRevenue._sum.total),
+          businessValue: stockValuation.salePotentialValue,
           estimatedProfit: profitMonth,
           profitReliable: monthProfit.reliable,
           missingCostSaleLines: monthProfit.missingCostLines,
@@ -175,8 +196,9 @@ export class DashboardService {
         topSalesTable: topProducts
       };
 
-      this.cache.set(cacheKey, { data: result, expiresAt: Date.now() + 30_000 });
-      return result;
+      const scopedResult = this.restrictSummaryForAccess(result, access);
+      this.cache.set(cacheKey, { data: scopedResult, expiresAt: Date.now() + 30_000 });
+      return scopedResult;
     } catch {
       return this.emptySummary();
     }
@@ -202,6 +224,93 @@ export class DashboardService {
       knownCost += cost.amount * item.quantity;
     }
     return { knownCost: this.round(knownCost), revenueWithoutCost: this.round(revenueWithoutCost), missingCostLines, reliable: missingCostLines === 0 };
+  }
+
+  private stockValuation(stocks: StockForValuation[]) {
+    const productsWithoutCost = new Set<string>();
+    let knownStockValue = 0;
+    let salePotentialValue = 0;
+    let potentialKnownMargin = 0;
+
+    for (const stock of stocks) {
+      if (stock.product?.isActive === false) continue;
+      const quantity = availableStock(stock);
+      if (quantity <= 0) continue;
+
+      const productKey = stock.productId ?? stock.product?.id ?? "unknown";
+      const cost = knownUnitCost(stock.product);
+      const salePrice = this.money(stock.product.salePrice);
+
+      if (cost.known && cost.amount !== null) knownStockValue += quantity * cost.amount;
+      else productsWithoutCost.add(productKey);
+
+      if (salePrice > 0) {
+        salePotentialValue += quantity * salePrice;
+        if (cost.known && cost.amount !== null) potentialKnownMargin += quantity * (salePrice - cost.amount);
+      }
+    }
+
+    return {
+      knownStockValue: this.round(knownStockValue),
+      salePotentialValue: this.round(salePotentialValue),
+      potentialKnownMargin: this.round(potentialKnownMargin),
+      productsWithoutCost: productsWithoutCost.size
+    };
+  }
+
+  private dashboardAccess(user?: DashboardUser): DashboardAccess {
+    const roles = [user?.role, ...(user?.roles ?? [])].filter(Boolean).map((role) => String(role).toUpperCase());
+    const roleText = roles.join(" ");
+    if (roleText.includes("OWNER") || roleText.includes("PROPRI") || roleText.includes("ADMIN")) return "FULL";
+    if (roleText.includes("MANAGER") || roleText.includes("GERANT") || roleText.includes("GÉRANT")) return "MANAGER";
+    if (roleText.includes("CASHIER") || roleText.includes("CAISSIER")) return "CASHIER";
+    if (roleText.includes("STOCK") || roleText.includes("INVENT")) return "STOCK";
+    if (roleText.includes("OBSERVER") || roleText.includes("OBSERVATEUR") || roleText.includes("READ")) return "OBSERVER";
+
+    const permissions = new Set(user?.permissions ?? []);
+    if (permissions.has("pos.sell") && !permissions.has("products.view") && !permissions.has("inventory.view")) return "CASHIER";
+    if (permissions.has("inventory.view") && !permissions.has("pos.sell")) return "STOCK";
+    if (permissions.has("reports.view") || permissions.has("reports.read")) return "OBSERVER";
+    return "BASIC";
+  }
+
+  private restrictSummaryForAccess<T extends {
+    kpis: Record<string, unknown>;
+    performance: Record<string, unknown>;
+    charts: Record<string, unknown>;
+    recentActivity: unknown[];
+    alerts: unknown[];
+    topSalesTable: unknown[];
+  }>(result: T, access: DashboardAccess): T {
+    if (access === "FULL" || access === "MANAGER") return result;
+
+    const scoped = {
+      ...result,
+      dashboardScope: access,
+      kpis: { ...result.kpis },
+      performance: { ...result.performance },
+      charts: { ...result.charts },
+      recentActivity: [],
+      alerts: [],
+      topSalesTable: []
+    };
+    const salesKpis = ["revenueToday", "revenueMonth", "profitMonth", "salesToday", "salesTotal", "customersTotal", "invoicesPaid", "invoicesUnpaid", "pendingOrders"];
+    const stockKpis = ["productsTotal", "outOfStock", "lowStock"];
+    const salesPerformance = ["businessValue", "salePotentialValue", "potentialKnownMargin", "estimatedProfit", "profitReliable", "missingCostSaleLines", "revenueWithoutCost", "costCoverageRate", "averageMargin", "averageOrderValue", "averageDailySales", "monthlyGrowth", "annualGrowth"];
+
+    if (access === "STOCK") {
+      for (const key of salesKpis) scoped.kpis[key] = key === "profitMonth" ? null : 0;
+      for (const key of salesPerformance) scoped.performance[key] = ["estimatedProfit", "averageMargin", "monthlyGrowth", "annualGrowth"].includes(key) ? null : 0;
+      scoped.charts = { ...scoped.charts, trend30Days: [], profitEvolution: [], revenueEvolution: [], weeklySales: [], topProducts: [], salesByCategory: [], paymentMethods: [], customerEvolution: [] };
+      return scoped as T;
+    }
+
+    for (const key of [...salesKpis, ...stockKpis]) scoped.kpis[key] = key === "profitMonth" ? null : 0;
+    for (const key of ["stockValue", "knownStockValue", "businessValue", "salePotentialValue", "potentialKnownMargin", "estimatedProfit", "profitReliable", "missingCostProducts", "missingCostSaleLines", "revenueWithoutCost", "costCoverageRate", "averageMargin", "averageOrderValue", "averageDailySales", "monthlyGrowth", "annualGrowth"]) {
+      scoped.performance[key] = ["estimatedProfit", "averageMargin", "monthlyGrowth", "annualGrowth"].includes(key) ? null : 0;
+    }
+    scoped.charts = { trend30Days: [], profitEvolution: [], revenueEvolution: [], weeklySales: [], topProducts: [], salesByCategory: [], paymentMethods: [], customerEvolution: [], stockValueByCategory: [] };
+    return scoped as T;
   }
 
   private buildTrend(startDate: Date, sales: Array<{ id: string; total: Prisma.Decimal; createdAt: Date }>, saleItems: SaleItemForProfit[], customers: Array<{ createdAt: Date }>, timeZone: string): TrendPoint[] {
@@ -304,9 +413,10 @@ export class DashboardService {
   private emptySummary() {
     return {
       databaseAvailable: false,
+      dashboardScope: "BASIC",
       generatedAt: new Date().toISOString(),
       kpis: { revenueToday: 0, revenueMonth: 0, profitMonth: null, profitReliable: false, costIncompleteMessage: "Données de coût incomplètes", salesToday: 0, salesTotal: 0, customersTotal: 0, productsTotal: 0, outOfStock: 0, lowStock: 0, invoicesPaid: 0, invoicesUnpaid: 0, pendingOrders: 0 },
-      performance: { stockValue: 0, businessValue: 0, estimatedProfit: null, profitReliable: false, missingCostSaleLines: 0, revenueWithoutCost: 0, costCoverageRate: 0, averageMargin: null, averageOrderValue: 0, averageDailySales: 0, monthlyGrowth: 0, monthlyGrowthLabel: "0 %", annualGrowth: 0, annualGrowthLabel: "0 %" },
+      performance: { stockValue: 0, knownStockValue: 0, salePotentialValue: 0, potentialKnownMargin: 0, stockValuePartial: false, missingCostProducts: 0, businessValue: 0, estimatedProfit: null, profitReliable: false, missingCostSaleLines: 0, revenueWithoutCost: 0, costCoverageRate: 0, averageMargin: null, averageOrderValue: 0, averageDailySales: 0, monthlyGrowth: 0, monthlyGrowthLabel: "0 %", annualGrowth: 0, annualGrowthLabel: "0 %" },
       charts: { trend30Days: [], profitEvolution: [], revenueEvolution: [], weeklySales: [], topProducts: [], salesByCategory: [], paymentMethods: [], customerEvolution: [], stockValueByCategory: [] },
       recentActivity: [],
       alerts: [{ type: "Base de données", message: "Impossible de charger les données du tableau de bord.", severity: "critical" }],

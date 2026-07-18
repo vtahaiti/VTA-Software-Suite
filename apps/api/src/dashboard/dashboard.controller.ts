@@ -10,6 +10,6 @@ export class DashboardController {
 
   @Get("summary")
   summary(@Req() request: AuthenticatedRequest) {
-    return this.dashboardService.summary(request.user.tenantId);
+    return this.dashboardService.summary(request.user.tenantId, request.user);
   }
 }

@@ -26,6 +26,9 @@ type Kpis = {
 };
 type Performance = {
   stockValue: number;
+  knownStockValue?: number;
+  salePotentialValue?: number;
+  potentialKnownMargin?: number;
   stockValuePartial?: boolean;
   missingCostProducts?: number;
   businessValue: number;
@@ -87,6 +90,11 @@ const emptyDashboard: DashboardSummary = {
   },
   performance: {
     stockValue: 0,
+    knownStockValue: 0,
+    salePotentialValue: 0,
+    potentialKnownMargin: 0,
+    stockValuePartial: false,
+    missingCostProducts: 0,
     businessValue: 0,
     estimatedProfit: null,
     profitReliable: false,
@@ -117,6 +125,14 @@ const emptyDashboard: DashboardSummary = {
   topSalesTable: []
 };
 
+function isCashierDashboardUser(user: ReturnType<typeof getCurrentUser>) {
+  const roles = [user?.role, ...(user?.roles ?? [])].filter(Boolean).map((role) => String(role).toUpperCase());
+  const roleText = roles.join(" ");
+  if (roleText.includes("CASHIER") || roleText.includes("CAISSIER")) return true;
+  const permissions = new Set(user?.permissions ?? []);
+  return permissions.has("pos.sell") && !permissions.has("products.view") && !permissions.has("inventory.view");
+}
+
 export default function DashboardPage() {
   const [branding, setBranding] = useState<CompanyBranding | null>(null);
   const [summary, setSummary] = useState<DashboardSummary>(emptyDashboard);
@@ -124,6 +140,12 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const currentUser = getCurrentUser();
+    if (isCashierDashboardUser(currentUser)) {
+      window.location.replace("/dashboard/pos");
+      return;
+    }
+
     async function loadDashboardSummary() {
       let token = getAccessToken();
       if (!token) {
@@ -196,6 +218,7 @@ export default function DashboardPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
           <div className="flex items-start gap-3 lg:gap-4">
             {branding?.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- Logo URL comes from tenant settings and may be external.
               <img src={branding.logoUrl} alt={`Logo ${companyName}`} className="h-12 w-12 rounded-2xl bg-white object-cover p-1 shadow-lg sm:h-14 sm:w-14 lg:h-16 lg:w-16" />
             ) : (
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 text-base font-black shadow-lg ring-1 ring-white/30 sm:h-14 sm:w-14 sm:text-lg lg:h-16 lg:w-16 lg:text-xl">
@@ -407,11 +430,31 @@ function PerformancePanel({ performance }: { performance: Performance }) {
     ["Croissance mensuelle", performance.monthlyGrowthLabel ?? formatGrowth(performance.monthlyGrowth)],
     ["Croissance annuelle", performance.annualGrowthLabel ?? formatGrowth(performance.annualGrowth)]
   ];
+  const businessRows = [
+    ["Valeur stock connue", formatMoney(performance.knownStockValue ?? performance.stockValue)],
+    ["Valeur de vente potentielle", formatMoney(performance.salePotentialValue ?? performance.businessValue)],
+    ["Marge potentielle connue", formatMoney(performance.potentialKnownMargin ?? 0)],
+    ["Produits sans cout d'achat", String(performance.missingCostProducts ?? 0)],
+    ["Benefices du mois", performance.profitReliable === false ? "Donnees de cout incompletes" : formatNullableMoney(performance.estimatedProfit)],
+    ["Revenu sans cout", formatMoney(performance.revenueWithoutCost ?? 0)],
+    ["Couverture des couts", `${performance.costCoverageRate ?? 0}%`],
+    ["Marge moyenne", performance.averageMargin === null ? "Non calculable" : `${performance.averageMargin}%`],
+    ["Panier moyen", formatMoney(performance.averageOrderValue)],
+    ["Ventes moyennes / jour", formatNumber(performance.averageDailySales)],
+    ["Croissance mensuelle", performance.monthlyGrowthLabel ?? formatGrowth(performance.monthlyGrowth)],
+    ["Croissance annuelle", performance.annualGrowthLabel ?? formatGrowth(performance.annualGrowth)]
+  ];
+  const rowsForDisplay = businessRows.slice(0, rows.length);
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <h2 className="text-xl font-black text-slate-950 dark:text-white">Performance du business</h2>
+      {(performance.missingCostProducts ?? 0) > 0 ? (
+        <p className="mt-2 text-sm font-semibold text-amber-700 dark:text-amber-300">
+          {performance.missingCostProducts} produit(s) sans cout d&apos;achat - valeur stock incomplete.
+        </p>
+      ) : null}
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        {rows.map(([label, value]) => <div key={label} className="rounded-xl bg-slate-50 p-4 dark:bg-slate-950"><p className="text-xs font-bold uppercase text-slate-500">{label}</p><p className="mt-2 text-lg font-black text-slate-950 dark:text-white">{value}</p></div>)}
+        {rowsForDisplay.map(([label, value]) => <div key={label} className="rounded-xl bg-slate-50 p-4 dark:bg-slate-950"><p className="text-xs font-bold uppercase text-slate-500">{label}</p><p className="mt-2 text-lg font-black text-slate-950 dark:text-white">{value}</p></div>)}
       </div>
     </article>
   );
