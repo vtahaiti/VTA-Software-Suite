@@ -14,7 +14,7 @@ export class SalesController {
 
   @Get()
   @Permissions("sales.view")
-  findAll(@Req() req: AuthenticatedRequest, @Query() query: SaleQueryDto) { return this.service.findAll(req.user.tenantId, query); }
+  findAll(@Req() req: AuthenticatedRequest, @Query() query: SaleQueryDto) { return this.service.findAll(req.user.tenantId, query, req.user); }
 
   @Get(":id/receipt")
   @Header("Content-Type", "text/html; charset=utf-8")

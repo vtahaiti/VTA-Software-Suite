@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
 import { clearSession, getAccessToken, getCurrentUser, refreshSession } from "@/lib/auth";
 import { getReceiptPrintSettings, openPrintPreview } from "@/lib/print";
@@ -14,10 +14,15 @@ type Sale = {
   status: string;
   total: string | number;
   createdAt: string;
+  createdByUserId?: string | null;
+  createdByUserName?: string | null;
   customer?: { displayName?: string | null; phone?: string | null } | null;
   receipt?: { number: string } | null;
   payments?: Array<{ amount: string | number; receivedAmount?: string | number | null; changeAmount?: string | number | null }>;
 };
+type SalesSummary = { count: number; total: number; settledAmount: number; receivedAmount: number; changeAmount: number; averageBasket: number };
+type CashierOption = { id: string; name: string; isActive: boolean };
+type PeriodFilter = "today" | "week" | "month" | "custom";
 type Draft = {
   id?: string;
   heldSaleId?: string;
@@ -46,11 +51,19 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
   const [isLoading, setIsLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [period, setPeriod] = useState<PeriodFilter>("today");
+  const [cashierId, setCashierId] = useState("all");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [summary, setSummary] = useState<SalesSummary | null>(null);
+  const [cashiers, setCashiers] = useState<CashierOption[]>([]);
+  const currentUser = getCurrentUser();
+  const canViewAllSales = userCanViewAllSales(currentUser);
 
   useEffect(() => { setPage(1); }, [type]);
-  useEffect(() => { void load(); }, [type, page]);
+  useEffect(() => { setPage(1); }, [type, period, cashierId, customStart, customEnd]);
 
-  async function load() {
+  const load = useCallback(async () => {
     setMessage("");
     if (type === "in-progress") {
       setIsLoading(true);
@@ -78,7 +91,15 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
     }
     const status = type === "cancelled" ? "CANCELLED" : "COMPLETED";
     const params = new URLSearchParams({ status, page: String(page), limit: "25" });
-    if (type === "completed") params.set("excludeTestData", "true");
+    if (type === "completed") {
+      params.set("excludeTestData", "true");
+      params.set("period", period);
+      if (period === "custom") {
+        if (customStart) params.set("startDate", customStart);
+        if (customEnd) params.set("endDate", customEnd);
+      }
+      if (canViewAllSales && cashierId !== "all") params.set("cashierId", cashierId);
+    }
     let token = getAccessToken();
         setIsLoading(true);
         let response = await fetch(`${apiUrl}/sales?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
@@ -101,7 +122,11 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
     const items = uniqueSales(data.items ?? []);
     setSales(type === "completed" ? items.filter(isPaidCompletedSale) : items);
     setTotal(data.meta?.total ?? items.length);
-  }
+    setSummary(data.summary ?? null);
+    setCashiers(data.cashiers ?? []);
+  }, [canViewAllSales, cashierId, customEnd, customStart, page, period, type]);
+
+  useEffect(() => { void load(); }, [load]);
 
   const title = type === "in-progress" ? "Ventes en cours" : type === "completed" ? "Ventes terminées" : "Ventes annulées";
   const subtitle = type === "in-progress" ? "Brouillons POS, commandes en attente et paiements partiels." : type === "completed" ? "Ventes payées ou clôturées." : "Historique des ventes annulées.";
@@ -115,6 +140,21 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
       <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
     </section>
     {message ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{message}</p> : null}
+    {type === "completed" ? (
+      <SalesFilters
+        period={period}
+        cashierId={cashierId}
+        customStart={customStart}
+        customEnd={customEnd}
+        canViewAllSales={canViewAllSales}
+        summary={summary}
+        cashiers={cashiers}
+        onPeriodChange={setPeriod}
+        onCashierChange={setCashierId}
+        onCustomStartChange={setCustomStart}
+        onCustomEndChange={setCustomEnd}
+      />
+    ) : null}
     {type === "in-progress" ? <DraftList drafts={drafts} isLoading={isLoading} onReload={() => void load()} /> : <SaleList sales={sales} type={type} isLoading={isLoading} />}
     {type !== "in-progress" ? <Pagination page={page} pages={pages} total={total} onPrev={() => setPage(page - 1)} onNext={() => setPage(page + 1)} /> : null}
   </div>;
@@ -218,6 +258,81 @@ function DraftList({ drafts, isLoading, onReload }: { drafts: Draft[]; isLoading
     ) : null}
   </section>;
 }
+
+function SalesFilters({
+  period,
+  cashierId,
+  customStart,
+  customEnd,
+  canViewAllSales,
+  summary,
+  cashiers,
+  onPeriodChange,
+  onCashierChange,
+  onCustomStartChange,
+  onCustomEndChange
+}: {
+  period: PeriodFilter;
+  cashierId: string;
+  customStart: string;
+  customEnd: string;
+  canViewAllSales: boolean;
+  summary: SalesSummary | null;
+  cashiers: CashierOption[];
+  onPeriodChange: (value: PeriodFilter) => void;
+  onCashierChange: (value: string) => void;
+  onCustomStartChange: (value: string) => void;
+  onCustomEndChange: (value: string) => void;
+}) {
+  return <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className="grid gap-3 md:grid-cols-4">
+      <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+        Periode
+        <select value={period} onChange={(event) => onPeriodChange(event.target.value as PeriodFilter)} className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950">
+          <option value="today">Aujourd&apos;hui</option>
+          <option value="week">Cette semaine</option>
+          <option value="month">Ce mois</option>
+          <option value="custom">Personnalise</option>
+        </select>
+      </label>
+      {period === "custom" ? <>
+        <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+          Debut
+          <input type="date" value={customStart} onChange={(event) => onCustomStartChange(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" />
+        </label>
+        <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+          Fin
+          <input type="date" value={customEnd} onChange={(event) => onCustomEndChange(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" />
+        </label>
+      </> : null}
+      {canViewAllSales ? (
+        <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+          Caissier
+          <select value={cashierId} onChange={(event) => onCashierChange(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950">
+            <option value="all">Tous les caissiers</option>
+            {cashiers.map((cashier) => <option key={cashier.id} value={cashier.id}>{cashier.name}{cashier.isActive ? "" : " (ancien)"}</option>)}
+          </select>
+        </label>
+      ) : <p className="self-end rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:bg-slate-950 dark:text-slate-300">Vos ventes uniquement</p>}
+    </div>
+    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+      <SummaryCard label="Ventes" value={String(summary?.count ?? 0)} />
+      <SummaryCard label="Total encaisse" value={formatMoney(summary?.total ?? 0)} />
+      <SummaryCard label="Montant regle" value={formatMoney(summary?.settledAmount ?? 0)} />
+      <SummaryCard label="Montant recu" value={formatMoney(summary?.receivedAmount ?? 0)} />
+      <SummaryCard label="Monnaie rendue" value={formatMoney(summary?.changeAmount ?? 0)} />
+      <SummaryCard label="Panier moyen" value={formatMoney(summary?.averageBasket ?? 0)} />
+    </div>
+  </section>;
+}
+
+function SummaryCard({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-md bg-slate-50 p-3 dark:bg-slate-950">
+    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+    <p className="mt-1 text-lg font-bold text-slate-950 dark:text-white">{value}</p>
+  </div>;
+}
+
 function SaleList({ sales, type, isLoading }: { sales: Sale[]; type: "completed" | "cancelled"; isLoading: boolean }) {
   async function printSale(saleId: string) {
     try {
@@ -241,6 +356,7 @@ function SaleList({ sales, type, isLoading }: { sales: Sale[]; type: "completed"
             <div>
               <p className="text-sm font-semibold text-slate-950 dark:text-white">{formatBusinessDateTime(sale.createdAt)}</p>
               <p className="mt-1 text-sm text-slate-500">{sale.customer?.displayName ?? sale.customer?.phone ?? "Client comptoir"}</p>
+              <p className="mt-1 text-xs text-slate-500">Caissier : {sale.createdByUserName ?? "Non renseigne"}</p>
             </div>
             <p className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold dark:bg-slate-800">{type === "cancelled" ? "Annulee" : paid >= total ? "Payee" : "Partielle"}</p>
           </div>
@@ -259,14 +375,14 @@ function SaleList({ sales, type, isLoading }: { sales: Sale[]; type: "completed"
     </div>
     <div className="hidden overflow-x-auto md:block">
     <table className="w-full min-w-[920px] text-left text-sm">
-      <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">Date</th><th className="p-3">Client</th><th className="p-3">Statut</th><th className="p-3">Total</th><th className="p-3">Montant réglé</th><th className="p-3">Montant reçu</th><th className="p-3">Monnaie</th><th className="p-3">Actions</th></tr></thead>
+      <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">Date</th><th className="p-3">Client</th><th className="p-3">Caissier</th><th className="p-3">Statut</th><th className="p-3">Total</th><th className="p-3">Montant réglé</th><th className="p-3">Montant reçu</th><th className="p-3">Monnaie</th><th className="p-3">Actions</th></tr></thead>
       <tbody>{sales.map((sale) => {
         const paymentSummary = summarizePayments(sale.total, sale.payments ?? []);
         const paid = paymentSummary.settledAmount;
         const received = paymentSummary.receivedAmount;
         const change = paymentSummary.changeAmount;
         const total = paymentSummary.total;
-        return <tr key={sale.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3">{formatBusinessDateTime(sale.createdAt)}</td><td className="p-3">{sale.customer?.displayName ?? sale.customer?.phone ?? "Client comptoir"}</td><td className="p-3">{type === "cancelled" ? "Annulée" : paid >= total ? "Payée" : "Partiellement payée"}</td><td className="p-3 font-bold">{formatMoney(total)}</td><td className="p-3">{formatMoney(paid)}</td><td className="p-3">{formatMoney(received)}</td><td className="p-3">{paymentSummary.historicalDataUnavailable ? "Donnée historique indisponible" : formatMoney(change)}</td><td className="p-3"><div className="flex gap-3"><button onClick={() => window.alert(`Vente ${sale.id}\nTotal: ${formatMoney(total)}\nMontant réglé: ${formatMoney(paid)}\nMontant reçu: ${formatMoney(received)}\nMonnaie rendue: ${formatMoney(change)}`)} className="text-slate-700 dark:text-slate-200">Voir détail</button><button onClick={() => void printSale(sale.id)} className="text-brand-600 disabled:text-slate-400" disabled={type === "cancelled"}>Imprimer</button></div></td></tr>;
+        return <tr key={sale.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3">{formatBusinessDateTime(sale.createdAt)}</td><td className="p-3">{sale.customer?.displayName ?? sale.customer?.phone ?? "Client comptoir"}</td><td className="p-3">{sale.createdByUserName ?? "Non renseigne"}</td><td className="p-3">{type === "cancelled" ? "Annulée" : paid >= total ? "Payée" : "Partiellement payée"}</td><td className="p-3 font-bold">{formatMoney(total)}</td><td className="p-3">{formatMoney(paid)}</td><td className="p-3">{formatMoney(received)}</td><td className="p-3">{paymentSummary.historicalDataUnavailable ? "Donnée historique indisponible" : formatMoney(change)}</td><td className="p-3"><div className="flex gap-3"><button onClick={() => window.alert(`Vente ${sale.id}\nCaissier: ${sale.createdByUserName ?? "Non renseigne"}\nTotal: ${formatMoney(total)}\nMontant réglé: ${formatMoney(paid)}\nMontant reçu: ${formatMoney(received)}\nMonnaie rendue: ${formatMoney(change)}`)} className="text-slate-700 dark:text-slate-200">Voir détail</button><button onClick={() => void printSale(sale.id)} className="text-brand-600 disabled:text-slate-400" disabled={type === "cancelled"}>Imprimer</button></div></td></tr>;
       })}</tbody>
     </table>
     </div>
@@ -363,6 +479,7 @@ function removeMatchingLocalDraft(draft: Draft) {
     if (draft.storageKey) window.localStorage.removeItem(draft.storageKey);
   }
 }
+
 function makeClientId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return `client-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -385,6 +502,15 @@ function userCanForceHeldSale() {
   const user = getCurrentUser();
   const roles = new Set([user?.role, ...(user?.roles ?? [])].filter(Boolean).map((role) => String(role).toUpperCase()));
   return roles.has("OWNER") || roles.has("ADMIN") || roles.has("MANAGER");
+}
+
+function userCanViewAllSales(user: ReturnType<typeof getCurrentUser>) {
+  const roles = new Set([user?.role, ...(user?.roles ?? [])].filter(Boolean).map((role) => String(role).toUpperCase()));
+  const roleText = [...roles].join(" ");
+  const permissions = new Set((user?.permissions ?? []).map((permission) => permission.toLowerCase()));
+  const isOwnerOrAdmin = roles.has("OWNER") || roles.has("ADMIN") || roleText.includes("PROPRI") || roles.has("ADMINISTRATOR");
+  const isManager = roles.has("MANAGER") || roleText.includes("GERANT") || roleText.includes("GÉRANT");
+  return isOwnerOrAdmin || (isManager && (permissions.has("sales.view_all") || permissions.has("sales.view.all") || permissions.has("sales.viewall")));
 }
 
 function formatMoney(value: number) {

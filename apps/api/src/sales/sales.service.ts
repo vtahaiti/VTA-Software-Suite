@@ -1,7 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InventoryMovementType, PaymentMethod, Prisma, Product, SaleStatus, SalesDocumentStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { StockService } from "../stock/stock.service";
+import type { AuthUser } from "../auth/types/auth-user";
+import { businessDayRange, businessMonthRange, businessWeekRange, businessDayRangeForDateKey } from "../common/business-timezone";
 import { CreateSaleDto } from "./dto/create-sale.dto";
 import { SaleQueryDto } from "./dto/sale-query.dto";
 
@@ -9,20 +11,23 @@ import { SaleQueryDto } from "./dto/sale-query.dto";
 export class SalesService {
   constructor(private readonly prisma: PrismaService, private readonly stock: StockService) {}
 
-  async findAll(tenantId: string, query: SaleQueryDto) {
+  async findAll(tenantId: string, query: SaleQueryDto, user?: Pick<AuthUser, "id" | "role" | "roles" | "permissions">) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const where = this.saleWhere(tenantId, query);
+    const access = this.saleAccess(user);
+    const where = await this.saleWhere(tenantId, query, access);
     const saleListSelect = {
       id: true,
       status: true,
       total: true,
       createdAt: true,
+      createdById: true,
       customer: { select: { displayName: true, phone: true } },
       receipt: { select: { number: true } },
       payments: { select: { amount: true, receivedAmount: true, changeAmount: true, invoice: { select: { status: true } } } }
     } satisfies Prisma.SaleSelect;
-    const [items, total] = await this.prisma.$transaction([
+    const summaryWhere = { ...where, status: SaleStatus.COMPLETED, cancelledAt: null, returnedAt: null, payments: { some: { invoice: { status: SalesDocumentStatus.PAID } } } } satisfies Prisma.SaleWhereInput;
+    const [items, total, summarySales] = await this.prisma.$transaction([
       this.prisma.sale.findMany({
         where,
         select: saleListSelect,
@@ -30,9 +35,23 @@ export class SalesService {
         take: limit,
         orderBy: { createdAt: "desc" }
       }),
-      this.prisma.sale.count({ where })
+      this.prisma.sale.count({ where }),
+      this.prisma.sale.findMany({ where: summaryWhere, select: { total: true, payments: { select: { amount: true, receivedAmount: true, changeAmount: true } } } })
     ]);
-    return { items, meta: { page, limit, total, pageCount: Math.ceil(total / limit) } };
+    const cashiers = await this.cashierOptions(tenantId, access);
+    const cashierIds = [...new Set(items.map((item) => item.createdById).filter((id): id is string => Boolean(id)))];
+    const creators = cashierIds.length ? await this.prisma.user.findMany({ where: { tenantId, id: { in: cashierIds } }, select: { id: true, name: true, isActive: true } }) : [];
+    const creatorMap = new Map(creators.map((creator) => [creator.id, creator]));
+    return {
+      items: items.map((item) => ({
+        ...item,
+        createdByUserId: item.createdById,
+        createdByUserName: item.createdById ? creatorMap.get(item.createdById)?.name ?? "Utilisateur supprimé" : null
+      })),
+      summary: this.salesSummary(summarySales),
+      cashiers,
+      meta: { page, limit, total, pageCount: Math.ceil(total / limit) }
+    };
   }
 
   async findOne(tenantId: string, id: string) {
@@ -352,9 +371,20 @@ export class SalesService {
     return new Intl.NumberFormat("fr-HT", { maximumFractionDigits: 2 }).format(this.round(value));
   }
 
-  private saleWhere(tenantId: string, query: SaleQueryDto): Prisma.SaleWhereInput {
+  private async saleWhere(tenantId: string, query: SaleQueryDto, access: SaleAccess): Promise<Prisma.SaleWhereInput> {
     const status = this.normalizeStatus(query.status);
     const where: Prisma.SaleWhereInput = { tenantId, status };
+    const cashierId = query.cashierId?.trim();
+    if (access.forcedUserId) {
+      if (cashierId && cashierId !== "all" && cashierId !== access.forcedUserId) {
+        throw new ForbiddenException("Acces interdit aux ventes d'un autre caissier");
+      }
+      where.createdById = access.forcedUserId;
+    } else if (cashierId && cashierId !== "all") {
+      where.createdById = cashierId;
+    }
+    const dateRange = await this.saleDateRange(tenantId, query);
+    if (dateRange) where.createdAt = { gte: dateRange.start, lt: dateRange.end };
     if (status === SaleStatus.COMPLETED) {
       where.cancelledAt = null;
       where.returnedAt = null;
@@ -362,6 +392,77 @@ export class SalesService {
       if (query.excludeTestData ?? true) where.NOT = this.testDataFilters();
     }
     return where;
+  }
+
+  private saleAccess(user?: Pick<AuthUser, "id" | "role" | "roles" | "permissions">): SaleAccess {
+    const roles = new Set([user?.role, ...(user?.roles ?? [])].filter(Boolean).map((role) => String(role).toUpperCase()));
+    const roleText = [...roles].join(" ");
+    const permissions = new Set((user?.permissions ?? []).map((permission) => permission.toLowerCase()));
+    const isOwnerOrAdmin = roles.has("OWNER") || roles.has("ADMIN") || roleText.includes("PROPRI") || roles.has("ADMINISTRATOR");
+    const isManager = roles.has("MANAGER") || roleText.includes("GERANT") || roleText.includes("GÉRANT");
+    const managerCanViewAll = isManager && (permissions.has("sales.view_all") || permissions.has("sales.view.all") || permissions.has("sales.viewall"));
+    const canViewAll = isOwnerOrAdmin || managerCanViewAll;
+    return { userId: user?.id, canViewAll, forcedUserId: canViewAll ? undefined : user?.id ?? "__missing_user__" };
+  }
+
+  private async cashierOptions(tenantId: string, access: SaleAccess) {
+    if (!access.canViewAll) {
+      const user = access.userId ? await this.prisma.user.findFirst({ where: { tenantId, id: access.userId }, select: { id: true, name: true, isActive: true } }) : null;
+      return user ? [{ id: user.id, name: user.name, isActive: user.isActive }] : [];
+    }
+    const saleCreators = await this.prisma.sale.findMany({
+      where: { tenantId, createdById: { not: null } },
+      select: { createdById: true },
+      distinct: ["createdById"]
+    });
+    const creatorIds = saleCreators.map((sale) => sale.createdById).filter((id): id is string => Boolean(id));
+    return this.prisma.user.findMany({
+      where: { tenantId, OR: [{ isActive: true }, { id: { in: creatorIds } }] },
+      select: { id: true, name: true, isActive: true },
+      orderBy: { name: "asc" }
+    });
+  }
+
+  private salesSummary(sales: Array<{ total: Prisma.Decimal | number | string; payments: Array<{ amount: Prisma.Decimal | number | string; receivedAmount: Prisma.Decimal | number | string | null; changeAmount: Prisma.Decimal | number | string | null }> }>) {
+    const summary = sales.reduce((acc, sale) => {
+      const total = Number(sale.total ?? 0);
+      const settledAmount = sale.payments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
+      const receivedAmount = sale.payments.reduce((sum, payment) => sum + Number(payment.receivedAmount ?? payment.amount ?? 0), 0);
+      const changeAmount = sale.payments.reduce((sum, payment) => sum + Number(payment.changeAmount ?? 0), 0);
+      acc.count += 1;
+      acc.total += total;
+      acc.settledAmount += settledAmount;
+      acc.receivedAmount += receivedAmount;
+      acc.changeAmount += changeAmount;
+      return acc;
+    }, { count: 0, total: 0, settledAmount: 0, receivedAmount: 0, changeAmount: 0 });
+    return {
+      count: summary.count,
+      total: this.round(summary.total),
+      settledAmount: this.round(summary.settledAmount),
+      receivedAmount: this.round(summary.receivedAmount),
+      changeAmount: this.round(summary.changeAmount),
+      averageBasket: summary.count ? this.round(summary.total / summary.count) : 0
+    };
+  }
+
+  private async saleDateRange(tenantId: string, query: SaleQueryDto) {
+    if (!query.period) return null;
+    const timeZone = await this.tenantTimeZone(tenantId);
+    if (query.period === "today") return businessDayRange(new Date(), timeZone);
+    if (query.period === "week") return businessWeekRange(new Date(), timeZone);
+    if (query.period === "month") return businessMonthRange(new Date(), timeZone);
+    const startKey = query.startDate?.trim();
+    const endKey = query.endDate?.trim() || startKey;
+    if (!startKey || !endKey) return null;
+    const start = businessDayRangeForDateKey(startKey, timeZone);
+    const end = businessDayRangeForDateKey(endKey, timeZone);
+    return { start: start.start, end: end.end, timeZone };
+  }
+
+  private async tenantTimeZone(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { timezone: true, settings: { select: { timezone: true } } } });
+    return tenant?.settings?.timezone ?? tenant?.timezone ?? undefined;
   }
 
   private isCompletedPaidSale(sale: Prisma.SaleGetPayload<{ include: { items: { include: { product: true } }; payments: { include: { invoice: true } }; receipt: true; customer: true; cashSession: { include: { cashRegister: true } } } }>) {
@@ -394,3 +495,9 @@ export class SalesService {
     return [...Object.keys(SaleStatus), "PAID"];
   }
 }
+
+type SaleAccess = {
+  userId?: string;
+  canViewAll: boolean;
+  forcedUserId?: string;
+};

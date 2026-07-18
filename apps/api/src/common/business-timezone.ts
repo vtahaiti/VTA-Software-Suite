@@ -53,6 +53,18 @@ export function businessMonthRange(value: Date = new Date(), timeZone?: string |
   return { start, end, timeZone: zone };
 }
 
+export function businessWeekRange(value: Date = new Date(), timeZone?: string | null) {
+  const zone = normalizeBusinessTimeZone(timeZone);
+  const parts = zonedParts(value, zone);
+  const utcDay = new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay();
+  const mondayOffset = (utcDay === 0 ? 7 : utcDay) - 1;
+  const startParts = addLocalDays(parts, -mondayOffset);
+  const endParts = addLocalDays(startParts, 7);
+  const start = zonedDateTimeToUtc(startParts.year, startParts.month, startParts.day, 0, 0, 0, 0, zone);
+  const end = zonedDateTimeToUtc(endParts.year, endParts.month, endParts.day, 0, 0, 0, 0, zone);
+  return { start, end, timeZone: zone };
+}
+
 export function businessYearRange(value: Date = new Date(), timeZone?: string | null) {
   const zone = normalizeBusinessTimeZone(timeZone);
   const parts = zonedParts(value, zone);
