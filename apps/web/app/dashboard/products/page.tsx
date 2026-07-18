@@ -93,10 +93,10 @@ export default function ProductsPage() {
         salePrice: Number(form.salePrice || 0),
         purchasePrice: Number(form.purchasePrice || 0),
         categoryId: form.categoryId || undefined,
-        minimumStock: isRestaurantBusiness(business) && quickRestaurantStockMode === "NON_STOCK" ? 0 : Number(form.minimumStock || 0),
-        stockInitial: isRestaurantBusiness(business) && quickRestaurantStockMode === "NON_STOCK" ? 0 : Number(form.stockInitial || 0),
+        minimumStock: quickRestaurantStockMode === "NON_STOCK" ? 0 : Number(form.minimumStock || 0),
+        stockInitial: quickRestaurantStockMode === "NON_STOCK" ? 0 : Number(form.stockInitial || 0),
         images: form.imageUrl ? [{ url: form.imageUrl, alt: form.name, sortOrder: 0 }] : undefined,
-        variants: isRestaurantBusiness(business) && quickRestaurantStockMode === "NON_STOCK" ? [{ name: form.name, model: "Plat / service non stocke", stock: 0 }] : undefined,
+        variants: quickRestaurantStockMode === "NON_STOCK" ? [{ name: form.name, model: nonStockProductLabel(business), stock: 0 }] : undefined,
         isActive: true
       })
     });
@@ -197,14 +197,14 @@ export default function ProductsPage() {
             <Input type="number" value={form.purchasePrice} onChange={(value) => setForm((current) => ({ ...current, purchasePrice: value }))} placeholder="Coût d'achat" />
             <Input required type="number" value={form.salePrice} onChange={(value) => setForm((current) => ({ ...current, salePrice: value }))} placeholder="Prix *" />
             <select value={form.categoryId} onChange={(event) => setForm((current) => ({ ...current, categoryId: event.target.value }))} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option value="">Catégorie</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
-            {isRestaurantBusiness(business) ? <RestaurantQuickStockMode mode={quickRestaurantStockMode} onChange={(mode) => {
+            <QuickStockMode business={business} mode={quickRestaurantStockMode} onChange={(mode) => {
               setQuickRestaurantStockMode(mode);
               if (mode === "NON_STOCK") setForm((current) => ({ ...current, stockInitial: "0", minimumStock: "0" }));
-            }} /> : null}
-            {!isRestaurantBusiness(business) || quickRestaurantStockMode === "STOCKED" ? <>
+            }} />
+            {quickRestaurantStockMode === "STOCKED" ? <>
               <Input type="number" value={form.stockInitial} onChange={(value) => setForm((current) => ({ ...current, stockInitial: value }))} placeholder="Stock initial" />
               <Input type="number" value={form.minimumStock} onChange={(value) => setForm((current) => ({ ...current, minimumStock: value }))} placeholder="Seuil stock faible" />
-            </> : <div className="rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:bg-slate-950 dark:text-slate-300">Plat / service non stocke: pas de stock initial ni seuil minimum.</div>}
+            </> : <div className="rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:bg-slate-950 dark:text-slate-300">{nonStockProductLabel(business)}: pas de stock initial ni seuil minimum.</div>}
             <label className="grid gap-2 rounded-md border border-dashed border-slate-300 px-3 py-3 text-sm font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">
               Choisir une image
               <input type="file" accept="image/*" onChange={(event) => void loadImage(event.target.files?.[0], (value) => setForm((current) => ({ ...current, imageUrl: value })))} className="sr-only" />
@@ -242,17 +242,19 @@ function Pagination({ page, pages, total, label, onPrev, onNext }: { page: numbe
   return <div className="flex items-center justify-between"><p className="text-sm text-slate-500">{total} {label}</p><div className="flex gap-2"><button disabled={page <= 1} onClick={onPrev} className="rounded-md border px-3 py-2 disabled:opacity-50">Précédent</button><span className="px-3 py-2 text-sm">{page}/{pages}</span><button disabled={page >= pages} onClick={onNext} className="rounded-md border px-3 py-2 disabled:opacity-50">Suivant</button></div></div>;
 }
 
-function RestaurantQuickStockMode({ mode, onChange }: { mode: "NON_STOCK" | "STOCKED"; onChange: (mode: "NON_STOCK" | "STOCKED") => void }) {
-  return <fieldset className="rounded-md border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950 dark:border-orange-900 dark:bg-orange-950 dark:text-orange-100">
-    <legend className="px-1 font-bold">Type article restaurant</legend>
+function QuickStockMode({ business, mode, onChange }: { business: TenantBusinessConfiguration | null; mode: "NON_STOCK" | "STOCKED"; onChange: (mode: "NON_STOCK" | "STOCKED") => void }) {
+  const nonStockLabel = nonStockProductLabel(business);
+  const nonStockHint = isRestaurantBusiness(business) ? "Plat, portion, extra ou service sans rupture stock." : isMultiActivityBusiness(business) ? "Service, prestation ou frais sans suivi de stock." : "Article vendu sans suivi de stock.";
+  return <fieldset className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
+    <legend className="px-1 font-bold">Type de produit</legend>
     <div className="mt-2 grid gap-2 sm:grid-cols-2">
       <label className="flex cursor-pointer items-start gap-2 rounded-md bg-white/75 p-2 dark:bg-slate-900/60">
         <input type="radio" name="quick-restaurant-stock-mode" checked={mode === "NON_STOCK"} onChange={() => onChange("NON_STOCK")} />
-        <span><span className="block font-semibold">Plat / service non stocke</span><span className="text-xs">Pas de rupture stock.</span></span>
+        <span><span className="block font-semibold">{nonStockLabel}</span><span className="text-xs">{nonStockHint}</span></span>
       </label>
       <label className="flex cursor-pointer items-start gap-2 rounded-md bg-white/75 p-2 dark:bg-slate-900/60">
         <input type="radio" name="quick-restaurant-stock-mode" checked={mode === "STOCKED"} onChange={() => onChange("STOCKED")} />
-        <span><span className="block font-semibold">Produit stocke</span><span className="text-xs">Boisson ou article physique.</span></span>
+        <span><span className="block font-semibold">Produit stocke</span><span className="text-xs">Article physique avec stock et seuil minimum.</span></span>
       </label>
     </div>
   </fieldset>;
@@ -272,6 +274,22 @@ function isRestaurantBusiness(business: TenantBusinessConfiguration | null) {
   return /restaurant|bar|cafe|fast.?food/.test(profile);
 }
 
+function isMultiActivityBusiness(business: TenantBusinessConfiguration | null) {
+  const profile = `${business?.businessProfileType ?? ""} ${business?.primaryActivity ?? ""}`.toLowerCase();
+  return /multi|service|repair|reparation|imprimerie|studio/.test(profile);
+}
+
+function isStrictStockBusiness(business?: TenantBusinessConfiguration | null) {
+  const profile = `${business?.businessProfileType ?? ""} ${business?.primaryActivity ?? ""}`.toLowerCase();
+  return /hardware|quinca|materiaux|construction|pharma|pharmacie/.test(profile);
+}
+
+function nonStockProductLabel(business: TenantBusinessConfiguration | null) {
+  if (isRestaurantBusiness(business)) return "Plat / service non stocke";
+  if (isMultiActivityBusiness(business)) return "Service non stocke";
+  return "Produit non stocke";
+}
+
 function restaurantProductKind(product: Pick<Product, "name" | "category" | "variants">) {
   const value = `${product.name ?? ""} ${product.category?.name ?? ""} ${(product.variants ?? []).map((variant) => `${variant.name ?? ""} ${variant.model ?? ""}`).join(" ")}`.toLowerCase();
   if (/stockable|ingredient|ingr[ée]dient|boisson|bouteille|canette/.test(value)) return "STOCKED";
@@ -283,12 +301,14 @@ function isRestaurantNonStock(product: Product, business?: TenantBusinessConfigu
   return Boolean(business && isRestaurantBusiness(business)) && restaurantProductKind(product) === "NON_STOCK";
 }
 
-function isProductStockTracked(product: Pick<Product, "stockCurrent" | "minimumStock">) {
-  return Number(product.stockCurrent ?? 0) > 0 || Number(product.minimumStock ?? 0) > 0;
+function isExplicitNonStockProduct(product: Pick<Product, "variants">) {
+  const value = (product.variants ?? []).map((variant) => `${variant.name ?? ""} ${variant.model ?? ""}`).join(" ").toLowerCase();
+  return /non stock|non-stock|service non stock|produit non stock|plat \/ service/.test(value);
 }
 
 function productStockStatus(product: Product, business?: TenantBusinessConfiguration | null) {
-  if (isRestaurantNonStock(product, business) || !isProductStockTracked(product)) return "NON_STOCK";
+  if (isRestaurantNonStock(product, business)) return "NON_STOCK";
+  if (!isStrictStockBusiness(business) && isExplicitNonStockProduct(product)) return "NON_STOCK";
   const current = Number(product.stockCurrent ?? 0);
   const minimum = Number(product.minimumStock ?? 0);
   if (current <= 0) return "OUT_OF_STOCK";
@@ -303,13 +323,13 @@ function ProductStockDisplay({ product, business }: { product: Product; business
 }
 
 function ProductStockMeta({ product, business }: { product: Product; business: TenantBusinessConfiguration | null }) {
-  if (productStockStatus(product, business) === "NON_STOCK") return <p className="text-xs text-slate-500">Service / plat non stocke</p>;
+  if (productStockStatus(product, business) === "NON_STOCK") return <p className="text-xs text-slate-500">{nonStockProductLabel(business)}</p>;
   return <p className="text-xs text-slate-500">Minimum : {product.minimumStock ?? 0}</p>;
 }
 
 function ProductStockStatus({ product, business = null }: { product: Product; business?: TenantBusinessConfiguration | null }) {
   const status = productStockStatus(product, business);
-  if (status === "NON_STOCK") return <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">Service / plat</span>;
+  if (status === "NON_STOCK") return <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">{nonStockProductLabel(business)}</span>;
   if (status === "OUT_OF_STOCK") return <span className="mt-1 inline-flex rounded-full bg-red-50 px-2 py-1 text-xs font-bold text-red-700">Rupture</span>;
   if (status === "LOW_STOCK") return <span className="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700">Stock faible</span>;
   return <span className="mt-1 inline-flex rounded-full bg-green-50 px-2 py-1 text-xs font-bold text-green-700">En stock</span>;

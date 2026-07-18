@@ -96,6 +96,18 @@ function documentHelpText(type: DocType) {
   return "Facture = document de vente finalise ou a encaisser selon le statut.";
 }
 
+function documentCreateHelp(type: DocType) {
+  if (type === "quotes") return "Creez une proposition de prix simple: client, produit ou service, quantite, prix, remise et notes.";
+  if (type === "proformas") return "Creez une commande directe, puis enregistrez un acompte ou le solde quand le client paie.";
+  return "Creez une facture seulement pour un document finalise.";
+}
+
+function documentListTitle(type: DocType) {
+  if (type === "quotes") return "Devis recents";
+  if (type === "proformas") return "Commandes recentes";
+  return "Factures recentes";
+}
+
 const fabricationTypes = ["Fenetre", "Porte", "Cadre", "Vitrine", "Moustiquaire", "Structure simple", "Autre"];
 const fabricationMaterials = ["Aluminium", "Bois", "PVC", "Metal", "Verre", "Autre"];
 
@@ -160,7 +172,11 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
     }
   }, [apiFetch, search, status, type]);
 
-  useEffect(() => { void loadReferences(); }, []);
+  useEffect(() => {
+    const initialStatus = new URLSearchParams(window.location.search).get("status");
+    if (initialStatus) setStatus(initialStatus);
+    void loadReferences();
+  }, []);
   useEffect(() => { const timer = setTimeout(() => void loadDocuments(), 250); return () => clearTimeout(timer); }, [loadDocuments]);
 
   async function loadReferences() {
@@ -266,12 +282,17 @@ function selectProduct(index: number, productId: string) {
     window.print();
   }
 
+  function selectForPayment(document: SalesDocument) {
+    setSelected(document);
+    setMessage("Commande selectionnee: ajoutez l'acompte ou le paiement dans le detail.");
+  }
+
   const totalPreview = useMemo(() => lines.reduce((sum, line) => sum + line.quantity * line.unitPrice - line.discount + line.tax, 0) - discount, [lines, discount]);
   const canTakePayment = selected && (type === "proformas" || type === "invoices") && Number(selected.balance) > 0 && selected.status !== "CANCELLED";
   const compactProducts = useMemo(() => {
     const term = productSearch.trim().toLowerCase();
     const filtered = term ? products.filter((product) => `${product.sku} ${product.name}`.toLowerCase().includes(term)) : products;
-    return filtered.slice(0, 25);
+    return filtered.slice(0, 12);
   }, [productSearch, products]);
 
   return (
@@ -279,7 +300,7 @@ function selectProduct(index: number, productId: string) {
       <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <p className="text-sm font-medium text-brand-600">{eyebrow}</p>
         <h1 className="text-2xl font-bold text-slate-950 dark:text-white">{title}</h1>
-        <p className="mt-1 text-sm text-slate-500">Devis, commandes, acomptes, soldes et impression simple.</p>
+        <p className="mt-1 text-sm text-slate-500">Flux simple: creer, convertir, recevoir un acompte, suivre le solde, imprimer et cloturer.</p>
         <div className="mt-3 rounded-md border border-brand-100 bg-brand-50 px-3 py-2 text-sm text-slate-700 dark:border-brand-900 dark:bg-slate-950 dark:text-slate-200">
           {documentHelpText(type)}
         </div>
@@ -298,8 +319,8 @@ function selectProduct(index: number, productId: string) {
 
       <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
         <form onSubmit={submit} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="text-lg font-semibold">{createLabel}</h2>
-          <p className="mt-1 text-sm text-slate-500">Ajoutez un client si besoin, puis choisissez un produit existant ou saisissez une ligne de service personnalisee.</p>
+          <h2 className="text-lg font-semibold">{type === "quotes" ? "Creer un devis" : type === "proformas" ? "Nouvelle commande" : createLabel}</h2>
+          <p className="mt-1 text-sm text-slate-500">{documentCreateHelp(type)}</p>
           <div className="mt-4 space-y-3">
             <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
               <option value="">Client facultatif</option>
@@ -310,12 +331,14 @@ function selectProduct(index: number, productId: string) {
           </div>
           <div className="mt-4 space-y-3">
             {lines.map((line, index) => (
-              <div key={index} className="grid gap-2 rounded-md border border-slate-200 p-3 dark:border-slate-800">
+              <div key={index} className="grid gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-800">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Produit, service ou ligne personnalisee</label>
                 <input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Rechercher un produit ou service" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
                 <select value={line.productId} onChange={(event) => selectProduct(index, event.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
-                  <option value="">Service / ligne personnalisée</option>
+                  <option value="">+ Ajouter une ligne personnalisee</option>
                   {compactProducts.map((product) => <option key={product.id} value={product.id}>{product.sku} - {product.name}</option>)}
                 </select>
+                <p className="text-xs text-slate-500">La liste reste compacte. Utilisez la recherche pour trouver un article qui n&apos;apparait pas tout de suite.</p>
                 {!line.productId ? <input required value={line.customName} onChange={(event) => updateLine(index, { customName: event.target.value })} placeholder="Nom du service ou de la commande speciale" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /> : null}
                 {!line.productId && showFabricationFields ? (
                   <div className="grid gap-2 rounded-md bg-slate-50 p-3 dark:bg-slate-950 md:grid-cols-2">
@@ -337,11 +360,11 @@ function selectProduct(index: number, productId: string) {
                     <textarea value={line.installationNotes} onChange={(event) => updateLine(index, { installationNotes: event.target.value })} placeholder="Adresse ou notes livraison / installation" className="min-h-20 rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950 md:col-span-2" />
                   </div>
                 ) : null}
-                <div className="grid grid-cols-4 gap-2">
-                  <input type="number" min="1" value={line.quantity} onChange={(event) => updateLine(index, { quantity: Number(event.target.value) })} className="rounded-md border px-2 py-2 dark:border-slate-700 dark:bg-slate-950" />
-                  <input type="number" min="0" step="0.01" value={line.unitPrice} onChange={(event) => updateLine(index, { unitPrice: Number(event.target.value) })} className="rounded-md border px-2 py-2 dark:border-slate-700 dark:bg-slate-950" />
-                  <input type="number" min="0" step="0.01" value={line.discount} onChange={(event) => updateLine(index, { discount: Number(event.target.value) })} className="rounded-md border px-2 py-2 dark:border-slate-700 dark:bg-slate-950" />
-                  <input type="number" min="0" step="0.01" value={line.tax} onChange={(event) => updateLine(index, { tax: Number(event.target.value) })} className="rounded-md border px-2 py-2 dark:border-slate-700 dark:bg-slate-950" />
+                <div className="grid gap-2 sm:grid-cols-4">
+                  <NumberField label="Quantite" min="1" value={line.quantity} onChange={(value) => updateLine(index, { quantity: value })} />
+                  <NumberField label="Prix" min="0" step="0.01" value={line.unitPrice} onChange={(value) => updateLine(index, { unitPrice: value })} />
+                  <NumberField label="Remise" min="0" step="0.01" value={line.discount} onChange={(value) => updateLine(index, { discount: value })} />
+                  <NumberField label="Taxe" min="0" step="0.01" value={line.tax} onChange={(value) => updateLine(index, { tax: value })} />
                 </div>
               </div>
             ))}
@@ -354,6 +377,10 @@ function selectProduct(index: number, productId: string) {
         </form>
 
         <section className="space-y-4">
+          <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="text-lg font-semibold">{documentListTitle(type)}</h2>
+            <p className="mt-1 text-sm text-slate-500">Les actions principales sont disponibles directement sur chaque ligne et restent visibles sur mobile.</p>
+          </div>
           <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2">
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Recherche" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
             <select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
@@ -361,10 +388,26 @@ function selectProduct(index: number, productId: string) {
               {Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </div>
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="grid gap-3 md:hidden">
+            {items.map((doc) => (
+              <DocumentCard
+                key={doc.id}
+                doc={doc}
+                type={type}
+                transformAction={transformAction}
+                transformLabel={transformLabel}
+                onSelect={() => setSelected(doc)}
+                onPrint={() => { setSelected(doc); setTimeout(() => window.print(), 0); }}
+                onAction={(action) => runAction(doc, action)}
+                onPayment={() => selectForPayment(doc)}
+                onStatus={(nextStatus) => updateStatus(doc, nextStatus)}
+              />
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 md:block">
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950">
-                <tr><th className="p-3">Numero</th><th className="p-3">Client</th><th className="p-3">Total</th><th className="p-3">Paye</th><th className="p-3">Solde</th><th className="p-3">Statut</th><th className="p-3">Action</th></tr>
+                <tr><th className="p-3">Numero</th><th className="p-3">Client</th><th className="p-3">Total</th><th className="p-3">Paye</th><th className="p-3">Solde</th><th className="p-3">Statut</th><th className="p-3">Actions</th></tr>
               </thead>
               <tbody>
                 {items.map((doc) => (
@@ -375,7 +418,19 @@ function selectProduct(index: number, productId: string) {
                     <td className="p-3">{money(doc.paidAmount)}</td>
                     <td className="p-3">{money(doc.balance)}</td>
                     <td className="p-3">{statusLabels[doc.status] ?? doc.status}</td>
-                    <td className="p-3"><button onClick={() => setSelected(doc)} className="text-brand-600">Detail</button></td>
+                    <td className="p-3">
+                      <DocumentActions
+                        doc={doc}
+                        type={type}
+                        transformAction={transformAction}
+                        transformLabel={transformLabel}
+                        onSelect={() => setSelected(doc)}
+                        onPrint={() => { setSelected(doc); setTimeout(() => window.print(), 0); }}
+                        onAction={(action) => runAction(doc, action)}
+                        onPayment={() => selectForPayment(doc)}
+                        onStatus={(nextStatus) => updateStatus(doc, nextStatus)}
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -406,6 +461,69 @@ function selectProduct(index: number, productId: string) {
 
 function Metric({ label, value }: { label: string; value: string | number }) {
   return <div className="rounded-lg border bg-white p-4 text-sm dark:border-slate-800 dark:bg-slate-900"><p className="text-slate-500">{label}</p><p className="mt-1 text-xl font-bold">{value}</p></div>;
+}
+
+function NumberField({ label, value, min, step, onChange }: { label: string; value: number; min: string; step?: string; onChange: (value: number) => void }) {
+  return <label className="grid gap-1 text-xs font-semibold text-slate-500">
+    {label}
+    <input type="number" min={min} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} className="rounded-md border px-2 py-2 text-sm font-normal text-slate-950 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+  </label>;
+}
+
+function DocumentActions(props: {
+  doc: SalesDocument;
+  type: DocType;
+  transformLabel?: string;
+  transformAction?: string;
+  onSelect: () => void;
+  onPrint: () => void;
+  onAction: (action: string) => void;
+  onPayment: () => void;
+  onStatus: (status: string) => void;
+}) {
+  const { doc, type } = props;
+  return <div className="flex flex-wrap gap-2">
+    <button onClick={props.onSelect} className="rounded-md border px-2 py-1 text-xs">Voir detail</button>
+    <button onClick={props.onPrint} className="rounded-md border px-2 py-1 text-xs">Imprimer</button>
+    {type === "quotes" && props.transformAction ? <button onClick={() => props.onAction(props.transformAction!)} className="rounded-md bg-brand-600 px-2 py-1 text-xs font-semibold text-white">{props.transformLabel ?? "Convertir"}</button> : null}
+    {type === "quotes" ? <button onClick={() => props.onAction("reject")} className="rounded-md border px-2 py-1 text-xs">Annuler / refuser</button> : null}
+    {type === "proformas" && Number(doc.balance) > 0 ? <button onClick={props.onPayment} className="rounded-md border px-2 py-1 text-xs">Acompte / solde</button> : null}
+    {type === "proformas" && doc.status !== "READY" ? <button onClick={() => props.onStatus("READY")} className="rounded-md border px-2 py-1 text-xs">Marquer prete</button> : null}
+    {type === "proformas" && doc.status !== "DELIVERED" ? <button onClick={() => props.onStatus("DELIVERED")} className="rounded-md border px-2 py-1 text-xs">Marquer livree</button> : null}
+    {type === "proformas" && doc.status !== "COMPLETED" ? <button onClick={() => props.onStatus("COMPLETED")} className="rounded-md border px-2 py-1 text-xs">Terminer</button> : null}
+    {type === "proformas" && doc.status !== "CANCELLED" ? <button onClick={() => props.onStatus("CANCELLED")} className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-700">Annuler</button> : null}
+  </div>;
+}
+
+function DocumentCard(props: {
+  doc: SalesDocument;
+  type: DocType;
+  transformLabel?: string;
+  transformAction?: string;
+  onSelect: () => void;
+  onPrint: () => void;
+  onAction: (action: string) => void;
+  onPayment: () => void;
+  onStatus: (status: string) => void;
+}) {
+  const { doc } = props;
+  return <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <p className="font-mono text-xs text-slate-500">{doc.number}</p>
+        <h3 className="font-semibold">{doc.customer?.displayName ?? doc.customer?.name ?? "Client non defini"}</h3>
+      </div>
+      <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold dark:bg-slate-800">{statusLabels[doc.status] ?? doc.status}</span>
+    </div>
+    <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
+      <Info label="Total" value={money(doc.total)} />
+      <Info label="Paye" value={money(doc.paidAmount)} />
+      <Info label="Solde" value={money(doc.balance)} />
+    </div>
+    <div className="mt-3">
+      <DocumentActions {...props} />
+    </div>
+  </article>;
 }
 
 function DocumentDetail(props: {

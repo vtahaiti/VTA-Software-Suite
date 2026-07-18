@@ -187,16 +187,16 @@ export function ProductForm({ productId }: { productId?: string }) {
     const unitId = await resolveUnitId();
     if (unitId === null) return;
     const gallery = form.galleryUrls.split(/\r?\n/).map((url) => url.trim()).filter(Boolean);
-    const variants = form.variantName || form.variantColor || form.variantSize || form.variantModel || form.variantCapacity || form.variantStock !== "0" || (isRestaurantProfile && restaurantStockMode === "NON_STOCK")
+    const variants = form.variantName || form.variantColor || form.variantSize || form.variantModel || form.variantCapacity || form.variantStock !== "0" || restaurantStockMode === "NON_STOCK"
       ? [{
         name: form.variantName || form.name,
         color: form.variantColor || undefined,
         size: form.variantSize || undefined,
-        model: form.variantModel || (isRestaurantProfile && restaurantStockMode === "NON_STOCK" ? "Plat / service non stocke" : undefined),
+        model: form.variantModel || (restaurantStockMode === "NON_STOCK" ? nonStockProductLabel(business) : undefined),
         capacity: form.variantCapacity || undefined,
         sku: form.variantSku || undefined,
         barcode: form.variantBarcode || undefined,
-        stock: isRestaurantProfile && restaurantStockMode === "NON_STOCK" ? 0 : Number(form.variantStock || 0)
+        stock: restaurantStockMode === "NON_STOCK" ? 0 : Number(form.variantStock || 0)
       }]
       : undefined;
     const payload = {
@@ -216,7 +216,7 @@ export function ProductForm({ productId }: { productId?: string }) {
       wholesalePrice: Number(form.wholesalePrice || 0),
       averageCost: Number(form.averageCost || 0),
       taxRate: Number(form.taxRate || 0),
-      minimumStock: isRestaurantProfile && restaurantStockMode === "NON_STOCK" ? 0 : Number(form.minimumStock || 0),
+      minimumStock: restaurantStockMode === "NON_STOCK" ? 0 : Number(form.minimumStock || 0),
       maximumStock: Number(form.maximumStock || 0),
       location: form.location || undefined,
       storeId: form.storeId || undefined,
@@ -342,13 +342,21 @@ export function ProductForm({ productId }: { productId?: string }) {
     {error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
     <Section title="Essentiel produit">
       <Input value={form.name} onChange={(value) => update("name", value)} placeholder="Nom du produit" />
+      <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+        <Select value={form.categoryId} onChange={(value) => update("categoryId", value)} placeholder="Catégorie" items={refs.categories} />
+        <button type="button" onClick={() => setShowCategoryModal(true)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">+ Nouvelle catégorie</button>
+      </div>
       <Input value={form.salePrice} onChange={(value) => update("salePrice", value)} placeholder="Prix vente" />
       <Input value={form.purchasePrice} onChange={(value) => update("purchasePrice", value)} placeholder="Prix achat / coût" />
-      {isRestaurantProfile ? <RestaurantStockModeField mode={restaurantStockMode} onChange={(mode) => {
+      <ProductStockModeField nonStockLabel={nonStockProductLabel(business)} isRestaurant={isRestaurantProfile} mode={restaurantStockMode} onChange={(mode) => {
         setRestaurantStockMode(mode);
-        if (mode === "NON_STOCK") setForm((current) => ({ ...current, minimumStock: "0", maximumStock: "0", variantStock: "0", variantModel: current.variantModel || "Plat / service non stocke" }));
-      }} /> : null}
-      {!isRestaurantProfile || restaurantStockMode === "STOCKED" ? <Input value={form.minimumStock} onChange={(value) => update("minimumStock", value)} placeholder="Seuil stock faible" /> : <div className="rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:bg-slate-950 dark:text-slate-300">Non stocke: pas de seuil minimum requis.</div>}
+        if (mode === "NON_STOCK") setForm((current) => ({ ...current, minimumStock: "0", maximumStock: "0", variantStock: "0", variantModel: current.variantModel || nonStockProductLabel(business) }));
+      }} />
+      {restaurantStockMode === "STOCKED" ? <Input value={form.variantStock} onChange={(value) => update("variantStock", value)} placeholder="Stock actuel" /> : null}
+      {restaurantStockMode === "STOCKED" ? <Input value={form.minimumStock} onChange={(value) => update("minimumStock", value)} placeholder="Seuil minimum" /> : <div className="rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:bg-slate-950 dark:text-slate-300">{nonStockProductLabel(business)}: pas de stock actuel ni seuil minimum obligatoire.</div>}
+      <details className="rounded-md border border-dashed border-slate-300 p-3 dark:border-slate-700 md:col-span-2">
+        <summary className="cursor-pointer text-sm font-semibold text-brand-600">Options avancées du produit</summary>
+        <div className="mt-3 grid gap-4 md:grid-cols-2">
       <Input value={form.sku} onChange={(value) => update("sku", value)} placeholder="SKU automatique si vide" />
       <div className="flex gap-2">
         <Input value={form.barcode} onChange={(value) => update("barcode", value)} placeholder="Code-barres UPC/EAN/QR" />
@@ -392,6 +400,8 @@ export function ProductForm({ productId }: { productId?: string }) {
         </div>
       </div> : null}
       <ImagePicker label="Photo du produit" selected={Boolean(form.imageUrl)} onChange={(value) => update("imageUrl", value)} />
+        </div>
+      </details>
     </Section>
     <details className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <summary className="cursor-pointer text-lg font-semibold text-slate-950 dark:text-white">Options avancées</summary>
@@ -491,17 +501,34 @@ function Select({ value, onChange, placeholder, items }: { value: string; placeh
   </select>;
 }
 
-function RestaurantStockModeField({ mode, onChange }: { mode: RestaurantStockMode; onChange: (mode: RestaurantStockMode) => void }) {
+function isRestaurantBusiness(business: TenantBusinessConfiguration | null) {
+  const profile = `${business?.businessProfileType ?? ""} ${business?.primaryActivity ?? ""}`.toLowerCase();
+  return /restaurant|bar|cafe|fast.?food/.test(profile);
+}
+
+function isMultiActivityBusiness(business: TenantBusinessConfiguration | null) {
+  const profile = `${business?.businessProfileType ?? ""} ${business?.primaryActivity ?? ""}`.toLowerCase();
+  return /multi|service|repair|reparation|imprimerie|studio/.test(profile);
+}
+
+function nonStockProductLabel(business: TenantBusinessConfiguration | null) {
+  if (isRestaurantBusiness(business)) return "Plat / service non stocke";
+  if (isMultiActivityBusiness(business)) return "Service non stocke";
+  return "Produit non stocke";
+}
+
+function ProductStockModeField({ isRestaurant, nonStockLabel, mode, onChange }: { isRestaurant: boolean; nonStockLabel: string; mode: RestaurantStockMode; onChange: (mode: RestaurantStockMode) => void }) {
+  const nonStockHint = isRestaurant ? "Plats, portions, extras et services vendables sans rupture." : "Services, frais ou articles ponctuels vendables sans suivi de stock.";
   return <fieldset className="rounded-md border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950 dark:border-orange-900 dark:bg-orange-950 dark:text-orange-100 md:col-span-2">
-    <legend className="px-1 font-bold">Type article restaurant</legend>
+    <legend className="px-1 font-bold">Type de produit</legend>
     <div className="mt-2 grid gap-2 sm:grid-cols-2">
       <label className="flex cursor-pointer items-start gap-2 rounded-md bg-white/75 p-3 dark:bg-slate-900/60">
         <input type="radio" name="restaurant-stock-mode" checked={mode === "NON_STOCK"} onChange={() => onChange("NON_STOCK")} />
-        <span><span className="block font-semibold">Plat / service non stocke</span><span className="text-xs">Plats, portions, extras et services vendables sans rupture.</span></span>
+        <span><span className="block font-semibold">{nonStockLabel}</span><span className="text-xs">{nonStockHint}</span></span>
       </label>
       <label className="flex cursor-pointer items-start gap-2 rounded-md bg-white/75 p-3 dark:bg-slate-900/60">
         <input type="radio" name="restaurant-stock-mode" checked={mode === "STOCKED"} onChange={() => onChange("STOCKED")} />
-        <span><span className="block font-semibold">Produit stocke</span><span className="text-xs">Boissons, ingredients ou produits physiques avec seuil minimum.</span></span>
+        <span><span className="block font-semibold">Produit stocke</span><span className="text-xs">Articles physiques, boissons ou ingredients avec stock et seuil minimum.</span></span>
       </label>
     </div>
   </fieldset>;
