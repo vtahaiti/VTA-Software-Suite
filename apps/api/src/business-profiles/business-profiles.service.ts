@@ -156,15 +156,23 @@ export class BusinessProfilesService {
         update: { name: profile.name, description: profile.description, category: profile.category, icon: profile.icon, isActive: true },
         create: { slug: profile.slug, name: profile.name, description: profile.description, category: profile.category, icon: profile.icon, isActive: true }
       });
+      const desiredModuleIds: string[] = [];
       for (const [index, moduleKey] of profile.modules.entries()) {
         const savedModule = await this.prisma.businessModule.findUnique({ where: { key: moduleKey } });
         if (!savedModule) continue;
+        desiredModuleIds.push(savedModule.id);
         await this.prisma.businessModuleAssignment.upsert({
           where: { businessProfileId_businessModuleId: { businessProfileId: savedProfile.id, businessModuleId: savedModule.id } },
           update: { sortOrder: index, isRequired: true },
           create: { businessProfileId: savedProfile.id, businessModuleId: savedModule.id, sortOrder: index, isRequired: true }
         });
       }
+      await this.prisma.businessModuleAssignment.deleteMany({
+        where: {
+          businessProfileId: savedProfile.id,
+          businessModuleId: { notIn: desiredModuleIds }
+        }
+      });
     }
   }
 

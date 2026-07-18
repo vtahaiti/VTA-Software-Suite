@@ -46,6 +46,18 @@ for (const slug of ["commerce", "restaurant", "hotel", "hotel-restaurant", "serv
   expect(catalog.includes(`profileType: "${slug}"`) || catalog.includes(`slug: "${slug}"`), `profil cible inconnu: ${slug}`);
 }
 
+const profileBlock = (slug) => catalog.match(new RegExp(`\\{\\s*slug:\\s*"${slug}"[\\s\\S]*?\\}`))?.[0] ?? "";
+const profileHasModule = (slug, moduleKey) => profileBlock(slug).includes(`"${moduleKey}"`);
+
+for (const slug of ["commerce", "restaurant", "hotel", "hotel-restaurant", "pharmacy", "clinic", "fashion"]) {
+  expect(!profileHasModule(slug, "sales"), `Devis & Commandes ne doit pas etre actif par defaut pour ${slug}`);
+}
+
+for (const slug of ["services", "it-services", "printing", "manufacturing", "windows-aluminium", "construction-materials", "hardware", "multi-activities"]) {
+  expect(profileHasModule(slug, "sales"), `Devis & Commandes doit etre actif par defaut pour ${slug}`);
+}
+
+expect(service.includes("businessModuleAssignment.deleteMany"), "Le catalogue doit retirer les associations de modules obsoletes.");
 expect(catalog.includes("export const businessSectors"), "source de verite BusinessSector absente");
 expect(catalog.includes("businessActivityTemplates: BusinessActivityTemplate[] = businessSectors.flatMap"), "compatibilite templates derivee des secteurs");
 expect(catalog.includes("businessCategories: BusinessCategoryDefinition[] = businessSectors.map"), "compatibilite categories derivee des secteurs");
