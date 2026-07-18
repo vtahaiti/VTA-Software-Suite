@@ -31,6 +31,8 @@ const restaurantSuggestions: HardwareSuggestion[] = [
   { type: "Boisson", units: ["pièce", "verre", "bouteille"], keywords: ["boisson", "jus", "soda", "eau", "cafe"] },
   { type: "Dessert", units: ["pièce", "portion"], keywords: ["dessert", "gateau", "glace"] },
   { type: "Extra", units: ["pièce", "portion"], keywords: ["extra", "supplement", "sauce"] },
+  { type: "Produit stockable", units: ["pièce", "bouteille", "paquet"], keywords: ["stock", "bouteille", "canette"] },
+  { type: "Ingrédient", units: ["kg", "litre", "paquet"], keywords: ["ingredient", "ingrédient", "farine", "huile", "riz"] },
   { type: "Service / autre", units: ["service", "pièce"], keywords: ["service", "autre"] }
 ];
 
@@ -93,6 +95,8 @@ export function ProductForm({ productId }: { productId?: string }) {
   useEffect(() => {
     void loadRefs();
     if (productId) void loadProduct();
+    // Product references and edit payload reload when the edited product changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId]);
 
   const margin = useMemo(() => {

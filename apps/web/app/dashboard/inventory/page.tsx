@@ -26,7 +26,7 @@ type StockLine = {
 
 type ProductForm = { name: string; salePrice: string; purchasePrice: string; stockInitial: string; minimumStock: string };
 type StockAction = "adjust" | "in" | "out";
-type StockOutReason = "CASSE" | "PERTE" | "VOL" | "EXPIRATION" | "UTILISATION_INTERNE" | "CORRECTION_INVENTAIRE" | "RETOUR_FOURNISSEUR" | "AUTRE";
+type StockOutReason = "CASSE" | "PERTE" | "VOL" | "EXPIRATION" | "REPAS_PERSONNEL" | "UTILISATION_INTERNE" | "CORRECTION_INVENTAIRE" | "RETOUR_FOURNISSEUR" | "AUTRE";
 type StockForm = { quantity: string; reason: StockOutReason | ""; note: string };
 
 const emptyProductForm: ProductForm = { name: "", salePrice: "", purchasePrice: "", stockInitial: "", minimumStock: "0" };
@@ -36,6 +36,7 @@ const stockOutReasons: Array<{ value: StockOutReason; label: string }> = [
   { value: "PERTE", label: "Perte" },
   { value: "VOL", label: "Vol" },
   { value: "EXPIRATION", label: "Expiration" },
+  { value: "REPAS_PERSONNEL", label: "Repas personnel" },
   { value: "UTILISATION_INTERNE", label: "Utilisation interne" },
   { value: "CORRECTION_INVENTAIRE", label: "Correction inventaire" },
   { value: "RETOUR_FOURNISSEUR", label: "Retour fournisseur" },

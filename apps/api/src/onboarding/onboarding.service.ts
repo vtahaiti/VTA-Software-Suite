@@ -197,6 +197,17 @@ export class OnboardingService {
 
       const store = await tx.store.create({ data: { tenantId: tenant.id, code: "MAIN", name: "Magasin principal", phone: dto.phone, email: dto.email, country: dto.country, city: dto.city, address: dto.address } });
       const warehouse = await tx.warehouse.create({ data: { tenantId: tenant.id, storeId: store.id, code: "DEPOT-PRINCIPAL", name: "Dépôt principal", description: "Dépôt créé automatiquement pendant l onboarding" } });
+      if (selectedBusinessProfile.slug === "restaurant") {
+        await tx.warehouse.createMany({
+          data: [
+            { tenantId: tenant.id, storeId: store.id, code: "REFRIGERATEUR", name: "Réfrigérateur", description: "Stock restaurant V1" },
+            { tenantId: tenant.id, storeId: store.id, code: "CONGELATEUR", name: "Congélateur", description: "Stock restaurant V1" },
+            { tenantId: tenant.id, storeId: store.id, code: "CUISINE", name: "Cuisine", description: "Stock restaurant V1" },
+            { tenantId: tenant.id, storeId: store.id, code: "BAR", name: "Bar", description: "Stock restaurant V1" }
+          ],
+          skipDuplicates: true
+        });
+      }
       await tx.cashRegister.create({ data: { tenantId: tenant.id, storeId: store.id, code: "CAISSE-01", name: "Caisse principale" } });
       await this.subscriptions.createTrialSubscription(tx, tenant.id, user.id);
 

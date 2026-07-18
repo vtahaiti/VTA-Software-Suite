@@ -58,6 +58,10 @@ for (const slug of ["services", "it-services", "printing", "manufacturing", "win
 }
 
 expect(service.includes("businessModuleAssignment.deleteMany"), "Le catalogue doit retirer les associations de modules obsoletes.");
+expect(catalog.includes("export function resolveBusinessModuleKeys"), "La matrice centrale des modules visibles doit etre exportee.");
+expect(service.includes("resolveBusinessModuleKeys"), "La configuration tenant doit utiliser la matrice centrale des modules.");
+expect(service.includes("matrixModuleKeys.has(assignment.businessModule.key) || assignment.source === \"manual\""), "Les modules herites doivent etre filtres, sauf override manuel explicite.");
+expect(service.includes("enabledBusinessModules: activeModules.map((module) => module.key)"), "L'API ne doit pas renvoyer une ancienne liste enabledBusinessModules non filtree.");
 expect(catalog.includes("export const businessSectors"), "source de verite BusinessSector absente");
 expect(catalog.includes("businessActivityTemplates: BusinessActivityTemplate[] = businessSectors.flatMap"), "compatibilite templates derivee des secteurs");
 expect(catalog.includes("businessCategories: BusinessCategoryDefinition[] = businessSectors.map"), "compatibilite categories derivee des secteurs");

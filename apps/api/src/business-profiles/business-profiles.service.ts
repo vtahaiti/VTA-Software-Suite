@@ -1,6 +1,6 @@
 ﻿import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
-import { businessActivityTemplates, businessCategories, businessModules, businessProfiles, businessSectors, resolveBusinessProfileSlug } from "./business-catalog";
+import { businessActivityTemplates, businessCategories, businessModules, businessProfiles, businessSectors, resolveBusinessModuleKeys, resolveBusinessProfileSlug } from "./business-catalog";
 
 @Injectable()
 export class BusinessProfilesService {
@@ -24,7 +24,10 @@ export class BusinessProfilesService {
       this.prisma.tenantBusinessModule.findMany({ where: { tenantId, isActive: true }, include: { businessModule: true }, orderBy: { createdAt: "asc" } })
     ]);
 
-    const activeModules = modules.map((assignment) => this.serializeModule(assignment.businessModule));
+    const matrixModuleKeys = resolveBusinessModuleKeys(tenant?.businessProfileType ?? undefined, tenant?.businessCategory ?? undefined, tenant?.primaryActivity ?? undefined);
+    const activeModules = modules
+      .filter((assignment) => matrixModuleKeys.has(assignment.businessModule.key) || assignment.source === "manual")
+      .map((assignment) => this.serializeModule(assignment.businessModule));
     const simpleMenuSections = this.buildSimpleMenuSections(activeModules, tenant?.businessProfileType ?? "commerce", tenant?.primaryActivity);
     const expertMenuSections = this.buildExpertMenuSections(activeModules, tenant?.businessProfileType ?? "commerce", tenant?.primaryActivity);
 
@@ -48,7 +51,7 @@ export class BusinessProfilesService {
       primaryActivity: tenant?.primaryActivity ?? "Boutique / Market",
       secondaryActivities: tenant?.secondaryActivities ?? [],
       businessProfileType: tenant?.businessProfileType ?? "commerce",
-      enabledBusinessModules: tenant?.enabledBusinessModules ?? activeModules.map((module) => module.key),
+      enabledBusinessModules: activeModules.map((module) => module.key),
       sectors: businessSectors,
       categories: businessCategories,
       offline: { prepared: true, message: "Mode hors ligne prepare pour synchronisation future." }
@@ -246,13 +249,16 @@ export class BusinessProfilesService {
     if (normalizedProfile === "restaurant") {
       return [
         { label: "Accueil", href: "/dashboard", module: "dashboard" },
-        { label: "POS / Nouvelle vente", href: "/dashboard/pos", module: "pos" },
-        { label: "Ventes en attente", href: "/dashboard/sales/in-progress", module: "pos" },
-        { label: "Historique des ventes", href: "/dashboard/sales/completed", module: "pos" },
-        { label: "Produits / menu", href: "/dashboard/products", module: "products" },
+        { label: "POS / Nouvelle commande", href: "/dashboard/pos", module: "pos" },
+        { label: "Commandes ouvertes", href: "/dashboard/sales/in-progress", module: "pos" },
+        { label: "Historique ventes", href: "/dashboard/sales/completed", module: "pos" },
+        { label: "Produits / menus", href: "/dashboard/products", module: "products" },
         { label: "Categories", href: "/dashboard/products/categories", module: "products" },
+        { label: "Stock ingredients / Inventaire", href: "/dashboard/inventory", module: "inventory" },
         { label: "Clients", href: "/dashboard/customers", module: "customers" },
+        { label: "Depenses / achats", href: "/dashboard/purchases", module: "suppliers" },
         { label: "Rapports", href: "/dashboard/reports", module: "reports" },
+        { label: "Notifications", href: "/dashboard/notifications", module: "dashboard" },
         { label: "Parametres", href: "/dashboard/settings/company", module: "settings" }
       ];
     }
@@ -292,13 +298,16 @@ export class BusinessProfilesService {
       ],
       restaurant: [
         { label: "ðŸ  Accueil", href: "/dashboard", module: "dashboard" },
-        { label: "ðŸ½ POS Restaurant", href: "/dashboard/pos", module: "pos" },
+        { label: "ðŸ½ POS / Nouvelle commande", href: "/dashboard/pos", module: "pos" },
         { label: "ðŸ“‹ Commandes ouvertes", href: "/dashboard/sales/in-progress", module: "pos" },
-        { label: "ðŸ§¾ Historique", href: "/dashboard/sales/completed", module: "pos" },
-        { label: "ðŸ¹ Menu / Articles", href: "/dashboard/products", module: "products" },
+        { label: "ðŸ§¾ Historique ventes", href: "/dashboard/sales/completed", module: "pos" },
+        { label: "ðŸ¹ Produits / Menus", href: "/dashboard/products", module: "products" },
         { label: "ðŸ· CatÃ©gories", href: "/dashboard/products/categories", module: "products" },
+        { label: "ðŸ“Š Stock ingredients / Inventaire", href: "/dashboard/inventory", module: "inventory" },
         { label: "ðŸ‘¥ Clients", href: "/dashboard/customers", module: "customers" },
+        { label: "ðŸ§¾ Depenses / achats", href: "/dashboard/purchases", module: "suppliers" },
         { label: "ðŸ“ˆ Rapports", href: "/dashboard/reports", module: "reports" },
+        { label: "ðŸ”” Notifications", href: "/dashboard/notifications", module: "dashboard" },
         { label: "âš™ï¸ ParamÃ¨tres", href: "/dashboard/settings/company", module: "settings" }
       ],
       hotel: [

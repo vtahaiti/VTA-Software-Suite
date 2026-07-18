@@ -34,6 +34,12 @@ const commonRoutes = [
 if (!serviceSource.includes("withCommonCapabilities")) {
   failures.push("BusinessProfilesService doit fusionner les raccourcis specialises avec le socle commun.");
 }
+if (!serviceSource.includes("resolveBusinessModuleKeys") || !serviceSource.includes("assignment.source === \"manual\"")) {
+  failures.push("Navigation API: les anciens modules actifs doivent etre filtres par matrice, avec override manuel explicite seulement.");
+}
+if (!serviceSource.includes("enabledBusinessModules: activeModules.map((module) => module.key)")) {
+  failures.push("Navigation API: enabledBusinessModules doit refleter les modules effectifs filtres.");
+}
 
 for (const [href, moduleKey] of commonRoutes) {
   if (!serviceSource.includes(`href: "${href}", module: "${moduleKey}"`)) {
