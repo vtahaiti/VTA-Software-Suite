@@ -63,6 +63,7 @@ export default function PosPage() {
   const [showCartDrawer, setShowCartDrawer] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isHoldingSale, setIsHoldingSale] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [syncMessage, setSyncMessage] = useState("");
@@ -375,6 +376,7 @@ export default function PosPage() {
   async function holdCurrentSale() {
     setError("");
     setMessage("");
+    if (isHoldingSale) return;
     if (!cart.items.length) {
       setError("Panier vide");
       return;
@@ -385,6 +387,7 @@ export default function PosPage() {
       setMessage("Vente mise en attente sur cet appareil. Elle sera disponible ici à la reprise.");
       return;
     }
+    setIsHoldingSale(true);
     const response = await fetchWithAuth(`${apiUrl}/pos/held-sales`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -401,6 +404,7 @@ export default function PosPage() {
         total: cart.total
       })
     }).catch(() => null);
+    setIsHoldingSale(false);
     if (!response?.ok) {
       setError(response ? await readError(response) : "Vente mise en attente localement, serveur indisponible.");
       return;
@@ -715,6 +719,7 @@ export default function PosPage() {
             canReceivePayment={canReceivePayment}
             canStartPayment={canCheckout}
             isLoading={isLoading}
+            isHoldingSale={isHoldingSale}
             showExpertOptions={showExpertOptions}
             setShowExpertOptions={setShowExpertOptions}
             stores={stores}
@@ -775,6 +780,7 @@ export default function PosPage() {
               canReceivePayment={canReceivePayment}
               canStartPayment={canCheckout}
               isLoading={isLoading}
+              isHoldingSale={isHoldingSale}
               showExpertOptions={showExpertOptions}
               setShowExpertOptions={setShowExpertOptions}
               stores={stores}
@@ -1009,6 +1015,7 @@ type CartPanelProps = {
   canReceivePayment: boolean;
   canStartPayment: boolean;
   isLoading: boolean;
+  isHoldingSale: boolean;
   showExpertOptions: boolean;
   setShowExpertOptions: (value: boolean | ((current: boolean) => boolean)) => void;
   stores: Store[];
@@ -1124,7 +1131,7 @@ function CartTotalsPanel(props: CartPanelProps) {
       </details>
       <button onClick={props.checkout} disabled={!props.canStartPayment} className="w-full rounded-lg bg-emerald-600 px-4 py-4 text-base font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">{props.isLoading ? "Encaissement..." : `Encaisser — ${formatMoney(props.cart.total)}`}</button>
       <div className="flex items-center justify-between gap-2">
-        <button onClick={props.holdSale} disabled={!props.cart.items.length} className="min-h-11 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-50">{props.pendingLabel}</button>
+        <button onClick={props.holdSale} disabled={!props.cart.items.length || props.isHoldingSale} className="min-h-11 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-50">{props.isHoldingSale ? "Mise en attente..." : props.pendingLabel}</button>
         <details className="relative">
           <summary className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50" aria-label="Autres actions">
             <MoreHorizontal aria-hidden="true" className="h-5 w-5" />

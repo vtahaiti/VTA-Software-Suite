@@ -41,9 +41,14 @@ assertContains(webSales, "/claim", "In-progress page must claim before resume");
 assertContains(webSales, "Annuler cette vente en attente ?", "Accessible cancel confirmation missing");
 assertContains(webSales, "autre caissier", "Locked-by-other status label missing");
 assertContains(webSales, "disabled={lockedByOther", "Locked drafts must disable actions");
+assertContains(webSales, "setDrafts(uniqueDrafts((data.items ?? []).map(normalizeDraft)))", "Server held sales must not be mixed with local drafts when server is available");
+assertContains(webSales, "removeMatchingLocalDraft(draft)", "Cancel must remove the matching local POS draft");
 
 assertContains(webPos, "/finalize", "POS must finalize resumed held sales through finalize endpoint");
 assertContains(webPos, "heldSaleFinalizeKey", "POS idempotency key must persist with draft");
 assertContains(webPos, "body: JSON.stringify(heldSaleId ? { sale: payload, idempotencyKey: finalizeKey } : payload)", "POS must leave normal checkout payload unchanged");
+assertContains(webPos, "isHoldingSale", "POS must prevent double hold submissions");
+assertContains(webPos, "Mise en attente...", "POS hold button must show a saving state");
+assertContains(webPos, "clearCurrentSale()", "POS must clear the sale after a successful hold");
 
 console.log("held-sales-locking contract smoke: OK");

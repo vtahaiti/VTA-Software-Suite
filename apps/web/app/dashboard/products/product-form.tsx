@@ -387,8 +387,6 @@ export function ProductForm({ productId }: { productId?: string }) {
       <Select value={form.supplierId} onChange={(value) => update("supplierId", value)} placeholder="Fournisseur principal" items={refs.suppliers} />
     </Section>
     <Section title="Tarification">
-      <Input value={form.purchasePrice} onChange={(value) => update("purchasePrice", value)} placeholder="Prix achat" />
-      <Input value={form.salePrice} onChange={(value) => update("salePrice", value)} placeholder="Prix vente" />
       <Input value={form.promotionalPrice} onChange={(value) => update("promotionalPrice", value)} placeholder="Prix promotionnel" />
       <Input value={form.wholesalePrice} onChange={(value) => update("wholesalePrice", value)} placeholder="Prix gros" />
       <Input value={form.averageCost} onChange={(value) => update("averageCost", value)} placeholder="Cout moyen" />
@@ -396,7 +394,6 @@ export function ProductForm({ productId }: { productId?: string }) {
       <div className="rounded-md bg-green-50 px-3 py-2 text-sm font-semibold text-green-700 dark:bg-green-950 dark:text-green-200">Marge calculee : {margin}%</div>
     </Section>
     <Section title="Inventaire">
-      <Input value={form.minimumStock} onChange={(value) => update("minimumStock", value)} placeholder="Stock minimum" />
       <Input value={form.maximumStock} onChange={(value) => update("maximumStock", value)} placeholder="Stock maximum" />
       <Input value={form.location} onChange={(value) => update("location", value)} placeholder="Emplacement" />
       <Select value={form.storeId} onChange={(value) => update("storeId", value)} placeholder="Magasin" items={refs.stores} />
@@ -404,10 +401,6 @@ export function ProductForm({ productId }: { productId?: string }) {
       <div className="rounded-md bg-orange-50 px-3 py-2 text-sm text-orange-700 dark:bg-orange-950 dark:text-orange-200">Alerte de rupture activee via stock minimum.</div>
     </Section>
     <Section title="Codes et etiquettes">
-      <div className="flex gap-2">
-        <Input value={form.barcode} onChange={(value) => update("barcode", value)} placeholder="Code-barres UPC/EAN/QR" />
-        <button type="button" onClick={generateBarcode} className="rounded-md border px-3 py-2 text-sm">Generer</button>
-      </div>
       <select value={form.barcodeType} onChange={(event) => update("barcodeType", event.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
         <option value="EAN">EAN</option>
         <option value="UPC">UPC</option>

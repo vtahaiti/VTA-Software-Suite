@@ -69,7 +69,7 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
       setIsLoading(false);
       if (response?.ok) {
         const data = await response.json();
-        setDrafts(uniqueDrafts([...(data.items ?? []), ...loadDrafts()].map(normalizeDraft)));
+        setDrafts(uniqueDrafts((data.items ?? []).map(normalizeDraft)));
         return;
       }
       setDrafts(loadDrafts());
@@ -150,7 +150,7 @@ function DraftList({ drafts, isLoading, onReload }: { drafts: Draft[]; isLoading
         return;
       }
     }
-    if (draft.storageKey) window.localStorage.removeItem(draft.storageKey);
+    removeMatchingLocalDraft(draft);
     setCancelTarget(null);
     onReload();
   }
@@ -350,6 +350,19 @@ function saveDraftForPos(draft: Draft) {
   }));
 }
 
+function removeMatchingLocalDraft(draft: Draft) {
+  if (typeof window === "undefined") return;
+  const user = getCurrentUser();
+  const key = posDraftKey(user?.tenantId);
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return;
+    const localDraft = normalizeDraft({ ...JSON.parse(raw), storageKey: key });
+    if (draft.storageKey === key || (draft.id && localDraft.id === draft.id)) window.localStorage.removeItem(key);
+  } catch {
+    if (draft.storageKey) window.localStorage.removeItem(draft.storageKey);
+  }
+}
 function makeClientId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return `client-${Date.now()}-${Math.random().toString(36).slice(2)}`;
