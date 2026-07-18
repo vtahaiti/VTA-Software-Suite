@@ -47,6 +47,7 @@
     "test:launch-stabilization": "node scripts/launch-stabilization-smoke.cjs",
     "test:client-ready": "node scripts/client-ready-essentials-smoke.cjs",
     "test:purchases-flow": "node scripts/purchases-flow-smoke.cjs",
+    "test:stock-out-adjustment": "node scripts/stock-out-adjustment-smoke.cjs",
     "test:lot2": "node scripts/lot2-import-export-notifications-smoke.cjs",
     "test:web-print-subscription": "node scripts/web-print-subscription-smoke.cjs",
     "test:exports-runtime": "node scripts/export-runtime-smoke.cjs",

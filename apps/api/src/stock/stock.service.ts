@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InventoryMovementType, Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
-import { StockOperationDto } from "./dto/stock-operation.dto";
+import { STOCK_OUT_REASONS, StockOperationDto } from "./dto/stock-operation.dto";
 import { StockQueryDto } from "./dto/stock-query.dto";
 
 @Injectable()
@@ -79,6 +79,9 @@ export class StockService {
   }
 
   stockOut(tenantId: string, dto: StockOperationDto) {
+    if (!dto.reason || !STOCK_OUT_REASONS.includes(dto.reason)) {
+      throw new BadRequestException("Un motif controle est obligatoire pour une sortie non commerciale.");
+    }
     return this.applyMovement(tenantId, dto, InventoryMovementType.OUT, -dto.quantity);
   }
 
@@ -116,7 +119,7 @@ export class StockService {
           afterQty,
           reference: dto.reference,
           note: dto.note,
-          reason: dto.note,
+          reason: dto.reason ?? dto.note,
           userId: dto.userId,
           storeId: dto.storeId
         }
