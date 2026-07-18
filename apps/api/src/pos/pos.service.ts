@@ -259,9 +259,9 @@ export class PosService {
   }
 
 
-  async listHeldSales(tenantId: string, userId: string, sessionId: string) {
+  async listHeldSales(tenantId: string, userId: string, sessionId: string, canViewAll = false) {
     const items = await this.prisma.heldSale.findMany({
-      where: { tenantId, status: { in: ["AVAILABLE", "CLAIMED", "FINALIZING"] } },
+      where: { tenantId, status: { in: ["AVAILABLE", "CLAIMED", "FINALIZING"] }, ...(canViewAll ? {} : { userId }) },
       orderBy: { updatedAt: "desc" },
       take: 50
     });
@@ -396,7 +396,7 @@ export class PosService {
       throw new ConflictException("Reprenez la vente en attente avant de l'encaisser.");
     }
     try {
-      const sale = await this.sales.create(tenantId, dto, userId);
+      const sale = await this.sales.create(tenantId, dto, existing.userId ?? userId);
       await this.prisma.heldSale.update({
         where: { id },
         data: {

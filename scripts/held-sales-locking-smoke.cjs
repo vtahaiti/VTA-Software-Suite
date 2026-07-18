@@ -29,12 +29,14 @@ assertContains(apiController, "@Post(\"held-sales/:id/claim\")", "Claim endpoint
 assertContains(apiController, "@Post(\"held-sales/:id/release\")", "Release endpoint missing");
 assertContains(apiController, "@Post(\"held-sales/:id/finalize\")", "Finalize endpoint missing");
 assertContains(apiController, "req.user.sessionId", "Held sale endpoints must use authenticated session id");
+assertContains(apiController, "this.canForceHeldSale(req)", "Held sale list must pass role visibility to the backend");
 
 assertContains(apiService, "updateMany", "Atomic claim/finalize updates must use conditional updateMany");
 assertContains(apiService, "Cette vente est deja reprise par un autre caissier.", "Concurrent claim conflict message missing");
 assertContains(apiService, "status: \"FINALIZING\"", "Finalize status transition missing");
 assertContains(apiService, "finalizeIdempotencyKey", "Finalize idempotency key missing in service");
-assertContains(apiService, "this.sales.create", "Finalize must reuse existing sale creation logic");
+assertContains(apiService, "this.sales.create(tenantId, dto, existing.userId ?? userId)", "Finalize must keep the held sale creator as receipt cashier");
+assertContains(apiService, "canViewAll ? {} : { userId }", "Cashiers must only see their own held sales");
 assertContains(apiService, "catch (error)", "Finalize rollback path missing");
 
 assertContains(webSales, "/claim", "In-progress page must claim before resume");

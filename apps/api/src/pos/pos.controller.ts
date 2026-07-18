@@ -106,7 +106,7 @@ export class PosController {
   @RequiresFeature("HELD_SALES")
   @Permissions("pos.sell")
   heldSales(@Req() req: AuthenticatedRequest) {
-    return this.pos.listHeldSales(req.user.tenantId, req.user.id, req.user.sessionId);
+    return this.pos.listHeldSales(req.user.tenantId, req.user.id, req.user.sessionId, this.canForceHeldSale(req));
   }
 
   @Post("held-sales")
