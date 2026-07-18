@@ -19,19 +19,22 @@ for (const sector of [
   "Construction / Quincaillerie",
   "Sante / Clinique / Pharmacie",
   "Telephone / Electronique",
-  "Education / Ecole",
   "Beaute / Salon",
   "Transport / Location",
   "Autre activite"
 ]) {
   expect(catalog.includes(`name: "${sector}"`), `secteur manquant: ${sector}`);
 }
+expect(!catalog.includes('key: "education"'), "Le secteur Education / Ecole ne doit plus etre propose dans VTA Commerce.");
+expect(service.includes('profile.slug !== "school"'), "Le profil scolaire doit rester interne et etre retire du catalogue public.");
+expect(service.includes('module.key !== "school"'), "Le module scolaire doit rester interne et etre retire du catalogue public.");
 
 for (const specialty of [
   "Epicerie / Market",
   "Pharmacie",
   "Clinique",
   "Reparation telephones",
+  "Vente & Reparation telephones",
   "Vente telephones",
   "Hotel avec restaurant",
   "Quincaillerie",
@@ -42,7 +45,7 @@ for (const specialty of [
   expect(catalog.includes(`name: "${specialty}"`), `specialite manquante: ${specialty}`);
 }
 
-for (const slug of ["commerce", "restaurant", "hotel", "hotel-restaurant", "services", "it-services", "printing", "manufacturing", "windows-aluminium", "construction-materials", "hardware", "pharmacy", "clinic", "school", "fashion", "multi-activities"]) {
+for (const slug of ["commerce", "restaurant", "hotel", "hotel-restaurant", "services", "it-services", "phone-sales-repair", "printing", "manufacturing", "windows-aluminium", "construction-materials", "hardware", "pharmacy", "clinic", "school", "fashion", "multi-activities"]) {
   expect(catalog.includes(`profileType: "${slug}"`) || catalog.includes(`slug: "${slug}"`), `profil cible inconnu: ${slug}`);
 }
 
@@ -56,6 +59,9 @@ for (const slug of ["commerce", "restaurant", "hotel", "hotel-restaurant", "phar
 for (const slug of ["services", "it-services", "printing", "manufacturing", "windows-aluminium", "construction-materials", "hardware", "multi-activities"]) {
   expect(profileHasModule(slug, "sales"), `Devis & Commandes doit etre actif par defaut pour ${slug}`);
 }
+expect(profileHasModule("phone-sales-repair", "sales"), "Vente & Reparation telephones doit activer Devis & Commandes.");
+expect(profileHasModule("phone-sales-repair", "inventory"), "Vente & Reparation telephones doit activer Inventaire.");
+expect(!profileHasModule("clinic", "pharmacy"), "Clinique ne doit pas embarquer le module pharmacie.");
 
 expect(service.includes("businessModuleAssignment.deleteMany"), "Le catalogue doit retirer les associations de modules obsoletes.");
 expect(catalog.includes("export function resolveBusinessModuleKeys"), "La matrice centrale des modules visibles doit etre exportee.");

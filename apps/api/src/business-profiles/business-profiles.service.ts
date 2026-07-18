@@ -8,7 +8,9 @@ export class BusinessProfilesService {
 
   async catalog() {
     await this.syncCatalog();
-    return { sectors: businessSectors, categories: businessCategories, activityTemplates: businessActivityTemplates, profiles: businessProfiles, modules: businessModules };
+    const publicProfiles = businessProfiles.filter((profile) => profile.slug !== "school");
+    const publicModules = businessModules.filter((module) => module.key !== "school");
+    return { sectors: businessSectors, categories: businessCategories, activityTemplates: businessActivityTemplates, profiles: publicProfiles, modules: publicModules };
   }
 
   async tenantConfiguration(tenantId: string) {

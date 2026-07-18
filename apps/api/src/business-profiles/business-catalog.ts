@@ -110,16 +110,10 @@ export const businessSectors: BusinessSectorDefinition[] = [
     { name: "Vente telephones", profileType: "commerce", categories: ["Telephones", "Accessoires", "Chargeurs", "Ecouteurs"] },
     { name: "Accessoires telephones", profileType: "commerce", categories: ["Coques", "Chargeurs", "Ecouteurs", "Cables"] },
     { name: "Reparation telephones", profileType: "it-services", categories: ["Reparations", "Pieces", "Diagnostics", "Services"] },
+    { name: "Vente & Reparation telephones", profileType: "phone-sales-repair", categories: ["Telephones", "Accessoires", "Pieces", "Reparations", "Diagnostics", "Services"] },
     { name: "Informatique", profileType: "it-services", categories: ["Services IT", "Ordinateurs", "Reseaux", "Logiciels", "Accessoires"] },
     { name: "Electronique generale", profileType: "commerce", categories: ["Electronique", "Accessoires", "Pieces", "Services"] },
     { name: "Autre electronique", profileType: "commerce", categories: ["Electronique", "Accessoires", "Services"] }
-  ] },
-  { key: "education", name: "Education / Ecole", description: "Ecoles, centres de formation, cours particuliers et garderies.", specialties: [
-    { name: "Ecole", profileType: "school", categories: ["Frais scolaires", "Uniformes", "Livres", "Services", "Transport"] },
-    { name: "Centre de formation", profileType: "school", categories: ["Formations", "Frais", "Supports", "Services"] },
-    { name: "Cours particuliers", profileType: "school", categories: ["Cours", "Forfaits", "Services"] },
-    { name: "Garderie", profileType: "school", categories: ["Frais", "Repas", "Services"] },
-    { name: "Autre education", profileType: "school", categories: ["Services", "Frais", "Supports"] }
   ] },
   { key: "fashion-beauty", name: "Beaute / Salon", description: "Salon, barber shop, spa et cosmetique.", specialties: [
     { name: "Salon de beaute", profileType: "services", categories: ["Coiffure", "Soins", "Services", "Produits"] },
@@ -209,7 +203,7 @@ export const businessProfiles: BusinessProfileDefinition[] = [
   { slug: "hotel", name: "HÃ´tel", description: "HÃ©bergement, clients, facturation et services.", category: "HÃ´tel & HÃ©bergement", icon: "hotel", modules: ["dashboard", "pos", "customers", "reports", "settings", "hotel"] },
   { slug: "hotel-restaurant", name: "Hotel avec restaurant", description: "Hebergement avec POS restaurant, produits/menu, stock simple et facturation.", category: "Hotel / Hebergement", icon: "hotel", modules: ["dashboard", "pos", "products", "inventory", "customers", "suppliers", "reports", "settings", "hotel", "restaurant"] },
   { slug: "pharmacy", name: "Pharmacie", description: "Commerce avec lots et expirations.", category: "SantÃ©", icon: "pill", modules: ["dashboard", "pos", "products", "inventory", "customers", "suppliers", "reports", "settings", "pharmacy"] },
-  { slug: "clinic", name: "Clinique", description: "Patients, services et facturation.", category: "SantÃ©", icon: "clinic", modules: ["dashboard", "pos", "customers", "reports", "settings", "pharmacy"] },
+  { slug: "clinic", name: "Clinique", description: "Patients, consultations simples, paiements et rapports.", category: "SantÃ©", icon: "clinic", modules: ["dashboard", "pos", "customers", "reports", "settings"] },
   { slug: "school", name: "Ã‰ducation", description: "Ã‰lÃ¨ves, paiements et facturation.", category: "Ã‰ducation", icon: "school", modules: ["dashboard", "pos", "customers", "sales", "reports", "settings", "school"] },
   { slug: "hardware", name: "Quincaillerie", description: "Commerce avec mesures et stock.", category: "Construction", icon: "tool", modules: ["dashboard", "pos", "products", "inventory", "customers", "suppliers", "sales", "reports", "settings", "measurements"] },
   { slug: "construction-materials", name: "MatÃ©riaux", description: "MatÃ©riaux de construction et stock lourd.", category: "Construction", icon: "bricks", modules: ["dashboard", "pos", "products", "inventory", "customers", "suppliers", "sales", "reports", "settings", "measurements"] },
@@ -219,5 +213,6 @@ export const businessProfiles: BusinessProfileDefinition[] = [
   { slug: "printing", name: "Impression", description: "Production, DTF, broderie et communication.", category: "Impression & Communication", icon: "printer", modules: ["dashboard", "pos", "products", "customers", "suppliers", "sales", "reports", "settings", "printing"] },
   { slug: "services", name: "Services", description: "Services professionnels et facturation.", category: "Services", icon: "service", modules: ["dashboard", "pos", "customers", "sales", "reports", "settings", "services"] },
   { slug: "it-services", name: "Services informatiques", description: "Services IT et clients.", category: "Services", icon: "computer", modules: ["dashboard", "pos", "customers", "sales", "reports", "settings", "it-services"] },
+  { slug: "phone-sales-repair", name: "Vente & Reparation telephones", description: "Vente telephones, accessoires, pieces, reparations, devis, acomptes et solde.", category: "Telephone / Electronique", icon: "phone", modules: ["dashboard", "pos", "products", "inventory", "customers", "suppliers", "sales", "reports", "settings", "it-services"] },
   { slug: "multi-activities", name: "Multi-activitÃ© / Commerce & Services", description: "Commerce, services informatiques, impression, studio photo, fabrication lÃ©gÃ¨re et commandes avec acomptes dans un mÃªme tenant.", category: "Multi-activitÃ© / Commerce & Services", icon: "layers", modules: ["dashboard", "pos", "products", "inventory", "customers", "suppliers", "sales", "reports", "settings", "printing", "services", "it-services", "measurements"] }
 ];
