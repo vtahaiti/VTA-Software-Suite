@@ -15,15 +15,17 @@ export class PurchaseOrdersService {
     const timeZone = await this.tenantTimeZone(tenantId);
     const { start: today, end: tomorrow } = businessDayRange(new Date(), timeZone);
     const { start: monthStart, end: monthEnd } = businessMonthRange(new Date(), timeZone);
-    const [todayAgg, monthAgg, activeSuppliers, pendingOrders, receiptsToday, unpaidInvoices] = await Promise.all([
+    const [todayAgg, monthAgg, activeSuppliers, pendingOrders, pendingReceiptOrders, receiptsToday, unpaidInvoices, supplierBalance] = await Promise.all([
       this.prisma.purchaseOrder.aggregate({ where: { tenantId, createdAt: { gte: today, lt: tomorrow } }, _sum: { total: true } }),
       this.prisma.purchaseOrder.aggregate({ where: { tenantId, createdAt: { gte: monthStart, lt: monthEnd } }, _sum: { total: true } }),
       this.prisma.supplier.count({ where: { tenantId, status: "ACTIVE" } }),
       this.prisma.purchaseOrder.count({ where: { tenantId, status: { in: ["DRAFT", "SENT", "APPROVED", "PARTIALLY_RECEIVED"] } } }),
+      this.prisma.purchaseOrder.count({ where: { tenantId, status: { in: ["SENT", "APPROVED", "PARTIALLY_RECEIVED"] } } }),
       this.prisma.goodsReceipt.count({ where: { tenantId, createdAt: { gte: today, lt: tomorrow } } }),
-      this.prisma.supplierInvoice.count({ where: { tenantId, balance: { gt: 0 }, status: { in: ["DRAFT", "APPROVED", "PARTIALLY_PAID"] } } }).catch(() => 0)
+      this.prisma.supplierInvoice.count({ where: { tenantId, balance: { gt: 0 }, status: { in: ["DRAFT", "APPROVED", "PARTIALLY_PAID"] } } }).catch(() => 0),
+      this.prisma.supplierInvoice.aggregate({ where: { tenantId, balance: { gt: 0 }, status: { in: ["DRAFT", "APPROVED", "PARTIALLY_PAID"] } }, _sum: { balance: true } }).catch(() => ({ _sum: { balance: 0 } }))
     ]);
-    return { purchasesToday: todayAgg._sum.total ?? 0, purchasesMonth: monthAgg._sum.total ?? 0, activeSuppliers, pendingOrders, receiptsToday, unpaidInvoices };
+    return { purchasesToday: todayAgg._sum.total ?? 0, purchasesMonth: monthAgg._sum.total ?? 0, activeSuppliers, pendingOrders, pendingReceiptOrders, receiptsToday, unpaidInvoices, supplierBalanceDue: supplierBalance._sum.balance ?? 0 };
   }
 
   async findAll(tenantId: string, query: PurchaseOrderQueryDto) {

@@ -1,13 +1,43 @@
 "use client";
+
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
 import { downloadAuthenticatedFile } from "@/lib/authenticated-download";
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
-const statusLabels: Record<string, string> = { DRAFT: "Brouillon", SENT: "Envoyée", APPROVED: "Approuvée", PARTIALLY_RECEIVED: "Partiellement reçue", FULLY_RECEIVED: "Reçue", RECEIVED: "Reçue", CANCELLED: "Annulée" };
-type PurchaseOrder = { id: string; number: string; status: string; total: string; createdAt: string; supplier?: { name: string }; items: unknown[] };
-type Dashboard = { purchasesToday?: number; purchasesMonth?: number; todayPurchases?: number; monthPurchases?: number; activeSuppliers: number; pendingOrders: number; receiptsToday: number; unpaidInvoices: number };
+const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001");
+const statusLabels: Record<string, string> = {
+  DRAFT: "Brouillon",
+  SENT: "Commande",
+  APPROVED: "Commande",
+  PARTIALLY_RECEIVED: "Recu partiel",
+  FULLY_RECEIVED: "Recu complet",
+  RECEIVED: "Recu complet",
+  CANCELLED: "Annule"
+};
+
+type PurchaseOrder = {
+  id: string;
+  number: string;
+  status: string;
+  total: string;
+  createdAt: string;
+  supplier?: { name: string };
+  items: unknown[];
+};
+
+type Dashboard = {
+  purchasesToday?: number;
+  purchasesMonth?: number;
+  todayPurchases?: number;
+  monthPurchases?: number;
+  activeSuppliers: number;
+  pendingOrders: number;
+  pendingReceiptOrders?: number;
+  receiptsToday: number;
+  unpaidInvoices: number;
+  supplierBalanceDue?: number;
+};
 
 export default function PurchasesPage() {
   const [items, setItems] = useState<PurchaseOrder[]>([]);
@@ -20,7 +50,10 @@ export default function PurchasesPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
 
-  async function authHeaders() { return { Authorization: `Bearer ${getAccessToken()}` }; }
+  async function authHeaders() {
+    return { Authorization: `Bearer ${getAccessToken()}` };
+  }
+
   const loadDashboard = useCallback(async function loadDashboard() {
     setDashboardLoading(true);
     try {
@@ -28,11 +61,12 @@ export default function PurchasesPage() {
       if (!response.ok) throw new Error("Tableau achats indisponible");
       setDashboard(await response.json());
     } catch {
-      setError("Impossible de charger les indicateurs d’achats.");
+      setError("Impossible de charger les indicateurs d'achats.");
     } finally {
       setDashboardLoading(false);
     }
   }, []);
+
   const loadPurchases = useCallback(async function loadPurchases() {
     setListLoading(true);
     try {
@@ -50,28 +84,127 @@ export default function PurchasesPage() {
       setListLoading(false);
     }
   }, [page, search, status]);
-  useEffect(() => { void loadDashboard(); }, [loadDashboard]);
-  useEffect(() => { const timer = setTimeout(() => void loadPurchases(), 250); return () => clearTimeout(timer); }, [loadPurchases]);
+
+  useEffect(() => {
+    void loadDashboard();
+  }, [loadDashboard]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => void loadPurchases(), 250);
+    return () => clearTimeout(timer);
+  }, [loadPurchases]);
+
   async function exportFile(format: "csv" | "excel" | "pdf") {
     setError("");
     try {
       await downloadAuthenticatedFile(`${apiUrl}/purchase-orders/export/${format}`, `achats.${format === "excel" ? "xlsx" : format}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Téléchargement impossible.");
+      setError(err instanceof Error ? err.message : "Telechargement impossible.");
     }
   }
 
   const pages = useMemo(() => Math.max(1, Math.ceil(total / 10)), [total]);
   const purchasesToday = dashboard?.purchasesToday ?? dashboard?.todayPurchases ?? 0;
   const purchasesMonth = dashboard?.purchasesMonth ?? dashboard?.monthPurchases ?? 0;
-  const cards = [
+  const cards: Array<[string, string | number]> = [
     ["Achats du jour", purchasesToday],
     ["Achats du mois", purchasesMonth],
     ["Fournisseurs actifs", dashboard?.activeSuppliers ?? 0],
-    ["Commandes en attente", dashboard?.pendingOrders ?? 0],
-    ["Réceptions aujourd’hui", dashboard?.receiptsToday ?? 0],
-    ["Factures impayées", dashboard?.unpaidInvoices ?? 0]
+    ["Bons en attente de reception", dashboard?.pendingReceiptOrders ?? dashboard?.pendingOrders ?? 0],
+    ["Montants a payer fournisseur", formatMoney(Number(dashboard?.supplierBalanceDue ?? 0))],
+    ["Factures impayees", dashboard?.unpaidInvoices ?? 0]
   ];
 
-  return <div className="space-y-5"><div className="flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:flex-row md:items-center"><div><p className="text-sm font-medium text-brand-600">Achats</p><h1 className="text-2xl font-bold text-slate-950 dark:text-white">Bons de commande</h1><p className="mt-1 text-sm text-slate-500">Suivi fournisseurs, commandes, réceptions, factures et paiements.</p></div><div className="flex flex-wrap gap-2"><button onClick={()=>exportFile("csv")} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">CSV</button><button onClick={()=>exportFile("excel")} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">Excel</button><button onClick={()=>exportFile("pdf")} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">PDF</button><Link href="/dashboard/purchases/receipts" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">Réception marchandises</Link><Link href="/dashboard/purchases/create" className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Nouveau bon</Link></div></div>{error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}<button onClick={()=>{setError(""); void loadDashboard(); void loadPurchases();}} className="ml-3 font-semibold underline">Réessayer</button></div> : null}<div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">{dashboardLoading ? Array.from({ length: 6 }).map((_, index)=><div key={index} className="h-24 animate-pulse rounded-lg border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-900" />) : cards.map(([label,value])=><div key={label} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"><p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p><p className="mt-2 text-2xl font-bold text-slate-950 dark:text-white">{value}</p></div>)}</div><div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2"><input value={search} onChange={(e)=>{setSearch(e.target.value);setPage(1)}} placeholder="Recherche par numéro, fournisseur, produit ou facture" className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950"/><select value={status} onChange={(e)=>{setStatus(e.target.value);setPage(1)}} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option value="">Tous les statuts</option><option value="DRAFT">Brouillon</option><option value="SENT">Envoyée</option><option value="APPROVED">Approuvée</option><option value="PARTIALLY_RECEIVED">Partiellement reçue</option><option value="FULLY_RECEIVED">Reçue</option><option value="CANCELLED">Annulée</option></select></div><div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">Numéro</th><th className="p-3">Fournisseur</th><th className="p-3">Lignes</th><th className="p-3">Total</th><th className="p-3">Statut</th><th className="p-3">Date</th><th className="p-3">Action</th></tr></thead><tbody>{items.map((order)=><tr key={order.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3 font-mono text-xs">{order.number}</td><td className="p-3 font-medium">{order.supplier?.name ?? "--"}</td><td className="p-3">{order.items.length}</td><td className="p-3">{order.total}</td><td className="p-3">{statusLabels[order.status] ?? order.status}</td><td className="p-3">{new Date(order.createdAt).toLocaleDateString("fr-FR")}</td><td className="p-3"><Link className="text-brand-600" href={`/dashboard/purchases/${order.id}`}>Voir</Link></td></tr>)}</tbody></table>{listLoading ? <p className="p-5 text-sm text-slate-500">Chargement des bons de commande...</p> : items.length===0 ? <p className="p-5 text-sm text-slate-500">Aucun bon de commande.</p> : null}</div><div className="flex items-center justify-between"><p className="text-sm text-slate-500">{listLoading ? "Chargement..." : `${total} bons de commande`}</p><div className="flex gap-2"><button disabled={page<=1 || listLoading} onClick={()=>setPage(page-1)} className="rounded-md border px-3 py-2 disabled:opacity-50">Précédent</button><span className="px-3 py-2 text-sm">{page}/{pages}</span><button disabled={page>=pages || listLoading} onClick={()=>setPage(page+1)} className="rounded-md border px-3 py-2 disabled:opacity-50">Suivant</button></div></div></div>;
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:flex-row md:items-center">
+        <div>
+          <p className="text-sm font-medium text-brand-600">Achats</p>
+          <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Bons d&apos;achat fournisseurs</h1>
+          <p className="mt-1 text-sm text-slate-500">Commandes fournisseurs, receptions de stock, factures et paiements. Les depenses generales restent separees.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => exportFile("csv")} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">CSV</button>
+          <button onClick={() => exportFile("excel")} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">Excel</button>
+          <button onClick={() => exportFile("pdf")} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">PDF</button>
+          <Link href="/dashboard/purchases/receipts" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">Reception marchandises</Link>
+          <Link href="/dashboard/purchases/create" className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Nouveau bon</Link>
+        </div>
+      </div>
+
+      {error ? (
+        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {error}
+          <button onClick={() => { setError(""); void loadDashboard(); void loadPurchases(); }} className="ml-3 font-semibold underline">Reessayer</button>
+        </div>
+      ) : null}
+
+      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+        {dashboardLoading
+          ? Array.from({ length: 6 }).map((_, index) => <div key={index} className="h-24 animate-pulse rounded-lg border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-900" />)
+          : cards.map(([label, value]) => (
+              <div key={label} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
+                <p className="mt-2 text-2xl font-bold text-slate-950 dark:text-white">{value}</p>
+              </div>
+            ))}
+      </div>
+
+      <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2">
+        <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Recherche par numero, fournisseur, produit ou facture" className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+        <select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+          <option value="">Tous les statuts</option>
+          <option value="DRAFT">Brouillon</option>
+          <option value="SENT">Commande</option>
+          <option value="APPROVED">Commande</option>
+          <option value="PARTIALLY_RECEIVED">Recu partiel</option>
+          <option value="FULLY_RECEIVED">Recu complet</option>
+          <option value="CANCELLED">Annule</option>
+        </select>
+      </div>
+
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <table className="w-full min-w-[760px] text-left text-sm">
+          <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950">
+            <tr>
+              <th className="p-3">Numero</th>
+              <th className="p-3">Fournisseur</th>
+              <th className="p-3">Lignes</th>
+              <th className="p-3">Total</th>
+              <th className="p-3">Statut</th>
+              <th className="p-3">Date</th>
+              <th className="p-3">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((order) => (
+              <tr key={order.id} className="border-t border-slate-100 dark:border-slate-800">
+                <td className="p-3 font-mono text-xs">{order.number}</td>
+                <td className="p-3 font-medium">{order.supplier?.name ?? "--"}</td>
+                <td className="p-3">{order.items.length}</td>
+                <td className="p-3">{order.total}</td>
+                <td className="p-3">{statusLabels[order.status] ?? order.status}</td>
+                <td className="p-3">{new Date(order.createdAt).toLocaleDateString("fr-FR")}</td>
+                <td className="p-3"><Link className="text-brand-600" href={`/dashboard/purchases/${order.id}`}>Voir</Link></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {listLoading ? <p className="p-5 text-sm text-slate-500">Chargement des bons de commande...</p> : items.length === 0 ? <p className="p-5 text-sm text-slate-500">Aucun bon de commande.</p> : null}
+      </div>
+
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-slate-500">{listLoading ? "Chargement..." : `${total} bons de commande`}</p>
+        <div className="flex gap-2">
+          <button disabled={page <= 1 || listLoading} onClick={() => setPage(page - 1)} className="rounded-md border px-3 py-2 disabled:opacity-50">Precedent</button>
+          <span className="px-3 py-2 text-sm">{page}/{pages}</span>
+          <button disabled={page >= pages || listLoading} onClick={() => setPage(page + 1)} className="rounded-md border px-3 py-2 disabled:opacity-50">Suivant</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat("fr-HT", { style: "currency", currency: "HTG", maximumFractionDigits: 2 }).format(value || 0);
 }

@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested } from "class-validator";
+import { ArrayMinSize, IsArray, IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested } from "class-validator";
 
 export class CreateGoodsReceiptItemDto {
   @IsString()
@@ -23,6 +23,10 @@ export class CreateGoodsReceiptDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  updateMissingCosts?: boolean;
 
   @IsArray()
   @ArrayMinSize(1)
