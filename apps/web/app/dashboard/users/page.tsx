@@ -31,6 +31,7 @@ export default function UsersPage() {
   const [message, setMessage] = useState("");
   const [form, setForm] = useState({ name: "", email: "", phone: "", temporaryPassword: "", role: "CAISSIER", storeId: "" });
   const [passwordTarget, setPasswordTarget] = useState<UserRow | null>(null);
+  const [roleTargetId, setRoleTargetId] = useState<string | null>(null);
   const [temporaryPassword, setTemporaryPassword] = useState("");
   const currentUser = getCurrentUser();
   const canManage = canManageUsers(currentUser);
@@ -96,6 +97,7 @@ export default function UsersPage() {
       body: JSON.stringify({ role })
     });
     setMessage(response.ok ? "Role modifie." : await readError(response));
+    setRoleTargetId(null);
     await load();
   }
 
@@ -185,9 +187,19 @@ export default function UsersPage() {
                     <td className="px-4 py-3"><p className="font-semibold text-slate-950 dark:text-white">{user.name}</p><p className="text-xs text-slate-500">{user.email}</p></td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{user.phone || "-"}</td>
                     <td className="px-4 py-3">
-                      <select value={normalizeRole(user.role)} onChange={(event) => void updateRole(user.id, event.target.value)} className="rounded-lg border border-slate-300 px-2 py-1 dark:border-slate-700 dark:bg-slate-950">
-                        {availableRoles(roles, user.role).map((role) => <option key={role.id} value={role.name}>{roleLabels[role.name] ?? role.name}</option>)}
-                      </select>
+                      {roleTargetId === user.id ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <select value={normalizeRole(user.role)} onChange={(event) => void updateRole(user.id, event.target.value)} className="rounded-lg border border-slate-300 px-2 py-1 dark:border-slate-700 dark:bg-slate-950">
+                            {availableRoles(roles, user.role).map((role) => <option key={role.id} value={role.name}>{roleLabels[role.name] ?? role.name}</option>)}
+                          </select>
+                          <button type="button" onClick={() => setRoleTargetId(null)} className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold dark:border-slate-700">Annuler</button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">{roleLabels[normalizeRole(user.role)] ?? normalizeRole(user.role)}</span>
+                          <button type="button" onClick={() => setRoleTargetId(user.id)} className="text-xs font-semibold text-brand-600 underline">Changer rôle</button>
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${user.isActive ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{user.isActive ? "Actif" : "Desactive"}</span></td>
                     <td className="px-4 py-3">

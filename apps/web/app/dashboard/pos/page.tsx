@@ -12,14 +12,14 @@ import { Info, MoreHorizontal, Plus, Search, Trash2, X } from "lucide-react";
 
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
-type Product = { id: string; name: string; sku: string; salePrice: number; availableStock: number; image?: string | null; primaryBarcode?: string | null; category?: string | null; unit?: string | null };
+type Product = { id: string; name: string; sku: string; salePrice: number; availableStock: number; stockTracked?: boolean; image?: string | null; primaryBarcode?: string | null; category?: string | null; unit?: string | null };
 type Store = { id: string; name: string; code: string };
 type Warehouse = { id: string; name: string; code: string; storeId?: string | null };
 type CashSession = { id: string; status: string; cashRegister?: { name: string } };
 type Customer = { id: string; displayName?: string | null; phone?: string | null; mobile?: string | null; whatsapp?: string | null };
 type CustomItemType = "OUT_OF_STOCK_PRODUCT" | "NON_STOCK_PRODUCT" | "SERVICE" | "CUSTOM_WORK" | "OTHER";
 type CartPayloadItem = { productId?: string | null; customId?: string; customName?: string; customType?: CustomItemType; customNote?: string; unitPrice?: number; quantity: number; discount?: number };
-type CartLine = { productId?: string | null; customId?: string; sku: string; name: string; unitPrice: number; quantity: number; discount: number; tax: number; total: number; availableStock: number; hasEnoughStock: boolean; unit?: string | null; isCustom?: boolean; customName?: string; customType?: CustomItemType; customNote?: string };
+type CartLine = { productId?: string | null; customId?: string; sku: string; name: string; unitPrice: number; quantity: number; discount: number; tax: number; total: number; availableStock: number; hasEnoughStock: boolean; stockTracked?: boolean; unit?: string | null; isCustom?: boolean; customName?: string; customType?: CustomItemType; customNote?: string };
 type Cart = { items: CartLine[]; subtotal: number; itemDiscount: number; discount: number; tax: number; total: number; taxRate: number; canCheckout: boolean };
 type SaleHistory = { id: string; total: string | number; createdAt: string; receipt?: { number: string } | null; invoice?: { documentNumber: string } | null };
 type SaleResponse = { id: string; total: string | number; receipt?: { number: string; content: string } | null; invoice?: { documentNumber: string; total: string | number } | null };
@@ -165,8 +165,30 @@ export default function PosPage() {
       })
       .catch(() => undefined); }, []);
   useEffect(() => {
+    let cancelled = false;
+    async function restoreDraft() {
     const draft = loadPosDraft();
     if (!draft) return;
+    if (draft.heldSaleId) {
+      const response = await fetchWithAuth(`${apiUrl}/pos/held-sales`).catch(() => null);
+      if (!response?.ok) {
+        if (!cancelled) {
+          clearPosDraft();
+          setMessage("Ancienne vente locale ignorée: vérification serveur impossible. Démarrez une nouvelle vente.");
+        }
+        return;
+      }
+      const data = await response.json().catch(() => ({ items: [] })) as { items?: Array<{ id?: string }> };
+      const existsOnServer = (data.items ?? []).some((item) => item.id === draft.heldSaleId);
+      if (!existsOnServer) {
+        if (!cancelled) {
+          clearPosDraft();
+          setMessage("Ancienne vente locale nettoyée: elle n'existe plus dans Ventes en attente.");
+        }
+        return;
+      }
+    }
+    if (cancelled) return;
     setHeldSaleId(draft.heldSaleId);
     setHeldSaleFinalizeKey(draft.heldSaleFinalizeKey);
     setCart(draft.cart);
@@ -178,6 +200,9 @@ export default function PosPage() {
     setWarehouseId((current) => current || draft.warehouseId);
     setCashSessionId((current) => current || draft.cashSessionId);
     setMessage("Vente en cours restaurée.");
+    }
+    void restoreDraft();
+    return () => { cancelled = true; };
   }, []);
   useEffect(() => {
     const hasDraft = cart.items.length > 0 || Boolean(customerId) || parseMoney(orderDiscount) > 0 || payments.some((payment) => parseMoney(payment.amount) > 0);
@@ -460,6 +485,7 @@ export default function PosPage() {
     setLastPaymentSummary(null);
     setShowPaymentModal(false);
     setShowCartDrawer(false);
+    setMessage("Nouvelle vente vide prête.");
   }
 
   async function saveLocalSale(payload: { storeId: string; warehouseId: string; cashSessionId: string; customerId?: string; taxRate: number; discount: number; items: CartPayloadItem[]; payments: Array<{ method: string; amount: number }> }, amount: number) {
@@ -469,17 +495,17 @@ export default function PosPage() {
     }
     for (const item of cart.items) {
       if (item.isCustom) continue;
-      if (item.availableStock < item.quantity) {
+      if (item.stockTracked !== false && item.availableStock < item.quantity) {
         setError("Stock local insuffisant");
         return;
       }
     }
     const localId = `offline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     await saveOfflineSale({ localId, status: "PENDING", createdOfflineAt: new Date().toISOString(), payload, total: cart.total, message: "Vente en attente de synchronisation" });
-    for (const item of cart.items) if (item.productId) await updateOfflineProductStock(item.productId, -item.quantity);
+    for (const item of cart.items) if (item.productId && item.stockTracked !== false) await updateOfflineProductStock(item.productId, -item.quantity);
     setProducts((current) => current.map((product) => {
       const line = cart.items.find((item) => item.productId === product.id);
-      return line ? { ...product, availableStock: Math.max(0, product.availableStock - line.quantity) } : product;
+      return line && product.stockTracked !== false ? { ...product, availableStock: Math.max(0, product.availableStock - line.quantity) } : product;
     }));
     setLastSale({ id: localId, total: cart.total, receipt: { number: localId, content: `Ticket local ${localId}` }, invoice: { documentNumber: "En attente", total: cart.total } });
     setMessage(`Vente enregistrée localement. Montant payé: ${formatMoney(amount)}. Le stock sera confirmé à la synchronisation.`);
@@ -945,8 +971,9 @@ function StatusMessages({ error, message, syncMessage }: { error: string; messag
 }
 
 function ProductCard({ product, onAdd }: { product: Product; onAdd: () => void }) {
-  const isLowStock = product.availableStock > 0 && product.availableStock <= 3;
-  const isOut = product.availableStock <= 0;
+  const stockTracked = product.stockTracked !== false;
+  const isLowStock = stockTracked && product.availableStock > 0 && product.availableStock <= 3;
+  const isOut = stockTracked && product.availableStock <= 0;
   return (
     <button onClick={onAdd} disabled={isOut} className="group flex h-full min-h-[214px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm transition hover:border-brand-500 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-brand-100 disabled:cursor-not-allowed disabled:opacity-55">
       <div className="aspect-[4/3] bg-slate-100">
@@ -965,7 +992,7 @@ function ProductCard({ product, onAdd }: { product: Product; onAdd: () => void }
         <div className="flex items-end justify-between gap-2">
           <div>
             <p className="text-base font-bold tabular-nums text-slate-950">{formatMoney(product.salePrice)}</p>
-            <p className={`mt-1 text-xs font-medium ${isOut ? "text-red-600" : isLowStock ? "text-orange-600" : "text-slate-500"}`}>{isOut ? "Rupture" : `Stock ${product.availableStock}`}</p>
+            <p className={`mt-1 text-xs font-medium ${isOut ? "text-red-600" : isLowStock ? "text-orange-600" : "text-slate-500"}`}>{stockTracked ? (isOut ? "Rupture" : `Stock ${product.availableStock}`) : "Service / non stocké"}</p>
           </div>
       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-slate-950 text-white transition group-hover:bg-brand-600" aria-label="Ajouter"><Plus aria-hidden="true" className="h-5 w-5" /></span>
         </div>
@@ -1085,7 +1112,7 @@ function CartLineItem({ item, updateQuantity, removeProduct }: { item: CartLine;
         <div className="min-w-0">
           <p className="truncate font-semibold">{item.name}</p>
           {item.unit ? <p className="text-xs font-semibold text-slate-600">Unité: {item.unit}</p> : null}
-          <p className="text-xs text-slate-500">{item.isCustom ? customTypeLabel(item.customType) : `${item.sku} · stock ${item.availableStock}`}</p>
+          <p className="text-xs text-slate-500">{item.isCustom ? customTypeLabel(item.customType) : item.stockTracked === false ? `${item.sku} · service / non stocké` : `${item.sku} · stock ${item.availableStock}`}</p>
           {item.isCustom ? <span className="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">{customTypeBadge(item.customType)}</span> : null}
         </div>
         <button onClick={() => removeProduct(id)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600" aria-label={`Retirer ${item.name}`}>
@@ -1582,7 +1609,8 @@ function calculateLocalCart(items: CartPayloadItem[], products: Product[], taxRa
       total,
       availableStock: product.availableStock,
       unit: product.unit,
-      hasEnoughStock: product.availableStock >= item.quantity
+      stockTracked: product.stockTracked !== false,
+      hasEnoughStock: product.stockTracked === false || product.availableStock >= item.quantity
     };
   });
   const total = roundMoney(subtotal - itemDiscount - discount + tax);

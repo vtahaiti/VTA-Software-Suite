@@ -155,6 +155,8 @@ export class SalesService {
       for (const item of saleItems) {
         if (!item.productId || !item.product) continue;
         const stock = await tx.stock.findUnique({ where: { tenantId_productId_warehouseId: { tenantId, productId: item.productId, warehouseId: dto.warehouseId } } });
+        const hasTrackedStockElsewhere = stock ? true : (await tx.stock.count({ where: { tenantId, productId: item.productId } })) > 0;
+        if (!stock && !this.isStockTrackedProduct(item.product) && !hasTrackedStockElsewhere) continue;
         const available = (stock?.quantity ?? 0) - (stock?.reserved ?? 0);
         if (!stock || available < item.quantity) throw new BadRequestException(`Stock insuffisant pour ${item.product.name}`);
       }
@@ -214,7 +216,10 @@ export class SalesService {
 
       for (const item of saleItems) {
         if (!item.productId || !item.product) continue;
-        const stock = await tx.stock.findUniqueOrThrow({ where: { tenantId_productId_warehouseId: { tenantId, productId: item.productId, warehouseId: dto.warehouseId } } });
+        const stock = await tx.stock.findUnique({ where: { tenantId_productId_warehouseId: { tenantId, productId: item.productId, warehouseId: dto.warehouseId } } });
+        const hasTrackedStockElsewhere = stock ? true : (await tx.stock.count({ where: { tenantId, productId: item.productId } })) > 0;
+        if (!stock && !this.isStockTrackedProduct(item.product) && !hasTrackedStockElsewhere) continue;
+        if (!stock) throw new BadRequestException(`Stock insuffisant pour ${item.product.name}`);
         const afterQty = stock.quantity - item.quantity;
         if (afterQty < 0) throw new BadRequestException(`Stock insuffisant pour ${item.product.name}`);
         await tx.stock.update({ where: { id: stock.id }, data: { quantity: afterQty } });
@@ -305,6 +310,10 @@ export class SalesService {
       tax: item.tax,
       total: item.total
     };
+  }
+
+  private isStockTrackedProduct(product: Pick<Product, "minimumStock">) {
+    return Number(product.minimumStock ?? 0) > 0;
   }
 
   private receiptContent(receiptNumber: string, items: Array<{ product: { name: string } | null; customName?: string; productId?: string; quantity: number; total: number }>, total: number, settledAmount: number, receivedAmount: number, changeAmount: number) {

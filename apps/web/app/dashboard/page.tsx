@@ -196,7 +196,6 @@ export default function DashboardPage() {
 
   const currentUser = getCurrentUser();
   const companyName = branding?.companyName ?? currentUser?.tenant ?? "Mon entreprise";
-  const primaryColor = branding?.primaryColor ?? "#2563eb";
   const kpiCards = useMemo(() => [
     { label: "Chiffre d'affaires du jour", value: formatMoney(summary.kpis.revenueToday), tone: "green" },
     { label: "Chiffre d'affaires du mois", value: formatMoney(summary.kpis.revenueMonth), tone: "blue" },
@@ -257,11 +256,10 @@ export default function DashboardPage() {
         <AlertsPanel alerts={summary.alerts} />
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-4">
+      <section className="grid gap-6 xl:grid-cols-3">
         <MiniChart title="Évolution bénéfices" data={summary.charts.trend30Days.map((point) => ({ label: point.date, value: point.profit }))} color="#7c3aed" />
         <MiniChart title="Évolution chiffre d'affaires" data={summary.charts.trend30Days.map((point) => ({ label: point.date, value: point.revenue }))} color="#2563eb" />
         <BarChart title="Ventes hebdomadaires" data={summary.charts.weeklySales.map((week) => ({ label: week.label, value: week.sales }))} color="#16a34a" />
-        <BarChart title="Valeur du stock" data={summary.charts.stockValueByCategory} color={primaryColor} />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-3">

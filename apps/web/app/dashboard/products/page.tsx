@@ -35,6 +35,8 @@ export default function ProductsPage() {
   const [showOptions, setShowOptions] = useState(false);
   const [costMissingOnly, setCostMissingOnly] = useState(false);
   const [form, setForm] = useState<ProductForm>(emptyForm);
+  const [quickCostProduct, setQuickCostProduct] = useState<Product | null>(null);
+  const [quickCostValue, setQuickCostValue] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -98,6 +100,32 @@ export default function ProductsPage() {
     await loadProducts();
   }
 
+  async function saveQuickCost(event: FormEvent) {
+    event.preventDefault();
+    if (!quickCostProduct) return;
+    setMessage("");
+    setIsSaving(true);
+    const response = await fetchWithAuth(`${apiUrl}/products/${quickCostProduct.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ purchasePrice: Number(quickCostValue || 0) })
+    });
+    setIsSaving(false);
+    if (!response.ok) {
+      setMessage(await readError(response));
+      return;
+    }
+    setMessage(`Coût d'achat mis à jour pour ${quickCostProduct.name}.`);
+    setQuickCostProduct(null);
+    setQuickCostValue("");
+    await loadProducts();
+  }
+
+  function openQuickCost(product: Product) {
+    setQuickCostProduct(product);
+    setQuickCostValue(String(product.purchasePrice ?? ""));
+  }
+
   const pages = useMemo(() => Math.max(1, Math.ceil(total / 25)), [total]);
 
   return (
@@ -132,7 +160,7 @@ export default function ProductsPage() {
             <div className="rounded-md bg-slate-50 p-2 dark:bg-slate-950"><span className="text-slate-500">Stock</span><p className="font-semibold">{product.stockCurrent ?? 0}{product.unit ? ` ${product.unit.symbol ?? product.unit.name}` : ""}</p></div>
             <div className="rounded-md bg-slate-50 p-2 dark:bg-slate-950"><span className="text-slate-500">Fournisseur</span><p className="truncate font-semibold">{product.supplier?.name ?? "--"}</p></div>
           </div>
-          {product.costKnown === false ? <p className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">Coût non renseigné</p> : null}
+          {product.costKnown === false ? <div className="mt-2 flex flex-wrap items-center gap-2"><p className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">Coût non renseigné</p><button type="button" onClick={() => openQuickCost(product)} className="rounded-md border border-amber-200 px-2 py-1 text-xs font-bold text-amber-700">Ajouter coût</button></div> : <button type="button" onClick={() => openQuickCost(product)} className="mt-2 text-xs font-semibold text-slate-500 underline">Modifier coût</button>}
           <div className="mt-4 grid grid-cols-2 gap-2">
             <Link className="rounded-md bg-brand-600 px-3 py-3 text-center text-sm font-bold text-white" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link>
             <Link className="rounded-md border border-slate-300 px-3 py-3 text-center text-sm font-semibold dark:border-slate-700" href={`/dashboard/products/${product.id}/edit`}>Voir</Link>
@@ -143,7 +171,7 @@ export default function ProductsPage() {
       <div className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 md:block">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">Produit</th><th className="p-3">Catégorie</th><th className="p-3">Prix</th><th className="p-3">Stock</th><th className="p-3">Actions</th></tr></thead>
-          <tbody>{items.map((product) => <tr key={product.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3"><p className="font-semibold">{product.name}</p><p className="font-mono text-xs text-slate-400">{product.sku}{product.unit ? ` · ${product.unit.symbol ?? product.unit.name}` : ""}</p>{product.supplier?.name ? <p className="text-xs text-slate-500">Fournisseur: {product.supplier.name}</p> : null}{product.costKnown === false ? <p className="mt-1 text-xs font-semibold text-amber-600">Coût non renseigné</p> : null}</td><td className="p-3">{product.category?.name ?? "--"}</td><td className="p-3">{product.salePrice}</td><td className="p-3">{product.stockCurrent ?? 0}{product.unit ? ` ${product.unit.symbol ?? product.unit.name}` : ""}</td><td className="p-3"><Link className="text-brand-600" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link></td></tr>)}</tbody>
+          <tbody>{items.map((product) => <tr key={product.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3"><p className="font-semibold">{product.name}</p><p className="font-mono text-xs text-slate-400">{product.sku}{product.unit ? ` · ${product.unit.symbol ?? product.unit.name}` : ""}</p>{product.supplier?.name ? <p className="text-xs text-slate-500">Fournisseur: {product.supplier.name}</p> : null}{product.costKnown === false ? <p className="mt-1 text-xs font-semibold text-amber-600">Coût non renseigné</p> : null}</td><td className="p-3">{product.category?.name ?? "--"}</td><td className="p-3">{product.salePrice}</td><td className="p-3">{product.stockCurrent ?? 0}{product.unit ? ` ${product.unit.symbol ?? product.unit.name}` : ""}</td><td className="p-3"><div className="flex flex-wrap gap-3"><Link className="text-brand-600" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link><button type="button" onClick={() => openQuickCost(product)} className="text-amber-700">Coût</button></div></td></tr>)}</tbody>
         </table>
         {!isLoading && !message && items.length === 0 ? <p className="p-5 text-sm text-slate-500">Aucun produit trouvé.</p> : null}
         {isLoading ? <p className="p-5 text-sm text-slate-500">Chargement des produits...</p> : null}
@@ -168,6 +196,16 @@ export default function ProductsPage() {
             <p className="text-xs text-slate-500">Le stock initial crée la quantité de départ du produit. Les autres entrées restent dans le module Stock.</p>
             {message ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{message}</p> : null}
             <button disabled={isSaving} className="w-full rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{isSaving ? "Enregistrement..." : "Enregistrer"}</button>
+          </form>
+        </Modal>
+      ) : null}
+      {quickCostProduct ? (
+        <Modal title="Modifier le coût d'achat" onClose={() => { setQuickCostProduct(null); setQuickCostValue(""); }}>
+          <form onSubmit={saveQuickCost} className="space-y-3">
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{quickCostProduct.name}</p>
+            <Input required type="number" value={quickCostValue} onChange={setQuickCostValue} placeholder="Coût d'achat" />
+            <p className="text-xs text-slate-500">Met à jour uniquement le coût d&apos;achat du produit. Le prix de vente, le stock et les ventes ne changent pas.</p>
+            <button disabled={isSaving} className="w-full rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{isSaving ? "Enregistrement..." : "Enregistrer le coût"}</button>
           </form>
         </Modal>
       ) : null}

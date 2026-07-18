@@ -116,6 +116,7 @@ export class PosService {
           name: true,
           salePrice: true,
           purchasePrice: true,
+          minimumStock: true,
           barcodes: { select: { value: true, isPrimary: true } },
           images: { select: { url: true }, take: 1, orderBy: { sortOrder: "asc" } },
           stocks: { select: { warehouseId: true, quantity: true, reserved: true } },
@@ -214,7 +215,8 @@ export class PosService {
       const product = productMap.get(item.productId);
       if (!product) throw new NotFoundException("Produit introuvable");
       this.assertQuantityAllowed(item.quantity, product.unit);
-      const availableStock = this.availableStock(product.stocks, dto.warehouseId);
+      const stockTracked = this.isStockTracked(product);
+      const availableStock = stockTracked ? this.availableStock(product.stocks, dto.warehouseId) : 0;
       const unitPrice = Number(product.salePrice);
       const discount = item.discount ?? 0;
       const base = unitPrice * item.quantity;
@@ -237,7 +239,8 @@ export class PosService {
         availableStock,
         unit: product.unit?.symbol ?? product.unit?.name ?? null,
         primaryBarcode: product.barcodes.find((barcode) => barcode.isPrimary)?.value ?? product.barcodes[0]?.value ?? null,
-        hasEnoughStock: availableStock >= item.quantity,
+        hasEnoughStock: !stockTracked || availableStock >= item.quantity,
+        stockTracked,
         isCustom: false
       };
     });
@@ -538,15 +541,17 @@ export class PosService {
     name: true;
     salePrice: true;
     purchasePrice: true;
+    minimumStock: true;
     barcodes: { select: { value: true; isPrimary: true } };
     images: { select: { url: true } };
-    stocks: { select: { warehouseId: true; quantity: true; reserved: true } };
+      stocks: { select: { warehouseId: true; quantity: true; reserved: true } };
     category: { select: { name: true } };
     brand: { select: { name: true } };
     unit: { select: { name: true; symbol: true } };
   } }>, warehouseId?: string) {
-    const scopedAvailable = this.availableStock(product.stocks, warehouseId);
-    const totalAvailable = this.availableStock(product.stocks);
+    const stockTracked = this.isStockTracked(product);
+    const scopedAvailable = stockTracked ? this.availableStock(product.stocks, warehouseId) : 0;
+    const totalAvailable = stockTracked ? this.availableStock(product.stocks) : 0;
     return {
       id: product.id,
       sku: product.sku,
@@ -558,9 +563,14 @@ export class PosService {
       brand: product.brand?.name ?? null,
       unit: product.unit?.symbol ?? product.unit?.name ?? null,
       primaryBarcode: product.barcodes.find((barcode) => barcode.isPrimary)?.value ?? product.barcodes[0]?.value ?? null,
+      stockTracked,
       availableStock: warehouseId && scopedAvailable === 0 && totalAvailable > 0 ? totalAvailable : scopedAvailable,
       totalAvailableStock: totalAvailable
     };
+  }
+
+  private isStockTracked(product: { stocks?: Array<unknown>; minimumStock?: number | null }) {
+    return Boolean((product.stocks?.length ?? 0) > 0 || Number(product.minimumStock ?? 0) > 0);
   }
 
   private availableStock(stocks: Array<{ warehouseId: string; quantity: number; reserved: number }>, warehouseId?: string) {
