@@ -13,6 +13,8 @@ assert(productForm.includes("nonStockProductLabel(business)"), "Le formulaire pr
 assert(productsPage.includes('return "Plat / service non stocke"'), "Restaurant doit pouvoir afficher Plat / service non stocke.");
 assert(productsPage.includes('return "Service non stocke"'), "Multi-activite doit afficher Service non stocke.");
 assert(productsPage.includes('return "Produit non stocke"'), "Commerce doit afficher Produit non stocke.");
+assert(productsPage.includes("isMultiActivityServiceProduct"), "Les services Multi-activite stock 0/min 0 doivent etre affiches non stockes.");
+assert(productsPage.includes("current > 0 || minimum > 0"), "Un produit Multi-activite avec stock ou minimum doit rester stocke.");
 assert(!productsPage.includes(">Service / plat<"), "La liste produits ne doit jamais afficher le badge brut Service / plat.");
 assert(!productsPage.includes("Service / plat non stocke"), "La liste produits ne doit pas dupliquer Service / plat non stocke hors helper Restaurant.");
 assert(productsPage.includes("isStrictStockBusiness"), "Quincaillerie/Materiaux/Pharmacie doivent rester traites comme profils stock.");

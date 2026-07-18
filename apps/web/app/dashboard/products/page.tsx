@@ -306,8 +306,18 @@ function isExplicitNonStockProduct(product: Pick<Product, "variants">) {
   return /non stock|non-stock|service non stock|produit non stock|plat \/ service/.test(value);
 }
 
+function isMultiActivityServiceProduct(product: Product, business?: TenantBusinessConfiguration | null) {
+  if (!isMultiActivityBusiness(business ?? null)) return false;
+  const current = Number(product.stockCurrent ?? 0);
+  const minimum = Number(product.minimumStock ?? 0);
+  if (current > 0 || minimum > 0) return false;
+  const value = `${product.name ?? ""} ${product.category?.name ?? ""} ${(product.variants ?? []).map((variant) => `${variant.name ?? ""} ${variant.model ?? ""}`).join(" ")}`.toLowerCase();
+  return /service|impression|gravure|decoupe|d[ée]coupe|sur mesure|studio|reparation|réparation|installation|conception|personnalis/.test(value);
+}
+
 function productStockStatus(product: Product, business?: TenantBusinessConfiguration | null) {
   if (isRestaurantNonStock(product, business)) return "NON_STOCK";
+  if (isMultiActivityServiceProduct(product, business)) return "NON_STOCK";
   if (!isStrictStockBusiness(business) && isExplicitNonStockProduct(product)) return "NON_STOCK";
   const current = Number(product.stockCurrent ?? 0);
   const minimum = Number(product.minimumStock ?? 0);
