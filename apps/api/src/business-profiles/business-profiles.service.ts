@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+﻿import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
-import { businessActivityTemplates, businessCategories, businessModules, businessProfiles, resolveBusinessProfileSlug } from "./business-catalog";
+import { businessActivityTemplates, businessCategories, businessModules, businessProfiles, businessSectors, resolveBusinessProfileSlug } from "./business-catalog";
 
 @Injectable()
 export class BusinessProfilesService {
@@ -8,7 +8,7 @@ export class BusinessProfilesService {
 
   async catalog() {
     await this.syncCatalog();
-    return { categories: businessCategories, activityTemplates: businessActivityTemplates, profiles: businessProfiles, modules: businessModules };
+    return { sectors: businessSectors, categories: businessCategories, activityTemplates: businessActivityTemplates, profiles: businessProfiles, modules: businessModules };
   }
 
   async tenantConfiguration(tenantId: string) {
@@ -49,8 +49,9 @@ export class BusinessProfilesService {
       secondaryActivities: tenant?.secondaryActivities ?? [],
       businessProfileType: tenant?.businessProfileType ?? "commerce",
       enabledBusinessModules: tenant?.enabledBusinessModules ?? activeModules.map((module) => module.key),
+      sectors: businessSectors,
       categories: businessCategories,
-      offline: { préparéd: true, message: "Mode hors ligne préparé pour synchronisation future." }
+      offline: { prepared: true, message: "Mode hors ligne prepare pour synchronisation future." }
     };
   }
 
@@ -67,7 +68,7 @@ export class BusinessProfilesService {
   async activateProfile(tenantId: string, slug: string, isPrimary = false) {
     await this.syncCatalog();
     const profile = await this.prisma.businessProfile.findUnique({ where: { slug }, include: { modules: { include: { businessModule: true } } } });
-    if (!profile) throw new NotFoundException("Profil métier introuvable.");
+    if (!profile) throw new NotFoundException("Profil mÃ©tier introuvable.");
 
     await this.prisma.$transaction(async (tx) => {
       if (isPrimary) await tx.tenantBusinessProfile.updateMany({ where: { tenantId }, data: { isPrimary: false } });
@@ -94,9 +95,9 @@ export class BusinessProfilesService {
   async deactivateProfile(tenantId: string, slug: string) {
     await this.syncCatalog();
     const profile = await this.prisma.businessProfile.findUnique({ where: { slug } });
-    if (!profile) throw new NotFoundException("Profil métier introuvable.");
+    if (!profile) throw new NotFoundException("Profil mÃ©tier introuvable.");
     const activeCount = await this.prisma.tenantBusinessProfile.count({ where: { tenantId, isActive: true } });
-    if (activeCount <= 1) throw new BadRequestException("Au moins un profil métier doit rester actif.");
+    if (activeCount <= 1) throw new BadRequestException("Au moins un profil mÃ©tier doit rester actif.");
     await this.prisma.tenantBusinessProfile.update({ where: { tenantId_businessProfileId: { tenantId, businessProfileId: profile.id } }, data: { isActive: false, isPrimary: false, disabledAt: new Date() } });
     await this.rebuildTenantModules(tenantId);
     const configuration = await this.tenantConfiguration(tenantId);
@@ -107,7 +108,7 @@ export class BusinessProfilesService {
   async setModuleState(tenantId: string, key: string, isActive: boolean) {
     await this.syncCatalog();
     const module = await this.prisma.businessModule.findUnique({ where: { key } });
-    if (!module) throw new NotFoundException("Module métier introuvable.");
+    if (!module) throw new NotFoundException("Module mÃ©tier introuvable.");
     await this.prisma.tenantBusinessModule.upsert({
       where: { tenantId_businessModuleId: { tenantId, businessModuleId: module.id } },
       update: { isActive, source: "manual", disabledAt: isActive ? null : new Date() },
@@ -213,13 +214,13 @@ export class BusinessProfilesService {
       { label: "Historique des ventes", href: "/dashboard/sales/completed", module: "pos" },
       { label: "Devis & Commandes", href: "/dashboard/sales", module: "sales" },
       { label: "Produits", href: "/dashboard/products", module: "products" },
-      { label: "Catégories", href: "/dashboard/products/categories", module: "products" },
+      { label: "CatÃ©gories", href: "/dashboard/products/categories", module: "products" },
       { label: "Inventaire", href: "/dashboard/inventory", module: "inventory" },
       { label: "Clients", href: "/dashboard/customers", module: "customers" },
       { label: "Fournisseurs", href: "/dashboard/suppliers", module: "suppliers" },
       { label: "Achats", href: "/dashboard/purchases", module: "suppliers" },
       { label: "Rapports", href: "/dashboard/reports", module: "reports" },
-      { label: "Paramètres", href: "/dashboard/settings/company", module: "settings" },
+      { label: "ParamÃ¨tres", href: "/dashboard/settings/company", module: "settings" },
       { label: "Abonnement", href: "/dashboard/settings/subscription", module: "settings" },
       { label: "Emails", href: "/dashboard/settings/emails", module: "settings" }
     ];
@@ -233,7 +234,7 @@ export class BusinessProfilesService {
 
   private resolveSimpleMenu(profileType = "commerce", primaryActivity?: string | null) {
     const activity = (primaryActivity ?? "").toLowerCase();
-    const normalizedProfile = profileType === "windows-aluminium" || profileType === "manufacturing" || activity.includes("aluminium") || activity.includes("fabrication") ? "production" : profileType;
+    const normalizedProfile = profileType === "windows-aluminium" || profileType === "manufacturing" || activity.includes("aluminium") || activity.includes("fabrication") ? "production" : profileType === "hotel-restaurant" ? "hotel" : profileType;
     if (normalizedProfile === "restaurant") {
       return [
         { label: "Accueil", href: "/dashboard", module: "dashboard" },
@@ -249,88 +250,88 @@ export class BusinessProfilesService {
     }
     const menus: Record<string, Array<{ label: string; href: string; module: string }>> = {
       commerce: [
-        { label: "🏠 Accueil", href: "/dashboard", module: "dashboard" },
-        { label: "🛒 Nouvelle vente", href: "/dashboard/pos", module: "pos" },
-        { label: "📦 Produits", href: "/dashboard/products", module: "products" },
-        { label: "📊 Stock", href: "/dashboard/inventory", module: "inventory" },
-        { label: "👥 Clients", href: "/dashboard/customers", module: "customers" },
-        { label: "🚚 Fournisseurs", href: "/dashboard/suppliers", module: "suppliers" },
-        { label: "🧾 Achats", href: "/dashboard/purchases", module: "suppliers" },
-        { label: "📈 Rapports", href: "/dashboard/reports", module: "reports" },
-        { label: "⚙️ Paramètres", href: "/dashboard/settings/company", module: "settings" }
+        { label: "ðŸ  Accueil", href: "/dashboard", module: "dashboard" },
+        { label: "ðŸ›’ Nouvelle vente", href: "/dashboard/pos", module: "pos" },
+        { label: "ðŸ“¦ Produits", href: "/dashboard/products", module: "products" },
+        { label: "ðŸ“Š Stock", href: "/dashboard/inventory", module: "inventory" },
+        { label: "ðŸ‘¥ Clients", href: "/dashboard/customers", module: "customers" },
+        { label: "ðŸšš Fournisseurs", href: "/dashboard/suppliers", module: "suppliers" },
+        { label: "ðŸ§¾ Achats", href: "/dashboard/purchases", module: "suppliers" },
+        { label: "ðŸ“ˆ Rapports", href: "/dashboard/reports", module: "reports" },
+        { label: "âš™ï¸ ParamÃ¨tres", href: "/dashboard/settings/company", module: "settings" }
       ],
       pharmacy: [
-        { label: "🏠 Accueil", href: "/dashboard", module: "dashboard" },
-        { label: "💊 POS Pharmacie", href: "/dashboard/pos", module: "pos" },
-        { label: "💊 Médicaments", href: "/dashboard/products", module: "products" },
-        { label: "📊 Stock", href: "/dashboard/inventory", module: "inventory" },
-        { label: "👥 Patients", href: "/dashboard/customers", module: "customers" },
-        { label: "🧾 Ordonnances", href: "/dashboard/sales/quotes", module: "sales" },
-        { label: "🏥 Fournisseurs", href: "/dashboard/suppliers", module: "suppliers" },
-        { label: "📈 Rapports", href: "/dashboard/reports", module: "reports" },
-        { label: "⚙️ Paramètres", href: "/dashboard/settings/company", module: "settings" }
+        { label: "ðŸ  Accueil", href: "/dashboard", module: "dashboard" },
+        { label: "ðŸ’Š POS Pharmacie", href: "/dashboard/pos", module: "pos" },
+        { label: "ðŸ’Š MÃ©dicaments", href: "/dashboard/products", module: "products" },
+        { label: "ðŸ“Š Stock", href: "/dashboard/inventory", module: "inventory" },
+        { label: "ðŸ‘¥ Patients", href: "/dashboard/customers", module: "customers" },
+        { label: "ðŸ§¾ Ordonnances", href: "/dashboard/sales/quotes", module: "sales" },
+        { label: "ðŸ¥ Fournisseurs", href: "/dashboard/suppliers", module: "suppliers" },
+        { label: "ðŸ“ˆ Rapports", href: "/dashboard/reports", module: "reports" },
+        { label: "âš™ï¸ ParamÃ¨tres", href: "/dashboard/settings/company", module: "settings" }
       ],
       clinic: [
-        { label: "🏠 Accueil", href: "/dashboard", module: "dashboard" },
-        { label: "🩺 Patients", href: "/dashboard/customers", module: "customers" },
-        { label: "📅 Rendez-vous", href: "/dashboard/sales/quotes", module: "sales" },
-        { label: "📋 Consultations", href: "/dashboard/sales", module: "sales" },
-        { label: "💉 Traitements", href: "/dashboard/products", module: "sales" },
-        { label: "💊 Prescriptions", href: "/dashboard/sales/quotes", module: "sales" },
-        { label: "🧾 Facturation", href: "/dashboard/sales/invoices", module: "sales" },
-        { label: "📈 Rapports", href: "/dashboard/reports", module: "reports" },
-        { label: "⚙️ Paramètres", href: "/dashboard/settings/company", module: "settings" }
+        { label: "ðŸ  Accueil", href: "/dashboard", module: "dashboard" },
+        { label: "ðŸ©º Patients", href: "/dashboard/customers", module: "customers" },
+        { label: "ðŸ“… Rendez-vous", href: "/dashboard/sales/quotes", module: "sales" },
+        { label: "ðŸ“‹ Consultations", href: "/dashboard/sales", module: "sales" },
+        { label: "ðŸ’‰ Traitements", href: "/dashboard/products", module: "sales" },
+        { label: "ðŸ’Š Prescriptions", href: "/dashboard/sales/quotes", module: "sales" },
+        { label: "ðŸ§¾ Facturation", href: "/dashboard/sales/invoices", module: "sales" },
+        { label: "ðŸ“ˆ Rapports", href: "/dashboard/reports", module: "reports" },
+        { label: "âš™ï¸ ParamÃ¨tres", href: "/dashboard/settings/company", module: "settings" }
       ],
       restaurant: [
-        { label: "🏠 Accueil", href: "/dashboard", module: "dashboard" },
-        { label: "🍽 POS Restaurant", href: "/dashboard/pos", module: "pos" },
-        { label: "📋 Commandes ouvertes", href: "/dashboard/sales/in-progress", module: "pos" },
-        { label: "🧾 Historique", href: "/dashboard/sales/completed", module: "pos" },
-        { label: "🍹 Menu / Articles", href: "/dashboard/products", module: "products" },
-        { label: "🏷 Catégories", href: "/dashboard/products/categories", module: "products" },
-        { label: "👥 Clients", href: "/dashboard/customers", module: "customers" },
-        { label: "📈 Rapports", href: "/dashboard/reports", module: "reports" },
-        { label: "⚙️ Paramètres", href: "/dashboard/settings/company", module: "settings" }
+        { label: "ðŸ  Accueil", href: "/dashboard", module: "dashboard" },
+        { label: "ðŸ½ POS Restaurant", href: "/dashboard/pos", module: "pos" },
+        { label: "ðŸ“‹ Commandes ouvertes", href: "/dashboard/sales/in-progress", module: "pos" },
+        { label: "ðŸ§¾ Historique", href: "/dashboard/sales/completed", module: "pos" },
+        { label: "ðŸ¹ Menu / Articles", href: "/dashboard/products", module: "products" },
+        { label: "ðŸ· CatÃ©gories", href: "/dashboard/products/categories", module: "products" },
+        { label: "ðŸ‘¥ Clients", href: "/dashboard/customers", module: "customers" },
+        { label: "ðŸ“ˆ Rapports", href: "/dashboard/reports", module: "reports" },
+        { label: "âš™ï¸ ParamÃ¨tres", href: "/dashboard/settings/company", module: "settings" }
       ],
       hotel: [
-        { label: "🏠 Accueil", href: "/dashboard", module: "dashboard" },
-        { label: "🛎 Réservations", href: "/dashboard/sales/quotes", module: "sales" },
-        { label: "🏨 Chambres", href: "/dashboard/stores", module: "hotel" },
-        { label: "👥 Clients", href: "/dashboard/customers", module: "customers" },
-        { label: "💳 Paiements", href: "/dashboard/payments", module: "sales" },
-        { label: "📈 Rapports", href: "/dashboard/reports", module: "reports" },
-        { label: "⚙️ Paramètres", href: "/dashboard/settings/company", module: "settings" }
+        { label: "ðŸ  Accueil", href: "/dashboard", module: "dashboard" },
+        { label: "ðŸ›Ž RÃ©servations", href: "/dashboard/sales/quotes", module: "sales" },
+        { label: "ðŸ¨ Chambres", href: "/dashboard/stores", module: "hotel" },
+        { label: "ðŸ‘¥ Clients", href: "/dashboard/customers", module: "customers" },
+        { label: "ðŸ’³ Paiements", href: "/dashboard/payments", module: "sales" },
+        { label: "ðŸ“ˆ Rapports", href: "/dashboard/reports", module: "reports" },
+        { label: "âš™ï¸ ParamÃ¨tres", href: "/dashboard/settings/company", module: "settings" }
       ],
       school: [
-        { label: "🏠 Accueil", href: "/dashboard", module: "dashboard" },
-        { label: "🎓 Élèves", href: "/dashboard/customers", module: "customers" },
-        { label: "💳 Paiements", href: "/dashboard/payments", module: "sales" },
-        { label: "🏫 Classes", href: "/dashboard/stores", module: "school" },
-        { label: "📈 Rapports", href: "/dashboard/reports", module: "reports" },
-        { label: "⚙️ Paramètres", href: "/dashboard/settings/company", module: "settings" }
+        { label: "ðŸ  Accueil", href: "/dashboard", module: "dashboard" },
+        { label: "ðŸŽ“ Ã‰lÃ¨ves", href: "/dashboard/customers", module: "customers" },
+        { label: "ðŸ’³ Paiements", href: "/dashboard/payments", module: "sales" },
+        { label: "ðŸ« Classes", href: "/dashboard/stores", module: "school" },
+        { label: "ðŸ“ˆ Rapports", href: "/dashboard/reports", module: "reports" },
+        { label: "âš™ï¸ ParamÃ¨tres", href: "/dashboard/settings/company", module: "settings" }
       ],
       garage: [
-        { label: "🏠 Accueil", href: "/dashboard", module: "dashboard" },
-        { label: "🚗 Véhicules", href: "/dashboard/customers", module: "customers" },
-        { label: "👤 Clients", href: "/dashboard/customers", module: "customers" },
-        { label: "🔧 Réparations", href: "/dashboard/sales/invoices", module: "sales" },
-        { label: "📅 Rendez-vous", href: "/dashboard/sales/quotes", module: "sales" },
-        { label: "📦 Pièces", href: "/dashboard/products", module: "products" },
-        { label: "💳 Facturation", href: "/dashboard/sales/invoices", module: "sales" },
-        { label: "📈 Rapports", href: "/dashboard/reports", module: "reports" },
-        { label: "⚙️ Paramètres", href: "/dashboard/settings/company", module: "settings" }
+        { label: "ðŸ  Accueil", href: "/dashboard", module: "dashboard" },
+        { label: "ðŸš— VÃ©hicules", href: "/dashboard/customers", module: "customers" },
+        { label: "ðŸ‘¤ Clients", href: "/dashboard/customers", module: "customers" },
+        { label: "ðŸ”§ RÃ©parations", href: "/dashboard/sales/invoices", module: "sales" },
+        { label: "ðŸ“… Rendez-vous", href: "/dashboard/sales/quotes", module: "sales" },
+        { label: "ðŸ“¦ PiÃ¨ces", href: "/dashboard/products", module: "products" },
+        { label: "ðŸ’³ Facturation", href: "/dashboard/sales/invoices", module: "sales" },
+        { label: "ðŸ“ˆ Rapports", href: "/dashboard/reports", module: "reports" },
+        { label: "âš™ï¸ ParamÃ¨tres", href: "/dashboard/settings/company", module: "settings" }
       ],
       production: [
-        { label: "🏠 Accueil", href: "/dashboard", module: "dashboard" },
-        { label: "📋 Devis", href: "/dashboard/sales/quotes", module: "sales" },
-        { label: "🏗 Projets", href: "/dashboard/sales", module: "sales" },
-        { label: "📐 Fabrication", href: "/dashboard/sales/quotes", module: "sales" },
-        { label: "🚚 Installation", href: "/dashboard/sales/invoices", module: "sales" },
-        { label: "📦 Matières premières", href: "/dashboard/inventory", module: "inventory" },
-        { label: "🪟 Produits finis", href: "/dashboard/products", module: "products" },
-        { label: "👥 Clients", href: "/dashboard/customers", module: "customers" },
-        { label: "📈 Rapports", href: "/dashboard/reports", module: "reports" },
-        { label: "⚙️ Paramètres", href: "/dashboard/settings/company", module: "settings" }
+        { label: "ðŸ  Accueil", href: "/dashboard", module: "dashboard" },
+        { label: "ðŸ“‹ Devis", href: "/dashboard/sales/quotes", module: "sales" },
+        { label: "ðŸ— Projets", href: "/dashboard/sales", module: "sales" },
+        { label: "ðŸ“ Fabrication", href: "/dashboard/sales/quotes", module: "sales" },
+        { label: "ðŸšš Installation", href: "/dashboard/sales/invoices", module: "sales" },
+        { label: "ðŸ“¦ MatiÃ¨res premiÃ¨res", href: "/dashboard/inventory", module: "inventory" },
+        { label: "ðŸªŸ Produits finis", href: "/dashboard/products", module: "products" },
+        { label: "ðŸ‘¥ Clients", href: "/dashboard/customers", module: "customers" },
+        { label: "ðŸ“ˆ Rapports", href: "/dashboard/reports", module: "reports" },
+        { label: "âš™ï¸ ParamÃ¨tres", href: "/dashboard/settings/company", module: "settings" }
       ]
     };
     return menus[normalizedProfile] ?? menus.commerce;
@@ -340,19 +341,19 @@ export class BusinessProfilesService {
     const simpleItems = this.buildSimpleMenuSections(modules, profileType, primaryActivity)[0].items;
     return [
       { title: "Menu", items: simpleItems },
-      { title: "Paramètres avancés", items: [
+      { title: "ParamÃ¨tres avancÃ©s", items: [
         { label: "Import / Export", href: "/dashboard/import-export" },
         { label: "Audit", href: "/dashboard/audit" },
         { label: "Permissions", href: "/dashboard/settings/permissions" },
         { label: "Sauvegardes", href: "/dashboard/backups" },
-        { label: "Modules métier", href: "/dashboard/settings/business-modules" },
+        { label: "Modules mÃ©tier", href: "/dashboard/settings/business-modules" },
         { label: "Taxes", href: "/dashboard/settings/invoicing" }
       ] }
     ];
   }
 
   private buildMenuSections(modules: Array<ReturnType<BusinessProfilesService["serializeModule"]>>) {
-    const order = ["Principal", "Produits", "Stock", "Achats", "Ventes", "Restaurant", "Automobile", "Impression", "Hôtel", "Éducation", "Services", "Paramètres"];
+    const order = ["Principal", "Produits", "Stock", "Achats", "Ventes", "Restaurant", "Automobile", "Impression", "HÃ´tel", "Ã‰ducation", "Services", "ParamÃ¨tres"];
     const grouped = new Map<string, Array<{ label: string; href: string }>>();
     const seen = new Set<string>();
     for (const module of modules) for (const item of module.menuItems) {
