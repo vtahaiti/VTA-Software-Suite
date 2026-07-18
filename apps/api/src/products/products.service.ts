@@ -25,6 +25,7 @@ const productListSelect = {
   category: { select: { id: true, name: true } },
   unit: { select: { id: true, name: true, symbol: true } },
   supplier: { select: { id: true, name: true } },
+  variants: { select: { name: true, model: true, stock: true } },
   stocks: { select: { quantity: true, reserved: true, minimumStock: true } }
 } satisfies Prisma.ProductSelect;
 

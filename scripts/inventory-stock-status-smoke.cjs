@@ -30,8 +30,19 @@ function isProductStockTracked(product) {
   return Number(product.stockCurrent ?? 0) > 0 || Number(product.minimumStock ?? 0) > 0;
 }
 
-function productStockStatus(product) {
-  if (!isProductStockTracked(product)) return "NON_STOCK";
+function restaurantProductKind(product) {
+  const value = `${product.name ?? ""} ${product.category?.name ?? ""} ${(product.variants ?? []).map((variant) => `${variant.name ?? ""} ${variant.model ?? ""}`).join(" ")}`.toLowerCase();
+  if (/stockable|ingredient|ingr[ée]dient|boisson|bouteille|canette/.test(value)) return "STOCKED";
+  if (/plat|portion|menu|repas|cabrit|poulet|poisson|dessert|extra|service|supplement|suppl[ée]ment/.test(value)) return "NON_STOCK";
+  return "UNKNOWN";
+}
+
+function isRestaurantNonStock(product, isRestaurant = false) {
+  return isRestaurant && restaurantProductKind(product) === "NON_STOCK";
+}
+
+function productStockStatus(product, isRestaurant = false) {
+  if (isRestaurantNonStock(product, isRestaurant) || !isProductStockTracked(product)) return "NON_STOCK";
   const current = Number(product.stockCurrent ?? 0);
   const minimum = Number(product.minimumStock ?? 0);
   if (current <= 0) return "OUT_OF_STOCK";
@@ -39,11 +50,11 @@ function productStockStatus(product) {
   return "IN_STOCK";
 }
 
-function productStockDisplay(product) {
-  if (!isProductStockTracked(product)) return "Non stocke";
+function productStockDisplay(product, isRestaurant = false) {
+  if (isRestaurantNonStock(product, isRestaurant) || !isProductStockTracked(product)) return "Non stocke";
   const unit = productUnitLabel(product);
   const current = `${product.stockCurrent ?? 0}${unit ? ` ${unit}` : ""}`;
-  return `${current} - min. ${product.minimumStock ?? 0}`;
+  return `${current} en stock / Minimum : ${product.minimumStock ?? 0}`;
 }
 
 const outOfStock = { quantity: 0, minimumStock: 2 };
@@ -58,16 +69,19 @@ assert.equal(stockStatus(service), "NON_STOCK", "service ou produit non stocke n
 assert.equal(lowStockCount([outOfStock, lowStock, inStock, service]), 2, "le compteur doit inclure rupture et stock faible mais exclure non-stock");
 
 assert.equal(productStockStatus({ stockCurrent: 0, minimumStock: 18 }), "OUT_OF_STOCK", "produit stock 0 + seuil 18 doit etre en rupture");
-assert.equal(productStockDisplay({ stockCurrent: 0, minimumStock: 18, unit: { symbol: "18" } }), "0 - min. 18", "l'unite numerique ne doit pas produire 0 18");
+assert.equal(productStockDisplay({ stockCurrent: 0, minimumStock: 1, unit: { symbol: "18" } }), "0 en stock / Minimum : 1", "le stock et le minimum doivent avoir des libelles clairs");
 assert.equal(productStockStatus({ stockCurrent: 5, minimumStock: 18 }), "LOW_STOCK", "produit stock 5 + seuil 18 doit etre stock faible");
 assert.equal(productStockDisplay({ stockCurrent: 0, minimumStock: 0, unit: null }), "Non stocke", "produit non stocke affiche Non stocke");
+assert.equal(productStockDisplay({ name: "Portion Cabrit", category: { name: "Plats" }, variants: [{ model: "Plat" }], stockCurrent: 0, minimumStock: 1, unit: null }, true), "Non stocke", "restaurant plat non stocke affiche Non stocke meme avec un ancien minimum");
+assert.equal(productStockDisplay({ name: "Cola", category: { name: "Boisson" }, variants: [{ model: "Boisson" }], stockCurrent: 0, minimumStock: 1, unit: { symbol: "bouteille" } }, true), "0 bouteille en stock / Minimum : 1", "restaurant boisson stockee garde le stock lisible");
 
 const root = path.resolve(__dirname, "..");
 const productsPage = fs.readFileSync(path.join(root, "apps/web/app/dashboard/products/page.tsx"), "utf8");
 const inventoryPage = fs.readFileSync(path.join(root, "apps/web/app/dashboard/inventory/page.tsx"), "utf8");
 assert(productsPage.includes("productUnitLabel(product)"), "la page Produits doit passer par un libelle d'unite lisible");
-assert(productsPage.includes("Seuil min."), "la page Produits doit afficher le seuil avec un libelle");
-assert(productsPage.includes("productStockDisplay(product)"), "la page Produits doit centraliser l'affichage stock");
+assert(productsPage.includes("Minimum :"), "la page Produits doit afficher le seuil avec un libelle clair");
+assert(productsPage.includes("ProductStockDisplay product={product}"), "la page Produits doit centraliser l'affichage stock");
+assert(!productsPage.includes("- min."), "la page Produits ne doit plus afficher le minimum au format brut");
 assert(!productsPage.includes("product.stockCurrent ?? 0}{product.unit"), "la page Produits ne doit plus coller stock et unite brute");
 assert(inventoryPage.includes('"Non stocke"'), "la page Inventaire doit afficher Non stocke pour service/non-stock");
 

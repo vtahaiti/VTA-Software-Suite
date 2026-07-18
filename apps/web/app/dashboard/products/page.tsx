@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
+import type { TenantBusinessConfiguration } from "@/lib/business-profiles";
 
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
@@ -18,6 +19,7 @@ type Product = {
   category?: { name: string } | null;
   unit?: { name?: string | null; symbol?: string | null } | null;
   supplier?: { name?: string | null } | null;
+  variants?: Array<{ name?: string | null; model?: string | null }>;
   minimumStock: number;
 };
 type Category = { id: string; name: string };
@@ -37,6 +39,8 @@ export default function ProductsPage() {
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [quickCostProduct, setQuickCostProduct] = useState<Product | null>(null);
   const [quickCostValue, setQuickCostValue] = useState("");
+  const [business, setBusiness] = useState<TenantBusinessConfiguration | null>(null);
+  const [quickRestaurantStockMode, setQuickRestaurantStockMode] = useState<"NON_STOCK" | "STOCKED">("NON_STOCK");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -44,6 +48,11 @@ export default function ProductsPage() {
   async function loadCategories() {
     const response = await fetchWithAuth(`${apiUrl}/products/categories`);
     if (response.ok) setCategories(await response.json());
+  }
+
+  async function loadBusinessProfile() {
+    const response = await fetchWithAuth(`${apiUrl}/business-profiles/tenant`, { cache: "no-store" }).catch(() => null);
+    if (response?.ok) setBusiness(await response.json());
   }
 
   const loadProducts = useCallback(async () => {
@@ -66,7 +75,7 @@ export default function ProductsPage() {
     setMessage(response ? await readError(response) : "Impossible de charger les produits.");
   }, [costMissingOnly, page, search]);
 
-  useEffect(() => { void loadCategories(); }, []);
+  useEffect(() => { void loadCategories(); void loadBusinessProfile(); }, []);
   useEffect(() => {
     const timer = setTimeout(() => void loadProducts(), 250);
     return () => clearTimeout(timer);
@@ -84,9 +93,10 @@ export default function ProductsPage() {
         salePrice: Number(form.salePrice || 0),
         purchasePrice: Number(form.purchasePrice || 0),
         categoryId: form.categoryId || undefined,
-        minimumStock: Number(form.minimumStock || 0),
-        stockInitial: Number(form.stockInitial || 0),
+        minimumStock: isRestaurantBusiness(business) && quickRestaurantStockMode === "NON_STOCK" ? 0 : Number(form.minimumStock || 0),
+        stockInitial: isRestaurantBusiness(business) && quickRestaurantStockMode === "NON_STOCK" ? 0 : Number(form.stockInitial || 0),
         images: form.imageUrl ? [{ url: form.imageUrl, alt: form.name, sortOrder: 0 }] : undefined,
+        variants: isRestaurantBusiness(business) && quickRestaurantStockMode === "NON_STOCK" ? [{ name: form.name, model: "Plat / service non stocke", stock: 0 }] : undefined,
         isActive: true
       })
     });
@@ -152,13 +162,13 @@ export default function ProductsPage() {
             <div className="min-w-0">
               <h2 className="truncate font-semibold text-slate-950 dark:text-white">{product.name}</h2>
               <p className="font-mono text-xs text-slate-400">{product.sku || "SKU auto"}{productUnitLabel(product) ? ` - ${productUnitLabel(product)}` : ""}</p>
-              {isProductStockTracked(product) ? <p className="text-xs text-slate-500">Seuil min. {product.minimumStock ?? 0}</p> : null}
+              <ProductStockMeta product={product} business={business} />
               <p className="mt-1 text-sm text-slate-500">{product.category?.name ?? "Sans catégorie"}</p>
             </div>
             <p className="shrink-0 text-right text-sm font-bold text-slate-950 dark:text-white">{product.salePrice}</p>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-            <div className="rounded-md bg-slate-50 p-2 dark:bg-slate-950"><span className="text-slate-500">Stock</span><p className="font-semibold">{productStockDisplay(product)}</p><ProductStockStatus product={product} /></div>
+            <div className="rounded-md bg-slate-50 p-2 dark:bg-slate-950"><span className="text-slate-500">Stock</span><ProductStockDisplay product={product} business={business} /><ProductStockStatus product={product} business={business} /></div>
             <div className="rounded-md bg-slate-50 p-2 dark:bg-slate-950"><span className="text-slate-500">Fournisseur</span><p className="truncate font-semibold">{product.supplier?.name ?? "--"}</p></div>
           </div>
           {product.costKnown === false ? <div className="mt-2 flex flex-wrap items-center gap-2"><p className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">Coût non renseigné</p><button type="button" onClick={() => openQuickCost(product)} className="rounded-md border border-amber-200 px-2 py-1 text-xs font-bold text-amber-700">Ajouter coût</button></div> : <button type="button" onClick={() => openQuickCost(product)} className="mt-2 text-xs font-semibold text-slate-500 underline">Modifier coût</button>}
@@ -172,7 +182,7 @@ export default function ProductsPage() {
       <div className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 md:block">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">Produit</th><th className="p-3">Catégorie</th><th className="p-3">Prix</th><th className="p-3">Stock</th><th className="p-3">Actions</th></tr></thead>
-          <tbody>{items.map((product) => <tr key={product.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3"><p className="font-semibold">{product.name}</p><p className="font-mono text-xs text-slate-400">{product.sku}{productUnitLabel(product) ? ` - ${productUnitLabel(product)}` : ""}</p>{isProductStockTracked(product) ? <p className="text-xs text-slate-500">Seuil min. {product.minimumStock ?? 0}</p> : null}{product.supplier?.name ? <p className="text-xs text-slate-500">Fournisseur: {product.supplier.name}</p> : null}{product.costKnown === false ? <p className="mt-1 text-xs font-semibold text-amber-600">Coût non renseigné</p> : null}</td><td className="p-3">{product.category?.name ?? "--"}</td><td className="p-3">{product.salePrice}</td><td className="p-3"><p className="font-semibold">{productStockDisplay(product)}</p><ProductStockStatus product={product} /></td><td className="p-3"><div className="flex flex-wrap gap-3"><Link className="text-brand-600" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link><button type="button" onClick={() => openQuickCost(product)} className="text-amber-700">Coût</button></div></td></tr>)}</tbody>
+          <tbody>{items.map((product) => <tr key={product.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3"><p className="font-semibold">{product.name}</p><p className="font-mono text-xs text-slate-400">{product.sku}{productUnitLabel(product) ? ` - ${productUnitLabel(product)}` : ""}</p><ProductStockMeta product={product} business={business} />{product.supplier?.name ? <p className="text-xs text-slate-500">Fournisseur: {product.supplier.name}</p> : null}{product.costKnown === false ? <p className="mt-1 text-xs font-semibold text-amber-600">Coût non renseigné</p> : null}</td><td className="p-3">{product.category?.name ?? "--"}</td><td className="p-3">{product.salePrice}</td><td className="p-3"><ProductStockDisplay product={product} business={business} /><ProductStockStatus product={product} business={business} /></td><td className="p-3"><div className="flex flex-wrap gap-3"><Link className="text-brand-600" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link><button type="button" onClick={() => openQuickCost(product)} className="text-amber-700">Coût</button></div></td></tr>)}</tbody>
         </table>
         {!isLoading && !message && items.length === 0 ? <p className="p-5 text-sm text-slate-500">Aucun produit trouvé.</p> : null}
         {isLoading ? <p className="p-5 text-sm text-slate-500">Chargement des produits...</p> : null}
@@ -187,8 +197,14 @@ export default function ProductsPage() {
             <Input type="number" value={form.purchasePrice} onChange={(value) => setForm((current) => ({ ...current, purchasePrice: value }))} placeholder="Coût d'achat" />
             <Input required type="number" value={form.salePrice} onChange={(value) => setForm((current) => ({ ...current, salePrice: value }))} placeholder="Prix *" />
             <select value={form.categoryId} onChange={(event) => setForm((current) => ({ ...current, categoryId: event.target.value }))} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option value="">Catégorie</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
-            <Input type="number" value={form.stockInitial} onChange={(value) => setForm((current) => ({ ...current, stockInitial: value }))} placeholder="Stock initial" />
-            <Input type="number" value={form.minimumStock} onChange={(value) => setForm((current) => ({ ...current, minimumStock: value }))} placeholder="Seuil stock faible" />
+            {isRestaurantBusiness(business) ? <RestaurantQuickStockMode mode={quickRestaurantStockMode} onChange={(mode) => {
+              setQuickRestaurantStockMode(mode);
+              if (mode === "NON_STOCK") setForm((current) => ({ ...current, stockInitial: "0", minimumStock: "0" }));
+            }} /> : null}
+            {!isRestaurantBusiness(business) || quickRestaurantStockMode === "STOCKED" ? <>
+              <Input type="number" value={form.stockInitial} onChange={(value) => setForm((current) => ({ ...current, stockInitial: value }))} placeholder="Stock initial" />
+              <Input type="number" value={form.minimumStock} onChange={(value) => setForm((current) => ({ ...current, minimumStock: value }))} placeholder="Seuil stock faible" />
+            </> : <div className="rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:bg-slate-950 dark:text-slate-300">Plat / service non stocke: pas de stock initial ni seuil minimum.</div>}
             <label className="grid gap-2 rounded-md border border-dashed border-slate-300 px-3 py-3 text-sm font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">
               Choisir une image
               <input type="file" accept="image/*" onChange={(event) => void loadImage(event.target.files?.[0], (value) => setForm((current) => ({ ...current, imageUrl: value })))} className="sr-only" />
@@ -226,6 +242,22 @@ function Pagination({ page, pages, total, label, onPrev, onNext }: { page: numbe
   return <div className="flex items-center justify-between"><p className="text-sm text-slate-500">{total} {label}</p><div className="flex gap-2"><button disabled={page <= 1} onClick={onPrev} className="rounded-md border px-3 py-2 disabled:opacity-50">Précédent</button><span className="px-3 py-2 text-sm">{page}/{pages}</span><button disabled={page >= pages} onClick={onNext} className="rounded-md border px-3 py-2 disabled:opacity-50">Suivant</button></div></div>;
 }
 
+function RestaurantQuickStockMode({ mode, onChange }: { mode: "NON_STOCK" | "STOCKED"; onChange: (mode: "NON_STOCK" | "STOCKED") => void }) {
+  return <fieldset className="rounded-md border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950 dark:border-orange-900 dark:bg-orange-950 dark:text-orange-100">
+    <legend className="px-1 font-bold">Type article restaurant</legend>
+    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+      <label className="flex cursor-pointer items-start gap-2 rounded-md bg-white/75 p-2 dark:bg-slate-900/60">
+        <input type="radio" name="quick-restaurant-stock-mode" checked={mode === "NON_STOCK"} onChange={() => onChange("NON_STOCK")} />
+        <span><span className="block font-semibold">Plat / service non stocke</span><span className="text-xs">Pas de rupture stock.</span></span>
+      </label>
+      <label className="flex cursor-pointer items-start gap-2 rounded-md bg-white/75 p-2 dark:bg-slate-900/60">
+        <input type="radio" name="quick-restaurant-stock-mode" checked={mode === "STOCKED"} onChange={() => onChange("STOCKED")} />
+        <span><span className="block font-semibold">Produit stocke</span><span className="text-xs">Boisson ou article physique.</span></span>
+      </label>
+    </div>
+  </fieldset>;
+}
+
 function productUnitLabel(product: Pick<Product, "unit">) {
   const value = (product.unit?.symbol ?? product.unit?.name ?? "").trim();
   return isReadableUnitLabel(value) ? value : "";
@@ -235,12 +267,28 @@ function isReadableUnitLabel(value: string) {
   return Boolean(value) && !/^\d+(?:[.,]\d+)?$/.test(value);
 }
 
+function isRestaurantBusiness(business: TenantBusinessConfiguration | null) {
+  const profile = `${business?.businessProfileType ?? ""} ${business?.primaryActivity ?? ""}`.toLowerCase();
+  return /restaurant|bar|cafe|fast.?food/.test(profile);
+}
+
+function restaurantProductKind(product: Pick<Product, "name" | "category" | "variants">) {
+  const value = `${product.name ?? ""} ${product.category?.name ?? ""} ${(product.variants ?? []).map((variant) => `${variant.name ?? ""} ${variant.model ?? ""}`).join(" ")}`.toLowerCase();
+  if (/stockable|ingredient|ingr[ée]dient|boisson|bouteille|canette/.test(value)) return "STOCKED";
+  if (/plat|portion|menu|repas|cabrit|poulet|poisson|dessert|extra|service|supplement|suppl[ée]ment/.test(value)) return "NON_STOCK";
+  return "UNKNOWN";
+}
+
+function isRestaurantNonStock(product: Product, business?: TenantBusinessConfiguration | null) {
+  return Boolean(business && isRestaurantBusiness(business)) && restaurantProductKind(product) === "NON_STOCK";
+}
+
 function isProductStockTracked(product: Pick<Product, "stockCurrent" | "minimumStock">) {
   return Number(product.stockCurrent ?? 0) > 0 || Number(product.minimumStock ?? 0) > 0;
 }
 
-function productStockStatus(product: Pick<Product, "stockCurrent" | "minimumStock">) {
-  if (!isProductStockTracked(product)) return "NON_STOCK";
+function productStockStatus(product: Product, business?: TenantBusinessConfiguration | null) {
+  if (isRestaurantNonStock(product, business) || !isProductStockTracked(product)) return "NON_STOCK";
   const current = Number(product.stockCurrent ?? 0);
   const minimum = Number(product.minimumStock ?? 0);
   if (current <= 0) return "OUT_OF_STOCK";
@@ -248,16 +296,20 @@ function productStockStatus(product: Pick<Product, "stockCurrent" | "minimumStoc
   return "IN_STOCK";
 }
 
-function productStockDisplay(product: Pick<Product, "stockCurrent" | "minimumStock" | "unit">) {
-  if (!isProductStockTracked(product)) return "Non stocke";
+function ProductStockDisplay({ product, business }: { product: Product; business: TenantBusinessConfiguration | null }) {
+  if (productStockStatus(product, business) === "NON_STOCK") return <p className="font-semibold">Non stocke</p>;
   const unit = productUnitLabel(product);
-  const current = `${product.stockCurrent ?? 0}${unit ? ` ${unit}` : ""}`;
-  return `${current} - min. ${product.minimumStock ?? 0}`;
+  return <div className="space-y-0.5"><p className="font-semibold">{product.stockCurrent ?? 0}{unit ? ` ${unit}` : ""} en stock</p><p className="text-xs text-slate-500">Minimum : {product.minimumStock ?? 0}</p></div>;
 }
 
-function ProductStockStatus({ product }: { product: Product }) {
-  const status = productStockStatus(product);
-  if (status === "NON_STOCK") return <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">Service / non stocke</span>;
+function ProductStockMeta({ product, business }: { product: Product; business: TenantBusinessConfiguration | null }) {
+  if (productStockStatus(product, business) === "NON_STOCK") return <p className="text-xs text-slate-500">Service / plat non stocke</p>;
+  return <p className="text-xs text-slate-500">Minimum : {product.minimumStock ?? 0}</p>;
+}
+
+function ProductStockStatus({ product, business = null }: { product: Product; business?: TenantBusinessConfiguration | null }) {
+  const status = productStockStatus(product, business);
+  if (status === "NON_STOCK") return <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">Service / plat</span>;
   if (status === "OUT_OF_STOCK") return <span className="mt-1 inline-flex rounded-full bg-red-50 px-2 py-1 text-xs font-bold text-red-700">Rupture</span>;
   if (status === "LOW_STOCK") return <span className="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700">Stock faible</span>;
   return <span className="mt-1 inline-flex rounded-full bg-green-50 px-2 py-1 text-xs font-bold text-green-700">En stock</span>;

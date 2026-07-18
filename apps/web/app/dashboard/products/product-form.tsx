@@ -13,6 +13,7 @@ type Store = { id: string; name: string };
 type Warehouse = { id: string; name: string };
 type CategoryForm = { name: string; icon: string };
 type HardwareSuggestion = { type: string; units: string[]; keywords: string[] };
+type RestaurantStockMode = "NON_STOCK" | "STOCKED";
 
 const unitOptions = ["pièce", "sac", "tonne", "kg", "mètre", "pied", "feuille", "gallon", "litre", "boîte", "paquet", "verge"];
 const emptyCategoryForm: CategoryForm = { name: "", icon: "" };
@@ -91,6 +92,7 @@ export function ProductForm({ productId }: { productId?: string }) {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [categoryForm, setCategoryForm] = useState<CategoryForm>(emptyCategoryForm);
   const [business, setBusiness] = useState<TenantBusinessConfiguration | null>(null);
+  const [restaurantStockMode, setRestaurantStockMode] = useState<RestaurantStockMode>("NON_STOCK");
 
   useEffect(() => {
     void loadRefs();
@@ -136,6 +138,7 @@ export function ProductForm({ productId }: { productId?: string }) {
     if (!response.ok) return;
     const product = await response.json();
     const variant = product.variants?.[0] ?? {};
+    const variantKind = restaurantSuggestionStockMode(String(variant.model ?? variant.name ?? product.name ?? ""));
     setForm({
       name: product.name ?? "",
       sku: product.sku ?? "",
@@ -176,6 +179,7 @@ export function ProductForm({ productId }: { productId?: string }) {
       variantStock: String(variant.stock ?? 0),
       isActive: product.isActive
     });
+    setRestaurantStockMode(variantKind ?? (Number(product.minimumStock ?? 0) > 0 ? "STOCKED" : "NON_STOCK"));
   }
 
   async function submit(event: FormEvent) {
@@ -183,16 +187,16 @@ export function ProductForm({ productId }: { productId?: string }) {
     const unitId = await resolveUnitId();
     if (unitId === null) return;
     const gallery = form.galleryUrls.split(/\r?\n/).map((url) => url.trim()).filter(Boolean);
-    const variants = form.variantName || form.variantColor || form.variantSize || form.variantModel || form.variantCapacity || form.variantStock !== "0"
+    const variants = form.variantName || form.variantColor || form.variantSize || form.variantModel || form.variantCapacity || form.variantStock !== "0" || (isRestaurantProfile && restaurantStockMode === "NON_STOCK")
       ? [{
         name: form.variantName || form.name,
         color: form.variantColor || undefined,
         size: form.variantSize || undefined,
-        model: form.variantModel || undefined,
+        model: form.variantModel || (isRestaurantProfile && restaurantStockMode === "NON_STOCK" ? "Plat / service non stocke" : undefined),
         capacity: form.variantCapacity || undefined,
         sku: form.variantSku || undefined,
         barcode: form.variantBarcode || undefined,
-        stock: Number(form.variantStock || 0)
+        stock: isRestaurantProfile && restaurantStockMode === "NON_STOCK" ? 0 : Number(form.variantStock || 0)
       }]
       : undefined;
     const payload = {
@@ -212,7 +216,7 @@ export function ProductForm({ productId }: { productId?: string }) {
       wholesalePrice: Number(form.wholesalePrice || 0),
       averageCost: Number(form.averageCost || 0),
       taxRate: Number(form.taxRate || 0),
-      minimumStock: Number(form.minimumStock || 0),
+      minimumStock: isRestaurantProfile && restaurantStockMode === "NON_STOCK" ? 0 : Number(form.minimumStock || 0),
       maximumStock: Number(form.maximumStock || 0),
       location: form.location || undefined,
       storeId: form.storeId || undefined,
@@ -317,6 +321,7 @@ export function ProductForm({ productId }: { productId?: string }) {
   }
 
   function applyRestaurantSuggestion(suggestion: HardwareSuggestion, unitName?: string) {
+    const nextMode = restaurantSuggestionStockMode(suggestion.type) ?? "NON_STOCK";
     setForm((current) => {
       const nextUnit = unitName ?? suggestion.units[0] ?? "";
       const existingUnit = refs.units.find((unit) => [unit.name, unit.symbol].filter(Boolean).some((value) => value?.toLowerCase() === nextUnit.toLowerCase()));
@@ -325,9 +330,12 @@ export function ProductForm({ productId }: { productId?: string }) {
         variantModel: suggestion.type,
         unitId: existingUnit?.id ?? current.unitId,
         customUnit: existingUnit ? "" : nextUnit,
-        minimumStock: current.minimumStock || "0"
+        minimumStock: nextMode === "NON_STOCK" ? "0" : current.minimumStock || "0",
+        maximumStock: nextMode === "NON_STOCK" ? "0" : current.maximumStock,
+        variantStock: nextMode === "NON_STOCK" ? "0" : current.variantStock
       };
     });
+    setRestaurantStockMode(nextMode);
   }
 
   return <form onSubmit={submit} className="space-y-5">
@@ -336,7 +344,11 @@ export function ProductForm({ productId }: { productId?: string }) {
       <Input value={form.name} onChange={(value) => update("name", value)} placeholder="Nom du produit" />
       <Input value={form.salePrice} onChange={(value) => update("salePrice", value)} placeholder="Prix vente" />
       <Input value={form.purchasePrice} onChange={(value) => update("purchasePrice", value)} placeholder="Prix achat / coût" />
-      <Input value={form.minimumStock} onChange={(value) => update("minimumStock", value)} placeholder="Seuil stock faible" />
+      {isRestaurantProfile ? <RestaurantStockModeField mode={restaurantStockMode} onChange={(mode) => {
+        setRestaurantStockMode(mode);
+        if (mode === "NON_STOCK") setForm((current) => ({ ...current, minimumStock: "0", maximumStock: "0", variantStock: "0", variantModel: current.variantModel || "Plat / service non stocke" }));
+      }} /> : null}
+      {!isRestaurantProfile || restaurantStockMode === "STOCKED" ? <Input value={form.minimumStock} onChange={(value) => update("minimumStock", value)} placeholder="Seuil stock faible" /> : <div className="rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:bg-slate-950 dark:text-slate-300">Non stocke: pas de seuil minimum requis.</div>}
       <Input value={form.sku} onChange={(value) => update("sku", value)} placeholder="SKU automatique si vide" />
       <div className="flex gap-2">
         <Input value={form.barcode} onChange={(value) => update("barcode", value)} placeholder="Code-barres UPC/EAN/QR" />
@@ -477,6 +489,28 @@ function Select({ value, onChange, placeholder, items }: { value: string; placeh
     <option value="">{placeholder}</option>
     {items.map((item) => <option key={`${item.id}-${item.name}`} value={item.id}>{item.name}</option>)}
   </select>;
+}
+
+function RestaurantStockModeField({ mode, onChange }: { mode: RestaurantStockMode; onChange: (mode: RestaurantStockMode) => void }) {
+  return <fieldset className="rounded-md border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950 dark:border-orange-900 dark:bg-orange-950 dark:text-orange-100 md:col-span-2">
+    <legend className="px-1 font-bold">Type article restaurant</legend>
+    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+      <label className="flex cursor-pointer items-start gap-2 rounded-md bg-white/75 p-3 dark:bg-slate-900/60">
+        <input type="radio" name="restaurant-stock-mode" checked={mode === "NON_STOCK"} onChange={() => onChange("NON_STOCK")} />
+        <span><span className="block font-semibold">Plat / service non stocke</span><span className="text-xs">Plats, portions, extras et services vendables sans rupture.</span></span>
+      </label>
+      <label className="flex cursor-pointer items-start gap-2 rounded-md bg-white/75 p-3 dark:bg-slate-900/60">
+        <input type="radio" name="restaurant-stock-mode" checked={mode === "STOCKED"} onChange={() => onChange("STOCKED")} />
+        <span><span className="block font-semibold">Produit stocke</span><span className="text-xs">Boissons, ingredients ou produits physiques avec seuil minimum.</span></span>
+      </label>
+    </div>
+  </fieldset>;
+}
+
+function restaurantSuggestionStockMode(value: string): RestaurantStockMode | null {
+  if (/stockable|ingredient|ingr[ée]dient|boisson|bouteille|canette/i.test(value)) return "STOCKED";
+  if (/plat|portion|dessert|extra|service|menu|repas/i.test(value)) return "NON_STOCK";
+  return null;
 }
 
 function ImagePicker({ label, selected, onChange }: { label: string; selected: boolean; onChange: (value: string) => void }) {
