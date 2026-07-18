@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
 
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
@@ -41,18 +41,12 @@ export default function ProductsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => { void loadCategories(); }, []);
-  useEffect(() => {
-    const timer = setTimeout(() => void loadProducts(), 250);
-    return () => clearTimeout(timer);
-  }, [search, page, costMissingOnly]);
-
   async function loadCategories() {
     const response = await fetchWithAuth(`${apiUrl}/products/categories`);
     if (response.ok) setCategories(await response.json());
   }
 
-  async function loadProducts() {
+  const loadProducts = useCallback(async () => {
     setIsLoading(true);
     setMessage("");
     const params = new URLSearchParams({ page: String(page), limit: "25", sortBy: "createdAt", sortOrder: "desc", isActive: "true" });
@@ -70,7 +64,13 @@ export default function ProductsPage() {
     setItems([]);
     setTotal(0);
     setMessage(response ? await readError(response) : "Impossible de charger les produits.");
-  }
+  }, [costMissingOnly, page, search]);
+
+  useEffect(() => { void loadCategories(); }, []);
+  useEffect(() => {
+    const timer = setTimeout(() => void loadProducts(), 250);
+    return () => clearTimeout(timer);
+  }, [loadProducts]);
 
   async function createProduct(event: FormEvent) {
     event.preventDefault();
@@ -151,13 +151,14 @@ export default function ProductsPage() {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h2 className="truncate font-semibold text-slate-950 dark:text-white">{product.name}</h2>
-              <p className="font-mono text-xs text-slate-400">{product.sku || "SKU auto"}{product.unit ? ` - ${product.unit.symbol ?? product.unit.name}` : ""}</p>
+              <p className="font-mono text-xs text-slate-400">{product.sku || "SKU auto"}{productUnitLabel(product) ? ` - ${productUnitLabel(product)}` : ""}</p>
+              {isProductStockTracked(product) ? <p className="text-xs text-slate-500">Seuil min. {product.minimumStock ?? 0}</p> : null}
               <p className="mt-1 text-sm text-slate-500">{product.category?.name ?? "Sans catégorie"}</p>
             </div>
             <p className="shrink-0 text-right text-sm font-bold text-slate-950 dark:text-white">{product.salePrice}</p>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-            <div className="rounded-md bg-slate-50 p-2 dark:bg-slate-950"><span className="text-slate-500">Stock</span><p className="font-semibold">{product.stockCurrent ?? 0}{product.unit ? ` ${product.unit.symbol ?? product.unit.name}` : ""}</p></div>
+            <div className="rounded-md bg-slate-50 p-2 dark:bg-slate-950"><span className="text-slate-500">Stock</span><p className="font-semibold">{productStockDisplay(product)}</p><ProductStockStatus product={product} /></div>
             <div className="rounded-md bg-slate-50 p-2 dark:bg-slate-950"><span className="text-slate-500">Fournisseur</span><p className="truncate font-semibold">{product.supplier?.name ?? "--"}</p></div>
           </div>
           {product.costKnown === false ? <div className="mt-2 flex flex-wrap items-center gap-2"><p className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">Coût non renseigné</p><button type="button" onClick={() => openQuickCost(product)} className="rounded-md border border-amber-200 px-2 py-1 text-xs font-bold text-amber-700">Ajouter coût</button></div> : <button type="button" onClick={() => openQuickCost(product)} className="mt-2 text-xs font-semibold text-slate-500 underline">Modifier coût</button>}
@@ -171,7 +172,7 @@ export default function ProductsPage() {
       <div className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 md:block">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">Produit</th><th className="p-3">Catégorie</th><th className="p-3">Prix</th><th className="p-3">Stock</th><th className="p-3">Actions</th></tr></thead>
-          <tbody>{items.map((product) => <tr key={product.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3"><p className="font-semibold">{product.name}</p><p className="font-mono text-xs text-slate-400">{product.sku}{product.unit ? ` · ${product.unit.symbol ?? product.unit.name}` : ""}</p>{product.supplier?.name ? <p className="text-xs text-slate-500">Fournisseur: {product.supplier.name}</p> : null}{product.costKnown === false ? <p className="mt-1 text-xs font-semibold text-amber-600">Coût non renseigné</p> : null}</td><td className="p-3">{product.category?.name ?? "--"}</td><td className="p-3">{product.salePrice}</td><td className="p-3">{product.stockCurrent ?? 0}{product.unit ? ` ${product.unit.symbol ?? product.unit.name}` : ""}</td><td className="p-3"><div className="flex flex-wrap gap-3"><Link className="text-brand-600" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link><button type="button" onClick={() => openQuickCost(product)} className="text-amber-700">Coût</button></div></td></tr>)}</tbody>
+          <tbody>{items.map((product) => <tr key={product.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3"><p className="font-semibold">{product.name}</p><p className="font-mono text-xs text-slate-400">{product.sku}{productUnitLabel(product) ? ` - ${productUnitLabel(product)}` : ""}</p>{isProductStockTracked(product) ? <p className="text-xs text-slate-500">Seuil min. {product.minimumStock ?? 0}</p> : null}{product.supplier?.name ? <p className="text-xs text-slate-500">Fournisseur: {product.supplier.name}</p> : null}{product.costKnown === false ? <p className="mt-1 text-xs font-semibold text-amber-600">Coût non renseigné</p> : null}</td><td className="p-3">{product.category?.name ?? "--"}</td><td className="p-3">{product.salePrice}</td><td className="p-3"><p className="font-semibold">{productStockDisplay(product)}</p><ProductStockStatus product={product} /></td><td className="p-3"><div className="flex flex-wrap gap-3"><Link className="text-brand-600" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link><button type="button" onClick={() => openQuickCost(product)} className="text-amber-700">Coût</button></div></td></tr>)}</tbody>
         </table>
         {!isLoading && !message && items.length === 0 ? <p className="p-5 text-sm text-slate-500">Aucun produit trouvé.</p> : null}
         {isLoading ? <p className="p-5 text-sm text-slate-500">Chargement des produits...</p> : null}
@@ -223,6 +224,43 @@ function Input({ value, onChange, placeholder, required = false, type = "text" }
 
 function Pagination({ page, pages, total, label, onPrev, onNext }: { page: number; pages: number; total: number; label: string; onPrev: () => void; onNext: () => void }) {
   return <div className="flex items-center justify-between"><p className="text-sm text-slate-500">{total} {label}</p><div className="flex gap-2"><button disabled={page <= 1} onClick={onPrev} className="rounded-md border px-3 py-2 disabled:opacity-50">Précédent</button><span className="px-3 py-2 text-sm">{page}/{pages}</span><button disabled={page >= pages} onClick={onNext} className="rounded-md border px-3 py-2 disabled:opacity-50">Suivant</button></div></div>;
+}
+
+function productUnitLabel(product: Pick<Product, "unit">) {
+  const value = (product.unit?.symbol ?? product.unit?.name ?? "").trim();
+  return isReadableUnitLabel(value) ? value : "";
+}
+
+function isReadableUnitLabel(value: string) {
+  return Boolean(value) && !/^\d+(?:[.,]\d+)?$/.test(value);
+}
+
+function isProductStockTracked(product: Pick<Product, "stockCurrent" | "minimumStock">) {
+  return Number(product.stockCurrent ?? 0) > 0 || Number(product.minimumStock ?? 0) > 0;
+}
+
+function productStockStatus(product: Pick<Product, "stockCurrent" | "minimumStock">) {
+  if (!isProductStockTracked(product)) return "NON_STOCK";
+  const current = Number(product.stockCurrent ?? 0);
+  const minimum = Number(product.minimumStock ?? 0);
+  if (current <= 0) return "OUT_OF_STOCK";
+  if (current <= minimum) return "LOW_STOCK";
+  return "IN_STOCK";
+}
+
+function productStockDisplay(product: Pick<Product, "stockCurrent" | "minimumStock" | "unit">) {
+  if (!isProductStockTracked(product)) return "Non stocke";
+  const unit = productUnitLabel(product);
+  const current = `${product.stockCurrent ?? 0}${unit ? ` ${unit}` : ""}`;
+  return `${current} - min. ${product.minimumStock ?? 0}`;
+}
+
+function ProductStockStatus({ product }: { product: Product }) {
+  const status = productStockStatus(product);
+  if (status === "NON_STOCK") return <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">Service / non stocke</span>;
+  if (status === "OUT_OF_STOCK") return <span className="mt-1 inline-flex rounded-full bg-red-50 px-2 py-1 text-xs font-bold text-red-700">Rupture</span>;
+  if (status === "LOW_STOCK") return <span className="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700">Stock faible</span>;
+  return <span className="mt-1 inline-flex rounded-full bg-green-50 px-2 py-1 text-xs font-bold text-green-700">En stock</span>;
 }
 
 async function readError(response: Response) {

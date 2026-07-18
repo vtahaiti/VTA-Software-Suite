@@ -191,9 +191,9 @@ export default function InventoryPage() {
                   <p className="text-xs text-slate-500">{stock.product?.sku}{unitLabel(stock) ? ` - ${unitLabel(stock)}` : ""}</p>
                 </td>
                 <td className="p-3">{stock.warehouse?.name ?? "-"}</td>
-                <td className="p-3 text-lg font-bold">{stock.quantity}{unitLabel(stock) ? ` ${unitLabel(stock)}` : ""}</td>
+                <td className="p-3 text-lg font-bold">{isStockTracked(stock) ? `${stock.quantity}${unitLabel(stock) ? ` ${unitLabel(stock)}` : ""}` : "Non stocke"}</td>
                 <td className="p-3"><StockStatusBadge stock={stock} /></td>
-                <td className="p-3">{stock.minimumStock}</td>
+                <td className="p-3">{isStockTracked(stock) ? stock.minimumStock : "-"}</td>
                 <td className="p-3">{stock.product?.supplier?.name ?? "-"}</td>
                 <td className="p-3">
                   <div className="flex flex-wrap gap-2">
@@ -307,7 +307,8 @@ function isStockTracked(stock: Pick<StockLine, "stockTracked" | "minimumStock">)
 }
 
 function unitLabel(stock: StockLine) {
-  return stock.product?.unit?.symbol ?? stock.product?.unit?.name ?? "";
+  const value = (stock.product?.unit?.symbol ?? stock.product?.unit?.name ?? "").trim();
+  return Boolean(value) && !/^\d+(?:[.,]\d+)?$/.test(value) ? value : "";
 }
 
 function authHeaders() {
