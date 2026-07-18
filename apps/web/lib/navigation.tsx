@@ -172,7 +172,6 @@ function isKnownOrSource(href: string, sourceHrefs: Set<string>, allowBySource: 
   if (sourceHrefs.has(href)) return true;
   if (href === "/dashboard/sales/in-progress" && sourceHrefs.has("/dashboard/pos")) return true;
   if (href === "/dashboard/sales/completed" && sourceHrefs.has("/dashboard/pos")) return true;
-  if (href === "/dashboard/sales" && sourceHrefs.has("/dashboard/pos")) return true;
   if (href === "/dashboard/products/categories" && sourceHrefs.has("/dashboard/products")) return true;
   if (href === "/dashboard/settings/emails" && sourceHrefs.has("/dashboard/settings/company")) return true;
   if (href === "/dashboard/settings/pos" && sourceHrefs.has("/dashboard/settings/company")) return true;
