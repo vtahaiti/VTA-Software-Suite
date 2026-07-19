@@ -32,9 +32,16 @@ for (const label of [
 for (const label of [
   "Creer un devis",
   "Nouvelle commande",
-  "Ajouter produit existant",
-  "Ajouter ligne personnalisee",
-  "Rechercher par nom ou SKU",
+  "A) Produit du catalogue",
+  "B) Ajouter un service ou travail personnalise",
+  "Ajouter au devis",
+  "Ajouter a la commande",
+  "Ajouter la ligne au devis",
+  "Ajouter la ligne a la commande",
+  "Lignes ajoutees",
+  "Rechercher un produit",
+  "Produit selectionne",
+  "Choisir",
   "Voir",
   "Imprimer",
   "Ajouter avance",
@@ -52,6 +59,11 @@ for (const label of [
 assert(documentPage.includes('window.location.search'), "Les cartes filtrees doivent initialiser le statut depuis l'URL.");
 assert(documentPage.includes("filtered.slice(0, 20)"), "Le selecteur produit/service doit rester compact.");
 assert(documentPage.includes("/products?${params}"), "La recherche produit existant doit passer par l'API produits.");
+assert(documentPage.includes("ProductResultCard"), "Le catalogue doit utiliser des cartes de resultats, pas un select natif charge.");
+assert(documentPage.includes("SKU:") && documentPage.includes("Produit selectionne"), "Le SKU doit rester visible seulement apres selection.");
+assert(!documentPage.includes('<select value={catalogDraft.productId}'), "Le select natif produit ne doit pas revenir dans la V1.");
+assert(!documentPage.includes("product.sku} - {product.name}"), "La liste principale ne doit pas afficher SKU complet + nom + prix.");
+assert(documentPage.includes("Le devis ne modifie pas le stock") && documentPage.includes("ne cree pas de vente POS"), "Le flux doit rappeler l'absence d'impact stock/POS.");
 assert(!salesPage.includes("Factures et retours"), "La V1 ne doit pas remettre Factures/Retours au premier plan.");
 assert(!documentPage.includes("Envoyer</button>") && !documentPage.includes("Accepter</button>"), "La V1 Devis doit privilegier Voir/Imprimer/Convertir/Annuler.");
 assert(!proformasPage.includes("to-invoice"), "Commandes V1 ne doit pas pousser visuellement vers facture.");

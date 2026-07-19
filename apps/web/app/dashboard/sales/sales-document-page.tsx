@@ -77,6 +77,7 @@ type Line = {
   tax: number;
 };
 type Summary = { ordersInProgress: number; depositsReceived: number; balancesToCollect: number; readyUnpaidOrders: number; completedOrders: number };
+type LineMode = "catalog" | "custom";
 
 type Props = { type: DocType; title: string; eyebrow: string; createLabel: string; transformLabel?: string; transformAction?: string };
 
@@ -119,6 +120,11 @@ function newLine(): Line {
   return { productId: "", customName: "", customType: "SERVICE", material: "", width: "", height: "", color: "", thickness: "", length: "", measurementNotes: "", installationDate: "", installationNotes: "", quantity: 1, unitPrice: 0, discount: 0, tax: 0 };
 }
 
+function lineDefaults(mode: LineMode): Line {
+  const line = newLine();
+  return mode === "catalog" ? { ...line, customName: "" } : line;
+}
+
 function isFabricationProfile(profileType?: string, primaryActivity?: string) {
   const source = `${profileType ?? ""} ${primaryActivity ?? ""}`.toLowerCase();
   return source.includes("windows-aluminium") || source.includes("manufacturing") || source.includes("fabrication") || source.includes("aluminium") || source.includes("fenetre") || source.includes("fenetre") || source.includes("porte");
@@ -147,11 +153,13 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
   const [summary, setSummary] = useState<Summary | null>(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
-  const [productSearches, setProductSearches] = useState<Record<number, string>>({});
+  const [productSearch, setProductSearch] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [notes, setNotes] = useState("");
   const [discount, setDiscount] = useState(0);
-  const [lines, setLines] = useState<Line[]>([newLine()]);
+  const [lines, setLines] = useState<Line[]>([]);
+  const [catalogDraft, setCatalogDraft] = useState<Line>(() => lineDefaults("catalog"));
+  const [customDraft, setCustomDraft] = useState<Line>(() => lineDefaults("custom"));
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentReference, setPaymentReference] = useState("");
   const [message, setMessage] = useState("");
@@ -211,33 +219,62 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
   }, []);
 
   useEffect(() => {
-    const term = Object.values(productSearches).find((value) => value.trim())?.trim();
+    const term = productSearch.trim();
     if (!term) return;
     const timer = window.setTimeout(() => void searchProducts(term), 250);
     return () => window.clearTimeout(timer);
-  }, [productSearches, searchProducts]);
+  }, [productSearch, searchProducts]);
 
   async function refreshSelected(id: string) {
     const response = await apiFetch(`/${type}/${id}`);
     if (response.ok) setSelected(await response.json());
   }
 
-  function updateLine(index: number, values: Partial<Line>) {
-    setLines((current) => current.map((line, lineIndex) => lineIndex === index ? { ...line, ...values } : line));
+  function updateCatalogDraft(values: Partial<Line>) {
+    setCatalogDraft((current) => ({ ...current, ...values }));
   }
 
-  function selectProduct(index: number, productId: string) {
+  function updateCustomDraft(values: Partial<Line>) {
+    setCustomDraft((current) => ({ ...current, ...values }));
+  }
+
+  function selectProduct(productId: string) {
     const product = products.find((item) => item.id === productId);
-    updateLine(index, { productId, customName: "", customType: "SERVICE", material: "", width: "", height: "", color: "", thickness: "", length: "", measurementNotes: "", installationDate: "", installationNotes: "", unitPrice: Number(product?.salePrice ?? 0) });
+    updateCatalogDraft({ productId, customName: "", customType: "SERVICE", material: "", width: "", height: "", color: "", thickness: "", length: "", measurementNotes: "", installationDate: "", installationNotes: "", unitPrice: Number(product?.salePrice ?? 0) });
   }
 
-  function switchToCustomLine(index: number) {
-    updateLine(index, { productId: "", customName: "", customType: "SERVICE", unitPrice: 0 });
+  function addCatalogLine() {
+    if (!catalogDraft.productId) {
+      setMessage("Choisissez un produit du catalogue avant de l'ajouter.");
+      return;
+    }
+    setLines((current) => [...current, catalogDraft]);
+    setCatalogDraft(lineDefaults("catalog"));
+    setProductSearch("");
+    setMessage("");
+  }
+
+  function addCustomLine() {
+    if (!customDraft.customName.trim()) {
+      setMessage("Indiquez le nom ou la description de la ligne personnalisee.");
+      return;
+    }
+    setLines((current) => [...current, { ...customDraft, productId: "" }]);
+    setCustomDraft(lineDefaults("custom"));
+    setMessage("");
+  }
+
+  function removeLine(index: number) {
+    setLines((current) => current.filter((_, lineIndex) => lineIndex !== index));
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setMessage("");
+    if (lines.length === 0) {
+      setMessage(type === "quotes" ? "Ajoutez au moins un produit ou service au devis." : "Ajoutez au moins un produit ou service a la commande.");
+      return;
+    }
     const payload = {
       customerId: customerId || undefined,
       discount,
@@ -258,7 +295,9 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
       const doc = await response.json();
       setSelected(doc);
       setMessage(`${documentKind(type)} enregistre.`);
-      setLines([newLine()]);
+      setLines([]);
+      setCatalogDraft(lineDefaults("catalog"));
+      setCustomDraft(lineDefaults("custom"));
       setNotes("");
       setDiscount(0);
       await loadDocuments();
@@ -319,11 +358,16 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
 
   const totalPreview = useMemo(() => lines.reduce((sum, line) => sum + line.quantity * line.unitPrice - line.discount + line.tax, 0) - discount, [lines, discount]);
   const canTakePayment = selected && (type === "proformas" || type === "invoices") && Number(selected.balance) > 0 && selected.status !== "CANCELLED";
-  function compactProducts(index: number) {
-    const term = (productSearches[index] ?? "").trim().toLowerCase();
+  function compactProducts() {
+    const term = productSearch.trim().toLowerCase();
     const filtered = term ? products.filter((product) => `${product.sku} ${product.name}`.toLowerCase().includes(term)) : products;
     return filtered.slice(0, 20);
   }
+
+  const addToDocumentLabel = type === "quotes" ? "Ajouter au devis" : type === "proformas" ? "Ajouter a la commande" : "Ajouter au document";
+  const addCustomToDocumentLabel = type === "quotes" ? "Ajouter la ligne au devis" : type === "proformas" ? "Ajouter la ligne a la commande" : "Ajouter la ligne";
+  const selectedCatalogProduct = products.find((product) => product.id === catalogDraft.productId);
+  const currentBalancePreview = type === "proformas" ? Math.max(totalPreview, 0) : null;
 
   return (
     <div className="space-y-5">
@@ -359,63 +403,90 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
             <input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Notes" className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
             <input type="number" min="0" step="0.01" value={discount} onChange={(event) => setDiscount(Number(event.target.value))} placeholder="Remise globale" className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
           </div>
-          <div className="mt-4 space-y-3">
-            {lines.map((line, index) => (
-              <div key={index} className="grid gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-800">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Produit existant ou ligne personnalisee</label>
-                  {line.productId ? <button type="button" onClick={() => switchToCustomLine(index)} className="rounded-md border px-3 py-2 text-xs font-semibold">Utiliser ligne personnalisee</button> : null}
+          <div className="mt-4 space-y-4">
+            <div className="rounded-lg border border-brand-100 bg-brand-50 p-4 dark:border-brand-900 dark:bg-slate-950">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm font-bold text-slate-950 dark:text-white">A) Produit du catalogue</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300">La liste charge les produits disponibles. La recherche trouve aussi un produit hors des premiers resultats.</p>
                 </div>
-                <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
-                  <p className="text-sm font-semibold">Ajouter produit existant</p>
-                  <p className="mt-1 text-xs text-slate-500">Recherchez dans le catalogue. Le nom, le prix de vente et l&apos;unite sont repris automatiquement.</p>
-                  <input value={productSearches[index] ?? ""} onChange={(event) => setProductSearches((current) => ({ ...current, [index]: event.target.value }))} placeholder="Rechercher par nom ou SKU" className="mt-2 w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-                  <select value={line.productId} onChange={(event) => selectProduct(index, event.target.value)} className="mt-2 w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
-                    <option value="">Choisir un produit existant</option>
-                    {compactProducts(index).map((product) => <option key={product.id} value={product.id}>{product.sku} - {product.name} - {money(product.salePrice)}{product.unit ? ` / ${product.unit}` : ""}</option>)}
-                  </select>
-                  {line.productId ? <SelectedProduct product={products.find((product) => product.id === line.productId)} /> : null}
-                </div>
-                {!line.productId ? (
-                  <div className="rounded-md border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
-                    <p className="text-sm font-semibold">Ajouter ligne personnalisee</p>
-                    <p className="mt-1 text-xs text-slate-500">Service, fabrication, reparation ou travail special absent du catalogue.</p>
-                    <input required value={line.customName} onChange={(event) => updateLine(index, { customName: event.target.value })} placeholder="Nom ou description de la ligne" className="mt-2 w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-                  </div>
-                ) : null}
-                {!line.productId && showFabricationFields ? (
-                  <div className="grid gap-2 rounded-md bg-slate-50 p-3 dark:bg-slate-950 md:grid-cols-2">
-                    <select value={line.customType} onChange={(event) => updateLine(index, { customType: event.target.value })} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
-                      <option value="SERVICE">Service personnalise</option>
-                      {fabricationTypes.map((item) => <option key={item} value={item.toUpperCase().replaceAll(" ", "_")}>{item}</option>)}
-                    </select>
-                    <select value={line.material} onChange={(event) => updateLine(index, { material: event.target.value })} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
-                      <option value="">Materiau</option>
-                      {fabricationMaterials.map((item) => <option key={item} value={item}>{item}</option>)}
-                    </select>
-                    <input value={line.width} onChange={(event) => updateLine(index, { width: event.target.value })} placeholder="Largeur" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-                    <input value={line.height} onChange={(event) => updateLine(index, { height: event.target.value })} placeholder="Hauteur" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-                    <input value={line.length} onChange={(event) => updateLine(index, { length: event.target.value })} placeholder="Longueur" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-                    <input value={line.thickness} onChange={(event) => updateLine(index, { thickness: event.target.value })} placeholder="Epaisseur / verre" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-                    <input value={line.color} onChange={(event) => updateLine(index, { color: event.target.value })} placeholder="Couleur" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-                    <input type="date" value={line.installationDate} onChange={(event) => updateLine(index, { installationDate: event.target.value })} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-                    <textarea value={line.measurementNotes} onChange={(event) => updateLine(index, { measurementNotes: event.target.value })} placeholder="Notes de mesure" className="min-h-20 rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950 md:col-span-2" />
-                    <textarea value={line.installationNotes} onChange={(event) => updateLine(index, { installationNotes: event.target.value })} placeholder="Adresse ou notes livraison / installation" className="min-h-20 rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950 md:col-span-2" />
-                  </div>
-                ) : null}
-                <div className="grid gap-2 sm:grid-cols-3">
-                  <NumberField label="Quantite" min="1" value={line.quantity} onChange={(value) => updateLine(index, { quantity: value })} />
-                  <NumberField label="Prix" min="0" step="0.01" value={line.unitPrice} onChange={(value) => updateLine(index, { unitPrice: value })} />
-                  <NumberField label="Remise" min="0" step="0.01" value={line.discount} onChange={(value) => updateLine(index, { discount: value })} />
-                </div>
+                <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-brand-700 dark:bg-slate-900 dark:text-brand-200">{compactProducts().length} produits visibles</span>
               </div>
-            ))}
+              <input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Rechercher un produit" className="mt-3 w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+              <div className="mt-3 grid max-h-72 gap-2 overflow-y-auto pr-1">
+                {compactProducts().map((product) => (
+                  <ProductResultCard
+                    key={product.id}
+                    product={product}
+                    selected={catalogDraft.productId === product.id}
+                    onSelect={() => selectProduct(product.id)}
+                  />
+                ))}
+                {compactProducts().length === 0 ? <p className="rounded-md border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900">Aucun produit trouve. Utilisez la ligne personnalisee si besoin.</p> : null}
+              </div>
+              {selectedCatalogProduct ? <SelectedProduct product={selectedCatalogProduct} /> : null}
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                <NumberField label="Quantite" min="1" value={catalogDraft.quantity} onChange={(value) => updateCatalogDraft({ quantity: value })} />
+                <NumberField label="Prix modifiable" min="0" step="0.01" value={catalogDraft.unitPrice} onChange={(value) => updateCatalogDraft({ unitPrice: value })} />
+                <NumberField label="Remise" min="0" step="0.01" value={catalogDraft.discount} onChange={(value) => updateCatalogDraft({ discount: value })} />
+              </div>
+              <button type="button" onClick={addCatalogLine} className="mt-3 w-full rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">{addToDocumentLabel}</button>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-sm font-bold text-slate-950 dark:text-white">B) Ajouter un service ou travail personnalise</p>
+              <p className="mt-1 text-xs text-slate-500">Pour un service, une reparation, une fabrication ou un travail special absent du catalogue.</p>
+              <input value={customDraft.customName} onChange={(event) => updateCustomDraft({ customName: event.target.value })} placeholder="Nom ou description" className="mt-3 w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+              {showFabricationFields ? (
+                <div className="mt-3 grid gap-2 rounded-md bg-slate-50 p-3 dark:bg-slate-950 md:grid-cols-2">
+                  <select value={customDraft.customType} onChange={(event) => updateCustomDraft({ customType: event.target.value })} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+                    <option value="SERVICE">Service personnalise</option>
+                    {fabricationTypes.map((item) => <option key={item} value={item.toUpperCase().replaceAll(" ", "_")}>{item}</option>)}
+                  </select>
+                  <select value={customDraft.material} onChange={(event) => updateCustomDraft({ material: event.target.value })} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+                    <option value="">Materiau</option>
+                    {fabricationMaterials.map((item) => <option key={item} value={item}>{item}</option>)}
+                  </select>
+                  <input value={customDraft.width} onChange={(event) => updateCustomDraft({ width: event.target.value })} placeholder="Largeur" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+                  <input value={customDraft.height} onChange={(event) => updateCustomDraft({ height: event.target.value })} placeholder="Hauteur" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+                  <input value={customDraft.length} onChange={(event) => updateCustomDraft({ length: event.target.value })} placeholder="Longueur" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+                  <input value={customDraft.thickness} onChange={(event) => updateCustomDraft({ thickness: event.target.value })} placeholder="Epaisseur / verre" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+                  <input value={customDraft.color} onChange={(event) => updateCustomDraft({ color: event.target.value })} placeholder="Couleur" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+                  <input type="date" value={customDraft.installationDate} onChange={(event) => updateCustomDraft({ installationDate: event.target.value })} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+                  <textarea value={customDraft.measurementNotes} onChange={(event) => updateCustomDraft({ measurementNotes: event.target.value })} placeholder="Notes de mesure" className="min-h-20 rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950 md:col-span-2" />
+                  <textarea value={customDraft.installationNotes} onChange={(event) => updateCustomDraft({ installationNotes: event.target.value })} placeholder="Adresse ou notes livraison / installation" className="min-h-20 rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950 md:col-span-2" />
+                </div>
+              ) : null}
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                <NumberField label="Quantite" min="1" value={customDraft.quantity} onChange={(value) => updateCustomDraft({ quantity: value })} />
+                <NumberField label="Prix" min="0" step="0.01" value={customDraft.unitPrice} onChange={(value) => updateCustomDraft({ unitPrice: value })} />
+                <NumberField label="Remise" min="0" step="0.01" value={customDraft.discount} onChange={(value) => updateCustomDraft({ discount: value })} />
+              </div>
+              <button type="button" onClick={addCustomLine} className="mt-3 w-full rounded-md border border-brand-300 px-4 py-2 text-sm font-semibold text-brand-700 dark:border-brand-700 dark:text-brand-200">{addCustomToDocumentLabel}</button>
+            </div>
           </div>
-          <div className="mt-4 flex items-center justify-between">
-            <button type="button" onClick={() => setLines([...lines, newLine()])} className="rounded-md border px-3 py-2 text-sm">Ajouter ligne</button>
-            <p className="text-sm font-semibold">Total: {money(totalPreview)}</p>
+
+          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-bold">Lignes ajoutees</h3>
+              <span className="text-xs text-slate-500">{lines.length} ligne{lines.length > 1 ? "s" : ""}</span>
+            </div>
+            {lines.length === 0 ? <p className="mt-2 text-sm text-slate-500">Aucune ligne ajoutee pour l&apos;instant. Choisissez un produit du catalogue ou ajoutez une ligne personnalisee.</p> : null}
+            <div className="mt-3 space-y-2">
+              {lines.map((line, index) => <LinePreview key={`${line.productId}-${line.customName}-${index}`} line={line} index={index} product={products.find((product) => product.id === line.productId)} onRemove={() => removeLine(index)} />)}
+            </div>
           </div>
-          <button className="mt-4 w-full rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Enregistrer</button>
+
+          <div className="mt-4 rounded-lg bg-slate-950 p-4 text-white">
+            <div className="grid gap-2 sm:grid-cols-3">
+              <Info label={type === "quotes" ? "Total devis" : "Total commande"} value={money(totalPreview)} />
+              <Info label="Avance recue" value={money(0)} />
+              <Info label="Balance restante" value={money(currentBalancePreview ?? totalPreview)} />
+            </div>
+            <p className="mt-3 text-xs text-slate-300">{type === "quotes" ? "Le devis ne modifie pas le stock et ne cree pas de vente POS." : "La commande V1 ne modifie pas le stock et ne cree pas de vente POS automatiquement."}</p>
+          </div>
+
+          <button className="mt-4 w-full rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">{type === "quotes" ? "Enregistrer devis" : type === "proformas" ? "Enregistrer commande" : "Enregistrer"}</button>
         </form>
 
         <section className="space-y-4">
@@ -508,13 +579,29 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
   );
 }
 
+function ProductResultCard({ product, selected, onSelect }: { product: Product; selected: boolean; onSelect: () => void }) {
+  return <button
+    type="button"
+    onClick={onSelect}
+    className={`rounded-md border p-3 text-left transition ${selected ? "border-brand-500 bg-white ring-2 ring-brand-100 dark:bg-slate-900 dark:ring-brand-950" : "border-slate-200 bg-white hover:border-brand-300 dark:border-slate-800 dark:bg-slate-900"}`}
+  >
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <p className="font-semibold text-slate-950 dark:text-white">{product.name}</p>
+        <p className="mt-1 text-xs text-slate-500">{product.unit ? `Unite: ${product.unit}` : "Produit catalogue"}</p>
+      </div>
+      <span className="shrink-0 text-sm font-bold text-brand-700 dark:text-brand-200">{money(product.salePrice)}</span>
+    </div>
+    <span className="mt-2 inline-flex rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">{selected ? "Selectionne" : "Choisir"}</span>
+  </button>;
+}
+
 function SelectedProduct({ product }: { product?: Product }) {
   if (!product) return null;
-  return <div className="mt-2 rounded-md bg-white p-2 text-xs text-slate-600 dark:bg-slate-900 dark:text-slate-300">
-    <span className="font-semibold text-slate-900 dark:text-white">{product.name}</span>
-    <span className="ml-2 text-slate-500">{product.sku}</span>
-    <span className="ml-2">Prix: {money(product.salePrice)}</span>
-    {product.unit ? <span className="ml-2">Unite: {product.unit}</span> : null}
+  return <div className="mt-3 rounded-md border border-brand-100 bg-white p-3 text-xs text-slate-600 dark:border-brand-900 dark:bg-slate-900 dark:text-slate-300">
+    <p className="font-semibold text-slate-900 dark:text-white">Produit selectionne: {product.name}</p>
+    <p className="mt-1">Prix: {money(product.salePrice)}{product.unit ? ` · Unite: ${product.unit}` : ""}</p>
+    <p className="mt-1 text-slate-500">SKU: {product.sku}</p>
   </div>;
 }
 
@@ -527,6 +614,32 @@ function NumberField({ label, value, min, step, onChange }: { label: string; val
     {label}
     <input type="number" min={min} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} className="rounded-md border px-2 py-2 text-sm font-normal text-slate-950 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
   </label>;
+}
+
+function LinePreview({ line, index, product, onRemove }: { line: Line; index: number; product?: Product; onRemove: () => void }) {
+  const lineName = product?.name ?? line.customName;
+  const lineSku = product?.sku;
+  const lineUnit = product?.unit;
+  const lineTotal = line.quantity * line.unitPrice - line.discount + line.tax;
+  return <div className="rounded-md border border-slate-200 bg-white p-3 text-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <p className="font-semibold text-slate-950 dark:text-white">{index + 1}. {lineName || "Ligne sans nom"}</p>
+        <p className="mt-1 text-xs text-slate-500">
+          {line.productId ? "Produit catalogue" : "Ligne personnalisee"}
+          {lineSku ? ` · ${lineSku}` : ""}
+          {lineUnit ? ` · ${lineUnit}` : ""}
+        </p>
+      </div>
+      <button type="button" onClick={onRemove} className="rounded-md border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 dark:border-red-900 dark:text-red-300">Retirer</button>
+    </div>
+    <div className="mt-3 grid gap-2 text-xs sm:grid-cols-4">
+      <Info label="Quantite" value={line.quantity} />
+      <Info label="Prix" value={money(line.unitPrice)} />
+      <Info label="Remise" value={money(line.discount)} />
+      <Info label="Total ligne" value={money(lineTotal)} />
+    </div>
+  </div>;
 }
 
 function DocumentActions(props: {

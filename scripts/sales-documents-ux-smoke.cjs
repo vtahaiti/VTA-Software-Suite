@@ -25,9 +25,13 @@ for (const expected of [
 
 assert(documentPage.includes("Devis = proposition de prix."), "La page Devis doit expliquer le role du devis.");
 assert(documentPage.includes("Commande = vente confirmee qui peut recevoir une avance, puis la balance."), "La page Commandes doit expliquer avance/balance.");
-assert(documentPage.includes("productSearches"), "Le select produit doit etre accompagne d'une recherche compacte par ligne.");
-assert(documentPage.includes("filtered.slice(0, 20)"), "Le select produit doit limiter la liste visible.");
-assert(documentPage.includes("Ajouter ligne personnalisee"), "Le select doit garder l'option ligne personnalisee.");
+assert(documentPage.includes("productSearch"), "Le select produit doit etre accompagne d'une recherche compacte.");
+assert(documentPage.includes("filtered.slice(0, 20)"), "La liste produit doit limiter les resultats visibles.");
+assert(documentPage.includes("A) Produit du catalogue"), "Le formulaire doit separer le produit catalogue.");
+assert(documentPage.includes("B) Ajouter un service ou travail personnalise"), "Le formulaire doit separer la ligne personnalisee.");
+assert(documentPage.includes("Ajouter au devis") && documentPage.includes("Ajouter a la commande"), "Les boutons d'ajout doivent etre explicites.");
+assert(documentPage.includes("ProductResultCard"), "La selection produit doit utiliser des cartes compactes.");
+assert(!documentPage.includes('<select value={catalogDraft.productId}'), "La selection produit ne doit plus utiliser de select natif.");
 assert(documentPage.includes("paymentActionLabel"), "Les boutons doivent distinguer Ajouter avance et Encaisser balance.");
 
 assert(navigationSmoke.includes("restaurant") && navigationSmoke.includes("multi-activities"), "La matrice de menu doit couvrir Restaurant et Multi-activite.");

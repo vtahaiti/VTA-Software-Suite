@@ -72,11 +72,13 @@ assert.match(fabricationLine.customNote, /Livraison \/ installation: Adresse QA/
 for (const action of ["Voir", "Imprimer", "Convertir", "Ajouter avance", "Encaisser balance", "Marquer prete", "Marquer livree", "Terminer", "Annuler"]) {
   assert(salesDocumentPage.includes(action), `Action Devis & Commandes attendue: ${action}`);
 }
-for (const label of ["Ajouter produit existant", "Ajouter ligne personnalisee", "Rechercher par nom ou SKU", "Total", "Avance", "Balance"]) {
+for (const label of ["A) Produit du catalogue", "B) Ajouter un service ou travail personnalise", "Ajouter au devis", "Ajouter a la commande", "Rechercher un produit", "Produit selectionne", "Total", "Avance", "Balance"]) {
   assert(salesDocumentPage.includes(label), `Libelle Devis & Commandes attendu: ${label}`);
 }
 assert(salesDocumentPage.includes("/products?${params}"), "La recherche produit doit appeler l'API produits avec les parametres serveur.");
 assert(salesDocumentPage.includes("setProducts((current)"), "Les resultats produits recherches doivent etre fusionnes pour garder la selection.");
+assert(salesDocumentPage.includes("ProductResultCard"), "La selection produit doit etre en cartes compactes.");
+assert(!salesDocumentPage.includes("product.sku} - {product.name}"), "La liste produit ne doit pas afficher SKU complet + nom + prix.");
 assert(salesDocumentPage.includes("Aucun devis pour l'instant"), "Etat vide devis attendu.");
 assert(salesDocumentPage.includes("Aucune commande pour l'instant"), "Etat vide commandes attendu.");
 assert(salesDocumentPage.includes("Créez un devis") || salesDocumentPage.includes("Creez un devis"), "Etat vide devis doit expliquer l'action.");
