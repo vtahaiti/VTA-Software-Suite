@@ -13,17 +13,17 @@ const navigation = read("apps/web/lib/navigation.tsx");
 
 for (const label of [
   "Devis en attente",
-  "Commandes en cours",
-  "Acomptes recus",
-  "Soldes a recevoir",
+  "Commandes en preparation",
+  "Avances recues",
+  "Balances a recevoir",
   "Commandes pretes",
   "Commandes terminees",
   "Flux separe du POS",
-  "Utilisez ce module quand un client demande un prix, confirme une commande, paie une avance, puis regle le solde.",
+  "produit existant ou service personnalise",
   "1. Devis",
   "2. Commande",
-  "3. Acompte",
-  "4. Solde",
+  "3. Avance",
+  "4. Balance",
   "5. Termine"
 ]) {
   assert(salesPage.includes(label), `Tableau de bord Devis & Commandes incomplet: ${label}`);
@@ -32,12 +32,13 @@ for (const label of [
 for (const label of [
   "Creer un devis",
   "Nouvelle commande",
-  "Produit/service",
-  "+ Ajouter une ligne personnalisee",
+  "Ajouter produit existant",
+  "Ajouter ligne personnalisee",
+  "Rechercher par nom ou SKU",
   "Voir",
   "Imprimer",
-  "Ajouter acompte",
-  "Encaisser solde",
+  "Ajouter avance",
+  "Encaisser balance",
   "Marquer prete",
   "Marquer livree",
   "Terminer",
@@ -49,7 +50,8 @@ for (const label of [
 }
 
 assert(documentPage.includes('window.location.search'), "Les cartes filtrees doivent initialiser le statut depuis l'URL.");
-assert(documentPage.includes("filtered.slice(0, 12)"), "Le selecteur produit/service doit rester compact.");
+assert(documentPage.includes("filtered.slice(0, 20)"), "Le selecteur produit/service doit rester compact.");
+assert(documentPage.includes("/products?${params}"), "La recherche produit existant doit passer par l'API produits.");
 assert(!salesPage.includes("Factures et retours"), "La V1 ne doit pas remettre Factures/Retours au premier plan.");
 assert(!documentPage.includes("Envoyer</button>") && !documentPage.includes("Accepter</button>"), "La V1 Devis doit privilegier Voir/Imprimer/Convertir/Annuler.");
 assert(!proformasPage.includes("to-invoice"), "Commandes V1 ne doit pas pousser visuellement vers facture.");

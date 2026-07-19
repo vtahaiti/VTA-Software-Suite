@@ -19,7 +19,7 @@ const statusLabels: Record<string, string> = {
   REJECTED: "Refuse",
   CONVERTED: "Transforme",
   PAID: "Soldee",
-  PARTIALLY_PAID: "Acompte recu",
+  PARTIALLY_PAID: "Avance recue",
   CANCELLED: "Annulee",
   RETURNED: "Retournee"
 };
@@ -92,13 +92,13 @@ function documentKind(type: DocType) {
 
 function documentHelpText(type: DocType) {
   if (type === "quotes") return "Devis = proposition de prix. Il ne modifie pas le stock.";
-  if (type === "proformas") return "Commande = vente confirmee qui peut recevoir un acompte, puis le solde restant.";
+  if (type === "proformas") return "Commande = vente confirmee qui peut recevoir une avance, puis la balance.";
   return "Facture = document de vente finalise ou a encaisser selon le statut.";
 }
 
 function documentCreateHelp(type: DocType) {
   if (type === "quotes") return "Saisissez seulement le client, les produits ou services, la quantite, le prix, la remise et les notes.";
-  if (type === "proformas") return "Creez une commande directe, puis enregistrez un acompte ou encaissez le solde quand le client paie.";
+  if (type === "proformas") return "Creez une commande directe, puis enregistrez une avance ou encaissez la balance quand le client paie.";
   return "Creez une facture seulement pour un document finalise.";
 }
 
@@ -109,7 +109,7 @@ function documentListTitle(type: DocType) {
 }
 
 function paymentActionLabel(document: SalesDocument) {
-  return Number(document.paidAmount ?? 0) > 0 ? "Encaisser solde" : "Ajouter acompte";
+  return Number(document.paidAmount ?? 0) > 0 ? "Encaisser balance" : "Ajouter avance";
 }
 
 const fabricationTypes = ["Fenetre", "Porte", "Cadre", "Vitrine", "Moustiquaire", "Structure simple", "Autre"];
@@ -147,7 +147,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
   const [summary, setSummary] = useState<Summary | null>(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
-  const [productSearch, setProductSearch] = useState("");
+  const [productSearches, setProductSearches] = useState<Record<number, string>>({});
   const [customerId, setCustomerId] = useState("");
   const [notes, setNotes] = useState("");
   const [discount, setDiscount] = useState(0);
@@ -187,13 +187,35 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
     const headers = { Authorization: `Bearer ${getAccessToken()}` };
     const [customersResponse, productsResponse, tenantConfiguration] = await Promise.all([
       fetch(`${apiUrl}/customers?limit=100`, { headers }),
-      fetch(`${apiUrl}/products?limit=100`, { headers }),
+      fetch(`${apiUrl}/products?limit=50`, { headers }),
       getTenantBusinessConfiguration().catch(() => null)
     ]);
     if (customersResponse.ok) setCustomers((await customersResponse.json()).items ?? []);
     if (productsResponse.ok) setProducts((await productsResponse.json()).items ?? []);
     setShowFabricationFields(isFabricationProfile(tenantConfiguration?.businessProfileType, tenantConfiguration?.primaryActivity));
   }
+
+  const searchProducts = useCallback(async (term: string) => {
+    const params = new URLSearchParams({ limit: "50" });
+    if (term.trim()) params.set("search", term.trim());
+    const response = await fetch(`${apiUrl}/products?${params}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
+    if (!response.ok) return;
+    const data = await response.json();
+    const incoming: Product[] = data.items ?? [];
+    setProducts((current) => {
+      const merged = new Map<string, Product>();
+      for (const product of current) merged.set(product.id, product);
+      for (const product of incoming) merged.set(product.id, product);
+      return Array.from(merged.values());
+    });
+  }, []);
+
+  useEffect(() => {
+    const term = Object.values(productSearches).find((value) => value.trim())?.trim();
+    if (!term) return;
+    const timer = window.setTimeout(() => void searchProducts(term), 250);
+    return () => window.clearTimeout(timer);
+  }, [productSearches, searchProducts]);
 
   async function refreshSelected(id: string) {
     const response = await apiFetch(`/${type}/${id}`);
@@ -204,9 +226,13 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
     setLines((current) => current.map((line, lineIndex) => lineIndex === index ? { ...line, ...values } : line));
   }
 
-function selectProduct(index: number, productId: string) {
+  function selectProduct(index: number, productId: string) {
     const product = products.find((item) => item.id === productId);
     updateLine(index, { productId, customName: "", customType: "SERVICE", material: "", width: "", height: "", color: "", thickness: "", length: "", measurementNotes: "", installationDate: "", installationNotes: "", unitPrice: Number(product?.salePrice ?? 0) });
+  }
+
+  function switchToCustomLine(index: number) {
+    updateLine(index, { productId: "", customName: "", customType: "SERVICE", unitPrice: 0 });
   }
 
   async function submit(event: FormEvent) {
@@ -263,12 +289,12 @@ function selectProduct(index: number, productId: string) {
   async function registerPayment(document: SalesDocument) {
     const amount = Number(paymentAmount);
     if (!amount || amount <= 0) {
-      setMessage("Montant d'acompte invalide.");
+      setMessage("Montant d'avance invalide.");
       return;
     }
     const response = await apiFetch(`/${type}/${document.id}/payments`, {
       method: "POST",
-      body: JSON.stringify({ method: "CASH", amount, reference: paymentReference || undefined, notes: "Acompte / paiement partiel" })
+      body: JSON.stringify({ method: "CASH", amount, reference: paymentReference || undefined, notes: "Avance / paiement partiel" })
     });
     if (response.ok) {
       setMessage("Paiement enregistre.");
@@ -288,23 +314,23 @@ function selectProduct(index: number, productId: string) {
 
   function selectForPayment(document: SalesDocument) {
     setSelected(document);
-    setMessage("Commande selectionnee: ajoutez l'acompte ou le paiement dans le detail.");
+    setMessage("Commande selectionnee: ajoutez l'avance ou la balance dans le detail.");
   }
 
   const totalPreview = useMemo(() => lines.reduce((sum, line) => sum + line.quantity * line.unitPrice - line.discount + line.tax, 0) - discount, [lines, discount]);
   const canTakePayment = selected && (type === "proformas" || type === "invoices") && Number(selected.balance) > 0 && selected.status !== "CANCELLED";
-  const compactProducts = useMemo(() => {
-    const term = productSearch.trim().toLowerCase();
+  function compactProducts(index: number) {
+    const term = (productSearches[index] ?? "").trim().toLowerCase();
     const filtered = term ? products.filter((product) => `${product.sku} ${product.name}`.toLowerCase().includes(term)) : products;
-    return filtered.slice(0, 12);
-  }, [productSearch, products]);
+    return filtered.slice(0, 20);
+  }
 
   return (
     <div className="space-y-5">
       <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <p className="text-sm font-medium text-brand-600">{eyebrow}</p>
         <h1 className="text-2xl font-bold text-slate-950 dark:text-white">{title}</h1>
-        <p className="mt-1 text-sm text-slate-500">Flux V1: devis, commande, acompte, solde, impression, puis statut termine.</p>
+        <p className="mt-1 text-sm text-slate-500">Flux V1: produit existant ou service personnalise, devis, commande, avance, balance, impression, puis termine.</p>
         <div className="mt-3 rounded-md border border-brand-100 bg-brand-50 px-3 py-2 text-sm text-slate-700 dark:border-brand-900 dark:bg-slate-950 dark:text-slate-200">
           {documentHelpText(type)}
         </div>
@@ -314,9 +340,9 @@ function selectProduct(index: number, productId: string) {
       {summary ? (
         <div className="grid gap-3 md:grid-cols-5">
           <Metric label="Commandes en cours" value={summary.ordersInProgress} />
-          <Metric label="Acomptes recus" value={money(summary.depositsReceived)} />
-          <Metric label="Soldes a recevoir" value={money(summary.balancesToCollect)} />
-          <Metric label="Pretes non soldees" value={summary.readyUnpaidOrders} />
+          <Metric label="Avances recues" value={money(summary.depositsReceived)} />
+          <Metric label="Balances a recevoir" value={money(summary.balancesToCollect)} />
+          <Metric label="Pretes avec balance" value={summary.readyUnpaidOrders} />
           <Metric label="Terminees" value={summary.completedOrders} />
         </div>
       ) : null}
@@ -336,14 +362,27 @@ function selectProduct(index: number, productId: string) {
           <div className="mt-4 space-y-3">
             {lines.map((line, index) => (
               <div key={index} className="grid gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-800">
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Produit/service</label>
-                <input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Rechercher un produit ou service" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-                <select value={line.productId} onChange={(event) => selectProduct(index, event.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
-                  <option value="">+ Ajouter une ligne personnalisee</option>
-                  {compactProducts.map((product) => <option key={product.id} value={product.id}>{product.sku} - {product.name}</option>)}
-                </select>
-                <p className="text-xs text-slate-500">Liste compacte: recherchez un produit/service ou ajoutez une ligne personnalisee.</p>
-                {!line.productId ? <input required value={line.customName} onChange={(event) => updateLine(index, { customName: event.target.value })} placeholder="Nom du service ou de la commande speciale" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /> : null}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Produit existant ou ligne personnalisee</label>
+                  {line.productId ? <button type="button" onClick={() => switchToCustomLine(index)} className="rounded-md border px-3 py-2 text-xs font-semibold">Utiliser ligne personnalisee</button> : null}
+                </div>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
+                  <p className="text-sm font-semibold">Ajouter produit existant</p>
+                  <p className="mt-1 text-xs text-slate-500">Recherchez dans le catalogue. Le nom, le prix de vente et l&apos;unite sont repris automatiquement.</p>
+                  <input value={productSearches[index] ?? ""} onChange={(event) => setProductSearches((current) => ({ ...current, [index]: event.target.value }))} placeholder="Rechercher par nom ou SKU" className="mt-2 w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+                  <select value={line.productId} onChange={(event) => selectProduct(index, event.target.value)} className="mt-2 w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+                    <option value="">Choisir un produit existant</option>
+                    {compactProducts(index).map((product) => <option key={product.id} value={product.id}>{product.sku} - {product.name} - {money(product.salePrice)}{product.unit ? ` / ${product.unit}` : ""}</option>)}
+                  </select>
+                  {line.productId ? <SelectedProduct product={products.find((product) => product.id === line.productId)} /> : null}
+                </div>
+                {!line.productId ? (
+                  <div className="rounded-md border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+                    <p className="text-sm font-semibold">Ajouter ligne personnalisee</p>
+                    <p className="mt-1 text-xs text-slate-500">Service, fabrication, reparation ou travail special absent du catalogue.</p>
+                    <input required value={line.customName} onChange={(event) => updateLine(index, { customName: event.target.value })} placeholder="Nom ou description de la ligne" className="mt-2 w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+                  </div>
+                ) : null}
                 {!line.productId && showFabricationFields ? (
                   <div className="grid gap-2 rounded-md bg-slate-50 p-3 dark:bg-slate-950 md:grid-cols-2">
                     <select value={line.customType} onChange={(event) => updateLine(index, { customType: event.target.value })} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
@@ -382,7 +421,7 @@ function selectProduct(index: number, productId: string) {
         <section className="space-y-4">
           <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
             <h2 className="text-lg font-semibold">{documentListTitle(type)}</h2>
-            <p className="mt-1 text-sm text-slate-500">Actions visibles: voir, imprimer, convertir, recevoir un acompte, encaisser le solde et changer le statut.</p>
+            <p className="mt-1 text-sm text-slate-500">Actions visibles: voir, imprimer, convertir, recevoir une avance, encaisser la balance et changer le statut.</p>
           </div>
           <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2">
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Recherche" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
@@ -410,7 +449,7 @@ function selectProduct(index: number, productId: string) {
           <div className="hidden overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 md:block">
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950">
-                <tr><th className="p-3">Numero</th><th className="p-3">Client</th><th className="p-3">Total</th><th className="p-3">Paye</th><th className="p-3">Solde</th><th className="p-3">Statut</th><th className="p-3">Actions</th></tr>
+                <tr><th className="p-3">Numero</th><th className="p-3">Client</th><th className="p-3">Total</th><th className="p-3">Avance</th><th className="p-3">Balance</th><th className="p-3">Statut</th><th className="p-3">Actions</th></tr>
               </thead>
               <tbody>
                 {items.map((doc) => (
@@ -442,7 +481,7 @@ function selectProduct(index: number, productId: string) {
           {items.length === 0 ? (
             <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
               <h3 className="font-semibold text-slate-950 dark:text-white">{type === "quotes" ? "Aucun devis pour l'instant" : type === "proformas" ? "Aucune commande pour l'instant" : "Aucune facture pour l'instant"}</h3>
-              <p className="mt-1">{type === "quotes" ? "Créez un devis pour proposer un prix sans toucher au stock." : type === "proformas" ? "Créez une commande pour suivre les acomptes, le solde et les statuts." : "Les documents finalisés apparaîtront ici."}</p>
+              <p className="mt-1">{type === "quotes" ? "Créez un devis avec un produit existant ou une ligne personnalisee, sans toucher au stock." : type === "proformas" ? "Créez une commande pour suivre Total, Avance, Balance et statuts." : "Les documents finalisés apparaîtront ici."}</p>
               <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="mt-4 rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">{type === "quotes" ? "Créer un devis" : type === "proformas" ? "Créer une commande" : createLabel}</button>
             </div>
           ) : null}
@@ -467,6 +506,16 @@ function selectProduct(index: number, productId: string) {
       </div>
     </div>
   );
+}
+
+function SelectedProduct({ product }: { product?: Product }) {
+  if (!product) return null;
+  return <div className="mt-2 rounded-md bg-white p-2 text-xs text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+    <span className="font-semibold text-slate-900 dark:text-white">{product.name}</span>
+    <span className="ml-2 text-slate-500">{product.sku}</span>
+    <span className="ml-2">Prix: {money(product.salePrice)}</span>
+    {product.unit ? <span className="ml-2">Unite: {product.unit}</span> : null}
+  </div>;
 }
 
 function Metric({ label, value }: { label: string; value: string | number }) {
@@ -527,8 +576,8 @@ function DocumentCard(props: {
     </div>
     <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
       <Info label="Total" value={money(doc.total)} />
-      <Info label="Paye" value={money(doc.paidAmount)} />
-      <Info label="Solde" value={money(doc.balance)} />
+      <Info label="Avance" value={money(doc.paidAmount)} />
+      <Info label="Balance" value={money(doc.balance)} />
     </div>
     <div className="mt-3">
       <DocumentActions {...props} />
@@ -582,8 +631,8 @@ function DocumentDetail(props: {
         </div>
         <div className="mt-4 grid gap-2 text-sm md:grid-cols-4">
           <Info label="Total" value={money(selected.total)} />
-          <Info label="Acomptes / paye" value={money(selected.paidAmount)} />
-          <Info label="Solde" value={money(selected.balance)} />
+          <Info label="Avance" value={money(selected.paidAmount)} />
+          <Info label="Balance" value={money(selected.balance)} />
           <Info label="Paiements" value={selected.payments?.length ?? 0} />
         </div>
         {selected.notes ? <p className="mt-4 whitespace-pre-wrap text-sm text-slate-600 dark:text-slate-300">{selected.notes}</p> : null}
@@ -599,7 +648,7 @@ function DocumentDetail(props: {
 
       {props.canTakePayment ? (
         <div className="mt-4 rounded-md border border-slate-200 p-3 dark:border-slate-800">
-          <h3 className="text-sm font-semibold">Ajouter un acompte ou encaisser le solde</h3>
+          <h3 className="text-sm font-semibold">Ajouter une avance ou encaisser la balance</h3>
           <div className="mt-3 grid gap-2 md:grid-cols-[1fr_1fr_auto]">
             <input type="number" min="0.01" step="0.01" value={props.paymentAmount} onChange={(event) => props.onPaymentAmount(event.target.value)} placeholder="Montant" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
             <input value={props.paymentReference} onChange={(event) => props.onPaymentReference(event.target.value)} placeholder="Reference facultative" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />

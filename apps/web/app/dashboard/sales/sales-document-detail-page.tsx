@@ -19,8 +19,8 @@ const statusLabels: Record<string, string> = {
   READY: "Prete pour livraison/installation",
   DELIVERED: "Livree",
   COMPLETED: "Terminee",
-  PAID: "Paye",
-  PARTIALLY_PAID: "Partiellement paye",
+  PAID: "Soldee",
+  PARTIALLY_PAID: "Avance recue",
   CANCELLED: "Annule",
   RETURNED: "Retourne"
 };
@@ -56,17 +56,33 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
 
   async function pay(event: FormEvent) {
     event.preventDefault();
-    const response = await fetch(`${apiUrl}/invoices/${params.id}/payments`, {
+    const paymentPath = type === "proformas" ? "proformas" : "invoices";
+    const response = await fetch(`${apiUrl}/${paymentPath}/${params.id}/payments`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
       body: JSON.stringify({ ...payment, amount: Number(payment.amount) })
     });
     if (response.ok) {
-      setMessage("Paiement enregistre.");
+      setMessage(type === "proformas" ? "Avance / balance enregistree." : "Paiement enregistre.");
       setPayment({ method: "CASH", amount: "", reference: "", notes: "" });
       setDoc(await response.json());
     } else {
       setMessage("Paiement impossible.");
+    }
+  }
+
+  async function updateStatus(status: string) {
+    if (type !== "proformas") return;
+    const response = await fetch(`${apiUrl}/proformas/${params.id}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+      body: JSON.stringify({ status })
+    });
+    if (response.ok) {
+      setMessage("Statut mis a jour.");
+      setDoc(await response.json());
+    } else {
+      setMessage("Statut impossible.");
     }
   }
 
@@ -98,8 +114,8 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
 
       <div className="grid gap-4 md:grid-cols-4">
         <Info label="Total" value={doc.total} />
-        <Info label="Paye" value={doc.paidAmount} />
-        <Info label="Solde" value={doc.balance} />
+        <Info label="Avance" value={doc.paidAmount} />
+        <Info label="Balance" value={doc.balance} />
         <div className="rounded-lg border bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
           <p className="text-sm text-slate-500">Impression</p>
           <p className="text-sm">Ticket 58/80 mm, A4/Letter</p>
@@ -130,9 +146,24 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
         </table>
       </div>
 
-      {type === "invoices" ? (
+      {type === "proformas" ? (
+        <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="text-lg font-semibold">Statut commande</h2>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {[
+              ["IN_PROGRESS", "En preparation"],
+              ["READY", "Marquer prete"],
+              ["DELIVERED", "Marquer livree"],
+              ["COMPLETED", "Terminer"],
+              ["CANCELLED", "Annuler"]
+            ].map(([value, label]) => <button key={value} onClick={() => void updateStatus(value)} className="rounded-md border px-4 py-2 text-sm">{label}</button>)}
+          </div>
+        </div>
+      ) : null}
+
+      {type === "invoices" || type === "proformas" ? (
         <form onSubmit={pay} className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="text-lg font-semibold">Enregistrer paiement</h2>
+          <h2 className="text-lg font-semibold">{type === "proformas" ? "Ajouter avance / encaisser balance" : "Enregistrer paiement"}</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-4">
             <select value={payment.method} onChange={(event) => setPayment({ ...payment, method: event.target.value })} className="rounded-md border px-3 py-2 dark:bg-slate-950">
               <option value="CASH">Especes</option>
@@ -140,11 +171,11 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
               <option value="BANK_TRANSFER">Virement</option>
               <option value="MIXED">Mixte</option>
             </select>
-            <input required type="number" min="0.01" step="0.01" value={payment.amount} onChange={(event) => setPayment({ ...payment, amount: event.target.value })} placeholder="Montant" className="rounded-md border px-3 py-2 dark:bg-slate-950" />
+            <input required type="number" min="0.01" step="0.01" value={payment.amount} onChange={(event) => setPayment({ ...payment, amount: event.target.value })} placeholder={type === "proformas" ? "Montant avance ou balance" : "Montant"} className="rounded-md border px-3 py-2 dark:bg-slate-950" />
             <input value={payment.reference} onChange={(event) => setPayment({ ...payment, reference: event.target.value })} placeholder="Reference" className="rounded-md border px-3 py-2 dark:bg-slate-950" />
             <input value={payment.notes} onChange={(event) => setPayment({ ...payment, notes: event.target.value })} placeholder="Notes" className="rounded-md border px-3 py-2 dark:bg-slate-950" />
           </div>
-          <button className="mt-4 rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Enregistrer paiement</button>
+          <button className="mt-4 rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">{type === "proformas" ? "Enregistrer avance / balance" : "Enregistrer paiement"}</button>
         </form>
       ) : null}
     </div>
