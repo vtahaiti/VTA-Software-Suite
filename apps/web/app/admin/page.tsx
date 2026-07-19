@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AdminShell } from "./admin-shell";
+import { getAdminSubscriptionDisplay } from "@/lib/admin-subscription-display";
 import { platformFetch } from "@/lib/platform";
 
 type MoneyByCurrency = { currency: string; amount: number };
@@ -25,7 +26,7 @@ type Stats = {
   storage: { measured: boolean; label: string };
   alerts: { expiredPayments: number; renewalsDue: number; inactiveTenants: number; criticalErrors: number };
   charts: { tenantsCreated: Point[]; revenue: Point[]; subscriptions: Point[]; logins: Point[]; activities: Point[] };
-  latestTenants: Array<{ id: string; name: string; status: string; primaryActivity?: string | null; country?: string | null; plan: string; subscriptionStatus: string; createdAt: string }>;
+  latestTenants: Array<{ id: string; name: string; status: string; primaryActivity?: string | null; country?: string | null; plan: string; subscriptionStatus: string; subscriptionEndsAt?: string | null; createdAt: string }>;
 };
 
 export default function AdminPage() {
@@ -92,8 +93,11 @@ export default function AdminPage() {
         <Panel title="Dernières entreprises inscrites" subtitle="Informations administratives uniquement.">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="text-xs uppercase text-slate-500"><tr><th className="py-2">Entreprise</th><th>Activité</th><th>Plan</th><th>Statut</th><th>Date</th></tr></thead>
-              <tbody>{stats?.latestTenants.map((tenant) => <tr key={tenant.id} className="border-t border-white/10"><td className="py-3"><Link href={`/admin/tenants/${tenant.id}`} className="font-bold text-cyan-200">{tenant.name}</Link><p className="text-xs text-slate-500">{tenant.country ?? "Pays non défini"}</p></td><td>{tenant.primaryActivity ?? "-"}</td><td>{tenant.plan}</td><td><Status value={tenant.status} /></td><td>{new Date(tenant.createdAt).toLocaleDateString("fr-HT")}</td></tr>)}</tbody>
+              <thead className="text-xs uppercase text-slate-500"><tr><th className="py-2">Entreprise</th><th>Activité</th><th>Plan</th><th>Statut abonnement</th><th>Paiement</th><th>Date</th></tr></thead>
+              <tbody>{stats?.latestTenants.map((tenant) => {
+                const subscription = getAdminSubscriptionDisplay({ plan: tenant.plan, subscriptionStatus: tenant.subscriptionStatus, status: tenant.status, subscriptionEndsAt: tenant.subscriptionEndsAt });
+                return <tr key={tenant.id} className="border-t border-white/10"><td className="py-3"><Link href={`/admin/tenants/${tenant.id}`} className="font-bold text-cyan-200">{tenant.name}</Link><p className="text-xs text-slate-500">{tenant.country ?? "Pays non défini"}</p></td><td>{tenant.primaryActivity ?? "-"}</td><td>{subscription.planLabel}</td><td><Status value={subscription.statusLabel} /></td><td>{subscription.paymentLabel}</td><td>{new Date(tenant.createdAt).toLocaleDateString("fr-HT")}</td></tr>;
+              })}</tbody>
             </table>
           </div>
         </Panel>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AdminShell } from "../admin-shell";
+import { getAdminSubscriptionDisplay } from "@/lib/admin-subscription-display";
 import { platformFetch } from "@/lib/platform";
 
 type Tenant = {
@@ -83,12 +84,40 @@ export default function AdminTenantsPage() {
       {message ? <Alert tone="green">{message}</Alert> : null}
       <div className="hidden overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] shadow-xl shadow-black/10 xl:block">
         <table className="w-full text-left text-sm">
-          <thead className="sticky top-0 bg-white/5 text-xs uppercase tracking-wide text-slate-400"><tr><th className="p-4">Entreprise</th><th>Contact</th><th>Pays</th><th>Plan</th><th>Statut</th><th>Expiration</th><th>Licences</th><th>Dernière connexion</th><th>Actions</th></tr></thead>
-          <tbody>{filtered.map((tenant) => <tr key={tenant.id} className="border-t border-white/10 text-slate-300"><td className="p-4"><div className="flex items-center gap-3"><Logo tenant={tenant} /><div><Link href={`/admin/companies/${tenant.id}`} className="font-black text-cyan-100">{tenant.name}</Link><p className="text-xs text-slate-500">{tenant.slug}</p></div></div></td><td>{tenant.phone ?? "-"}<p className="text-xs text-slate-500">{tenant.email ?? "-"}</p></td><td>{tenant.country ?? "-"}<p className="text-xs text-slate-500">{tenant.city ?? "-"}</p></td><td><b className="text-white">{tenant.plan}</b><p className="text-xs text-slate-500">{tenant.subscriptionStatus}</p></td><td><Status value={tenant.status} /></td><td>{tenant.subscriptionEndsAt ? new Date(tenant.subscriptionEndsAt).toLocaleDateString("fr-HT") : "Non définie"}</td><td>{tenant.users} utilisateurs<p className="text-xs text-slate-500">{tenant.stores} magasins · {tenant.warehouses} dépôts</p></td><td>{tenant.lastLoginAt ? new Date(tenant.lastLoginAt).toLocaleString("fr-HT") : "Jamais"}</td><td><ActionMenu tenant={tenant} onStatus={updateStatus} /></td></tr>)}</tbody>
+          <thead className="sticky top-0 bg-white/5 text-xs uppercase tracking-wide text-slate-400">
+            <tr><th className="p-4">Entreprise</th><th>Contact</th><th>Pays</th><th>Plan actif</th><th>Statut abonnement</th><th>Échéance</th><th>Licences</th><th>Dernière connexion</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {filtered.map((tenant) => {
+              const subscription = getAdminSubscriptionDisplay({ plan: tenant.plan, subscriptionStatus: tenant.subscriptionStatus, status: tenant.status, subscriptionEndsAt: tenant.subscriptionEndsAt });
+              return (
+                <tr key={tenant.id} className="border-t border-white/10 text-slate-300">
+                  <td className="p-4"><div className="flex items-center gap-3"><Logo tenant={tenant} /><div><Link href={`/admin/companies/${tenant.id}`} className="font-black text-cyan-100">{tenant.name}</Link><p className="text-xs text-slate-500">{tenant.slug}</p></div></div></td>
+                  <td>{tenant.phone ?? "-"}<p className="text-xs text-slate-500">{tenant.email ?? "-"}</p></td>
+                  <td>{tenant.country ?? "-"}<p className="text-xs text-slate-500">{tenant.city ?? "-"}</p></td>
+                  <td><b className="text-white">{subscription.planLabel}</b><p className="text-xs text-slate-500">{subscription.paymentLabel}</p></td>
+                  <td><SubscriptionStatus value={subscription.statusLabel} /></td>
+                  <td>{subscription.dueDateLabel}</td>
+                  <td>{tenant.users} utilisateurs<p className="text-xs text-slate-500">{tenant.stores} magasins · {tenant.warehouses} dépôts</p></td>
+                  <td>{tenant.lastLoginAt ? new Date(tenant.lastLoginAt).toLocaleString("fr-HT") : "Jamais"}</td>
+                  <td><ActionMenu tenant={tenant} onStatus={updateStatus} /></td>
+                </tr>
+              );
+            })}
+          </tbody>
         </table>
       </div>
       <div className="grid gap-3 xl:hidden">
-        {filtered.map((tenant) => <article key={tenant.id} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><div className="flex items-start gap-3"><Logo tenant={tenant} /><div className="min-w-0 flex-1"><Link href={`/admin/companies/${tenant.id}`} className="font-black text-cyan-100">{tenant.name}</Link><p className="text-sm text-slate-400">{tenant.country ?? "-"} · {tenant.plan}</p><Status value={tenant.status} /></div></div><div className="mt-3 grid gap-2 text-sm text-slate-300"><p>{tenant.users} utilisateurs · {tenant.stores} magasins</p><p>{tenant.email ?? "-"} · {tenant.phone ?? "-"}</p><p>Dernière connexion : {tenant.lastLoginAt ? new Date(tenant.lastLoginAt).toLocaleString("fr-HT") : "Jamais"}</p></div><div className="mt-3"><ActionMenu tenant={tenant} onStatus={updateStatus} /></div></article>)}
+        {filtered.map((tenant) => {
+          const subscription = getAdminSubscriptionDisplay({ plan: tenant.plan, subscriptionStatus: tenant.subscriptionStatus, status: tenant.status, subscriptionEndsAt: tenant.subscriptionEndsAt });
+          return (
+            <article key={tenant.id} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <div className="flex items-start gap-3"><Logo tenant={tenant} /><div className="min-w-0 flex-1"><Link href={`/admin/companies/${tenant.id}`} className="font-black text-cyan-100">{tenant.name}</Link><p className="text-sm text-slate-400">{tenant.country ?? "-"} · {subscription.planLabel}</p><SubscriptionStatus value={subscription.statusLabel} /></div></div>
+              <div className="mt-3 grid gap-2 text-sm text-slate-300"><p>Paiement : {subscription.paymentLabel}</p><p>Échéance : {subscription.dueDateLabel}</p><p>{tenant.users} utilisateurs · {tenant.stores} magasins</p><p>{tenant.email ?? "-"} · {tenant.phone ?? "-"}</p><p>Dernière connexion : {tenant.lastLoginAt ? new Date(tenant.lastLoginAt).toLocaleString("fr-HT") : "Jamais"}</p></div>
+              <div className="mt-3"><ActionMenu tenant={tenant} onStatus={updateStatus} /></div>
+            </article>
+          );
+        })}
       </div>
     </AdminShell>
   );
@@ -97,6 +126,13 @@ export default function AdminTenantsPage() {
 function ActionMenu({ tenant, onStatus }: { tenant: Tenant; onStatus: (id: string, status: string) => Promise<void> }) {
   return <div className="flex flex-wrap gap-2"><Link href={`/admin/companies/${tenant.id}`} className="rounded-full bg-cyan-400/15 px-3 py-1 text-xs font-bold text-cyan-100">Voir</Link>{tenant.status !== "ACTIVE" ? <button onClick={() => void onStatus(tenant.id, "ACTIVE")} className="rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-bold text-emerald-100">Réactiver</button> : <button onClick={() => void onStatus(tenant.id, "SUSPENDED")} className="rounded-full bg-orange-400/15 px-3 py-1 text-xs font-bold text-orange-100">Suspendre</button>}<Link href={`/admin/companies/${tenant.id}#danger-zone`} className="rounded-full bg-red-400/15 px-3 py-1 text-xs font-bold text-red-100">Zone dangereuse</Link></div>;
 }
-function Logo({ tenant }: { tenant: Tenant }) { if (tenant.logoUrl) return <img src={tenant.logoUrl} alt="Logo" className="h-11 w-11 rounded-xl object-cover" />; return <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-400/20 font-black text-cyan-100">{tenant.name.slice(0, 2).toUpperCase()}</div>; }
-function Status({ value }: { value: string }) { const color = value === "ACTIVE" ? "bg-emerald-400/20 text-emerald-200" : value === "TRIAL" ? "bg-yellow-400/20 text-yellow-200" : value === "PAUSED" ? "bg-blue-400/20 text-blue-200" : value === "SUSPENDED" ? "bg-orange-400/20 text-orange-200" : "bg-red-400/20 text-red-200"; return <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${color}`}>{value}</span>; }
+
+function Logo({ tenant }: { tenant: Tenant }) {
+  if (tenant.logoUrl) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={tenant.logoUrl} alt="Logo" className="h-11 w-11 rounded-xl object-cover" />;
+  }
+  return <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-400/20 font-black text-cyan-100">{tenant.name.slice(0, 2).toUpperCase()}</div>;
+}
+function SubscriptionStatus({ value }: { value: string }) { const color = value === "Actif" ? "bg-emerald-400/20 text-emerald-200" : value === "Essai en cours" ? "bg-yellow-400/20 text-yellow-200" : value === "En pause" ? "bg-blue-400/20 text-blue-200" : value === "Suspendu" ? "bg-orange-400/20 text-orange-200" : "bg-red-400/20 text-red-200"; return <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${color}`}>{value}</span>; }
 function Alert({ tone, children }: { tone: "red" | "green"; children: React.ReactNode }) { return <div className={`mb-4 rounded-xl border p-3 text-sm ${tone === "red" ? "border-red-400/30 bg-red-400/10 text-red-100" : "border-emerald-400/30 bg-emerald-400/10 text-emerald-100"}`}>{children}</div>; }
