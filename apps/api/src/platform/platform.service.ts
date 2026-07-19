@@ -89,8 +89,8 @@ export class PlatformService {
       this.prisma.securityLog.findMany({ where: { event: { in: ["LOGIN_FAILED", "LOGIN_BLOCKED"] } }, orderBy: { createdAt: "desc" }, take: 8 })
     ]);
 
-    const activeTenants = tenants.filter((tenant) => tenant.status === TenantStatus.ACTIVE).length;
-    const trialTenants = tenants.filter((tenant) => tenant.status === TenantStatus.TRIAL || tenant.subscription?.status === SubscriptionStatus.TRIALING).length;
+    const activeTenants = tenants.filter((tenant) => this.isEffectivelyActiveTenant(tenant)).length;
+    const trialTenants = tenants.filter((tenant) => this.isEffectivelyTrialTenant(tenant)).length;
     const suspendedTenants = tenants.filter((tenant) => tenant.status === TenantStatus.SUSPENDED).length;
     const pausedTenants = tenants.filter((tenant) => tenant.status === TenantStatus.PAUSED).length;
     const deletedTenants = tenants.filter((tenant) => tenant.status === TenantStatus.DELETED).length;
@@ -120,7 +120,7 @@ export class PlatformService {
       alerts: {
         expiredPayments: expiredSubscriptions,
         renewalsDue: expiringSubscriptions,
-        inactiveTenants: tenants.filter((tenant) => !([TenantStatus.ACTIVE, TenantStatus.TRIAL] as TenantStatus[]).includes(tenant.status)).length,
+        inactiveTenants: tenants.filter((tenant) => !this.isEffectivelyActiveTenant(tenant) && !this.isEffectivelyTrialTenant(tenant)).length,
         criticalErrors: criticalLogs.length
       },
       charts: {
@@ -713,6 +713,21 @@ export class PlatformService {
       storage: "Non mesuré",
       createdAt: tenant.createdAt
     };
+  }
+
+  private isEffectivelyActiveTenant(tenant: TenantWithAdminRelations) {
+    return tenant.status === TenantStatus.ACTIVE || this.isActivePaidSubscription(tenant.subscription);
+  }
+
+  private isEffectivelyTrialTenant(tenant: TenantWithAdminRelations) {
+    if (this.isActivePaidSubscription(tenant.subscription)) return false;
+    return tenant.status === TenantStatus.TRIAL || tenant.subscription?.status === SubscriptionStatus.TRIALING;
+  }
+
+  private isActivePaidSubscription(subscription: PlatformSubscription) {
+    if (!subscription || subscription.status !== SubscriptionStatus.ACTIVE) return false;
+    const planCode = "planRecord" in subscription && subscription.planRecord?.code ? subscription.planRecord.code : this.planCodeFor(subscription.plan);
+    return planCode !== "TRIAL" && planCode !== "FREE";
   }
 
   private serializeSubscription(subscription: PlatformSubscription) {

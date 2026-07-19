@@ -6,6 +6,7 @@ const helper = fs.readFileSync(path.join(root, "apps/web/lib/admin-subscription-
 const tenantsPage = fs.readFileSync(path.join(root, "apps/web/app/admin/tenants/page.tsx"), "utf8");
 const dashboardPage = fs.readFileSync(path.join(root, "apps/web/app/admin/page.tsx"), "utf8");
 const subscriptionsPage = fs.readFileSync(path.join(root, "apps/web/app/admin/subscriptions/page.tsx"), "utf8");
+const platformService = fs.readFileSync(path.join(root, "apps/api/src/platform/platform.service.ts"), "utf8");
 
 function assert(condition, message) {
   if (!condition) {
@@ -33,5 +34,9 @@ assert(dashboardPage.includes("getAdminSubscriptionDisplay"), "admin dashboard u
 
 assert(subscriptionsPage.includes("Plan actif"), "subscriptions page keeps Plan actif label");
 assert(subscriptionsPage.includes("Paiement reçu") || subscriptionsPage.includes("Paiement reÃ§u"), "subscriptions page keeps payment received display");
+
+assert(platformService.includes("isEffectivelyActiveTenant"), "platform stats use effective active tenant helper");
+assert(platformService.includes("isEffectivelyTrialTenant"), "platform stats use effective trial tenant helper");
+assert(platformService.includes("isActivePaidSubscription"), "active paid subscriptions are separated from trials in stats");
 
 console.log("Admin subscription display smoke OK");
