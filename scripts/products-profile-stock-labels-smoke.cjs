@@ -17,11 +17,13 @@ assert(productsPage.includes("isMultiActivityServiceProduct"), "Les services Mul
 assert(productsPage.includes("isNonStrictServiceProduct"), "Les services evidents doivent rester non stockes si le profil tenant est incomplet mais non strictement stock.");
 assert(productsPage.includes("current > 0 || minimum > 0"), "Un produit Multi-activite avec stock ou minimum doit rester stocke.");
 assert(productsPage.includes("ProductTypeHint"), "Le type non-stock doit etre affiche discretement dans la colonne Produit.");
-assert(productsPage.includes("nonStockStockLabel"), "Le badge Stock doit utiliser un libelle court et contextualise.");
-assert(productsPage.includes("nonStockProductLabelForProduct"), "Le libelle Produit doit pouvoir tenir compte du produit et pas seulement du profil.");
+assert(productsPage.includes("nonStockTypeBadgeForProduct"), "Le badge de type doit etre discret et contextualise dans la colonne Produit.");
+assert(productsPage.includes("Produits affichés") || productsPage.includes("Produits affiches"), "La pagination doit afficher le nombre reel de produits visibles.");
+assert(productsPage.includes("Math.max(Number(data.meta?.total ?? 0), nextItems.length)"), "Le total ne doit pas tomber a zero quand des produits sont affiches.");
 assert(!productsPage.includes("ProductStockMeta"), "Le stock ne doit pas etre repete sous le SKU dans la cellule Produit.");
 assert(!productsPage.includes(">Service / plat<"), "La liste produits ne doit jamais afficher le badge brut Service / plat.");
 assert(!productsPage.includes("Service / plat non stocke"), "La liste produits ne doit pas dupliquer Service / plat non stocke hors helper Restaurant.");
+assert(!productsPage.includes("nonStockStockLabelForProduct"), "La colonne Stock ne doit pas repeter le type Service/Plat.");
 assert(!productsPage.includes("Fournisseur:"), "La colonne Produit ne doit pas melanger fournisseur et stock.");
 assert(productsPage.includes("isStrictStockBusiness"), "Quincaillerie/Materiaux/Pharmacie doivent rester traites comme profils stock.");
 assert(productsPage.includes("Minimum :"), "Les produits stockes doivent afficher le seuil minimum avec libelle.");

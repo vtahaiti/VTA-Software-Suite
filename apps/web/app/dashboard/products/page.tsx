@@ -67,7 +67,7 @@ export default function ProductsPage() {
       const data = await response.json();
       const nextItems = Array.isArray(data) ? data : data.items ?? [];
       setItems(nextItems);
-      setTotal(data.meta?.total ?? nextItems.length);
+      setTotal(Math.max(Number(data.meta?.total ?? 0), nextItems.length));
       return;
     }
     setItems([]);
@@ -136,7 +136,8 @@ export default function ProductsPage() {
     setQuickCostValue(String(product.purchasePrice ?? ""));
   }
 
-  const pages = useMemo(() => Math.max(1, Math.ceil(total / 25)), [total]);
+  const displayTotal = Math.max(total, items.length);
+  const pages = useMemo(() => Math.max(1, Math.ceil(displayTotal / 25)), [displayTotal]);
 
   return (
     <div className="space-y-5">
@@ -163,7 +164,7 @@ export default function ProductsPage() {
               <h2 className="truncate font-semibold text-slate-950 dark:text-white">{product.name}</h2>
               <p className="font-mono text-xs text-slate-400">{product.sku || "SKU auto"}</p>
               <ProductTypeHint product={product} business={business} />
-              {product.costKnown === false ? <p className="mt-1 text-xs font-semibold text-amber-600">Cout non renseigne</p> : null}
+              {product.costKnown === false ? <p className="mt-1 text-[11px] font-medium text-amber-500">Cout non renseigne</p> : null}
             </div>
             <p className="shrink-0 text-right text-sm font-bold text-slate-950 dark:text-white">{product.salePrice}</p>
           </div>
@@ -181,13 +182,13 @@ export default function ProductsPage() {
       <div className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 md:block">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">Produit</th><th className="p-3">Catégorie</th><th className="p-3">Prix</th><th className="p-3">Stock</th><th className="p-3">Actions</th></tr></thead>
-          <tbody>{items.map((product) => <tr key={product.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3"><p className="font-semibold">{product.name}</p><p className="font-mono text-xs text-slate-400">{product.sku || "SKU auto"}</p><ProductTypeHint product={product} business={business} />{product.costKnown === false ? <p className="mt-1 text-xs font-semibold text-amber-600">Cout non renseigne</p> : null}</td><td className="p-3">{product.category?.name ?? "--"}</td><td className="p-3 font-semibold">{product.salePrice}</td><td className="p-3"><ProductStockDisplay product={product} business={business} /><ProductStockStatus product={product} business={business} /></td><td className="p-3"><div className="flex flex-wrap gap-3"><Link className="text-brand-600" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link><button type="button" onClick={() => openQuickCost(product)} className="text-amber-700">Cout</button></div></td></tr>)}</tbody>
+          <tbody>{items.map((product) => <tr key={product.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3"><p className="font-semibold">{product.name}</p><p className="font-mono text-xs text-slate-400">{product.sku || "SKU auto"}</p><ProductTypeHint product={product} business={business} />{product.costKnown === false ? <p className="mt-1 text-[11px] font-medium text-amber-500">Cout non renseigne</p> : null}</td><td className="p-3">{product.category?.name ?? "--"}</td><td className="p-3 font-semibold">{product.salePrice}</td><td className="p-3"><ProductStockDisplay product={product} business={business} /><ProductStockStatus product={product} business={business} /></td><td className="p-3"><div className="flex flex-wrap gap-3"><Link className="text-brand-600" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link><button type="button" onClick={() => openQuickCost(product)} className="text-amber-700">Cout</button></div></td></tr>)}</tbody>
         </table>
         {!isLoading && !message && items.length === 0 ? <p className="p-5 text-sm text-slate-500">Aucun produit trouvé.</p> : null}
         {isLoading ? <p className="p-5 text-sm text-slate-500">Chargement des produits...</p> : null}
       </div>
 
-      <Pagination page={page} pages={pages} total={total} label="produits" onPrev={() => setPage(page - 1)} onNext={() => setPage(page + 1)} />
+      <Pagination page={page} pages={pages} total={displayTotal} displayed={items.length} label="produits" onPrev={() => setPage(page - 1)} onNext={() => setPage(page + 1)} />
 
       {isModalOpen ? (
         <Modal title="Nouveau produit" onClose={() => setIsModalOpen(false)}>
@@ -237,8 +238,9 @@ function Input({ value, onChange, placeholder, required = false, type = "text" }
   return <input type={type} required={required} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />;
 }
 
-function Pagination({ page, pages, total, label, onPrev, onNext }: { page: number; pages: number; total: number; label: string; onPrev: () => void; onNext: () => void }) {
-  return <div className="flex items-center justify-between"><p className="text-sm text-slate-500">{total} {label}</p><div className="flex gap-2"><button disabled={page <= 1} onClick={onPrev} className="rounded-md border px-3 py-2 disabled:opacity-50">Précédent</button><span className="px-3 py-2 text-sm">{page}/{pages}</span><button disabled={page >= pages} onClick={onNext} className="rounded-md border px-3 py-2 disabled:opacity-50">Suivant</button></div></div>;
+function Pagination({ page, pages, total, displayed, label, onPrev, onNext }: { page: number; pages: number; total: number; displayed: number; label: string; onPrev: () => void; onNext: () => void }) {
+  const summary = total > displayed ? `${displayed} / ${total} ${label}` : `Produits affichés : ${displayed || total}`;
+  return <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-slate-500">{summary}</p><div className="flex gap-2"><button disabled={page <= 1} onClick={onPrev} className="rounded-md border px-3 py-2 disabled:opacity-50">Précédent</button><span className="px-3 py-2 text-sm">{page}/{pages}</span><button disabled={page >= pages} onClick={onNext} className="rounded-md border px-3 py-2 disabled:opacity-50">Suivant</button></div></div>;
 }
 
 function QuickStockMode({ business, mode, onChange }: { business: TenantBusinessConfiguration | null; mode: "NON_STOCK" | "STOCKED"; onChange: (mode: "NON_STOCK" | "STOCKED") => void }) {
@@ -286,24 +288,6 @@ function isStrictStockBusiness(business?: TenantBusinessConfiguration | null) {
 function nonStockProductLabel(business: TenantBusinessConfiguration | null) {
   if (isRestaurantBusiness(business)) return "Plat / service non stocke";
   if (isMultiActivityBusiness(business)) return "Service non stocke";
-  return "Produit non stocke";
-}
-
-function nonStockStockLabel(business: TenantBusinessConfiguration | null) {
-  if (isRestaurantBusiness(business)) return "Plat / service";
-  if (isMultiActivityBusiness(business)) return "Service";
-  return "Produit non stocke";
-}
-
-function nonStockProductLabelForProduct(product: Product, business: TenantBusinessConfiguration | null) {
-  if (isRestaurantBusiness(business)) return "Plat / service non stocke";
-  if (isMultiActivityBusiness(business) || isServiceLikeProduct(product)) return "Service non stocke";
-  return "Produit non stocke";
-}
-
-function nonStockStockLabelForProduct(product: Product, business: TenantBusinessConfiguration | null) {
-  if (isRestaurantBusiness(business)) return "Plat / service";
-  if (isMultiActivityBusiness(business) || isServiceLikeProduct(product)) return "Service";
   return "Produit non stocke";
 }
 
@@ -363,15 +347,21 @@ function ProductStockDisplay({ product, business }: { product: Product; business
 
 function ProductTypeHint({ product, business }: { product: Product; business: TenantBusinessConfiguration | null }) {
   if (productStockStatus(product, business) !== "NON_STOCK") return null;
-  return <p className="mt-1 text-xs font-semibold text-slate-500">{nonStockProductLabelForProduct(product, business)}</p>;
+  return <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">{nonStockTypeBadgeForProduct(product, business)}</span>;
 }
 
 function ProductStockStatus({ product, business = null }: { product: Product; business?: TenantBusinessConfiguration | null }) {
   const status = productStockStatus(product, business);
-  if (status === "NON_STOCK") return <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">{nonStockStockLabelForProduct(product, business)}</span>;
+  if (status === "NON_STOCK") return null;
   if (status === "OUT_OF_STOCK") return <span className="mt-1 inline-flex rounded-full bg-red-50 px-2 py-1 text-xs font-bold text-red-700">Rupture</span>;
   if (status === "LOW_STOCK") return <span className="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700">Stock faible</span>;
   return <span className="mt-1 inline-flex rounded-full bg-green-50 px-2 py-1 text-xs font-bold text-green-700">En stock</span>;
+}
+
+function nonStockTypeBadgeForProduct(product: Product, business: TenantBusinessConfiguration | null) {
+  if (isRestaurantBusiness(business)) return "Plat/service";
+  if (isMultiActivityBusiness(business) || isServiceLikeProduct(product)) return "Service";
+  return "Produit non stocké";
 }
 
 async function readError(response: Response) {

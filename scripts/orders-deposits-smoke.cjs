@@ -1,4 +1,9 @@
 const assert = require("assert");
+const fs = require("fs");
+const path = require("path");
+
+const root = path.resolve(__dirname, "..");
+const salesDocumentPage = fs.readFileSync(path.join(root, "apps/web/app/dashboard/sales/sales-document-page.tsx"), "utf8");
 
 const orderStatuses = ["CONFIRMED", "IN_PROGRESS", "READY", "DELIVERED", "COMPLETED", "CANCELLED"];
 
@@ -63,5 +68,12 @@ const fabricationQuote = calculateTotals([fabricationLine]);
 assert.strictEqual(fabricationQuote.total, 3000);
 assert.match(fabricationLine.customNote, /Largeur: 120 cm/);
 assert.match(fabricationLine.customNote, /Livraison \/ installation: Adresse QA/);
+
+for (const action of ["Voir", "Imprimer", "Convertir", "Ajouter acompte", "Encaisser solde", "Marquer prete", "Marquer livree", "Terminer", "Annuler"]) {
+  assert(salesDocumentPage.includes(action), `Action Devis & Commandes attendue: ${action}`);
+}
+assert(salesDocumentPage.includes("Aucun devis pour l'instant"), "Etat vide devis attendu.");
+assert(salesDocumentPage.includes("Aucune commande pour l'instant"), "Etat vide commandes attendu.");
+assert(salesDocumentPage.includes("Créez un devis") || salesDocumentPage.includes("Creez un devis"), "Etat vide devis doit expliquer l'action.");
 
 console.log("orders-deposits smoke: ok");
