@@ -161,19 +161,19 @@ export default function ProductsPage() {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h2 className="truncate font-semibold text-slate-950 dark:text-white">{product.name}</h2>
-              <p className="font-mono text-xs text-slate-400">{product.sku || "SKU auto"}{productUnitLabel(product) ? ` - ${productUnitLabel(product)}` : ""}</p>
-              <p className="mt-1 text-sm text-slate-500">{product.category?.name ?? "Sans catégorie"}</p>
+              <p className="font-mono text-xs text-slate-400">{product.sku || "SKU auto"}</p>
+              <ProductTypeHint product={product} business={business} />
+              {product.costKnown === false ? <p className="mt-1 text-xs font-semibold text-amber-600">Cout non renseigne</p> : null}
             </div>
             <p className="shrink-0 text-right text-sm font-bold text-slate-950 dark:text-white">{product.salePrice}</p>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
             <div className="rounded-md bg-slate-50 p-2 dark:bg-slate-950"><span className="text-slate-500">Stock</span><ProductStockDisplay product={product} business={business} /><ProductStockStatus product={product} business={business} /></div>
-            <div className="rounded-md bg-slate-50 p-2 dark:bg-slate-950"><span className="text-slate-500">Fournisseur</span><p className="truncate font-semibold">{product.supplier?.name ?? "--"}</p></div>
+            <div className="rounded-md bg-slate-50 p-2 dark:bg-slate-950"><span className="text-slate-500">Categorie</span><p className="truncate font-semibold">{product.category?.name ?? "--"}</p></div>
           </div>
-          {product.costKnown === false ? <div className="mt-2 flex flex-wrap items-center gap-2"><p className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">Coût non renseigné</p><button type="button" onClick={() => openQuickCost(product)} className="rounded-md border border-amber-200 px-2 py-1 text-xs font-bold text-amber-700">Ajouter coût</button></div> : <button type="button" onClick={() => openQuickCost(product)} className="mt-2 text-xs font-semibold text-slate-500 underline">Modifier coût</button>}
           <div className="mt-4 grid grid-cols-2 gap-2">
             <Link className="rounded-md bg-brand-600 px-3 py-3 text-center text-sm font-bold text-white" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link>
-            <Link className="rounded-md border border-slate-300 px-3 py-3 text-center text-sm font-semibold dark:border-slate-700" href={`/dashboard/products/${product.id}/edit`}>Voir</Link>
+            <button type="button" onClick={() => openQuickCost(product)} className="rounded-md border border-amber-300 px-3 py-3 text-center text-sm font-bold text-amber-700 dark:border-amber-800">Cout</button>
           </div>
         </article>)}
       </div>
@@ -181,7 +181,7 @@ export default function ProductsPage() {
       <div className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 md:block">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">Produit</th><th className="p-3">Catégorie</th><th className="p-3">Prix</th><th className="p-3">Stock</th><th className="p-3">Actions</th></tr></thead>
-          <tbody>{items.map((product) => <tr key={product.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3"><p className="font-semibold">{product.name}</p><p className="font-mono text-xs text-slate-400">{product.sku}{productUnitLabel(product) ? ` - ${productUnitLabel(product)}` : ""}</p>{product.supplier?.name ? <p className="text-xs text-slate-500">Fournisseur: {product.supplier.name}</p> : null}{product.costKnown === false ? <p className="mt-1 text-xs font-semibold text-amber-600">Coût non renseigné</p> : null}</td><td className="p-3">{product.category?.name ?? "--"}</td><td className="p-3">{product.salePrice}</td><td className="p-3"><ProductStockDisplay product={product} business={business} /><ProductStockStatus product={product} business={business} /></td><td className="p-3"><div className="flex flex-wrap gap-3"><Link className="text-brand-600" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link><button type="button" onClick={() => openQuickCost(product)} className="text-amber-700">Coût</button></div></td></tr>)}</tbody>
+          <tbody>{items.map((product) => <tr key={product.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3"><p className="font-semibold">{product.name}</p><p className="font-mono text-xs text-slate-400">{product.sku || "SKU auto"}</p><ProductTypeHint product={product} business={business} />{product.costKnown === false ? <p className="mt-1 text-xs font-semibold text-amber-600">Cout non renseigne</p> : null}</td><td className="p-3">{product.category?.name ?? "--"}</td><td className="p-3 font-semibold">{product.salePrice}</td><td className="p-3"><ProductStockDisplay product={product} business={business} /><ProductStockStatus product={product} business={business} /></td><td className="p-3"><div className="flex flex-wrap gap-3"><Link className="text-brand-600" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link><button type="button" onClick={() => openQuickCost(product)} className="text-amber-700">Cout</button></div></td></tr>)}</tbody>
         </table>
         {!isLoading && !message && items.length === 0 ? <p className="p-5 text-sm text-slate-500">Aucun produit trouvé.</p> : null}
         {isLoading ? <p className="p-5 text-sm text-slate-500">Chargement des produits...</p> : null}
@@ -289,6 +289,12 @@ function nonStockProductLabel(business: TenantBusinessConfiguration | null) {
   return "Produit non stocke";
 }
 
+function nonStockStockLabel(business: TenantBusinessConfiguration | null) {
+  if (isRestaurantBusiness(business)) return "Plat / service";
+  if (isMultiActivityBusiness(business)) return "Service";
+  return "Produit non stocke";
+}
+
 function restaurantProductKind(product: Pick<Product, "name" | "category" | "variants">) {
   const value = `${product.name ?? ""} ${product.category?.name ?? ""} ${(product.variants ?? []).map((variant) => `${variant.name ?? ""} ${variant.model ?? ""}`).join(" ")}`.toLowerCase();
   if (/stockable|ingredient|ingr[ée]dient|boisson|bouteille|canette/.test(value)) return "STOCKED";
@@ -328,12 +334,17 @@ function productStockStatus(product: Product, business?: TenantBusinessConfigura
 function ProductStockDisplay({ product, business }: { product: Product; business: TenantBusinessConfiguration | null }) {
   if (productStockStatus(product, business) === "NON_STOCK") return <p className="font-semibold">Non stocke</p>;
   const unit = productUnitLabel(product);
-  return <div className="space-y-0.5"><p className="font-semibold">{product.stockCurrent ?? 0}{unit ? ` ${unit}` : ""} en stock</p><p className="text-xs text-slate-500">Minimum : {product.minimumStock ?? 0}</p></div>;
+  return <div className="space-y-0.5"><p className="font-semibold">Stock : {product.stockCurrent ?? 0}{unit ? ` ${unit}` : ""}</p><p className="text-xs text-slate-500">Minimum : {product.minimumStock ?? 0}</p></div>;
+}
+
+function ProductTypeHint({ product, business }: { product: Product; business: TenantBusinessConfiguration | null }) {
+  if (productStockStatus(product, business) !== "NON_STOCK") return null;
+  return <p className="mt-1 text-xs font-semibold text-slate-500">{nonStockProductLabel(business)}</p>;
 }
 
 function ProductStockStatus({ product, business = null }: { product: Product; business?: TenantBusinessConfiguration | null }) {
   const status = productStockStatus(product, business);
-  if (status === "NON_STOCK") return <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">{nonStockProductLabel(business)}</span>;
+  if (status === "NON_STOCK") return <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">{nonStockStockLabel(business)}</span>;
   if (status === "OUT_OF_STOCK") return <span className="mt-1 inline-flex rounded-full bg-red-50 px-2 py-1 text-xs font-bold text-red-700">Rupture</span>;
   if (status === "LOW_STOCK") return <span className="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700">Stock faible</span>;
   return <span className="mt-1 inline-flex rounded-full bg-green-50 px-2 py-1 text-xs font-bold text-green-700">En stock</span>;
@@ -350,3 +361,4 @@ function loadImage(file: File | undefined, onDone: (value: string) => void) {
   reader.onload = () => onDone(String(reader.result));
   reader.readAsDataURL(file);
 }
+
