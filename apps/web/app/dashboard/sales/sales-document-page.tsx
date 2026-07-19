@@ -91,14 +91,14 @@ function documentKind(type: DocType) {
 }
 
 function documentHelpText(type: DocType) {
-  if (type === "quotes") return "Devis = proposition de prix. Il ne modifie pas le stock tant qu'il n'est pas converti en commande ou vente.";
-  if (type === "proformas") return "Commande = vente confirmee qui peut recevoir un acompte puis un solde.";
+  if (type === "quotes") return "Devis = proposition de prix. Il ne modifie pas le stock.";
+  if (type === "proformas") return "Commande = vente confirmee qui peut recevoir un acompte, puis le solde restant.";
   return "Facture = document de vente finalise ou a encaisser selon le statut.";
 }
 
 function documentCreateHelp(type: DocType) {
-  if (type === "quotes") return "Creez une proposition de prix simple: client, produit ou service, quantite, prix, remise et notes.";
-  if (type === "proformas") return "Creez une commande directe, puis enregistrez un acompte ou le solde quand le client paie.";
+  if (type === "quotes") return "Saisissez seulement le client, les produits ou services, la quantite, le prix, la remise et les notes.";
+  if (type === "proformas") return "Creez une commande directe, puis enregistrez un acompte ou encaissez le solde quand le client paie.";
   return "Creez une facture seulement pour un document finalise.";
 }
 
@@ -106,6 +106,10 @@ function documentListTitle(type: DocType) {
   if (type === "quotes") return "Devis recents";
   if (type === "proformas") return "Commandes recentes";
   return "Factures recentes";
+}
+
+function paymentActionLabel(document: SalesDocument) {
+  return Number(document.paidAmount ?? 0) > 0 ? "Encaisser solde" : "Ajouter acompte";
 }
 
 const fabricationTypes = ["Fenetre", "Porte", "Cadre", "Vitrine", "Moustiquaire", "Structure simple", "Autre"];
@@ -300,7 +304,7 @@ function selectProduct(index: number, productId: string) {
       <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <p className="text-sm font-medium text-brand-600">{eyebrow}</p>
         <h1 className="text-2xl font-bold text-slate-950 dark:text-white">{title}</h1>
-        <p className="mt-1 text-sm text-slate-500">Flux simple: creer, convertir, recevoir un acompte, suivre le solde, imprimer et cloturer.</p>
+        <p className="mt-1 text-sm text-slate-500">Flux V1: devis, commande, acompte, solde, impression, puis statut termine.</p>
         <div className="mt-3 rounded-md border border-brand-100 bg-brand-50 px-3 py-2 text-sm text-slate-700 dark:border-brand-900 dark:bg-slate-950 dark:text-slate-200">
           {documentHelpText(type)}
         </div>
@@ -332,13 +336,13 @@ function selectProduct(index: number, productId: string) {
           <div className="mt-4 space-y-3">
             {lines.map((line, index) => (
               <div key={index} className="grid gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-800">
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Produit, service ou ligne personnalisee</label>
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Produit/service</label>
                 <input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Rechercher un produit ou service" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
                 <select value={line.productId} onChange={(event) => selectProduct(index, event.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
                   <option value="">+ Ajouter une ligne personnalisee</option>
                   {compactProducts.map((product) => <option key={product.id} value={product.id}>{product.sku} - {product.name}</option>)}
                 </select>
-                <p className="text-xs text-slate-500">La liste reste compacte. Utilisez la recherche pour trouver un article qui n&apos;apparait pas tout de suite.</p>
+                <p className="text-xs text-slate-500">Liste compacte: recherchez un produit/service ou ajoutez une ligne personnalisee.</p>
                 {!line.productId ? <input required value={line.customName} onChange={(event) => updateLine(index, { customName: event.target.value })} placeholder="Nom du service ou de la commande speciale" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /> : null}
                 {!line.productId && showFabricationFields ? (
                   <div className="grid gap-2 rounded-md bg-slate-50 p-3 dark:bg-slate-950 md:grid-cols-2">
@@ -360,11 +364,10 @@ function selectProduct(index: number, productId: string) {
                     <textarea value={line.installationNotes} onChange={(event) => updateLine(index, { installationNotes: event.target.value })} placeholder="Adresse ou notes livraison / installation" className="min-h-20 rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950 md:col-span-2" />
                   </div>
                 ) : null}
-                <div className="grid gap-2 sm:grid-cols-4">
+                <div className="grid gap-2 sm:grid-cols-3">
                   <NumberField label="Quantite" min="1" value={line.quantity} onChange={(value) => updateLine(index, { quantity: value })} />
                   <NumberField label="Prix" min="0" step="0.01" value={line.unitPrice} onChange={(value) => updateLine(index, { unitPrice: value })} />
                   <NumberField label="Remise" min="0" step="0.01" value={line.discount} onChange={(value) => updateLine(index, { discount: value })} />
-                  <NumberField label="Taxe" min="0" step="0.01" value={line.tax} onChange={(value) => updateLine(index, { tax: value })} />
                 </div>
               </div>
             ))}
@@ -379,7 +382,7 @@ function selectProduct(index: number, productId: string) {
         <section className="space-y-4">
           <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
             <h2 className="text-lg font-semibold">{documentListTitle(type)}</h2>
-            <p className="mt-1 text-sm text-slate-500">Les actions principales sont disponibles directement sur chaque ligne et restent visibles sur mobile.</p>
+            <p className="mt-1 text-sm text-slate-500">Actions visibles: voir, imprimer, convertir, recevoir un acompte, encaisser le solde et changer le statut.</p>
           </div>
           <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2">
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Recherche" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
@@ -483,11 +486,11 @@ function DocumentActions(props: {
 }) {
   const { doc, type } = props;
   return <div className="flex flex-wrap gap-2">
-    <button onClick={props.onSelect} className="rounded-md border px-2 py-1 text-xs">Voir detail</button>
+    <button onClick={props.onSelect} className="rounded-md border px-2 py-1 text-xs">Voir</button>
     <button onClick={props.onPrint} className="rounded-md border px-2 py-1 text-xs">Imprimer</button>
     {type === "quotes" && props.transformAction ? <button onClick={() => props.onAction(props.transformAction!)} className="rounded-md bg-brand-600 px-2 py-1 text-xs font-semibold text-white">{props.transformLabel ?? "Convertir"}</button> : null}
-    {type === "quotes" ? <button onClick={() => props.onAction("reject")} className="rounded-md border px-2 py-1 text-xs">Annuler / refuser</button> : null}
-    {type === "proformas" && Number(doc.balance) > 0 ? <button onClick={props.onPayment} className="rounded-md border px-2 py-1 text-xs">Acompte / solde</button> : null}
+    {type === "quotes" ? <button onClick={() => props.onAction("reject")} className="rounded-md border px-2 py-1 text-xs">Annuler</button> : null}
+    {type === "proformas" && Number(doc.balance) > 0 ? <button onClick={props.onPayment} className="rounded-md border px-2 py-1 text-xs">{paymentActionLabel(doc)}</button> : null}
     {type === "proformas" && doc.status !== "READY" ? <button onClick={() => props.onStatus("READY")} className="rounded-md border px-2 py-1 text-xs">Marquer prete</button> : null}
     {type === "proformas" && doc.status !== "DELIVERED" ? <button onClick={() => props.onStatus("DELIVERED")} className="rounded-md border px-2 py-1 text-xs">Marquer livree</button> : null}
     {type === "proformas" && doc.status !== "COMPLETED" ? <button onClick={() => props.onStatus("COMPLETED")} className="rounded-md border px-2 py-1 text-xs">Terminer</button> : null}
@@ -583,15 +586,13 @@ function DocumentDetail(props: {
         <button onClick={props.onPrint} className="rounded-md border px-3 py-2 text-sm">Imprimer</button>
         {type === "invoices" ? <button onClick={() => void openPrintPreview(`/invoices/${selected.id}/print`)} className="rounded-md border px-3 py-2 text-sm">Apercu facture</button> : null}
         {type === "invoices" ? <button onClick={() => void downloadPdf(`/invoices/${selected.id}/pdf`, `facture-${selected.number}.pdf`)} className="rounded-md border px-3 py-2 text-sm">PDF</button> : null}
-        {type === "quotes" ? <button onClick={() => props.onAction("send")} className="rounded-md border px-3 py-2 text-sm">Envoyer</button> : null}
-        {type === "quotes" ? <button onClick={() => props.onAction("accept")} className="rounded-md border px-3 py-2 text-sm">Accepter</button> : null}
         {props.transformAction ? <button onClick={() => props.onAction(props.transformAction!)} className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white">{props.transformLabel}</button> : null}
         {type === "proformas" ? orderStatuses.map((status) => <button key={status} onClick={() => props.onStatus(status)} className="rounded-md border px-3 py-2 text-sm">{statusLabels[status]}</button>) : null}
       </div>
 
       {props.canTakePayment ? (
         <div className="mt-4 rounded-md border border-slate-200 p-3 dark:border-slate-800">
-          <h3 className="text-sm font-semibold">Ajouter un acompte / paiement partiel</h3>
+          <h3 className="text-sm font-semibold">Ajouter un acompte ou encaisser le solde</h3>
           <div className="mt-3 grid gap-2 md:grid-cols-[1fr_1fr_auto]">
             <input type="number" min="0.01" step="0.01" value={props.paymentAmount} onChange={(event) => props.onPaymentAmount(event.target.value)} placeholder="Montant" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
             <input value={props.paymentReference} onChange={(event) => props.onPaymentReference(event.target.value)} placeholder="Reference facultative" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />

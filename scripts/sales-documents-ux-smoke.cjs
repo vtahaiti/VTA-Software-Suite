@@ -8,26 +8,27 @@ const documentPage = fs.readFileSync(path.join(root, "apps/web/app/dashboard/sal
 const navigationSmoke = fs.readFileSync(path.join(root, "scripts/navigation-menu-matrix-smoke.cjs"), "utf8");
 
 for (const expected of [
-  "Utilisez cette section pour preparer un devis, confirmer une commande, recevoir un acompte et suivre le solde restant.",
+  "Utilisez ce module quand un client demande un prix, confirme une commande, paie une avance, puis regle le solde.",
   "Devis client",
   "Preparer un prix sans toucher au stock.",
   "Commandes & acomptes",
-  "Suivre les commandes confirmees, avances recues et soldes a payer.",
+  "Suivre total, acompte paye, solde restant et statut.",
   "Soldes a recevoir",
-  "Voir les commandes non soldees.",
+  "Commandes avec un montant restant a encaisser.",
   "Commandes terminees",
-  "Voir les commandes cloturees.",
-  "A ne pas confondre avec le POS",
-  "Ventes en attente concerne les paniers POS suspendus."
+  "Commandes cloturees",
+  "Flux separe du POS",
+  "Ventes en attente = panier POS suspendu."
 ]) {
   assert(salesPage.includes(expected), `Texte UX manquant sur /dashboard/sales: ${expected}`);
 }
 
 assert(documentPage.includes("Devis = proposition de prix."), "La page Devis doit expliquer le role du devis.");
-assert(documentPage.includes("Commande = vente confirmee qui peut recevoir un acompte puis un solde."), "La page Commandes doit expliquer acompte/solde.");
+assert(documentPage.includes("Commande = vente confirmee qui peut recevoir un acompte, puis le solde restant."), "La page Commandes doit expliquer acompte/solde.");
 assert(documentPage.includes("productSearch"), "Le select produit doit etre accompagne d'une recherche compacte.");
-assert(documentPage.includes("filtered.slice(0, 25)"), "Le select produit doit limiter la liste visible.");
-assert(documentPage.includes("Service / ligne personnalisee") || documentPage.includes("Service / ligne personnalis"), "Le select doit garder l'option service personnalise.");
+assert(documentPage.includes("filtered.slice(0, 12)"), "Le select produit doit limiter la liste visible.");
+assert(documentPage.includes("+ Ajouter une ligne personnalisee"), "Le select doit garder l'option ligne personnalisee.");
+assert(documentPage.includes("paymentActionLabel"), "Les boutons doivent distinguer Ajouter acompte et Encaisser solde.");
 
 assert(navigationSmoke.includes("restaurant") && navigationSmoke.includes("multi-activities"), "La matrice de menu doit couvrir Restaurant et Multi-activite.");
 
