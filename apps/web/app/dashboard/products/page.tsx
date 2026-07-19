@@ -295,6 +295,18 @@ function nonStockStockLabel(business: TenantBusinessConfiguration | null) {
   return "Produit non stocke";
 }
 
+function nonStockProductLabelForProduct(product: Product, business: TenantBusinessConfiguration | null) {
+  if (isRestaurantBusiness(business)) return "Plat / service non stocke";
+  if (isMultiActivityBusiness(business) || isServiceLikeProduct(product)) return "Service non stocke";
+  return "Produit non stocke";
+}
+
+function nonStockStockLabelForProduct(product: Product, business: TenantBusinessConfiguration | null) {
+  if (isRestaurantBusiness(business)) return "Plat / service";
+  if (isMultiActivityBusiness(business) || isServiceLikeProduct(product)) return "Service";
+  return "Produit non stocke";
+}
+
 function restaurantProductKind(product: Pick<Product, "name" | "category" | "variants">) {
   const value = `${product.name ?? ""} ${product.category?.name ?? ""} ${(product.variants ?? []).map((variant) => `${variant.name ?? ""} ${variant.model ?? ""}`).join(" ")}`.toLowerCase();
   if (/stockable|ingredient|ingr[ée]dient|boisson|bouteille|canette/.test(value)) return "STOCKED";
@@ -311,18 +323,30 @@ function isExplicitNonStockProduct(product: Pick<Product, "variants">) {
   return /non stock|non-stock|service non stock|produit non stock|plat \/ service/.test(value);
 }
 
+function isServiceLikeProduct(product: Product) {
+  const value = `${product.name ?? ""} ${product.category?.name ?? ""} ${(product.variants ?? []).map((variant) => `${variant.name ?? ""} ${variant.model ?? ""}`).join(" ")}`.toLowerCase();
+  return /service|services|impression|gravure|decoupe|d[Ã©e]coupe|sur mesure|studio|reparation|rÃ©paration|installation|conception|personnalis/.test(value);
+}
+
 function isMultiActivityServiceProduct(product: Product, business?: TenantBusinessConfiguration | null) {
   if (!isMultiActivityBusiness(business ?? null)) return false;
   const current = Number(product.stockCurrent ?? 0);
   const minimum = Number(product.minimumStock ?? 0);
   if (current > 0 || minimum > 0) return false;
-  const value = `${product.name ?? ""} ${product.category?.name ?? ""} ${(product.variants ?? []).map((variant) => `${variant.name ?? ""} ${variant.model ?? ""}`).join(" ")}`.toLowerCase();
-  return /service|impression|gravure|decoupe|d[ée]coupe|sur mesure|studio|reparation|réparation|installation|conception|personnalis/.test(value);
+  return isServiceLikeProduct(product);
+}
+
+function isNonStrictServiceProduct(product: Product, business?: TenantBusinessConfiguration | null) {
+  if (isStrictStockBusiness(business)) return false;
+  const current = Number(product.stockCurrent ?? 0);
+  const minimum = Number(product.minimumStock ?? 0);
+  return current <= 0 && minimum <= 0 && isServiceLikeProduct(product);
 }
 
 function productStockStatus(product: Product, business?: TenantBusinessConfiguration | null) {
   if (isRestaurantNonStock(product, business)) return "NON_STOCK";
   if (isMultiActivityServiceProduct(product, business)) return "NON_STOCK";
+  if (isNonStrictServiceProduct(product, business)) return "NON_STOCK";
   if (!isStrictStockBusiness(business) && isExplicitNonStockProduct(product)) return "NON_STOCK";
   const current = Number(product.stockCurrent ?? 0);
   const minimum = Number(product.minimumStock ?? 0);
@@ -339,12 +363,12 @@ function ProductStockDisplay({ product, business }: { product: Product; business
 
 function ProductTypeHint({ product, business }: { product: Product; business: TenantBusinessConfiguration | null }) {
   if (productStockStatus(product, business) !== "NON_STOCK") return null;
-  return <p className="mt-1 text-xs font-semibold text-slate-500">{nonStockProductLabel(business)}</p>;
+  return <p className="mt-1 text-xs font-semibold text-slate-500">{nonStockProductLabelForProduct(product, business)}</p>;
 }
 
 function ProductStockStatus({ product, business = null }: { product: Product; business?: TenantBusinessConfiguration | null }) {
   const status = productStockStatus(product, business);
-  if (status === "NON_STOCK") return <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">{nonStockStockLabel(business)}</span>;
+  if (status === "NON_STOCK") return <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">{nonStockStockLabelForProduct(product, business)}</span>;
   if (status === "OUT_OF_STOCK") return <span className="mt-1 inline-flex rounded-full bg-red-50 px-2 py-1 text-xs font-bold text-red-700">Rupture</span>;
   if (status === "LOW_STOCK") return <span className="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700">Stock faible</span>;
   return <span className="mt-1 inline-flex rounded-full bg-green-50 px-2 py-1 text-xs font-bold text-green-700">En stock</span>;
@@ -361,4 +385,5 @@ function loadImage(file: File | undefined, onDone: (value: string) => void) {
   reader.onload = () => onDone(String(reader.result));
   reader.readAsDataURL(file);
 }
+
 

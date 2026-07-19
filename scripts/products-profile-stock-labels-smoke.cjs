@@ -14,9 +14,11 @@ assert(productsPage.includes('return "Plat / service non stocke"'), "Restaurant 
 assert(productsPage.includes('return "Service non stocke"'), "Multi-activite doit afficher Service non stocke.");
 assert(productsPage.includes('return "Produit non stocke"'), "Commerce doit afficher Produit non stocke.");
 assert(productsPage.includes("isMultiActivityServiceProduct"), "Les services Multi-activite stock 0/min 0 doivent etre affiches non stockes.");
+assert(productsPage.includes("isNonStrictServiceProduct"), "Les services evidents doivent rester non stockes si le profil tenant est incomplet mais non strictement stock.");
 assert(productsPage.includes("current > 0 || minimum > 0"), "Un produit Multi-activite avec stock ou minimum doit rester stocke.");
 assert(productsPage.includes("ProductTypeHint"), "Le type non-stock doit etre affiche discretement dans la colonne Produit.");
 assert(productsPage.includes("nonStockStockLabel"), "Le badge Stock doit utiliser un libelle court et contextualise.");
+assert(productsPage.includes("nonStockProductLabelForProduct"), "Le libelle Produit doit pouvoir tenir compte du produit et pas seulement du profil.");
 assert(!productsPage.includes("ProductStockMeta"), "Le stock ne doit pas etre repete sous le SKU dans la cellule Produit.");
 assert(!productsPage.includes(">Service / plat<"), "La liste produits ne doit jamais afficher le badge brut Service / plat.");
 assert(!productsPage.includes("Service / plat non stocke"), "La liste produits ne doit pas dupliquer Service / plat non stocke hors helper Restaurant.");
