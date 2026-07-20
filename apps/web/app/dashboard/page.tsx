@@ -344,7 +344,7 @@ function MainTrendChart({ data, isLoading }: { data: TrendPoint[]; isLoading: bo
           <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Graphique principal</p>
           <h2 className="mt-1 text-2xl font-black text-slate-950 dark:text-white">Ventes, chiffre d&apos;affaires et bénéfices</h2>
         </div>
-        <p className="text-sm font-bold text-slate-500 dark:text-slate-300">30 derniers jours · {isLoading ? "chargement" : "données réelles"}</p>
+        <p className="text-sm font-bold text-slate-500 dark:text-slate-300">30 derniers jours · {isLoading ? "chargement" : "à jour"}</p>
       </div>
       <div className="mt-6 rounded-2xl bg-slate-50 p-4 dark:bg-slate-950">
         <svg viewBox="0 0 900 320" className="h-80 w-full" role="img" aria-label="Tendance business des 30 derniers jours">
@@ -378,7 +378,7 @@ function MiniChart({ title, data, color }: { title: string; data: LabelValue[]; 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <h3 className="text-sm font-black text-slate-950 dark:text-white">{title}</h3>
-      {hasMissingCost ? <p className="mt-2 text-xs font-semibold text-amber-600">Non calculable sur certaines périodes : coût non renseigné.</p> : null}
+      {hasMissingCost ? <p className="mt-2 text-xs font-semibold text-amber-600">Coût manquant sur certaines périodes.</p> : null}
       <svg viewBox="0 0 900 320" className="mt-4 h-32 w-full">
         <ChartPath data={values} max={Math.max(...values, 1)} color={color} />
       </svg>
@@ -443,7 +443,7 @@ function PerformancePanel({ performance }: { performance: Performance }) {
     ["Bénéfices estimés", performance.profitReliable === false ? "Données de coût incomplètes" : formatNullableMoney(performance.estimatedProfit)],
     ["Revenu sans coût", formatMoney(performance.revenueWithoutCost ?? 0)],
     ["Couverture des coûts", `${performance.costCoverageRate ?? 0}%`],
-    ["Marge moyenne", performance.averageMargin === null ? "Non calculable" : `${performance.averageMargin}%`],
+    ["Marge moyenne", performance.averageMargin === null ? "À compléter" : `${performance.averageMargin}%`],
     ["Panier moyen", formatMoney(performance.averageOrderValue)],
     ["Ventes moyennes / jour", formatNumber(performance.averageDailySales)],
     ["Croissance mensuelle", performance.monthlyGrowthLabel ?? formatGrowth(performance.monthlyGrowth)],
@@ -457,7 +457,7 @@ function PerformancePanel({ performance }: { performance: Performance }) {
     ["Bénéfices du mois", performance.profitReliable === false ? "Données de coût incomplètes" : formatNullableMoney(performance.estimatedProfit)],
     ["Revenu sans coût", formatMoney(performance.revenueWithoutCost ?? 0)],
     ["Couverture des coûts", `${performance.costCoverageRate ?? 0}%`],
-    ["Marge moyenne", performance.averageMargin === null ? "Non calculable" : `${performance.averageMargin}%`],
+    ["Marge moyenne", performance.averageMargin === null ? "À compléter" : `${performance.averageMargin}%`],
     ["Panier moyen", formatMoney(performance.averageOrderValue)],
     ["Ventes moyennes / jour", formatNumber(performance.averageDailySales)],
     ["Croissance mensuelle", performance.monthlyGrowthLabel ?? formatGrowth(performance.monthlyGrowth)],
@@ -470,7 +470,7 @@ function PerformancePanel({ performance }: { performance: Performance }) {
       <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Valeur potentielle = prix de vente x stock disponible. Si le cout d&apos;achat manque, la marge reelle n&apos;est pas calculable.</p>
       {(performance.missingCostProducts ?? 0) > 0 ? (
         <p className="mt-2 text-sm font-semibold text-amber-700 dark:text-amber-300">
-          {performance.missingCostProducts} produit(s) sans coût d&apos;achat - marge reelle non calculable.
+          {performance.missingCostProducts} produit(s) avec coût manquant.
         </p>
       ) : null}
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -511,7 +511,7 @@ function TopSalesTable({ items }: { items: TopProduct[] }) {
                 <td className="p-4 font-bold text-slate-950 dark:text-white">{item.product}<p className="text-xs font-medium text-slate-500">{item.sku}</p></td>
                 <td className="p-4">{formatNumber(item.quantity)}</td>
                 <td className="p-4">{formatMoney(item.revenue)}</td>
-                <td className="p-4 font-bold text-emerald-600">{item.profit === null ? "Non calculable" : formatMoney(item.profit)}</td>
+                <td className="p-4 font-bold text-emerald-600">{item.profit === null ? "À compléter" : formatMoney(item.profit)}</td>
               </tr>
             ))}
           </tbody>
@@ -561,12 +561,12 @@ function formatDate(value: string) {
 }
 
 function formatGrowth(value: number | null | undefined) {
-  if (value === null || value === undefined) return "Non calculable";
+  if (value === null || value === undefined) return "À compléter";
   return `${value} %`;
 }
 
 function formatNullableMoney(value: number | null | undefined) {
-  return value === null || value === undefined ? "Non calculable" : formatMoney(value);
+  return value === null || value === undefined ? "À compléter" : formatMoney(value);
 }
 
 

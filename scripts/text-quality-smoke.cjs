@@ -46,7 +46,13 @@ const forbidden = [
   "Securite",
   "Parametres",
   "DONNEES",
-  "Aucune reception"
+  "Aucune reception",
+  "Flux V1",
+  "Règle V1",
+  "Actions visibles",
+  "volontairement simple",
+  "données réelles",
+  "Coût non renseigné"
 ];
 
 const expected = new Map([
@@ -56,7 +62,7 @@ const expected = new Map([
   ["apps/web/app/dashboard/reports/page.tsx", [text("Rapports")]],
   ["apps/web/app/dashboard/users/page.tsx", [text("r\u00f4le"), text("Cr\u00e9er utilisateur"), text("r\u00e9activez")]],
   ["apps/web/app/dashboard/settings/subscription/page.tsx", [text("Param\u00e8tres")]],
-  ["apps/web/app/dashboard/products/page.tsx", [text("Co\u00fbt non renseign\u00e9")]],
+  ["apps/web/app/dashboard/products/page.tsx", [text("Co\u00fbt manquant")]],
   ["apps/web/app/dashboard/settings/company/page.tsx", [text("Param\u00e8tres"), text("Choisir un logo"), text("T\u00e9l\u00e9phone"), text("Num\u00e9ro fiscal")]],
   ["apps/web/app/dashboard/import-export/page.tsx", [text("Donn\u00e9es")]],
   ["apps/web/app/onboarding/company/page.tsx", [text("Ha\u00efti"), text("Cr\u00e9ez votre espace entreprise"), text("Sp\u00e9cialit\u00e9"), text("D\u00e9partement")]],

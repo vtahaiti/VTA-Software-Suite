@@ -318,7 +318,7 @@ function SalesFilters({
     <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
       <SummaryCard label="Ventes" value={String(summary?.count ?? 0)} />
       <SummaryCard label="Total encaisse" value={formatMoney(summary?.total ?? 0)} />
-      <SummaryCard label="Montant règle" value={formatMoney(summary?.settledAmount ?? 0)} />
+      <SummaryCard label="Montant réglé" value={formatMoney(summary?.settledAmount ?? 0)} />
       <SummaryCard label="Montant reçu" value={formatMoney(summary?.receivedAmount ?? 0)} />
       <SummaryCard label="Monnaie rendue" value={formatMoney(summary?.changeAmount ?? 0)} />
       <SummaryCard label="Panier moyen" value={formatMoney(summary?.averageBasket ?? 0)} />
@@ -367,7 +367,7 @@ function SaleList({ sales, type, isLoading }: { sales: Sale[]; type: "completed"
             <div className="rounded-md bg-slate-50 p-2 dark:bg-slate-950"><span className="text-slate-500">Monnaie</span><p className="font-semibold">{paymentSummary.historicalDataUnavailable ? "Indisponible" : formatMoney(change)}</p></div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <button onClick={() => window.alert(`Vente ${sale.id}\nTotal: ${formatMoney(total)}\nMontant règle: ${formatMoney(paid)}\nMontant reçu: ${formatMoney(received)}\nMonnaie rendue: ${formatMoney(change)}`)} className="rounded-md border border-slate-300 px-3 py-3 text-sm font-semibold dark:border-slate-700">Voir detail</button>
+            <button onClick={() => window.alert(`Vente ${sale.id}\nTotal: ${formatMoney(total)}\nMontant réglé: ${formatMoney(paid)}\nMontant reçu: ${formatMoney(received)}\nMonnaie rendue: ${formatMoney(change)}`)} className="rounded-md border border-slate-300 px-3 py-3 text-sm font-semibold dark:border-slate-700">Voir détail</button>
             <button onClick={() => void printSale(sale.id)} className="rounded-md bg-brand-600 px-3 py-3 text-sm font-bold text-white disabled:bg-slate-300" disabled={type === "cancelled"}>Imprimer</button>
           </div>
         </article>;

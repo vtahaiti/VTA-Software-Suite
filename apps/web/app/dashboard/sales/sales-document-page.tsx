@@ -93,15 +93,15 @@ function documentKind(type: DocType) {
 }
 
 function documentHelpText(type: DocType) {
-  if (type === "quotes") return "Devis = proposition de prix. Il ne modifie pas le stock.";
-  if (type === "proformas") return "Commande = vente confirmée qui peut recevoir une avance, puis la balance.";
-  return "Facture = document de vente finalise ou a encaisser selon le statut.";
+  if (type === "quotes") return "Devis = proposition de prix pour le client.";
+  if (type === "proformas") return "Commande = suivi du total, de l’avance et de la balance.";
+  return "Facture = document finalisé issu d'une vente ou commande.";
 }
 
 function documentCreateHelp(type: DocType) {
-  if (type === "quotes") return "Saisissez seulement le client, les produits ou services, la quantite, le prix, la remise et les notes.";
-  if (type === "proformas") return "Créez une commande directe, puis enregistrez une avance ou encaissez la balance quand le client paie.";
-  return "Créez une facture seulement pour un document finalise.";
+  if (type === "quotes") return "Préparez une proposition claire pour le client.";
+  if (type === "proformas") return "Suivez le total, l’avance et la balance de la commande.";
+  return "Préparez un document finalisé.";
 }
 
 function documentListTitle(type: DocType) {
@@ -379,7 +379,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
       <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <p className="text-sm font-medium text-brand-600">{eyebrow}</p>
         <h1 className="text-2xl font-bold text-slate-950 dark:text-white">{title}</h1>
-        <p className="mt-1 text-sm text-slate-500">Flux V1: produit existant ou service personnalisé, devis, commande, avance, balance, impression, puis terminé.</p>
+        <p className="mt-1 text-sm text-slate-500">Préparez un devis, transformez-le en commande, puis suivez l’avance et la balance.</p>
         <div className="mt-3 rounded-md border border-brand-100 bg-brand-50 px-3 py-2 text-sm text-slate-700 dark:border-brand-900 dark:bg-slate-950 dark:text-slate-200">
           {documentHelpText(type)}
         </div>
@@ -488,7 +488,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
               <Info label="Avance reçue" value={money(0)} />
               <Info label="Balance restante" value={money(currentBalancePreview ?? totalPreview)} />
             </div>
-            <p className="mt-3 text-xs text-slate-300">{type === "quotes" ? "Le devis ne modifie pas le stock et ne cree pas de vente POS." : "La commande V1 ne modifie pas le stock et ne cree pas de vente POS automatiquement."}</p>
+            <p className="mt-3 text-xs text-slate-300">{type === "quotes" ? "Le devis reste séparé du POS." : "La commande suit le total, l’avance et la balance."}</p>
           </div>
 
           <button className="mt-4 w-full rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">{type === "quotes" ? "Enregistrer devis" : type === "proformas" ? "Enregistrer commande" : "Enregistrer"}</button>
@@ -497,7 +497,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
         <section className="space-y-4">
           <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
             <h2 className="text-lg font-semibold">{documentListTitle(type)}</h2>
-            <p className="mt-1 text-sm text-slate-500">Actions visibles: voir, imprimer, convertir, recevoir une avance, encaisser la balance et changer le statut.</p>
+            <p className="mt-1 text-sm text-slate-500">Retrouvez ici les documents récents et leurs actions.</p>
           </div>
           <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2">
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Recherche" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
@@ -608,7 +608,7 @@ function SelectedProduct({ product }: { product?: Product }) {
   const unit = productUnitLabel(product);
   return <div className="mt-3 rounded-md border border-brand-100 bg-white p-3 text-xs text-slate-600 dark:border-brand-900 dark:bg-slate-900 dark:text-slate-300">
     <p className="font-semibold text-slate-900 dark:text-white">Produit sélectionné: {product.name}</p>
-    <p className="mt-1">Prix: {money(product.salePrice)}{unit ? ` · Unite: ${unit}` : ""}</p>
+    <p className="mt-1">Prix: {money(product.salePrice)}{unit ? ` · Unité: ${unit}` : ""}</p>
     <p className="mt-1 text-slate-500">SKU: {product.sku}</p>
   </div>;
 }
@@ -674,9 +674,9 @@ function DocumentActions(props: {
     {type === "quotes" && props.transformAction ? <button onClick={() => props.onAction(props.transformAction!)} className="rounded-md bg-brand-600 px-2 py-1 text-xs font-semibold text-white">{props.transformLabel ?? "Convertir"}</button> : null}
     {type === "quotes" ? <button onClick={() => props.onAction("reject")} className="rounded-md border px-2 py-1 text-xs">Annuler</button> : null}
     {type === "proformas" && Number(doc.balance) > 0 ? <button onClick={props.onPayment} className="rounded-md border px-2 py-1 text-xs">{paymentActionLabel(doc)}</button> : null}
-    {type === "proformas" && doc.status !== "READY" ? <button onClick={() => props.onStatus("READY")} className="rounded-md border px-2 py-1 text-xs">Marquer prete</button> : null}
-    {type === "proformas" && doc.status !== "DELIVERED" ? <button onClick={() => props.onStatus("DELIVERED")} className="rounded-md border px-2 py-1 text-xs">Marquer livree</button> : null}
-    {type === "proformas" && doc.status !== "COMPLETED" ? <button onClick={() => props.onStatus("COMPLETED")} className="rounded-md border px-2 py-1 text-xs">Terminér</button> : null}
+    {type === "proformas" && doc.status !== "READY" ? <button onClick={() => props.onStatus("READY")} className="rounded-md border px-2 py-1 text-xs">Marquer prête</button> : null}
+    {type === "proformas" && doc.status !== "DELIVERED" ? <button onClick={() => props.onStatus("DELIVERED")} className="rounded-md border px-2 py-1 text-xs">Marquer livrée</button> : null}
+    {type === "proformas" && doc.status !== "COMPLETED" ? <button onClick={() => props.onStatus("COMPLETED")} className="rounded-md border px-2 py-1 text-xs">Terminer</button> : null}
     {type === "proformas" && doc.status !== "CANCELLED" ? <button onClick={() => props.onStatus("CANCELLED")} className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-700">Annuler</button> : null}
   </div>;
 }

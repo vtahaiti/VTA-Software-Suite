@@ -234,7 +234,7 @@ export default function UsersPage() {
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Historique des acces</h2>
-        <p className="mt-2 text-sm text-slate-500">Les connexions et déconnexions sont enregistrées dans Sécurité et Audit. Cette section reste volontairement simple pour le mode quotidien.</p>
+        <p className="mt-2 text-sm text-slate-500">Les connexions et déconnexions sont enregistrées dans Sécurité et Audit.</p>
       </section>
     </div>
   );

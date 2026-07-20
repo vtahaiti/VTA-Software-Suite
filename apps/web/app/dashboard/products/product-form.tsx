@@ -388,8 +388,8 @@ export function ProductForm({ productId }: { productId?: string }) {
         </div>
       </div> : null}
       {isRestaurantProfile ? <div className="rounded-md border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950 dark:border-orange-900 dark:bg-orange-950 dark:text-orange-100 md:col-span-2">
-        <p className="font-bold">Suggestions Restaurant V1</p>
-        <p className="mt-1 text-xs">Classez rapidement plats, boissons, desserts et extras. En V1, le stock ingrédients automatique reste désactivé; utilisez le stock seulement si vous le suivez volontairement.</p>
+        <p className="font-bold">Suggestions Restaurant</p>
+        <p className="mt-1 text-xs">Classez rapidement plats, boissons, desserts et extras. Utilisez le stock seulement pour les articles que vous suivez réellement.</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {recommendedRestaurantSuggestions.map((suggestion) => <div key={suggestion.type} className="rounded-md bg-white/75 p-2 dark:bg-slate-900/60">
             <button type="button" onClick={() => applyRestaurantSuggestion(suggestion)} className="font-semibold text-brand-700 dark:text-brand-300">{suggestion.type}</button>

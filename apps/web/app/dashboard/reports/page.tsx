@@ -261,7 +261,7 @@ function ReportTable({ config, report }: { config: SectionConfig; report: Report
 
 function formatCell(value: Primitive, format?: Column["format"], key?: string) {
   if (value === null || value === undefined || value === "") {
-    if (format === "money") return key === "cost" ? "Co\u00fbt non renseign\u00e9" : "Non calculable";
+    if (format === "money") return key === "cost" ? "Co\u00fbt manquant" : "--";
     return "--";
   }
   if (format === "money") return formatMoney(Number(value));
@@ -280,7 +280,7 @@ function numberValue(value: ReportSummary[string]) {
 }
 
 function formatProfitValue(summary: ReportSummary) {
-  return typeof summary.grossProfit === "number" ? formatMoney(summary.grossProfit) : "Non calculable";
+  return typeof summary.grossProfit === "number" ? formatMoney(summary.grossProfit) : "À compléter";
 }
 
 function formatProfitDetail(summary: ReportSummary) {

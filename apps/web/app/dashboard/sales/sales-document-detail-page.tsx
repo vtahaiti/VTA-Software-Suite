@@ -164,9 +164,9 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
           <div className="mt-4 flex flex-wrap gap-2">
             {[
               ["IN_PROGRESS", "En preparation"],
-              ["READY", "Marquer prete"],
-              ["DELIVERED", "Marquer livree"],
-              ["COMPLETED", "Terminér"],
+              ["READY", "Marquer prête"],
+              ["DELIVERED", "Marquer livrée"],
+              ["COMPLETED", "Terminer"],
               ["CANCELLED", "Annuler"]
             ].map(([value, label]) => <button key={value} onClick={() => void updateStatus(value)} className="rounded-md border px-4 py-2 text-sm">{label}</button>)}
           </div>
