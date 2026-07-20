@@ -10,7 +10,7 @@ export class PermissionsService {
   async findAll() { await this.ensureDefaultPermissions(); return this.prisma.permission.findMany({ orderBy: [{ category: "asc" }, { key: "asc" }] }); }
   async create(dto: CreatePermissionDto) {
     try { return await this.prisma.permission.create({ data: { key: dto.key.trim().toLowerCase(), name: dto.name, category: dto.category, description: dto.description } }); }
-    catch (error) { if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException("Permission deja existante"); throw error; }
+    catch (error) { if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException("Permission déjà existante"); throw error; }
   }
   async ensureDefaultPermissions() {
     await this.prisma.$transaction(defaultPermissions.map((permission) => this.prisma.permission.upsert({ where: { key: permission.key }, update: { name: permission.name, category: permission.category, description: permission.description }, create: permission })));

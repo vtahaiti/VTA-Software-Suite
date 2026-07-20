@@ -1,2 +1,2 @@
 import { ProductForm } from "../product-form";
-export default function CreateProductPage(){return <div className="space-y-5"><div><p className="text-sm font-medium text-brand-600">Produits</p><h1 className="text-2xl font-bold text-slate-950 dark:text-white">Creer un produit</h1></div><ProductForm /></div>}
+export default function CreateProductPage(){return <div className="space-y-5"><div><p className="text-sm font-medium text-brand-600">Produits</p><h1 className="text-2xl font-bold text-slate-950 dark:text-white">Créer un produit</h1></div><ProductForm /></div>}

@@ -86,7 +86,7 @@ export class SalesService {
 
 
       const warehouse = await tx.warehouse.findFirst({ where: { id: dto.warehouseId, tenantId, isActive: true } });
-      if (!warehouse) throw new NotFoundException("Entrepot introuvable");
+      if (!warehouse) throw new NotFoundException("Entrepôt introuvable");
 
       if (dto.cashSessionId) {
         const session = await tx.cashSession.findFirst({ where: { id: dto.cashSessionId, tenantId, status: "OPEN" } });
@@ -111,13 +111,13 @@ export class SalesService {
           unitPrice = Number(product.salePrice);
         } else {
           customName = item.customName?.trim();
-          if (!customName) throw new BadRequestException("Le nom de l'article personnalise est obligatoire");
-          if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new BadRequestException("Le prix de l'article personnalise est obligatoire");
+          if (!customName) throw new BadRequestException("Le nom de l'article personnalisé est obligatoire");
+          if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new BadRequestException("Le prix de l'article personnalisé est obligatoire");
         }
         const lineSubtotal = unitPrice * item.quantity;
         const discount = item.discount ?? 0;
         const taxable = lineSubtotal - discount;
-        if (taxable < 0) throw new BadRequestException("Remise superieure au montant de la ligne");
+        if (taxable < 0) throw new BadRequestException("Remise supérieure au montant de la ligne");
         const tax = this.round(taxable * taxRate);
         const total = this.round(taxable + tax);
         subtotal += lineSubtotal;
@@ -138,7 +138,7 @@ export class SalesService {
 
       const grossTotal = saleItems.reduce((sum, item) => sum + item.total, 0);
       const total = this.round(grossTotal - orderDiscount);
-      if (total < 0) throw new BadRequestException("Remise superieure au total");
+      if (total < 0) throw new BadRequestException("Remise supérieure au total");
 
       const payments = dto.payments ?? [];
       const receivedAmount = this.round(payments.reduce((sum, payment) => sum + payment.amount, 0));
@@ -290,7 +290,7 @@ export class SalesService {
 
   async returnSale(tenantId: string, id: string, warehouseId: string, userId?: string) {
     const sale = await this.findOne(tenantId, id);
-    if (sale.status === SaleStatus.RETURNED) throw new BadRequestException("Vente deja retournee");
+    if (sale.status === SaleStatus.RETURNED) throw new BadRequestException("Vente déjà retournée");
     for (const item of sale.items) {
       if (!item.productId) continue;
       await this.stock.returnStock(tenantId, { productId: item.productId, warehouseId, quantity: item.quantity, reference: sale.id, note: "Retour produit", userId, storeId: sale.storeId ?? undefined });
@@ -318,12 +318,12 @@ export class SalesService {
 
   private receiptContent(receiptNumber: string, items: Array<{ product: { name: string } | null; customName?: string; productId?: string; quantity: number; total: number }>, total: number, settledAmount: number, receivedAmount: number, changeAmount: number) {
     const lines = items.map((item) => {
-      const name = item.product?.name ?? item.customName ?? "Article personnalise";
-      const suffix = item.productId ? "" : " (Article personnalise)";
+      const name = item.product?.name ?? item.customName ?? "Article personnalisé";
+      const suffix = item.productId ? "" : " (Article personnalisé)";
       return `${name}${suffix} x${item.quantity} ${item.total.toFixed(2)}`;
     }).join("\n");
     const balance = Math.max(0, total - settledAmount);
-    return `Ticket de vente\nRecu ${this.displayReceiptNumber(receiptNumber)}\n${lines}\nTotal: ${total.toFixed(2)}\nMontant regle: ${settledAmount.toFixed(2)}\nMontant recu: ${receivedAmount.toFixed(2)}\nMonnaie rendue: ${changeAmount.toFixed(2)}\nSolde: ${balance.toFixed(2)}`;
+    return `Ticket de vente\nReçu ${this.displayReceiptNumber(receiptNumber)}\n${lines}\nTotal: ${total.toFixed(2)}\nMontant règle: ${settledAmount.toFixed(2)}\nMontant reçu: ${receivedAmount.toFixed(2)}\nMonnaie rendue: ${changeAmount.toFixed(2)}\nSolde: ${balance.toFixed(2)}`;
   }
 
   private async nextReceiptNumber(tx: Prisma.TransactionClient, tenantId: string) {

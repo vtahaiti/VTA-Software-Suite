@@ -64,7 +64,7 @@ for (const moduleKey of ["dashboard", "pos", "products", "inventory", "customers
 const multiActivitiesProfile = catalogSource.match(/\{\s*slug:\s*"multi-activities"[\s\S]*?\}/)?.[0] ?? "";
 for (const moduleKey of ["dashboard", "pos", "products", "inventory", "customers", "suppliers", "sales", "reports", "settings", "printing", "services", "it-services", "measurements"]) {
   if (!multiActivitiesProfile.includes(`"${moduleKey}"`)) {
-    failures.push(`Profil Multi-activite / Commerce & Services: module requis absent: ${moduleKey}`);
+    failures.push(`Profil Multi-activité / Commerce & Services: module requis absent: ${moduleKey}`);
   }
 }
 
@@ -77,7 +77,7 @@ for (const profileSlug of ["hardware", "construction-materials"]) {
   }
 }
 
-for (const label of ["Materiaux de construction", "Quincaillerie", "Multi-activite / Commerce & Services"]) {
+for (const label of ["Matériaux de construction", "Quincaillerie", "Multi-activité / Commerce & Services"]) {
   if (!onboardingSource.includes(label)) {
     failures.push(`Onboarding: activité absente: ${label}`);
   }
@@ -108,7 +108,7 @@ for (const expected of ["showFabricationFields", "Notes de mesure", "Livraison /
 
 for (const suggestion of ["Accessoires / Cadeaux", "Informatique", "Impression", "Studio photo", "Bois / Fabrication", "Services"]) {
   if (!catalogSource.includes(suggestion) && !onboardingSource.includes(suggestion)) {
-    failures.push(`Suggestions Multi-activite absentes: ${suggestion}`);
+    failures.push(`Suggestions Multi-activité absentes: ${suggestion}`);
   }
 }
 
@@ -116,7 +116,7 @@ if (catalogSource.includes("VTA Enterprise") || onboardingSource.includes("VTA E
   failures.push("Le nom VTA Enterprise ne doit pas etre utilise comme profil public.");
 }
 
-for (const expected of ["assertQuantityAllowed", "Quantite decimale autorisee seulement", "Number.isInteger(item.quantity)"]) {
+for (const expected of ["assertQuantityAllowed", "Quantité decimale autorisee seulement", "Number.isInteger(item.quantity)"]) {
   if (!posServiceSource.includes(expected)) {
     failures.push(`POS API: garde-fou quantité décimale absent: ${expected}`);
   }

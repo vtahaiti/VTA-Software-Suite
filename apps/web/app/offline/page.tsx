@@ -20,7 +20,7 @@ export default function OfflinePage() {
         <p className="text-sm font-semibold uppercase tracking-wide text-green-600">Mode hors ligne</p>
         <h1 className="mt-3 text-2xl font-bold">Le POS reste disponible</h1>
         <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
-          Les produits deja charges restent disponibles sur ce telephone ou cet ordinateur. Les ventes hors ligne sont gardees localement, puis synchronisees quand l API revient.
+          Les produits déjà charges restent disponibles sur ce telephone ou cet ordinateur. Les ventes hors ligne sont gardées localement, puis synchronisées quand l API revient.
         </p>
 
         <div className="mt-5 grid gap-3 text-sm sm:grid-cols-2">

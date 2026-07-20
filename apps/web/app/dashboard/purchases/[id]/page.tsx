@@ -10,9 +10,9 @@ const statusLabels: Record<string, string> = {
   DRAFT: "Brouillon",
   SENT: "Commande",
   APPROVED: "Commande",
-  PARTIALLY_RECEIVED: "Recu partiel",
-  FULLY_RECEIVED: "Recu complet",
-  RECEIVED: "Recu complet",
+  PARTIALLY_RECEIVED: "Reçu partiel",
+  FULLY_RECEIVED: "Reçu complet",
+  RECEIVED: "Reçu complet",
   CANCELLED: "Annule"
 };
 
@@ -70,7 +70,7 @@ export default function PurchaseDetailPage() {
         <div className="flex flex-wrap gap-2">
           {order.status === "DRAFT" ? <button onClick={() => action("approve")} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Marquer commande</button> : null}
           {canCancel ? <button onClick={() => action("cancel")} className="rounded-md border border-red-300 px-4 py-2 text-sm font-semibold text-red-700">Annuler</button> : null}
-          {canReceive ? <Link href="/dashboard/purchases/receipts" className="rounded-md border px-4 py-2 text-sm font-semibold">Receptionner</Link> : null}
+          {canReceive ? <Link href="/dashboard/purchases/receipts" className="rounded-md border px-4 py-2 text-sm font-semibold">Réceptionner</Link> : null}
         </div>
       </div>
 
@@ -78,7 +78,7 @@ export default function PurchaseDetailPage() {
         <SummaryCard label="Sous-total" value={order.subtotal} />
         <SummaryCard label="Taxe" value={order.tax} />
         <SummaryCard label="Total" value={order.total} />
-        <SummaryCard label="Receptions" value={String(order.receipts.length)} />
+        <SummaryCard label="Réceptions" value={String(order.receipts.length)} />
       </div>
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -87,9 +87,9 @@ export default function PurchaseDetailPage() {
             <tr>
               <th className="p-3">Produit</th>
               <th className="p-3">Commande</th>
-              <th className="p-3">Recu</th>
+              <th className="p-3">Reçu</th>
               <th className="p-3">Reste</th>
-              <th className="p-3">Cout achat</th>
+              <th className="p-3">Coût achat</th>
               <th className="p-3">Total</th>
             </tr>
           </thead>
@@ -112,12 +112,12 @@ export default function PurchaseDetailPage() {
       </div>
 
       <section className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold">Historique des receptions</h2>
+        <h2 className="text-lg font-semibold">Historique des réceptions</h2>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           {order.receipts.map((receipt) => (
             <div key={receipt.id} className="rounded-md border border-slate-200 p-3 dark:border-slate-800">
               <p className="font-mono text-xs">{receipt.number}</p>
-              <p className="font-medium">{receipt.warehouse?.name ?? "Entrepot"}</p>
+              <p className="font-medium">{receipt.warehouse?.name ?? "Entrepôt"}</p>
               <p className="text-sm text-slate-500">{new Date(receipt.createdAt).toLocaleDateString("fr-FR")}</p>
             </div>
           ))}

@@ -15,9 +15,9 @@ const allowedLogoTypes = ["image/png", "image/jpeg", "image/webp"];
 
 const citiesByCountry: Record<string, string[]> = {
   Haiti: citiesForHaitiDepartment("Nord"),
-  "Republique dominicaine": ["Santiago", "Santo Domingo", "Dajabon"],
+  "République dominicaine": ["Santiago", "Santo Domingo", "Dajabon"],
   Canada: ["Montreal", "Ottawa", "Toronto"],
-  "Etats-Unis": ["Miami", "New York", "Boston"]
+  "États-Unis": ["Miami", "New York", "Boston"]
 };
 
 const currencies = ["HTG", "USD", "EUR", "DOP", "CAD"];
@@ -31,28 +31,28 @@ const colorOptions = [
 ];
 
 const fallbackSectors: BusinessSector[] = [
-  { key: "commerce", name: "Commerce / Market", description: "Boutiques, markets et vente generale.", specialties: [
-    { name: "Epicerie / Market", profileType: "commerce", categories: ["Boissons", "Alimentation", "Snacks"] },
+  { key: "commerce", name: "Commerce / Market", description: "Boutiques, markets et vente générale.", specialties: [
+    { name: "Épicerie / Market", profileType: "commerce", categories: ["Boissons", "Alimentation", "Snacks"] },
     { name: "Boutique", profileType: "commerce", categories: ["Produits", "Accessoires"] },
-    { name: "Supermarche", profileType: "commerce", categories: ["Boissons", "Alimentation", "Hygiene"] },
-    { name: "Vente generale", profileType: "commerce", categories: ["General", "Produits"] },
-    { name: "Autre commerce", profileType: "commerce", categories: ["General"] }
+    { name: "Supermarché", profileType: "commerce", categories: ["Boissons", "Alimentation", "Hygiène"] },
+    { name: "Vente générale", profileType: "commerce", categories: ["Général", "Produits"] },
+    { name: "Autre commerce", profileType: "commerce", categories: ["Général"] }
   ] },
   { key: "restaurant-food", name: "Restaurant / Bar", description: "Restaurant, bar, fast-food et traiteur.", specialties: [
     { name: "Restaurant", profileType: "restaurant", categories: ["Plats", "Boissons", "Desserts"] },
     { name: "Bar", profileType: "restaurant", categories: ["Boissons", "Snacks"] },
     { name: "Fast-food", profileType: "restaurant", categories: ["Menus", "Plats", "Boissons"] }
   ] },
-  { key: "construction", name: "Construction / Quincaillerie", description: "Materiaux et quincaillerie.", specialties: [
-    { name: "Materiaux de construction", profileType: "construction-materials", categories: ["Ciment", "Fer", "Bois"] },
+  { key: "construction", name: "Construction / Quincaillerie", description: "Matériaux et quincaillerie.", specialties: [
+    { name: "Matériaux de construction", profileType: "construction-materials", categories: ["Ciment", "Fer", "Bois"] },
     { name: "Quincaillerie", profileType: "hardware", categories: ["Ciment", "Fer", "Peinture"] },
-    { name: "Fabrication fenetres/portes", profileType: "windows-aluminium", categories: ["Fenetres", "Portes", "Aluminium"] }
+    { name: "Fabrication fenêtres/portes", profileType: "windows-aluminium", categories: ["Fenêtres", "Portes", "Aluminium"] }
   ] },
-  { key: "multi-activities", name: "Services / Multi-activite", description: "Services et multi-activite.", specialties: [
-    { name: "Multi-activite / Commerce & Services", profileType: "multi-activities", categories: ["Accessoires / Cadeaux", "Informatique", "Services"] }
+  { key: "multi-activities", name: "Services / Multi-activité", description: "Services et multi-activité.", specialties: [
+    { name: "Multi-activité / Commerce & Services", profileType: "multi-activities", categories: ["Accessoires / Cadeaux", "Informatique", "Services"] }
   ] },
-  { key: "other", name: "Autre activite", description: "Activite non listee.", specialties: [
-    { name: "Autre activite", profileType: "commerce", categories: ["General"] }
+  { key: "other", name: "Autre activité", description: "Activité non listée.", specialties: [
+    { name: "Autre activité", profileType: "commerce", categories: ["Général"] }
   ] }
 ];
 
@@ -104,7 +104,7 @@ export default function OnboardingCompanyPage() {
     const token = window.localStorage.getItem("vta_pending_onboarding") ?? "";
     setPendingToken(token);
     setHasCheckedPendingToken(true);
-    if (!token) setError("Session d'inscription introuvable ou expiree. Recommencez la creation du compte.");
+    if (!token) setError("Session d'inscription introuvable ou expirée. Recommencez la création du compte.");
 
     getBusinessCatalog().then((catalog) => {
       const nextSectors = catalog.sectors?.length ? catalog.sectors : fallbackSectors;
@@ -172,7 +172,7 @@ export default function OnboardingCompanyPage() {
     event.preventDefault();
     setError("");
     if (!pendingToken) {
-      setError("Session d'inscription introuvable ou expiree. Recommencez la creation du compte.");
+      setError("Session d'inscription introuvable ou expirée. Recommencez la création du compte.");
       return;
     }
     const city = form.city === "Autre" ? form.otherCity.trim() : form.city;
@@ -210,7 +210,7 @@ export default function OnboardingCompanyPage() {
       window.localStorage.removeItem("vta_pending_onboarding");
       router.push("/dashboard");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Creation de l'entreprise impossible.");
+      setError(caught instanceof Error ? caught.message : "Création de l'entreprise impossible.");
     } finally {
       setIsLoading(false);
     }
@@ -221,11 +221,11 @@ export default function OnboardingCompanyPage() {
     event.target.value = "";
     if (!file) return;
     if (!pendingToken) {
-      setError("Session d'inscription introuvable ou expiree. Recommencez la creation du compte.");
+      setError("Session d'inscription introuvable ou expirée. Recommencez la création du compte.");
       return;
     }
     if (!allowedLogoTypes.includes(file.type)) {
-      setError("Format non accepte. Utilisez PNG, JPG, JPEG ou WebP.");
+      setError("Format non accepté. Utilisez PNG, JPG, JPEG ou WebP.");
       return;
     }
     setError("");
@@ -251,7 +251,7 @@ export default function OnboardingCompanyPage() {
         return;
       }
       const result = await response.json() as { url?: string };
-      if (!result.url) throw new Error("Logo non recu.");
+      if (!result.url) throw new Error("Logo non reçu.");
       updateField("logoUrl", result.url);
     } catch {
       updateField("logoUrl", previousLogoUrl);
@@ -269,9 +269,9 @@ export default function OnboardingCompanyPage() {
     <main className="min-h-screen bg-gradient-to-br from-blue-700 via-blue-900 to-slate-950 px-6 py-10 text-slate-950">
       <section className="mx-auto grid min-h-[calc(100vh-5rem)] w-full max-w-6xl items-center gap-8 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="text-white">
-          <p className="text-sm font-semibold uppercase tracking-[0.28em] text-blue-100">Creation entreprise</p>
-          <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">Creez votre espace entreprise.</h1>
-          <p className="mt-5 max-w-xl text-lg leading-8 text-blue-50">Choisissez d&apos;abord votre secteur, puis votre specialite. VTA adapte ensuite les modules sans limiter les anciens profils.</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.28em] text-blue-100">Création entreprise</p>
+          <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">Créez votre espace entreprise.</h1>
+          <p className="mt-5 max-w-xl text-lg leading-8 text-blue-50">Choisissez d&apos;abord votre secteur, puis votre spécialité. VTA adapte ensuite les modules sans limiter les anciens profils.</p>
         </div>
 
         <form onSubmit={submit} className="rounded-[2rem] border border-white/20 bg-white p-6 shadow-2xl shadow-slate-950/30 dark:border-slate-800 dark:bg-slate-900 sm:p-8">
@@ -297,19 +297,19 @@ export default function OnboardingCompanyPage() {
           <div className="mt-8 grid gap-4 md:grid-cols-2">
             <Input label="Nom de l'entreprise" value={form.companyName} required onChange={(value) => updateField("companyName", value)} />
             <Select label="Secteur" value={form.businessSector} required options={sectors.map((sector) => ({ value: sector.key, label: sector.name }))} onChange={updateSector} />
-            <Select label="Specialite" value={form.businessSpecialty} required options={selectedSector.specialties.map((specialty) => ({ value: specialty.name, label: specialty.name }))} onChange={updateSpecialty} />
-            <ReadOnly label="Profil applique" value={selectedSpecialty.profileType} />
-            <Select label="Pays" value={form.country} required options={Object.keys(citiesByCountry).map((country) => ({ value: country, label: country }))} onChange={updateCountry} />
-            {form.country === "Haiti" ? <Select label="Departement" value={form.department} required options={haitiDepartmentNames.map((name) => ({ value: name, label: name }))} onChange={updateDepartment} /> : null}
+            <Select label="Spécialité" value={form.businessSpecialty} required options={selectedSector.specialties.map((specialty) => ({ value: specialty.name, label: specialty.name }))} onChange={updateSpecialty} />
+            <ReadOnly label="Profil appliqué" value={selectedSpecialty.profileType} />
+            <Select label="Pays" value={form.country} required options={Object.keys(citiesByCountry).map((country) => ({ value: country, label: country === "Haiti" ? "Haïti" : country }))} onChange={updateCountry} />
+            {form.country === "Haiti" ? <Select label="Département" value={form.department} required options={haitiDepartmentNames.map((name) => ({ value: name, label: name }))} onChange={updateDepartment} /> : null}
             <Select label="Commune / Ville" value={form.city} required options={availableCities.map((city) => ({ value: city, label: city }))} onChange={updateCity} />
             {form.city === "Autre" ? <Input label="Commune / Ville autre" value={form.otherCity} required onChange={(value) => updateField("otherCity", value)} /> : null}
             <Input label="Adresse" value={form.address} required onChange={(value) => updateField("address", value)} />
-            <Input label="Telephone principal" value={form.phone} required type="tel" onChange={(value) => updateField("phone", value)} />
+            <Input label="Téléphone principal" value={form.phone} required type="tel" onChange={(value) => updateField("phone", value)} />
             <Input label="Email principal" value={form.email} required type="email" onChange={(value) => updateField("email", value)} />
             <Select label="Devise" value={form.currency} required options={currencies.map((currency) => ({ value: currency, label: currency }))} onChange={(value) => updateField("currency", value)} />
           </div>
 
-          <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Pour Haiti, le departement est conserve dans l&apos;adresse de l&apos;entreprise sans migration de base de donnees.</p>
+          <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Pour Haïti, le département est conservé dans l&apos;adresse de l&apos;entreprise sans migration de base de données.</p>
 
           <div className="mt-6">
             <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Couleur principale</p>
@@ -327,12 +327,12 @@ export default function OnboardingCompanyPage() {
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <Input label="WhatsApp" value={form.whatsapp} type="tel" onChange={(value) => updateField("whatsapp", value)} />
               <Input label="Site web" value={form.website} type="url" onChange={(value) => updateField("website", value)} />
-              <Input label="Numero fiscal" value={form.taxNumber} onChange={(value) => updateField("taxNumber", value)} />
+              <Input label="Numéro fiscal" value={form.taxNumber} onChange={(value) => updateField("taxNumber", value)} />
             </div>
           </details>
 
           {error ? <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{error}</div> : null}
-          <button disabled={isLoading || isUploadingLogo || !pendingToken} className="mt-6 w-full rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-green-600/20 transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60">{isLoading ? "Creation en cours..." : "Creer mon entreprise"}</button>
+          <button disabled={isLoading || isUploadingLogo || !pendingToken} className="mt-6 w-full rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-green-600/20 transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60">{isLoading ? "Création en cours..." : "Créer mon entreprise"}</button>
         </form>
       </section>
     </main>
@@ -354,8 +354,8 @@ function ReadOnly({ label, value }: { label: string; value: string }) {
 function withDepartmentInAddress(address: string, department: string) {
   const cleanAddress = address.trim();
   if (!department) return cleanAddress;
-  if (cleanAddress.toLowerCase().includes(`departement: ${department.toLowerCase()}`)) return cleanAddress;
-  return `${cleanAddress} - Departement: ${department}`;
+  if (cleanAddress.toLowerCase().includes(`département: ${department.toLowerCase()}`)) return cleanAddress;
+  return `${cleanAddress} - Département: ${department}`;
 }
 
 async function optimizeLogoFile(file: File) {
@@ -381,8 +381,8 @@ async function readUploadError(response: Response) {
   try {
     const body = await response.json();
     const message = Array.isArray(body.message) ? body.message[0] : body.message;
-    return message ? `Logo non charge : ${message}` : "Logo non charge. Vous pouvez continuer sans logo.";
+    return message ? `Logo non chargé : ${message}` : "Logo non chargé. Vous pouvez continuer sans logo.";
   } catch {
-    return "Logo non charge. Vous pouvez continuer sans logo.";
+    return "Logo non chargé. Vous pouvez continuer sans logo.";
   }
 }

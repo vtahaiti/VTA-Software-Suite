@@ -36,7 +36,17 @@ assertIncludes(uploadsService, "MAX_IMAGE_SIZE_BYTES", "L'API upload doit appliq
 assertIncludes(uploadsService, "ALLOWED_IMAGE_MIME_TYPES", "L'API upload doit verifier les types MIME.");
 assertIncludes(settingsDto, "@Matches(/^(?!data:).*/i", "Le DTO settings doit refuser les logos en data URL.");
 
-for (const corrupt of ["Ã", "Â", "ðŸ", "âš", "Non dÃ", "RÃ", "TÃ", "PÃ"]) {
+const corruptEncodingMarkers = [
+  String.fromCharCode(0xc3),
+  String.fromCharCode(0xc2),
+  String.fromCharCode(0xf0, 0x178),
+  String.fromCharCode(0xe2, 0x161),
+  "Non d" + String.fromCharCode(0xc3),
+  "R" + String.fromCharCode(0xc3),
+  "T" + String.fromCharCode(0xc3),
+  "P" + String.fromCharCode(0xc3)
+];
+for (const corrupt of corruptEncodingMarkers) {
   assertNotIncludes(subscriptionPage, corrupt, `Texte corrompu restant dans la page abonnement: ${corrupt}`);
 }
 assertIncludes(subscriptionPage, "const subscription = data?.subscription ?? null", "La page abonnement doit gerer une subscription absente.");

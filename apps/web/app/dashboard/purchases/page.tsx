@@ -10,9 +10,9 @@ const statusLabels: Record<string, string> = {
   DRAFT: "Brouillon",
   SENT: "Commande",
   APPROVED: "Commande",
-  PARTIALLY_RECEIVED: "Recu partiel",
-  FULLY_RECEIVED: "Recu complet",
-  RECEIVED: "Recu complet",
+  PARTIALLY_RECEIVED: "Reçu partiel",
+  FULLY_RECEIVED: "Reçu complet",
+  RECEIVED: "Reçu complet",
   CANCELLED: "Annule"
 };
 
@@ -99,7 +99,7 @@ export default function PurchasesPage() {
     try {
       await downloadAuthenticatedFile(`${apiUrl}/purchase-orders/export/${format}`, `achats.${format === "excel" ? "xlsx" : format}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Telechargement impossible.");
+      setError(err instanceof Error ? err.message : "Téléchargement impossible.");
     }
   }
 
@@ -112,7 +112,7 @@ export default function PurchasesPage() {
     ["Fournisseurs actifs", dashboard?.activeSuppliers ?? 0],
     ["Bons en attente de reception", dashboard?.pendingReceiptOrders ?? dashboard?.pendingOrders ?? 0],
     ["Montants a payer fournisseur", formatMoney(Number(dashboard?.supplierBalanceDue ?? 0))],
-    ["Factures impayees", dashboard?.unpaidInvoices ?? 0]
+    ["Factures impayées", dashboard?.unpaidInvoices ?? 0]
   ];
 
   return (
@@ -121,13 +121,13 @@ export default function PurchasesPage() {
         <div>
           <p className="text-sm font-medium text-brand-600">Achats</p>
           <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Bons d&apos;achat fournisseurs</h1>
-          <p className="mt-1 text-sm text-slate-500">Commandes fournisseurs, receptions de stock, factures et paiements. Les depenses generales restent separees.</p>
+          <p className="mt-1 text-sm text-slate-500">Commandes fournisseurs, réceptions de stock, factures et paiements. Les dépenses générales restent séparées.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={() => exportFile("csv")} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">CSV</button>
           <button onClick={() => exportFile("excel")} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">Excel</button>
           <button onClick={() => exportFile("pdf")} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">PDF</button>
-          <Link href="/dashboard/purchases/receipts" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">Reception marchandises</Link>
+          <Link href="/dashboard/purchases/receipts" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">Réception marchandises</Link>
           <Link href="/dashboard/purchases/create" className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Nouveau bon</Link>
         </div>
       </div>
@@ -135,7 +135,7 @@ export default function PurchasesPage() {
       {error ? (
         <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {error}
-          <button onClick={() => { setError(""); void loadDashboard(); void loadPurchases(); }} className="ml-3 font-semibold underline">Reessayer</button>
+          <button onClick={() => { setError(""); void loadDashboard(); void loadPurchases(); }} className="ml-3 font-semibold underline">Réessayer</button>
         </div>
       ) : null}
 
@@ -151,14 +151,14 @@ export default function PurchasesPage() {
       </div>
 
       <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2">
-        <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Recherche par numero, fournisseur, produit ou facture" className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+        <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Recherche par numéro, fournisseur, produit ou facture" className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
         <select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
           <option value="">Tous les statuts</option>
           <option value="DRAFT">Brouillon</option>
           <option value="SENT">Commande</option>
           <option value="APPROVED">Commande</option>
-          <option value="PARTIALLY_RECEIVED">Recu partiel</option>
-          <option value="FULLY_RECEIVED">Recu complet</option>
+          <option value="PARTIALLY_RECEIVED">Reçu partiel</option>
+          <option value="FULLY_RECEIVED">Reçu complet</option>
           <option value="CANCELLED">Annule</option>
         </select>
       </div>
@@ -167,7 +167,7 @@ export default function PurchasesPage() {
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950">
             <tr>
-              <th className="p-3">Numero</th>
+              <th className="p-3">Numéro</th>
               <th className="p-3">Fournisseur</th>
               <th className="p-3">Lignes</th>
               <th className="p-3">Total</th>
@@ -196,7 +196,7 @@ export default function PurchasesPage() {
       <div className="flex items-center justify-between">
         <p className="text-sm text-slate-500">{listLoading ? "Chargement..." : `${total} bons de commande`}</p>
         <div className="flex gap-2">
-          <button disabled={page <= 1 || listLoading} onClick={() => setPage(page - 1)} className="rounded-md border px-3 py-2 disabled:opacity-50">Precedent</button>
+          <button disabled={page <= 1 || listLoading} onClick={() => setPage(page - 1)} className="rounded-md border px-3 py-2 disabled:opacity-50">Précédent</button>
           <span className="px-3 py-2 text-sm">{page}/{pages}</span>
           <button disabled={page >= pages || listLoading} onClick={() => setPage(page + 1)} className="rounded-md border px-3 py-2 disabled:opacity-50">Suivant</button>
         </div>

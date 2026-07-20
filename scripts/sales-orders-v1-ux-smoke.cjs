@@ -14,33 +14,33 @@ const navigation = read("apps/web/lib/navigation.tsx");
 for (const label of [
   "Devis en attente",
   "Commandes en preparation",
-  "Avances recues",
+  "Avances reçues",
   "Balances a recevoir",
-  "Commandes pretes",
-  "Commandes terminees",
-  "Flux separe du POS",
-  "produit existant ou service personnalise",
+  "Commandes prêtes",
+  "Commandes terminées",
+  "Flux séparé du POS",
+  "produit existant ou service personnalisé",
   "1. Devis",
   "2. Commande",
   "3. Avance",
   "4. Balance",
-  "5. Termine"
+  "5. Terminé"
 ]) {
   assert(salesPage.includes(label), `Tableau de bord Devis & Commandes incomplet: ${label}`);
 }
 
 for (const label of [
-  "Creer un devis",
+  "Créer un devis",
   "Nouvelle commande",
   "A) Produit du catalogue",
-  "B) Ajouter un service ou travail personnalise",
+  "B) Ajouter un service ou travail personnalisé",
   "Ajouter au devis",
   "Ajouter a la commande",
   "Ajouter la ligne au devis",
   "Ajouter la ligne a la commande",
-  "Lignes ajoutees",
+  "Lignes ajoutées",
   "Rechercher un produit",
-  "Produit selectionne",
+  "Produit sélectionné",
   "Choisir",
   "Voir",
   "Imprimer",
@@ -48,7 +48,7 @@ for (const label of [
   "Encaisser balance",
   "Marquer prete",
   "Marquer livree",
-  "Terminer",
+  "Terminér",
   "Annuler",
   "md:hidden",
   "md:block"
@@ -59,8 +59,8 @@ for (const label of [
 assert(documentPage.includes('window.location.search'), "Les cartes filtrees doivent initialiser le statut depuis l'URL.");
 assert(documentPage.includes("filtered.slice(0, 20)"), "Le selecteur produit/service doit rester compact.");
 assert(documentPage.includes("/products?${params}"), "La recherche produit existant doit passer par l'API produits.");
-assert(documentPage.includes("ProductResultCard"), "Le catalogue doit utiliser des cartes de resultats, pas un select natif charge.");
-assert(documentPage.includes("SKU:") && documentPage.includes("Produit selectionne"), "Le SKU doit rester visible seulement apres selection.");
+assert(documentPage.includes("ProductResultCard"), "Le catalogue doit utiliser des cartes de résultats, pas un select natif charge.");
+assert(documentPage.includes("SKU:") && documentPage.includes("Produit sélectionné"), "Le SKU doit rester visible seulement après selection.");
 assert(!documentPage.includes('<select value={catalogDraft.productId}'), "Le select natif produit ne doit pas revenir dans la V1.");
 assert(!documentPage.includes("product.sku} - {product.name}"), "La liste principale ne doit pas afficher SKU complet + nom + prix.");
 assert(documentPage.includes("Le devis ne modifie pas le stock") && documentPage.includes("ne cree pas de vente POS"), "Le flux doit rappeler l'absence d'impact stock/POS.");

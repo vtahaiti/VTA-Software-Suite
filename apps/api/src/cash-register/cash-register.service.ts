@@ -16,7 +16,7 @@ export class CashRegisterService {
     try {
       return await this.prisma.cashRegister.create({ data: { tenantId, name: dto.name, code: dto.code ?? this.code(dto.name), isActive: dto.isActive ?? true } });
     } catch (error) {
-      if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") throw new BadRequestException("Code caisse deja existant");
+      if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") throw new BadRequestException("Code caisse déjà existant");
       throw error;
     }
   }
@@ -35,7 +35,7 @@ export class CashRegisterService {
     const register = await this.prisma.cashRegister.findFirst({ where: { id: dto.cashRegisterId, tenantId, isActive: true } });
     if (!register) throw new NotFoundException("Caisse introuvable");
     const open = await this.prisma.cashSession.findFirst({ where: { tenantId, cashRegisterId: dto.cashRegisterId, status: CashSessionStatus.OPEN } });
-    if (open) throw new BadRequestException("Une session est deja ouverte pour cette caisse");
+    if (open) throw new BadRequestException("Une session est déjà ouverte pour cette caisse");
     return this.prisma.cashSession.create({ data: { tenantId, cashRegisterId: dto.cashRegisterId, openingAmount: dto.openingAmount, status: CashSessionStatus.OPEN }, include: { cashRegister: true } });
   }
 

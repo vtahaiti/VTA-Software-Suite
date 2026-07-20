@@ -33,7 +33,7 @@ assert(dashboardPage.includes("Paiement"), "admin dashboard shows payment label"
 assert(dashboardPage.includes("getAdminSubscriptionDisplay"), "admin dashboard uses central display helper");
 
 assert(subscriptionsPage.includes("Plan actif"), "subscriptions page keeps Plan actif label");
-assert(subscriptionsPage.includes("Paiement reçu") || subscriptionsPage.includes("Paiement reÃ§u"), "subscriptions page keeps payment received display");
+assert(subscriptionsPage.includes("Paiement reçu") || subscriptionsPage.includes("Paiement reçu"), "subscriptions page keeps payment received display");
 
 assert(platformService.includes("isEffectivelyActiveTenant"), "platform stats use effective active tenant helper");
 assert(platformService.includes("isEffectivelyTrialTenant"), "platform stats use effective trial tenant helper");

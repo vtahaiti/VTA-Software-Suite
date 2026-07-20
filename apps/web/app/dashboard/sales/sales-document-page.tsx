@@ -12,15 +12,15 @@ const statusLabels: Record<string, string> = {
   DRAFT: "Devis",
   SENT: "Envoye",
   ACCEPTED: "Accepte",
-  CONFIRMED: "Confirmee",
+  CONFIRMED: "Confirmée",
   IN_PROGRESS: "En cours / En fabrication",
   READY: "Prete pour livraison/installation",
   DELIVERED: "Livree",
-  COMPLETED: "Terminee",
+  COMPLETED: "Terminée",
   REJECTED: "Refuse",
   CONVERTED: "Transforme",
   PAID: "Soldee",
-  PARTIALLY_PAID: "Avance recue",
+  PARTIALLY_PAID: "Avance reçue",
   CANCELLED: "Annulee",
   RETURNED: "Retournee"
 };
@@ -94,20 +94,20 @@ function documentKind(type: DocType) {
 
 function documentHelpText(type: DocType) {
   if (type === "quotes") return "Devis = proposition de prix. Il ne modifie pas le stock.";
-  if (type === "proformas") return "Commande = vente confirmee qui peut recevoir une avance, puis la balance.";
+  if (type === "proformas") return "Commande = vente confirmée qui peut recevoir une avance, puis la balance.";
   return "Facture = document de vente finalise ou a encaisser selon le statut.";
 }
 
 function documentCreateHelp(type: DocType) {
   if (type === "quotes") return "Saisissez seulement le client, les produits ou services, la quantite, le prix, la remise et les notes.";
-  if (type === "proformas") return "Creez une commande directe, puis enregistrez une avance ou encaissez la balance quand le client paie.";
-  return "Creez une facture seulement pour un document finalise.";
+  if (type === "proformas") return "Créez une commande directe, puis enregistrez une avance ou encaissez la balance quand le client paie.";
+  return "Créez une facture seulement pour un document finalise.";
 }
 
 function documentListTitle(type: DocType) {
-  if (type === "quotes") return "Devis recents";
-  if (type === "proformas") return "Commandes recentes";
-  return "Factures recentes";
+  if (type === "quotes") return "Devis récents";
+  if (type === "proformas") return "Commandes récentes";
+  return "Factures récentes";
 }
 
 function paymentActionLabel(document: SalesDocument) {
@@ -133,13 +133,13 @@ function isFabricationProfile(profileType?: string, primaryActivity?: string) {
 
 function composeFabricationNote(line: Line) {
   const details = [
-    line.material ? `Materiau: ${line.material}` : "",
+    line.material ? `Matériau: ${line.material}` : "",
     line.width ? `Largeur: ${line.width}` : "",
     line.height ? `Hauteur: ${line.height}` : "",
     line.length ? `Longueur: ${line.length}` : "",
     line.color ? `Couleur: ${line.color}` : "",
-    line.thickness ? `Epaisseur / verre: ${line.thickness}` : "",
-    line.installationDate ? `Date prevue: ${line.installationDate}` : "",
+    line.thickness ? `Épaisseur / verre: ${line.thickness}` : "",
+    line.installationDate ? `Date prévue: ${line.installationDate}` : "",
     line.installationNotes ? `Livraison / installation: ${line.installationNotes}` : "",
     line.measurementNotes ? `Notes de mesure: ${line.measurementNotes}` : ""
   ].filter(Boolean);
@@ -260,7 +260,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
 
   function addCustomLine() {
     if (!customDraft.customName.trim()) {
-      setMessage("Indiquez le nom ou la description de la ligne personnalisee.");
+      setMessage("Indiquez le nom ou la description de la ligne personnalisée.");
       return;
     }
     setLines((current) => [...current, { ...customDraft, productId: "" }]);
@@ -314,7 +314,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
   async function runAction(document: SalesDocument, action: string) {
     const response = await apiFetch(`/${type}/${document.id}/${action}`, { method: "POST" });
     if (response.ok) {
-      setMessage("Action executee.");
+      setMessage("Action exécutée.");
       await refreshSelected(document.id);
       await loadDocuments();
     }
@@ -323,7 +323,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
   async function updateStatus(document: SalesDocument, nextStatus: string) {
     const response = await apiFetch(`/proformas/${document.id}/status`, { method: "PATCH", body: JSON.stringify({ status: nextStatus }) });
     if (response.ok) {
-      setMessage("Statut mis a jour.");
+      setMessage("Statut mis à jour.");
       await refreshSelected(document.id);
       await loadDocuments();
     }
@@ -358,7 +358,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
 
   function selectForPayment(document: SalesDocument) {
     setSelected(document);
-    setMessage("Commande selectionnee: ajoutez l'avance ou la balance dans le detail.");
+    setMessage("Commande sélectionnée: ajoutez l'avance ou la balance dans le detail.");
   }
 
   const totalPreview = useMemo(() => lines.reduce((sum, line) => sum + line.quantity * line.unitPrice - line.discount + line.tax, 0) - discount, [lines, discount]);
@@ -379,7 +379,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
       <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <p className="text-sm font-medium text-brand-600">{eyebrow}</p>
         <h1 className="text-2xl font-bold text-slate-950 dark:text-white">{title}</h1>
-        <p className="mt-1 text-sm text-slate-500">Flux V1: produit existant ou service personnalise, devis, commande, avance, balance, impression, puis termine.</p>
+        <p className="mt-1 text-sm text-slate-500">Flux V1: produit existant ou service personnalisé, devis, commande, avance, balance, impression, puis terminé.</p>
         <div className="mt-3 rounded-md border border-brand-100 bg-brand-50 px-3 py-2 text-sm text-slate-700 dark:border-brand-900 dark:bg-slate-950 dark:text-slate-200">
           {documentHelpText(type)}
         </div>
@@ -389,16 +389,16 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
       {summary ? (
         <div className="grid gap-3 md:grid-cols-5">
           <Metric label="Commandes en cours" value={summary.ordersInProgress} />
-          <Metric label="Avances recues" value={money(summary.depositsReceived)} />
+          <Metric label="Avances reçues" value={money(summary.depositsReceived)} />
           <Metric label="Balances a recevoir" value={money(summary.balancesToCollect)} />
-          <Metric label="Pretes avec balance" value={summary.readyUnpaidOrders} />
-          <Metric label="Terminees" value={summary.completedOrders} />
+          <Metric label="Prêtes avec balance" value={summary.readyUnpaidOrders} />
+          <Metric label="Terminées" value={summary.completedOrders} />
         </div>
       ) : null}
 
       <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
         <form onSubmit={submit} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="text-lg font-semibold">{type === "quotes" ? "Creer un devis" : type === "proformas" ? "Nouvelle commande" : createLabel}</h2>
+          <h2 className="text-lg font-semibold">{type === "quotes" ? "Créer un devis" : type === "proformas" ? "Nouvelle commande" : createLabel}</h2>
           <p className="mt-1 text-sm text-slate-500">{documentCreateHelp(type)}</p>
           <div className="mt-4 space-y-3">
             <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
@@ -413,7 +413,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
               <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="text-sm font-bold text-slate-950 dark:text-white">A) Produit du catalogue</p>
-                  <p className="text-xs text-slate-600 dark:text-slate-300">La liste charge les produits disponibles. La recherche trouve aussi un produit hors des premiers resultats.</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300">La liste charge les produits disponibles. La recherche trouvé aussi un produit hors des premiers résultats.</p>
                 </div>
                 <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-brand-700 dark:bg-slate-900 dark:text-brand-200">{compactProducts().length} produits visibles</span>
               </div>
@@ -427,11 +427,11 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
                     onSelect={() => selectProduct(product.id)}
                   />
                 ))}
-                {compactProducts().length === 0 ? <p className="rounded-md border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900">Aucun produit trouve. Utilisez la ligne personnalisee si besoin.</p> : null}
+                {compactProducts().length === 0 ? <p className="rounded-md border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900">Aucun produit trouvé. Utilisez la ligne personnalisée si besoin.</p> : null}
               </div>
               {selectedCatalogProduct ? <SelectedProduct product={selectedCatalogProduct} /> : null}
               <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                <NumberField label="Quantite" min="1" value={catalogDraft.quantity} onChange={(value) => updateCatalogDraft({ quantity: value })} />
+                <NumberField label="Quantité" min="1" value={catalogDraft.quantity} onChange={(value) => updateCatalogDraft({ quantity: value })} />
                 <NumberField label="Prix modifiable" min="0" step="0.01" value={catalogDraft.unitPrice} onChange={(value) => updateCatalogDraft({ unitPrice: value })} />
                 <NumberField label="Remise" min="0" step="0.01" value={catalogDraft.discount} onChange={(value) => updateCatalogDraft({ discount: value })} />
               </div>
@@ -439,23 +439,23 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
             </div>
 
             <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-              <p className="text-sm font-bold text-slate-950 dark:text-white">B) Ajouter un service ou travail personnalise</p>
+              <p className="text-sm font-bold text-slate-950 dark:text-white">B) Ajouter un service ou travail personnalisé</p>
               <p className="mt-1 text-xs text-slate-500">Pour un service, une reparation, une fabrication ou un travail special absent du catalogue.</p>
               <input value={customDraft.customName} onChange={(event) => updateCustomDraft({ customName: event.target.value })} placeholder="Nom ou description" className="mt-3 w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
               {showFabricationFields ? (
                 <div className="mt-3 grid gap-2 rounded-md bg-slate-50 p-3 dark:bg-slate-950 md:grid-cols-2">
                   <select value={customDraft.customType} onChange={(event) => updateCustomDraft({ customType: event.target.value })} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
-                    <option value="SERVICE">Service personnalise</option>
+                    <option value="SERVICE">Service personnalisé</option>
                     {fabricationTypes.map((item) => <option key={item} value={item.toUpperCase().replaceAll(" ", "_")}>{item}</option>)}
                   </select>
                   <select value={customDraft.material} onChange={(event) => updateCustomDraft({ material: event.target.value })} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
-                    <option value="">Materiau</option>
+                    <option value="">Matériau</option>
                     {fabricationMaterials.map((item) => <option key={item} value={item}>{item}</option>)}
                   </select>
                   <input value={customDraft.width} onChange={(event) => updateCustomDraft({ width: event.target.value })} placeholder="Largeur" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
                   <input value={customDraft.height} onChange={(event) => updateCustomDraft({ height: event.target.value })} placeholder="Hauteur" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
                   <input value={customDraft.length} onChange={(event) => updateCustomDraft({ length: event.target.value })} placeholder="Longueur" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-                  <input value={customDraft.thickness} onChange={(event) => updateCustomDraft({ thickness: event.target.value })} placeholder="Epaisseur / verre" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+                  <input value={customDraft.thickness} onChange={(event) => updateCustomDraft({ thickness: event.target.value })} placeholder="Épaisseur / verre" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
                   <input value={customDraft.color} onChange={(event) => updateCustomDraft({ color: event.target.value })} placeholder="Couleur" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
                   <input type="date" value={customDraft.installationDate} onChange={(event) => updateCustomDraft({ installationDate: event.target.value })} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
                   <textarea value={customDraft.measurementNotes} onChange={(event) => updateCustomDraft({ measurementNotes: event.target.value })} placeholder="Notes de mesure" className="min-h-20 rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950 md:col-span-2" />
@@ -463,7 +463,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
                 </div>
               ) : null}
               <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                <NumberField label="Quantite" min="1" value={customDraft.quantity} onChange={(value) => updateCustomDraft({ quantity: value })} />
+                <NumberField label="Quantité" min="1" value={customDraft.quantity} onChange={(value) => updateCustomDraft({ quantity: value })} />
                 <NumberField label="Prix" min="0" step="0.01" value={customDraft.unitPrice} onChange={(value) => updateCustomDraft({ unitPrice: value })} />
                 <NumberField label="Remise" min="0" step="0.01" value={customDraft.discount} onChange={(value) => updateCustomDraft({ discount: value })} />
               </div>
@@ -473,10 +473,10 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
 
           <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-bold">Lignes ajoutees</h3>
+              <h3 className="text-sm font-bold">Lignes ajoutées</h3>
               <span className="text-xs text-slate-500">{lines.length} ligne{lines.length > 1 ? "s" : ""}</span>
             </div>
-            {lines.length === 0 ? <p className="mt-2 text-sm text-slate-500">Aucune ligne ajoutee pour l&apos;instant. Choisissez un produit du catalogue ou ajoutez une ligne personnalisee.</p> : null}
+            {lines.length === 0 ? <p className="mt-2 text-sm text-slate-500">Aucune ligne ajoutée pour l&apos;instant. Choisissez un produit du catalogue ou ajoutez une ligne personnalisée.</p> : null}
             <div className="mt-3 space-y-2">
               {lines.map((line, index) => <LinePreview key={`${line.productId}-${line.customName}-${index}`} line={line} index={index} product={products.find((product) => product.id === line.productId)} onRemove={() => removeLine(index)} />)}
             </div>
@@ -485,7 +485,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
           <div className="mt-4 rounded-lg bg-slate-950 p-4 text-white">
             <div className="grid gap-2 sm:grid-cols-3">
               <Info label={type === "quotes" ? "Total devis" : "Total commande"} value={money(totalPreview)} />
-              <Info label="Avance recue" value={money(0)} />
+              <Info label="Avance reçue" value={money(0)} />
               <Info label="Balance restante" value={money(currentBalancePreview ?? totalPreview)} />
             </div>
             <p className="mt-3 text-xs text-slate-300">{type === "quotes" ? "Le devis ne modifie pas le stock et ne cree pas de vente POS." : "La commande V1 ne modifie pas le stock et ne cree pas de vente POS automatiquement."}</p>
@@ -525,7 +525,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
           <div className="hidden overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 md:block">
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950">
-                <tr><th className="p-3">Numero</th><th className="p-3">Client</th><th className="p-3">Total</th><th className="p-3">Avance</th><th className="p-3">Balance</th><th className="p-3">Statut</th><th className="p-3">Actions</th></tr>
+                <tr><th className="p-3">Numéro</th><th className="p-3">Client</th><th className="p-3">Total</th><th className="p-3">Avance</th><th className="p-3">Balance</th><th className="p-3">Statut</th><th className="p-3">Actions</th></tr>
               </thead>
               <tbody>
                 {items.map((doc) => (
@@ -557,7 +557,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
           {items.length === 0 ? (
             <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
               <h3 className="font-semibold text-slate-950 dark:text-white">{type === "quotes" ? "Aucun devis pour l'instant" : type === "proformas" ? "Aucune commande pour l'instant" : "Aucune facture pour l'instant"}</h3>
-              <p className="mt-1">{type === "quotes" ? "Créez un devis avec un produit existant ou une ligne personnalisee, sans toucher au stock." : type === "proformas" ? "Créez une commande pour suivre Total, Avance, Balance et statuts." : "Les documents finalisés apparaîtront ici."}</p>
+              <p className="mt-1">{type === "quotes" ? "Créez un devis avec un produit existant ou une ligne personnalisée, sans toucher au stock." : type === "proformas" ? "Créez une commande pour suivre Total, Avance, Balance et statuts." : "Les documents finalisés apparaîtront ici."}</p>
               <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="mt-4 rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">{type === "quotes" ? "Créer un devis" : type === "proformas" ? "Créer une commande" : createLabel}</button>
             </div>
           ) : null}
@@ -599,7 +599,7 @@ function ProductResultCard({ product, selected, onSelect }: { product: Product; 
       </div>
       <span className="shrink-0 text-sm font-bold text-brand-700 dark:text-brand-200">{money(product.salePrice)}</span>
     </div>
-    <span className="mt-2 inline-flex rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">{selected ? "Selectionne" : "Choisir"}</span>
+    <span className="mt-2 inline-flex rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">{selected ? "Sélectionné" : "Choisir"}</span>
   </button>;
 }
 
@@ -607,7 +607,7 @@ function SelectedProduct({ product }: { product?: Product }) {
   if (!product) return null;
   const unit = productUnitLabel(product);
   return <div className="mt-3 rounded-md border border-brand-100 bg-white p-3 text-xs text-slate-600 dark:border-brand-900 dark:bg-slate-900 dark:text-slate-300">
-    <p className="font-semibold text-slate-900 dark:text-white">Produit selectionne: {product.name}</p>
+    <p className="font-semibold text-slate-900 dark:text-white">Produit sélectionné: {product.name}</p>
     <p className="mt-1">Prix: {money(product.salePrice)}{unit ? ` · Unite: ${unit}` : ""}</p>
     <p className="mt-1 text-slate-500">SKU: {product.sku}</p>
   </div>;
@@ -640,7 +640,7 @@ function LinePreview({ line, index, product, onRemove }: { line: Line; index: nu
       <div>
         <p className="font-semibold text-slate-950 dark:text-white">{index + 1}. {lineName || "Ligne sans nom"}</p>
         <p className="mt-1 text-xs text-slate-500">
-          {line.productId ? "Produit catalogue" : "Ligne personnalisee"}
+          {line.productId ? "Produit catalogue" : "Ligne personnalisée"}
           {lineSku ? ` · ${lineSku}` : ""}
           {lineUnit ? ` · ${lineUnit}` : ""}
         </p>
@@ -648,7 +648,7 @@ function LinePreview({ line, index, product, onRemove }: { line: Line; index: nu
       <button type="button" onClick={onRemove} className="rounded-md border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 dark:border-red-900 dark:text-red-300">Retirer</button>
     </div>
     <div className="mt-3 grid gap-2 text-xs sm:grid-cols-4">
-      <Info label="Quantite" value={line.quantity} />
+      <Info label="Quantité" value={line.quantity} />
       <Info label="Prix" value={money(line.unitPrice)} />
       <Info label="Remise" value={money(line.discount)} />
       <Info label="Total ligne" value={money(lineTotal)} />
@@ -676,7 +676,7 @@ function DocumentActions(props: {
     {type === "proformas" && Number(doc.balance) > 0 ? <button onClick={props.onPayment} className="rounded-md border px-2 py-1 text-xs">{paymentActionLabel(doc)}</button> : null}
     {type === "proformas" && doc.status !== "READY" ? <button onClick={() => props.onStatus("READY")} className="rounded-md border px-2 py-1 text-xs">Marquer prete</button> : null}
     {type === "proformas" && doc.status !== "DELIVERED" ? <button onClick={() => props.onStatus("DELIVERED")} className="rounded-md border px-2 py-1 text-xs">Marquer livree</button> : null}
-    {type === "proformas" && doc.status !== "COMPLETED" ? <button onClick={() => props.onStatus("COMPLETED")} className="rounded-md border px-2 py-1 text-xs">Terminer</button> : null}
+    {type === "proformas" && doc.status !== "COMPLETED" ? <button onClick={() => props.onStatus("COMPLETED")} className="rounded-md border px-2 py-1 text-xs">Terminér</button> : null}
     {type === "proformas" && doc.status !== "CANCELLED" ? <button onClick={() => props.onStatus("CANCELLED")} className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-700">Annuler</button> : null}
   </div>;
 }
@@ -697,7 +697,7 @@ function DocumentCard(props: {
     <div className="flex items-start justify-between gap-3">
       <div>
         <p className="font-mono text-xs text-slate-500">{doc.number}</p>
-        <h3 className="font-semibold">{doc.customer?.displayName ?? doc.customer?.name ?? "Client non defini"}</h3>
+        <h3 className="font-semibold">{doc.customer?.displayName ?? doc.customer?.name ?? "Client non défini"}</h3>
       </div>
       <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold dark:bg-slate-800">{statusLabels[doc.status] ?? doc.status}</span>
     </div>

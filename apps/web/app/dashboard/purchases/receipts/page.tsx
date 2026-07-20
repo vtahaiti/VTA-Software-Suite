@@ -79,7 +79,7 @@ export default function GoodsReceiptsPage() {
     event.preventDefault();
     setMessage("");
     if (!canSubmit) {
-      setMessage("Selectionnez un bon de commande, un entrepot et au moins une quantite positive.");
+      setMessage("Sélectionnéz un bon de commande, un entrepôt et au moins une quantite positive.");
       return;
     }
     setIsSaving(true);
@@ -90,21 +90,21 @@ export default function GoodsReceiptsPage() {
     });
     setIsSaving(false);
     if (response.ok) {
-      setMessage("Reception enregistree et stock mis a jour.");
+      setMessage("Réception enregistrée et stock mis à jour.");
       setNotes("");
       await loadReferences();
       await loadOrder(purchaseOrderId);
       return;
     }
     const body = await response.json().catch(() => null);
-    setMessage(Array.isArray(body?.message) ? body.message[0] : body?.message ?? "Reception impossible");
+    setMessage(Array.isArray(body?.message) ? body.message[0] : body?.message ?? "Réception impossible");
   }
 
   return (
     <form onSubmit={submit} className="space-y-5">
       <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <p className="text-sm font-medium text-brand-600">Achats</p>
-        <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Reception marchandises</h1>
+        <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Réception marchandises</h1>
         <p className="mt-1 text-sm text-slate-500">Les quantites receptionnees augmentent le stock des produits du bon d&apos;achat.</p>
         {message ? <p className="mt-3 rounded-md bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800">{message}</p> : null}
         <div className="mt-5 grid gap-3 md:grid-cols-3">
@@ -113,7 +113,7 @@ export default function GoodsReceiptsPage() {
             {orders.map((item) => <option key={item.id} value={item.id}>{item.number} - {item.supplier?.name ?? "Fournisseur"}</option>)}
           </select>
           <select required value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
-            <option value="">Entrepot</option>
+            <option value="">Entrepôt</option>
             {warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.code} - {warehouse.name}</option>)}
           </select>
           <input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Notes" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
@@ -134,12 +134,12 @@ export default function GoodsReceiptsPage() {
                 <p className="text-xs text-slate-500">{item.product?.sku}</p>
               </div>
               <p className="text-sm">Commande: {item.quantity}</p>
-              <p className="text-sm">Recu: {item.receivedQty}</p>
+              <p className="text-sm">Reçu: {item.receivedQty}</p>
               <input type="number" min="0" max={item.quantity - item.receivedQty} value={quantities[item.id] ?? 0} onChange={(event) => setQuantities({ ...quantities, [item.id]: Number(event.target.value) })} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
             </div>
           ))}
-          {purchaseOrderId && receivableItems.length === 0 ? <p className="text-sm text-slate-500">Toutes les lignes sont deja receptionnees.</p> : null}
-          {!purchaseOrderId ? <p className="text-sm text-slate-500">Selectionnez un bon de commande commande ou partiellement recu.</p> : null}
+          {purchaseOrderId && receivableItems.length === 0 ? <p className="text-sm text-slate-500">Toutes les lignes sont déjà receptionnees.</p> : null}
+          {!purchaseOrderId ? <p className="text-sm text-slate-500">Sélectionnéz un bon de commande commande ou partiellement recu.</p> : null}
         </div>
         <div className="mt-5 flex justify-end">
           <button disabled={!canSubmit} className="rounded-md bg-brand-600 px-5 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{isSaving ? "Enregistrement..." : "Enregistrer la reception"}</button>

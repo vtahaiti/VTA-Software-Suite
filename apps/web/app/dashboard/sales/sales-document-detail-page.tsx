@@ -15,13 +15,13 @@ const statusLabels: Record<string, string> = {
   ACCEPTED: "Accepte",
   REJECTED: "Refuse",
   CONVERTED: "Transforme",
-  CONFIRMED: "Confirmee",
+  CONFIRMED: "Confirmée",
   IN_PROGRESS: "En cours / En fabrication",
   READY: "Prete pour livraison/installation",
   DELIVERED: "Livree",
-  COMPLETED: "Terminee",
+  COMPLETED: "Terminée",
   PAID: "Soldee",
-  PARTIALLY_PAID: "Avance recue",
+  PARTIALLY_PAID: "Avance reçue",
   CANCELLED: "Annule",
   RETURNED: "Retourne"
 };
@@ -51,7 +51,7 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
     const response = await fetch(`${apiUrl}/${type}/${params.id}/${name}`, { method: "POST", headers: { Authorization: `Bearer ${getAccessToken()}` } });
     if (!response.ok) return;
     const data = await response.json();
-    setMessage("Action executee.");
+    setMessage("Action exécutée.");
     if (data.id && name.includes("to-")) {
       const next = name === "to-proforma" ? "proformas" : "invoices";
       router.push(`/dashboard/sales/${next}/${data.id}`);
@@ -69,7 +69,7 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
       body: JSON.stringify({ ...payment, amount: Number(payment.amount) })
     });
     if (response.ok) {
-      setMessage(type === "proformas" ? "Avance / balance enregistree." : "Paiement enregistre.");
+      setMessage(type === "proformas" ? "Avance / balance enregistrée." : "Paiement enregistre.");
       setPayment({ method: "CASH", amount: "", reference: "", notes: "" });
       setDoc(await response.json());
     } else {
@@ -85,7 +85,7 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
       body: JSON.stringify({ status })
     });
     if (response.ok) {
-      setMessage("Statut mis a jour.");
+      setMessage("Statut mis à jour.");
       setDoc(await response.json());
     } else {
       setMessage("Statut impossible.");
@@ -166,7 +166,7 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
               ["IN_PROGRESS", "En preparation"],
               ["READY", "Marquer prete"],
               ["DELIVERED", "Marquer livree"],
-              ["COMPLETED", "Terminer"],
+              ["COMPLETED", "Terminér"],
               ["CANCELLED", "Annuler"]
             ].map(([value, label]) => <button key={value} onClick={() => void updateStatus(value)} className="rounded-md border px-4 py-2 text-sm">{label}</button>)}
           </div>

@@ -164,7 +164,7 @@ export default function ProductsPage() {
               <h2 className="truncate font-semibold text-slate-950 dark:text-white">{product.name}</h2>
               <p className="font-mono text-xs text-slate-400">{product.sku || "SKU auto"}</p>
               <ProductTypeHint product={product} business={business} />
-              {product.costKnown === false ? <p className="mt-1 text-[11px] text-amber-600/80">Cout non renseigne</p> : null}
+              {product.costKnown === false ? <p className="mt-1 text-[11px] text-amber-600/80">Coût non renseigné</p> : null}
             </div>
             <p className="shrink-0 text-right text-sm font-bold text-slate-950 dark:text-white">{product.salePrice}</p>
           </div>
@@ -174,7 +174,7 @@ export default function ProductsPage() {
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2">
             <Link className="rounded-md bg-brand-600 px-3 py-3 text-center text-sm font-bold text-white" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link>
-            <button type="button" onClick={() => openQuickCost(product)} className="rounded-md border border-amber-300 px-3 py-3 text-center text-sm font-bold text-amber-700 dark:border-amber-800">Cout</button>
+            <button type="button" onClick={() => openQuickCost(product)} className="rounded-md border border-amber-300 px-3 py-3 text-center text-sm font-bold text-amber-700 dark:border-amber-800">Coût</button>
           </div>
         </article>)}
       </div>
@@ -182,7 +182,7 @@ export default function ProductsPage() {
       <div className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 md:block">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">Produit</th><th className="p-3">Catégorie</th><th className="p-3">Prix</th><th className="p-3">Stock</th><th className="p-3">Actions</th></tr></thead>
-          <tbody>{items.map((product) => <tr key={product.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3"><p className="font-semibold">{product.name}</p><p className="font-mono text-xs text-slate-400">{product.sku || "SKU auto"}</p><ProductTypeHint product={product} business={business} />{product.costKnown === false ? <p className="mt-1 text-[11px] text-amber-600/80">Cout non renseigne</p> : null}</td><td className="p-3">{product.category?.name ?? "--"}</td><td className="p-3 font-semibold">{product.salePrice}</td><td className="p-3"><ProductStockDisplay product={product} business={business} /><ProductStockStatus product={product} business={business} /></td><td className="p-3"><div className="flex flex-wrap gap-3"><Link className="text-brand-600" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link><button type="button" onClick={() => openQuickCost(product)} className="text-amber-700">Cout</button></div></td></tr>)}</tbody>
+          <tbody>{items.map((product) => <tr key={product.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3"><p className="font-semibold">{product.name}</p><p className="font-mono text-xs text-slate-400">{product.sku || "SKU auto"}</p><ProductTypeHint product={product} business={business} />{product.costKnown === false ? <p className="mt-1 text-[11px] text-amber-600/80">Coût non renseigné</p> : null}</td><td className="p-3">{product.category?.name ?? "--"}</td><td className="p-3 font-semibold">{product.salePrice}</td><td className="p-3"><ProductStockDisplay product={product} business={business} /><ProductStockStatus product={product} business={business} /></td><td className="p-3"><div className="flex flex-wrap gap-3"><Link className="text-brand-600" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link><button type="button" onClick={() => openQuickCost(product)} className="text-amber-700">Coût</button></div></td></tr>)}</tbody>
         </table>
         {!isLoading && !message && items.length === 0 ? <p className="p-5 text-sm text-slate-500">Aucun produit trouvé.</p> : null}
         {isLoading ? <p className="p-5 text-sm text-slate-500">Chargement des produits...</p> : null}
@@ -255,7 +255,7 @@ function QuickStockMode({ business, mode, onChange }: { business: TenantBusiness
       </label>
       <label className="flex cursor-pointer items-start gap-2 rounded-md bg-white/75 p-2 dark:bg-slate-900/60">
         <input type="radio" name="quick-restaurant-stock-mode" checked={mode === "STOCKED"} onChange={() => onChange("STOCKED")} />
-        <span><span className="block font-semibold">Produit stocke</span><span className="text-xs">Article physique avec stock et seuil minimum.</span></span>
+        <span><span className="block font-semibold">Produit stocké</span><span className="text-xs">Article physique avec stock et seuil minimum.</span></span>
       </label>
     </div>
   </fieldset>;
@@ -286,9 +286,9 @@ function isStrictStockBusiness(business?: TenantBusinessConfiguration | null) {
 }
 
 function nonStockProductLabel(business: TenantBusinessConfiguration | null) {
-  if (isRestaurantBusiness(business)) return "Plat / service non stocke";
-  if (isMultiActivityBusiness(business)) return "Service non stocke";
-  return "Produit non stocke";
+  if (isRestaurantBusiness(business)) return "Plat / service non stocké";
+  if (isMultiActivityBusiness(business)) return "Service non stocké";
+  return "Produit non stocké";
 }
 
 function restaurantProductKind(product: Pick<Product, "name" | "category" | "variants">) {
@@ -309,7 +309,7 @@ function isExplicitNonStockProduct(product: Pick<Product, "variants">) {
 
 function isServiceLikeProduct(product: Product) {
   const value = `${product.name ?? ""} ${product.category?.name ?? ""} ${(product.variants ?? []).map((variant) => `${variant.name ?? ""} ${variant.model ?? ""}`).join(" ")}`.toLowerCase();
-  return /service|services|impression|gravure|decoupe|d[Ã©e]coupe|sur mesure|studio|reparation|rÃ©paration|installation|conception|personnalis/.test(value);
+  return /service|services|impression|gravure|decoupe|d[ée]coupe|sur mesure|studio|reparation|réparation|installation|conception|personnalis/.test(value);
 }
 
 function isMultiActivityServiceProduct(product: Product, business?: TenantBusinessConfiguration | null) {
@@ -340,7 +340,7 @@ function productStockStatus(product: Product, business?: TenantBusinessConfigura
 }
 
 function ProductStockDisplay({ product, business }: { product: Product; business: TenantBusinessConfiguration | null }) {
-  if (productStockStatus(product, business) === "NON_STOCK") return <p className="font-semibold">Non stocke</p>;
+  if (productStockStatus(product, business) === "NON_STOCK") return <p className="font-semibold">Non stocké</p>;
   const unit = productUnitLabel(product);
   return <div className="space-y-0.5"><p className="font-semibold">Stock : {product.stockCurrent ?? 0}{unit ? ` ${unit}` : ""}</p><p className="text-xs text-slate-500">Minimum : {product.minimumStock ?? 0}</p></div>;
 }

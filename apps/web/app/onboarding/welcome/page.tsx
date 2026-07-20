@@ -1,6 +1,6 @@
 ﻿import Link from "next/link";
 
-const steps = ["Logo entreprise", "Premier magasin", "Premier depot", "Premiere caisse", "Ajouter premiers produits", "Inviter employes", "Terminer"];
+const steps = ["Logo entreprise", "Premier magasin", "Premier dépôt", "Première caisse", "Ajouter premiers produits", "Inviter employés", "Terminér"];
 
 export default function OnboardingWelcomePage() {
   return (

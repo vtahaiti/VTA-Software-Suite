@@ -11,12 +11,12 @@ export class ReturnsService {
   async create(tenantId: string, dto: CreateReturnDto, createdById?: string) {
     const invoice = await this.prisma.invoice.findFirst({ where: { id: dto.invoiceId, tenantId }, include: { items: true } });
     if (!invoice) throw new NotFoundException("Facture introuvable");
-    if (invoice.status === "CANCELLED") throw new BadRequestException("Facture annulee");
+    if (invoice.status === "CANCELLED") throw new BadRequestException("Facture annulée");
     const items = dto.items.map((item) => {
       const invoiceItem = item.invoiceItemId ? invoice.items.find((candidate) => candidate.id === item.invoiceItemId) : invoice.items.find((candidate) => candidate.productId === item.productId);
       if (!invoiceItem) throw new NotFoundException("Ligne de facture introuvable");
-      if (!invoiceItem.productId) throw new BadRequestException("Les articles personnalises ne peuvent pas etre retournes au stock");
-      if (item.quantity > invoiceItem.quantity) throw new BadRequestException("Quantite retournee invalide");
+      if (!invoiceItem.productId) throw new BadRequestException("Les articles personnalisés ne peuvent pas etre retournes au stock");
+      if (item.quantity > invoiceItem.quantity) throw new BadRequestException("Quantité retournée invalide");
       return { invoiceItem: { ...invoiceItem, productId: invoiceItem.productId }, quantity: item.quantity };
     });
     const totals = items.reduce((acc, item) => { const ratio = item.quantity / item.invoiceItem.quantity; acc.subtotal += Number(item.invoiceItem.unitPrice) * item.quantity; acc.discount += Number(item.invoiceItem.discount) * ratio; acc.tax += Number(item.invoiceItem.tax) * ratio; acc.total += Number(item.invoiceItem.total) * ratio; return acc; }, { subtotal: 0, discount: 0, tax: 0, total: 0 });

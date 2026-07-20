@@ -12,7 +12,7 @@ type PaginatedStores = { items?: StoreRow[] };
 
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 const tenantRoleNames = ["OWNER", "ADMIN", "CAISSIER", "STOCK", "COMPTABLE", "MANAGER", "OBSERVATEUR", "BASIC"];
-const roleLabels: Record<string, string> = { OWNER: "Proprietaire", ADMIN: "Administrateur", CAISSIER: "Caissier", STOCK: "Stock", COMPTABLE: "Comptable", MANAGER: "Manager", OBSERVATEUR: "Observateur", BASIC: "Utilisateur basique", Owner: "Proprietaire" };
+const roleLabels: Record<string, string> = { OWNER: "Propriétaire", ADMIN: "Administrateur", CAISSIER: "Caissier", STOCK: "Stock", COMPTABLE: "Comptable", MANAGER: "Manager", OBSERVATEUR: "Observateur", BASIC: "Utilisateur basique", Owner: "Propriétaire" };
 const defaultRoles: RoleRow[] = [
   { id: "OWNER", name: "OWNER" },
   { id: "ADMIN", name: "ADMIN" },
@@ -86,7 +86,7 @@ export default function UsersPage() {
       return;
     }
     setForm({ name: "", email: "", phone: "", temporaryPassword: "", role: "CAISSIER", storeId: "" });
-    setMessage("Utilisateur ajoute avec succes.");
+    setMessage("Utilisateur ajouté avec succès.");
     await load();
   }
 
@@ -96,20 +96,20 @@ export default function UsersPage() {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
       body: JSON.stringify({ role })
     });
-    setMessage(response.ok ? "Role modifie." : await readError(response));
+    setMessage(response.ok ? "Rôle modifié." : await readError(response));
     setRoleTargetId(null);
     await load();
   }
 
   async function disableUser(userId: string) {
     const response = await fetch(`${apiUrl}/users/${userId}/disable`, { method: "PATCH", headers: { Authorization: `Bearer ${getAccessToken()}` } });
-    setMessage(response.ok ? "Utilisateur desactive." : await readError(response));
+    setMessage(response.ok ? "Utilisateur désactivé." : await readError(response));
     await load();
   }
 
   async function reactivateUser(userId: string) {
     const response = await fetch(`${apiUrl}/users/${userId}/reactivate`, { method: "PATCH", headers: { Authorization: `Bearer ${getAccessToken()}` } });
-    setMessage(response.ok ? "Utilisateur reactive." : await readError(response));
+    setMessage(response.ok ? "Utilisateur réactivé." : await readError(response));
     await load();
   }
 
@@ -123,7 +123,7 @@ export default function UsersPage() {
       body: JSON.stringify({ temporaryPassword })
     });
     if (response.ok) {
-      setMessage("Mot de passe temporaire mis a jour.");
+      setMessage("Mot de passe temporaire mis à jour.");
       setPasswordTarget(null);
       setTemporaryPassword("");
       return;
@@ -136,8 +136,8 @@ export default function UsersPage() {
   if (!canManage) {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Acces reserve</h1>
-        <p className="mt-2 text-sm text-slate-500">Seuls les proprietaires et administrateurs peuvent gerer les roles et utilisateurs.</p>
+        <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Accès réservé</h1>
+        <p className="mt-2 text-sm text-slate-500">Seuls les propriétaires et administrateurs peuvent gérer les rôles et utilisateurs.</p>
       </section>
     );
   }
@@ -148,10 +148,10 @@ export default function UsersPage() {
         <p className="text-sm font-medium text-brand-600">Administration entreprise</p>
         <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Roles & Utilisateurs</h1>
-            <p className="mt-1 text-sm text-slate-500">Ajoutez les employes, attribuez leur role, reactivez un compte ou changez un mot de passe temporaire.</p>
+            <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Rôles & Utilisateurs</h1>
+            <p className="mt-1 text-sm text-slate-500">Ajoutez les employés, attribuez leur rôle, réactivez un compte ou changez un mot de passe temporaire.</p>
           </div>
-          <div className="rounded-xl bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-700 dark:bg-slate-950 dark:text-brand-200">{activeCount} comptes actifs affiches</div>
+          <div className="rounded-xl bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-700 dark:bg-slate-950 dark:text-brand-200">{activeCount} comptes actifs affichés</div>
         </div>
       </section>
 
@@ -161,16 +161,16 @@ export default function UsersPage() {
           <div className="mt-4 space-y-3">
             <input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Nom complet" className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
             <input required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="Email" className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-            <input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="Telephone" className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+            <input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="Téléphone" className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
             <PasswordVisibilityInput required minLength={8} value={form.temporaryPassword} onChange={(value) => setForm({ ...form, temporaryPassword: value })} placeholder="Mot de passe temporaire" autoComplete="new-password" className="rounded-lg py-2" />
             <select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })} className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
               {availableRoles(roles).map((role) => <option key={role.id} value={role.name}>{roleLabels[role.name] ?? role.name}</option>)}
             </select>
             <select value={form.storeId} onChange={(event) => setForm({ ...form, storeId: event.target.value })} className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
-              <option value="">Tous les magasins autorises</option>
+              <option value="">Tous les magasins autorisés</option>
               {stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}
             </select>
-            <button className="w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700">Creer utilisateur</button>
+            <button className="w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700">Créer utilisateur</button>
             {message ? <p className="text-sm text-slate-600 dark:text-slate-300">{message}</p> : null}
           </div>
         </form>
@@ -179,7 +179,7 @@ export default function UsersPage() {
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950">
-                <tr><th className="px-4 py-3">Utilisateur</th><th className="px-4 py-3">Telephone</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Statut</th><th className="px-4 py-3">Actions</th></tr>
+                <tr><th className="px-4 py-3">Utilisateur</th><th className="px-4 py-3">Téléphone</th><th className="px-4 py-3">Rôle</th><th className="px-4 py-3">Statut</th><th className="px-4 py-3">Actions</th></tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {users.map((user) => (
@@ -201,13 +201,13 @@ export default function UsersPage() {
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${user.isActive ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{user.isActive ? "Actif" : "Desactive"}</span></td>
+                    <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${user.isActive ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{user.isActive ? "Actif" : "Désactivé"}</span></td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
                         {user.isActive ? (
-                          <button disabled={user.id === currentUser?.id} onClick={() => void disableUser(user.id)} className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300">Desactiver</button>
+                          <button disabled={user.id === currentUser?.id} onClick={() => void disableUser(user.id)} className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300">Désactiver</button>
                         ) : (
-                          <button onClick={() => void reactivateUser(user.id)} className="rounded-lg border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-300">Reactiver</button>
+                          <button onClick={() => void reactivateUser(user.id)} className="rounded-lg border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-300">Réactiver</button>
                         )}
                         <button onClick={() => { setPasswordTarget(user); setTemporaryPassword(""); }} className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">Mot de passe</button>
                       </div>
@@ -234,7 +234,7 @@ export default function UsersPage() {
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Historique des acces</h2>
-        <p className="mt-2 text-sm text-slate-500">Les connexions et deconnexions sont enregistrees dans Securite et Audit. Cette section reste volontairement simple pour le mode quotidien.</p>
+        <p className="mt-2 text-sm text-slate-500">Les connexions et déconnexions sont enregistrées dans Sécurité et Audit. Cette section reste volontairement simple pour le mode quotidien.</p>
       </section>
     </div>
   );
