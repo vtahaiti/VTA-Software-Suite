@@ -141,10 +141,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const currentUser = getCurrentUser();
-    if (isCashierDashboardUser(currentUser)) {
-      window.location.replace("/dashboard/pos");
-      return;
-    }
 
     async function loadDashboardSummary() {
       let token = getAccessToken();
@@ -195,6 +191,7 @@ export default function DashboardPage() {
   }, []);
 
   const currentUser = getCurrentUser();
+  const isCashierView = isCashierDashboardUser(currentUser);
   const companyName = branding?.companyName ?? currentUser?.tenant ?? "Mon entreprise";
   const kpiCards = useMemo(() => [
     { label: "Chiffre d'affaires du jour", value: formatMoney(summary.kpis.revenueToday), tone: "green" },
@@ -245,7 +242,9 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      {isLoading ? <DashboardSkeleton /> : (
+      {isLoading ? <DashboardSkeleton /> : isCashierView ? (
+        <CashierDashboard summary={summary} />
+      ) : (
         <>
       <section className="grid gap-3 sm:grid-cols-2 lg:gap-4 xl:grid-cols-4">
         {kpiCards.map((card) => <KpiCard key={card.label} {...card} isLoading={isLoading} />)}
@@ -308,6 +307,28 @@ function DashboardSkeleton() {
         <div className="h-96 animate-pulse rounded-[24px] border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-900" />
       </section>
     </div>
+  );
+}
+
+function CashierDashboard({ summary }: { summary: DashboardSummary }) {
+  return (
+    <section className="grid gap-4 md:grid-cols-3">
+      <Link href="/dashboard/pos" className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm transition hover:border-emerald-400 dark:border-emerald-900 dark:bg-slate-900">
+        <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">Action principale</p>
+        <h2 className="mt-2 text-xl font-black">Ouvrir caisse</h2>
+        <p className="mt-2 text-sm text-slate-500">Encaisser une vente ou reprendre un panier.</p>
+      </Link>
+      <Link href="/dashboard/sales/in-progress" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-brand-300 dark:border-slate-800 dark:bg-slate-900">
+        <p className="text-sm font-bold text-brand-600">Ventes en attente</p>
+        <h2 className="mt-2 text-xl font-black">{formatNumber(summary.kpis.pendingOrders)}</h2>
+        <p className="mt-2 text-sm text-slate-500">Paniers suspendus a reprendre.</p>
+      </Link>
+      <Link href="/dashboard/sales/completed" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-brand-300 dark:border-slate-800 dark:bg-slate-900">
+        <p className="text-sm font-bold text-brand-600">Ventes du jour</p>
+        <h2 className="mt-2 text-xl font-black">{formatNumber(summary.kpis.salesToday)}</h2>
+        <p className="mt-2 text-sm text-slate-500">Historique limite aux ventes autorisees.</p>
+      </Link>
+    </section>
   );
 }
 
@@ -446,9 +467,10 @@ function PerformancePanel({ performance }: { performance: Performance }) {
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <h2 className="text-xl font-black text-slate-950 dark:text-white">Performance du business</h2>
+      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Valeur potentielle = prix de vente x stock disponible. Si le cout d&apos;achat manque, la marge reelle n&apos;est pas calculable.</p>
       {(performance.missingCostProducts ?? 0) > 0 ? (
         <p className="mt-2 text-sm font-semibold text-amber-700 dark:text-amber-300">
-          {performance.missingCostProducts} produit(s) sans coût d&apos;achat - valeur stock incomplète.
+          {performance.missingCostProducts} produit(s) sans coût d&apos;achat - marge reelle non calculable.
         </p>
       ) : null}
       <div className="mt-5 grid gap-3 sm:grid-cols-2">

@@ -21,7 +21,8 @@ assert(dashboardApi.includes("salePotentialValue += quantity * salePrice"), "Das
 assert(dashboardApi.includes("potentialKnownMargin += quantity * (salePrice - cost.amount)"), "Dashboard must calculate potential margin only when cost and sale price are known.");
 assert(dashboardWeb.includes("Valeur stock connue") && dashboardWeb.includes("Valeur de vente potentielle"), "Dashboard must expose clear stock valuation labels.");
 assert(!dashboardWeb.includes('title="Valeur du stock"'), "Dashboard must not show the confusing zero-value legacy stock chart.");
-assert(dashboardWeb.includes("isCashierDashboardUser") && dashboardWeb.includes('window.location.replace("/dashboard/pos")'), "Cashier dashboard must redirect to POS.");
+assert(dashboardWeb.includes("isCashierDashboardUser") && dashboardWeb.includes("CashierDashboard"), "Cashier dashboard must use a reduced role-specific view.");
+assert(dashboardWeb.includes("Ouvrir caisse") && dashboardWeb.includes("Ventes en attente") && dashboardWeb.includes("Ventes du jour"), "Cashier dashboard must expose only essential cashier actions.");
 
 assert(posPage.includes("isHoldingSale"), "POS must prevent double held sale submission.");
 assert(posPage.includes("clearCurrentSale()"), "POS must clear cart/customer/payments after held sale save.");
@@ -42,7 +43,7 @@ assert(productForm.includes("<summary className=\"cursor-pointer text-lg font-se
 assert(!/Section title="Tarification"[\\s\\S]*placeholder="Prix achat"[\\s\\S]*placeholder="Prix vente"/.test(productForm), "Advanced pricing must not duplicate essential sale and purchase prices.");
 assert(productsPage.includes("px-3 py-3 text-center text-sm font-bold"), "Mobile product edit button must remain large enough to tap.");
 assert(productsPage.includes("costMissingOnly"), "Products page must keep the missing-cost filter.");
-assert(productsPage.includes("Ajouter coût") && productsPage.includes("Modifier coût"), "Products page must expose quick purchase-cost editing.");
+assert(productsPage.includes("openQuickCost") && productsPage.includes("Modifier le co"), "Products page must expose quick purchase-cost editing.");
 assert(productsPage.includes("purchasePrice: Number(quickCostValue || 0)"), "Quick cost edit must patch only the purchase cost.");
 
 assert(usersPage.includes("roleTargetId"), "Users table must not show every role selector by default.");

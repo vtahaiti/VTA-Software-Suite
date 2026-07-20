@@ -22,10 +22,11 @@ assert(apiService.includes("salePotentialValue += quantity * salePrice"), "Sale 
 assert(apiService.includes("potentialKnownMargin += quantity * (salePrice - cost.amount)"), "Potential margin must require both cost and sale price.");
 assert(apiService.includes("productsWithoutCost.add(productKey)"), "Dashboard must count products with missing purchase cost.");
 
-assert(webDashboard.includes("isCashierDashboardUser(currentUser)") && webDashboard.includes('window.location.replace("/dashboard/pos")'), "Cashier users must be redirected from dashboard to POS.");
+assert(webDashboard.includes("isCashierDashboardUser(currentUser)") && webDashboard.includes("CashierDashboard"), "Cashier users must receive a reduced dashboard.");
+assert(webDashboard.includes("Ouvrir caisse") && webDashboard.includes("Ventes du jour"), "Cashier dashboard must show cashier-safe actions.");
 assert(webDashboard.includes("Valeur stock connue"), "Dashboard must show known stock value.");
 assert(webDashboard.includes("Valeur de vente potentielle"), "Dashboard must show sale potential value.");
 assert(webDashboard.includes("Marge potentielle connue"), "Dashboard must show known potential margin.");
-assert(webDashboard.includes("valeur stock incomplete"), "Dashboard must warn when purchase costs are missing.");
+assert(webDashboard.includes("marge reelle non calculable"), "Dashboard must explain that real margin cannot be calculated when costs are missing.");
 
 console.log("Dashboard business smoke OK");

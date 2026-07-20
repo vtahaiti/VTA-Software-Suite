@@ -42,7 +42,6 @@ export default function AdminNotificationsPage() {
       const payload = await platformFetch<HistoryResponse>("/platform/notifications");
       setTenants(payload.tenants ?? []);
       setHistory(payload.history ?? []);
-      setTenantId((current) => current || payload.tenants?.[0]?.id || "");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Chargement impossible.");
     }
@@ -63,11 +62,15 @@ export default function AdminNotificationsPage() {
       setError("Titre et message sont obligatoires.");
       return;
     }
+    if (selectedCount <= 0) {
+      setError("Choisissez au moins une entreprise cible.");
+      return;
+    }
     if (link && !link.startsWith("/dashboard")) {
       setError("Le lien doit être un chemin interne commençant par /dashboard.");
       return;
     }
-    if (!window.confirm(`Envoyer cette notification à ${selectedCount} entreprise${selectedCount > 1 ? "s" : ""} ?`)) return;
+    if (!window.confirm(`Confirmer l'envoi a ${selectedCount} entreprise${selectedCount > 1 ? "s" : ""} ? Cette action cree une notification interne.`)) return;
     try {
       const result = await platformFetch<{ tenantCount: number; delivered: number }>("/platform/notifications", {
         method: "POST",
@@ -115,6 +118,7 @@ export default function AdminNotificationsPage() {
           {recipient === "tenant" ? (
             <label className="block text-sm font-semibold text-slate-200">Entreprise
               <select value={tenantId} onChange={(event) => setTenantId(event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-white">
+                <option value="">Choisir une entreprise</option>
                 {tenants.map((tenant) => <option key={tenant.id} value={tenant.id}>{tenant.name}</option>)}
               </select>
             </label>
@@ -146,7 +150,7 @@ export default function AdminNotificationsPage() {
             <input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-white" />
             <input value={dedupKey} onChange={(event) => setDedupKey(event.target.value)} placeholder="Clé anti-doublon optionnelle" className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-white" />
           </div>
-          <button onClick={() => void send()} className="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-black text-slate-950">Envoyer après confirmation</button>
+          <button disabled={selectedCount <= 0 || !title.trim() || !message.trim()} onClick={() => void send()} className="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">Envoyer après confirmation</button>
         </div>
       </section>
 

@@ -28,7 +28,7 @@ const orderStatuses = ["CONFIRMED", "IN_PROGRESS", "READY", "DELIVERED", "COMPLE
 
 type DocType = "quotes" | "proformas" | "invoices";
 type Customer = { id: string; name?: string; displayName?: string };
-type Product = { id: string; sku: string; name: string; salePrice?: string; unit?: string };
+type Product = { id: string; sku: string; name: string; salePrice?: string; stockCurrent?: number; unit?: string | { name?: string | null; symbol?: string | null } };
 type Payment = { id: string; method: string; amount: string; reference?: string; notes?: string; createdAt: string };
 type DocumentItem = {
   id: string;
@@ -580,6 +580,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
 }
 
 function ProductResultCard({ product, selected, onSelect }: { product: Product; selected: boolean; onSelect: () => void }) {
+  const unit = productUnitLabel(product);
   return <button
     type="button"
     onClick={onSelect}
@@ -588,7 +589,7 @@ function ProductResultCard({ product, selected, onSelect }: { product: Product; 
     <div className="flex items-start justify-between gap-3">
       <div>
         <p className="font-semibold text-slate-950 dark:text-white">{product.name}</p>
-        <p className="mt-1 text-xs text-slate-500">{product.unit ? `Unite: ${product.unit}` : "Produit catalogue"}</p>
+        <p className="mt-1 text-xs text-slate-500">{Number.isFinite(Number(product.stockCurrent)) ? `Stock: ${product.stockCurrent}` : "Produit catalogue"}{unit ? ` · ${unit}` : ""}</p>
       </div>
       <span className="shrink-0 text-sm font-bold text-brand-700 dark:text-brand-200">{money(product.salePrice)}</span>
     </div>
@@ -598,11 +599,18 @@ function ProductResultCard({ product, selected, onSelect }: { product: Product; 
 
 function SelectedProduct({ product }: { product?: Product }) {
   if (!product) return null;
+  const unit = productUnitLabel(product);
   return <div className="mt-3 rounded-md border border-brand-100 bg-white p-3 text-xs text-slate-600 dark:border-brand-900 dark:bg-slate-900 dark:text-slate-300">
     <p className="font-semibold text-slate-900 dark:text-white">Produit selectionne: {product.name}</p>
-    <p className="mt-1">Prix: {money(product.salePrice)}{product.unit ? ` · Unite: ${product.unit}` : ""}</p>
+    <p className="mt-1">Prix: {money(product.salePrice)}{unit ? ` · Unite: ${unit}` : ""}</p>
     <p className="mt-1 text-slate-500">SKU: {product.sku}</p>
   </div>;
+}
+
+function productUnitLabel(product: Pick<Product, "unit">) {
+  if (!product.unit) return "";
+  if (typeof product.unit === "string") return product.unit;
+  return product.unit.symbol ?? product.unit.name ?? "";
 }
 
 function Metric({ label, value }: { label: string; value: string | number }) {

@@ -151,7 +151,7 @@ export default function UsersPage() {
             <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Roles & Utilisateurs</h1>
             <p className="mt-1 text-sm text-slate-500">Ajoutez les employes, attribuez leur role, reactivez un compte ou changez un mot de passe temporaire.</p>
           </div>
-          <div className="rounded-xl bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-700 dark:bg-slate-950 dark:text-brand-200">{activeCount} utilisateurs actifs, proprietaire inclus</div>
+          <div className="rounded-xl bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-700 dark:bg-slate-950 dark:text-brand-200">{activeCount} comptes actifs affiches</div>
         </div>
       </section>
 

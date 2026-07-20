@@ -124,7 +124,9 @@ export default function AdminTenantsPage() {
 }
 
 function ActionMenu({ tenant, onStatus }: { tenant: Tenant; onStatus: (id: string, status: string) => Promise<void> }) {
-  return <div className="flex flex-wrap gap-2"><Link href={`/admin/companies/${tenant.id}`} className="rounded-full bg-cyan-400/15 px-3 py-1 text-xs font-bold text-cyan-100">Voir</Link>{tenant.status !== "ACTIVE" ? <button onClick={() => void onStatus(tenant.id, "ACTIVE")} className="rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-bold text-emerald-100">Réactiver</button> : <button onClick={() => void onStatus(tenant.id, "SUSPENDED")} className="rounded-full bg-orange-400/15 px-3 py-1 text-xs font-bold text-orange-100">Suspendre</button>}<Link href={`/admin/companies/${tenant.id}#danger-zone`} className="rounded-full bg-red-400/15 px-3 py-1 text-xs font-bold text-red-100">Zone dangereuse</Link></div>;
+  const canReactivate = ["PAUSED", "SUSPENDED", "EXPIRED", "DELETED"].includes(tenant.status);
+  const canSuspend = ["ACTIVE", "TRIAL"].includes(tenant.status);
+  return <div className="flex flex-wrap gap-2"><Link href={`/admin/companies/${tenant.id}`} className="rounded-full bg-cyan-400/15 px-3 py-1 text-xs font-bold text-cyan-100">Voir</Link>{canReactivate ? <button onClick={() => void onStatus(tenant.id, "ACTIVE")} className="rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-bold text-emerald-100">Réactiver</button> : null}{canSuspend ? <button onClick={() => void onStatus(tenant.id, "SUSPENDED")} className="rounded-full bg-orange-400/15 px-3 py-1 text-xs font-bold text-orange-100">Suspendre</button> : null}</div>;
 }
 
 function Logo({ tenant }: { tenant: Tenant }) {
