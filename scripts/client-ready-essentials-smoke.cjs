@@ -45,6 +45,8 @@ assert(productsPage.includes("px-3 py-3 text-center text-sm font-bold"), "Mobile
 assert(productsPage.includes("costMissingOnly"), "Products page must keep the missing-cost filter.");
 assert(productsPage.includes("openQuickCost") && productsPage.includes("Modifier le co"), "Products page must expose quick purchase-cost editing.");
 assert(productsPage.includes("purchasePrice: Number(quickCostValue || 0)"), "Quick cost edit must patch only the purchase cost.");
+assert(productsPage.includes("visibleMissingCostCount"), "Products page must show missing costs as a discreet summary, not every row.");
+assert(!productsPage.includes("ProductTypeHint"), "Products page must not duplicate service/non-stock labels in product rows.");
 
 assert(usersPage.includes("roleTargetId"), "Users table must not show every role selector by default.");
 assert(usersPage.includes("Changer rôle"), "Users table must expose an intentional role-change action.");

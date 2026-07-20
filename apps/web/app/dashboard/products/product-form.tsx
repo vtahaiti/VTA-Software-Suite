@@ -512,9 +512,9 @@ function isMultiActivityBusiness(business: TenantBusinessConfiguration | null) {
 }
 
 function nonStockProductLabel(business: TenantBusinessConfiguration | null) {
-  if (isRestaurantBusiness(business)) return "Plat / service non stocke";
-  if (isMultiActivityBusiness(business)) return "Service non stocke";
-  return "Produit non stocke";
+  if (isRestaurantBusiness(business)) return "Plat / service non stocké";
+  if (isMultiActivityBusiness(business)) return "Service non stocké";
+  return "Produit non stocké";
 }
 
 function ProductStockModeField({ isRestaurant, nonStockLabel, mode, onChange }: { isRestaurant: boolean; nonStockLabel: string; mode: RestaurantStockMode; onChange: (mode: RestaurantStockMode) => void }) {
@@ -528,7 +528,7 @@ function ProductStockModeField({ isRestaurant, nonStockLabel, mode, onChange }: 
       </label>
       <label className="flex cursor-pointer items-start gap-2 rounded-md bg-white/75 p-3 dark:bg-slate-900/60">
         <input type="radio" name="restaurant-stock-mode" checked={mode === "STOCKED"} onChange={() => onChange("STOCKED")} />
-        <span><span className="block font-semibold">Produit stocke</span><span className="text-xs">Articles physiques, boissons ou ingredients avec stock et seuil minimum.</span></span>
+        <span><span className="block font-semibold">Produit stocké</span><span className="text-xs">Articles physiques, boissons ou ingrédients avec stock et seuil minimum.</span></span>
       </label>
     </div>
   </fieldset>;

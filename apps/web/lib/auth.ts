@@ -28,6 +28,9 @@ const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "pr
 const accessTokenKey = "vta_access_token";
 const refreshTokenKey = "vta_refresh_token";
 const userKey = "vta_user";
+const tenantScopedLocalStoragePrefixes = ["vta_pos_draft_"];
+const tenantScopedLocalStorageKeys = ["vta_pending_pos_print"];
+const offlineDbName = "vta-commerce-offline";
 
 export async function login(payload: LoginPayload) {
   let response: Response;
@@ -116,15 +119,47 @@ export function getAccessToken() {
 }
 
 export function saveSession(data: AuthResponse) {
+  const previousUser = getCurrentUser();
+  if (previousUser?.tenantId && previousUser.tenantId !== data.user.tenantId) {
+    clearTenantScopedCaches("tenant-switch");
+  }
   window.localStorage.setItem(accessTokenKey, data.accessToken);
   window.localStorage.setItem(refreshTokenKey, data.refreshToken);
   window.localStorage.setItem(userKey, JSON.stringify(data.user));
+  window.dispatchEvent(new CustomEvent("vta:session-changed", { detail: { tenantId: data.user.tenantId } }));
+}
+
+export function updateStoredUser(user: AuthUser) {
+  const previousUser = getCurrentUser();
+  if (previousUser?.tenantId && previousUser.tenantId !== user.tenantId) {
+    clearTenantScopedCaches("tenant-switch");
+  }
+  window.localStorage.setItem(userKey, JSON.stringify(user));
+  window.dispatchEvent(new CustomEvent("vta:session-changed", { detail: { tenantId: user.tenantId } }));
 }
 
 export function clearSession() {
+  clearTenantScopedCaches("logout");
   window.localStorage.removeItem(accessTokenKey);
   window.localStorage.removeItem(refreshTokenKey);
   window.localStorage.removeItem(userKey);
+  window.dispatchEvent(new CustomEvent("vta:session-cleared"));
+}
+
+export function clearTenantScopedCaches(reason = "session-reset") {
+  if (typeof window === "undefined") return;
+  for (const key of Object.keys(window.localStorage)) {
+    if (tenantScopedLocalStoragePrefixes.some((prefix) => key.startsWith(prefix)) || tenantScopedLocalStorageKeys.includes(key)) {
+      window.localStorage.removeItem(key);
+    }
+  }
+  if ("indexedDB" in window) {
+    const request = window.indexedDB.deleteDatabase(offlineDbName);
+    request.onerror = () => undefined;
+    request.onsuccess = () => undefined;
+    request.onblocked = () => undefined;
+  }
+  window.dispatchEvent(new CustomEvent("vta:tenant-cache-cleared", { detail: { reason } }));
 }
 
 async function readApiError(response: Response) {

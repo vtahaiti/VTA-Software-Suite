@@ -183,7 +183,7 @@ export class PosService {
         const unitPrice = Number(item.unitPrice ?? NaN);
         if (!customName) throw new BadRequestException("Le nom de l'article personnalise est obligatoire");
         if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new BadRequestException("Le prix de l'article personnalise est obligatoire");
-        if (!Number.isInteger(item.quantity)) throw new BadRequestException("Quantite decimale autorisee seulement pour les produits avec unite mesurable.");
+        if (!Number.isInteger(item.quantity)) throw new BadRequestException("Quantité décimale autorisée seulement pour les produits avec unité mesurable.");
         const discount = item.discount ?? 0;
         const base = unitPrice * item.quantity;
         const taxable = base - discount;
@@ -585,7 +585,7 @@ export class PosService {
     const tokens = label.split(/[^a-z0-9]+/).filter(Boolean);
     const decimalUnits = ["kg", "kilo", "tonne", "metre", "meter", "m", "pied", "gallon", "litre", "l", "verge"];
     if (decimalUnits.some((entry) => tokens.includes(entry) || (entry.length > 1 && label.includes(entry)))) return;
-    throw new BadRequestException("Quantite decimale autorisee seulement pour les unites mesurables.");
+    throw new BadRequestException("Quantité décimale autorisée seulement pour les unités mesurables.");
   }
 
   private emptyCart(taxRate: number, discount: number) {

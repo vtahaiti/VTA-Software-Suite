@@ -2,7 +2,11 @@ import { getAccessToken, refreshSession } from "@/lib/auth";
 
 export async function fetchWithAuth(input: RequestInfo | URL, init: RequestInit = {}) {
   return fetchWithCurrentToken(input, init).then(async (response) => {
-    if (response.status !== 401 && response.status !== 403) return response;
+    if (response.status === 403 && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("vta:tenant-access-blocked"));
+      return response;
+    }
+    if (response.status !== 401) return response;
     const refreshedUser = await refreshSession();
     if (!refreshedUser) return response;
     return fetchWithCurrentToken(input, init);

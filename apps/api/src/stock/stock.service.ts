@@ -28,7 +28,8 @@ export class StockService {
           stocks: { where: { warehouseId: query.warehouseId }, include: { warehouse: true }, orderBy: { updatedAt: "desc" } },
           category: true,
           unit: true,
-          supplier: true
+          supplier: true,
+          variants: true
         },
         skip: (page - 1) * limit,
         take: limit,
@@ -38,7 +39,7 @@ export class StockService {
       this.prisma.warehouse.findFirst({ where: { tenantId, isActive: true }, orderBy: { createdAt: "asc" } })
     ]);
     const items = products.flatMap((product) => {
-      const stockTracked = product.stocks.length > 0 || Number(product.minimumStock ?? 0) > 0;
+      const stockTracked = this.isStockTrackedProduct(product);
       const stocks = product.stocks.length ? product.stocks : [{
         id: `virtual-${product.id}-${defaultWarehouse?.id ?? "warehouse"}`,
         tenantId,
@@ -74,14 +75,16 @@ export class StockService {
     return this.prisma.stock.findMany({ where: { tenantId, quantity: { lte: 0 } }, include: { product: true, warehouse: true }, orderBy: { updatedAt: "desc" } });
   }
 
-  stockIn(tenantId: string, dto: StockOperationDto) {
+  async stockIn(tenantId: string, dto: StockOperationDto) {
+    await this.assertManualStockAllowed(tenantId, dto.productId);
     return this.applyMovement(tenantId, dto, InventoryMovementType.IN, dto.quantity);
   }
 
-  stockOut(tenantId: string, dto: StockOperationDto) {
+  async stockOut(tenantId: string, dto: StockOperationDto) {
     if (!dto.reason || !STOCK_OUT_REASONS.includes(dto.reason)) {
-      throw new BadRequestException("Un motif controle est obligatoire pour une sortie non commerciale.");
+      throw new BadRequestException("Un motif contrôlé est obligatoire pour une sortie non commerciale.");
     }
+    await this.assertManualStockAllowed(tenantId, dto.productId);
     return this.applyMovement(tenantId, dto, InventoryMovementType.OUT, -dto.quantity);
   }
 
@@ -98,6 +101,7 @@ export class StockService {
   }
 
   async adjustTo(tenantId: string, productId: string, warehouseId: string, countedQty: number, reference?: string, note?: string, userId?: string, storeId?: string) {
+    await this.assertManualStockAllowed(tenantId, productId);
     const stock = await this.getOrCreateStock(tenantId, productId, warehouseId);
     return this.applyMovement(tenantId, { productId, warehouseId, quantity: Math.abs(countedQty - stock.quantity), reference, note, userId, storeId }, InventoryMovementType.ADJUSTMENT, countedQty - stock.quantity);
   }
@@ -132,11 +136,35 @@ export class StockService {
     const product = await this.prisma.product.findFirst({ where: { id: productId, tenantId } });
     if (!product) throw new NotFoundException("Produit introuvable");
     const warehouse = await this.prisma.warehouse.findFirst({ where: { id: warehouseId, tenantId } });
-    if (!warehouse) throw new NotFoundException("Entrepot introuvable");
+    if (!warehouse) throw new NotFoundException("Entrepôt introuvable");
     return this.prisma.stock.upsert({
       where: { tenantId_productId_warehouseId: { tenantId, productId, warehouseId } },
       update: {},
       create: { tenantId, productId, warehouseId, quantity: 0, minimumStock: product.minimumStock }
     });
+  }
+
+  private async assertManualStockAllowed(tenantId: string, productId: string) {
+    const product = await this.prisma.product.findFirst({
+      where: { id: productId, tenantId },
+      include: { variants: true, stocks: { take: 1 } }
+    });
+    if (!product) throw new NotFoundException("Produit introuvable");
+    if (!this.isStockTrackedProduct(product)) {
+      throw new BadRequestException("Ce produit n'est pas suivi en stock.");
+    }
+  }
+
+  private isStockTrackedProduct(product: { name?: string | null; category?: { name?: string | null } | null; minimumStock?: Prisma.Decimal | number | string | null; stocks?: unknown[]; variants?: { name?: string | null; model?: string | null }[] }) {
+    if (this.isServiceOrNonStockProduct(product)) return false;
+    return Number(product.minimumStock ?? 0) > 0 || Number(product.stocks?.length ?? 0) > 0;
+  }
+
+  private isServiceOrNonStockProduct(product: { name?: string | null; category?: { name?: string | null } | null; variants?: { name?: string | null; model?: string | null }[] }) {
+    const variantText = (product.variants ?? []).map((variant) => `${variant.name ?? ""} ${variant.model ?? ""}`).join(" ").toLowerCase();
+    const productText = `${product.name ?? ""} ${product.category?.name ?? ""} ${variantText}`.toLowerCase();
+    const explicitlyNonStock = /non stock|non-stock|service non stock|produit non stock|plat \/ service/.test(variantText);
+    const serviceLike = /service|impression|réparation|reparation|installation|sur mesure|personnalis|plat|portion|menu|repas|dessert|extra|supplement|suppl[ée]ment/.test(productText);
+    return explicitlyNonStock || serviceLike;
   }
 }

@@ -47,6 +47,8 @@
     "test:held-sales-locking": "node scripts/held-sales-locking-smoke.cjs",
     "test:launch-stabilization": "node scripts/launch-stabilization-smoke.cjs",
     "test:client-ready": "node scripts/client-ready-essentials-smoke.cjs",
+    "test:tenant-session-cache": "node scripts/tenant-session-cache-smoke.cjs",
+    "test:inventory-non-stock-actions": "node scripts/inventory-non-stock-actions-smoke.cjs",
     "test:purchases-flow": "node scripts/purchases-flow-smoke.cjs",
     "test:stock-out-adjustment": "node scripts/stock-out-adjustment-smoke.cjs",
     "test:lot2": "node scripts/lot2-import-export-notifications-smoke.cjs",

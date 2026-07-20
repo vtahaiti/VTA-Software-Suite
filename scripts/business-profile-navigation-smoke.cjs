@@ -89,8 +89,8 @@ for (const unit of ["pièce", "sac", "tonne", "kg", "mètre", "pied", "feuille",
   }
 }
 
-if (!onboardingSource.includes("Fabrication fenetres/portes")) {
-  failures.push("Onboarding: activite absente: Fabrication fenetres/portes");
+if (!onboardingSource.includes("Fabrication fenêtres/portes")) {
+  failures.push("Onboarding: activité absente: Fabrication fenêtres/portes");
 }
 
 for (const expected of ["Fabrication fenêtres/portes", "Fenêtres", "Moustiquaires", "PVC", "Métal"]) {
@@ -116,7 +116,7 @@ if (catalogSource.includes("VTA Enterprise") || onboardingSource.includes("VTA E
   failures.push("Le nom VTA Enterprise ne doit pas etre utilise comme profil public.");
 }
 
-for (const expected of ["assertQuantityAllowed", "Quantité decimale autorisee seulement", "Number.isInteger(item.quantity)"]) {
+for (const expected of ["assertQuantityAllowed", "Quantité décimale autorisée seulement", "Number.isInteger(item.quantity)"]) {
   if (!posServiceSource.includes(expected)) {
     failures.push(`POS API: garde-fou quantité décimale absent: ${expected}`);
   }

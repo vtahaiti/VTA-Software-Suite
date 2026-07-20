@@ -138,6 +138,7 @@ export default function ProductsPage() {
 
   const displayTotal = Math.max(total, items.length);
   const pages = useMemo(() => Math.max(1, Math.ceil(displayTotal / 25)), [displayTotal]);
+  const visibleMissingCostCount = useMemo(() => items.filter((product) => product.costKnown === false).length, [items]);
 
   return (
     <div className="space-y-5">
@@ -152,6 +153,7 @@ export default function ProductsPage() {
           <input type="checkbox" checked={costMissingOnly} onChange={(event) => { setCostMissingOnly(event.target.checked); setPage(1); }} />
           Coût manquant
         </label>
+        {visibleMissingCostCount ? <p className="mt-2 text-xs font-semibold text-amber-600">{visibleMissingCostCount} produit(s) affiché(s) avec coût manquant.</p> : null}
         <button onClick={() => setShowOptions((value) => !value)} className="mt-3 text-sm font-semibold text-slate-500 hover:text-brand-600">Plus d&apos;options</button>
         {showOptions ? <div className="mt-3 flex flex-wrap gap-2 text-sm"><Link href="/dashboard/import-export" className="rounded-md border px-3 py-2 dark:border-slate-700">Import / Export</Link><Link href="/dashboard/products/create" className="rounded-md border px-3 py-2 dark:border-slate-700">Fiche produit avancée</Link><Link href="/dashboard/products/categories" className="rounded-md border px-3 py-2 dark:border-slate-700">Catégories</Link></div> : null}
       </div>
@@ -162,9 +164,7 @@ export default function ProductsPage() {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h2 className="truncate font-semibold text-slate-950 dark:text-white">{product.name}</h2>
-              <p className="font-mono text-xs text-slate-400">{product.sku || "SKU auto"}</p>
-              <ProductTypeHint product={product} business={business} />
-              {product.costKnown === false ? <p className="mt-1 text-[11px] text-amber-600/80">Coût manquant</p> : null}
+              {product.sku ? <p className="text-xs text-slate-400">Code disponible dans la fiche</p> : null}
             </div>
             <p className="shrink-0 text-right text-sm font-bold text-slate-950 dark:text-white">{product.salePrice}</p>
           </div>
@@ -182,7 +182,7 @@ export default function ProductsPage() {
       <div className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 md:block">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950"><tr><th className="p-3">Produit</th><th className="p-3">Catégorie</th><th className="p-3">Prix</th><th className="p-3">Stock</th><th className="p-3">Actions</th></tr></thead>
-          <tbody>{items.map((product) => <tr key={product.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3"><p className="font-semibold">{product.name}</p><p className="font-mono text-xs text-slate-400">{product.sku || "SKU auto"}</p><ProductTypeHint product={product} business={business} />{product.costKnown === false ? <p className="mt-1 text-[11px] text-amber-600/80">Coût manquant</p> : null}</td><td className="p-3">{product.category?.name ?? "--"}</td><td className="p-3 font-semibold">{product.salePrice}</td><td className="p-3"><ProductStockDisplay product={product} business={business} /><ProductStockStatus product={product} business={business} /></td><td className="p-3"><div className="flex flex-wrap gap-3"><Link className="text-brand-600" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link><button type="button" onClick={() => openQuickCost(product)} className="text-amber-700">Coût</button></div></td></tr>)}</tbody>
+          <tbody>{items.map((product) => <tr key={product.id} className="border-t border-slate-100 dark:border-slate-800"><td className="p-3"><p className="font-semibold">{product.name}</p>{product.sku ? <p className="text-xs text-slate-400">Code disponible dans la fiche</p> : null}</td><td className="p-3">{product.category?.name ?? "--"}</td><td className="p-3 font-semibold">{product.salePrice}</td><td className="p-3"><ProductStockDisplay product={product} business={business} /><ProductStockStatus product={product} business={business} /></td><td className="p-3"><div className="flex flex-wrap gap-3"><Link className="text-brand-600" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link><button type="button" onClick={() => openQuickCost(product)} className="text-amber-700">Coût</button></div></td></tr>)}</tbody>
         </table>
         {!isLoading && !message && items.length === 0 ? <p className="p-5 text-sm text-slate-500">Aucun produit trouvé.</p> : null}
         {isLoading ? <p className="p-5 text-sm text-slate-500">Chargement des produits...</p> : null}
@@ -345,23 +345,12 @@ function ProductStockDisplay({ product, business }: { product: Product; business
   return <div className="space-y-0.5"><p className="font-semibold">Stock : {product.stockCurrent ?? 0}{unit ? ` ${unit}` : ""}</p><p className="text-xs text-slate-500">Minimum : {product.minimumStock ?? 0}</p></div>;
 }
 
-function ProductTypeHint({ product, business }: { product: Product; business: TenantBusinessConfiguration | null }) {
-  if (productStockStatus(product, business) !== "NON_STOCK") return null;
-  return <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">{nonStockTypeBadgeForProduct(product, business)}</span>;
-}
-
 function ProductStockStatus({ product, business = null }: { product: Product; business?: TenantBusinessConfiguration | null }) {
   const status = productStockStatus(product, business);
   if (status === "NON_STOCK") return null;
   if (status === "OUT_OF_STOCK") return <span className="mt-1 inline-flex rounded-full bg-red-50 px-2 py-1 text-xs font-bold text-red-700">Rupture</span>;
   if (status === "LOW_STOCK") return <span className="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700">Stock faible</span>;
   return <span className="mt-1 inline-flex rounded-full bg-green-50 px-2 py-1 text-xs font-bold text-green-700">En stock</span>;
-}
-
-function nonStockTypeBadgeForProduct(product: Product, business: TenantBusinessConfiguration | null) {
-  if (isRestaurantBusiness(business)) return "Plat/service";
-  if (isMultiActivityBusiness(business) || isServiceLikeProduct(product)) return "Service";
-  return "Produit non stocké";
 }
 
 async function readError(response: Response) {

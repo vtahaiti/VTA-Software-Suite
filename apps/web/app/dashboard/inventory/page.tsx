@@ -78,6 +78,10 @@ export default function InventoryPage() {
   }, [loadStocks]);
 
   function openStockModal(stock: StockLine, action: StockAction) {
+    if (!isStockTracked(stock)) {
+      setError("Ce service n'est pas suivi en stock.");
+      return;
+    }
     setSelectedStock(stock);
     setStockAction(action);
     setStockForm({ quantity: action === "adjust" ? String(stock.quantity) : "", reason: "", note: "" });
@@ -89,6 +93,10 @@ export default function InventoryPage() {
     if (!selectedStock) return;
     setError("");
     setMessage("");
+    if (!isStockTracked(selectedStock)) {
+      setError("Ce service n'est pas suivi en stock.");
+      return;
+    }
     const quantity = Number(stockForm.quantity || 0);
     if (quantity < 0 || (stockAction !== "adjust" && quantity <= 0)) {
       setError("Quantite invalide.");
@@ -191,16 +199,18 @@ export default function InventoryPage() {
                   <p className="text-xs text-slate-500">{stock.product?.sku}{unitLabel(stock) ? ` - ${unitLabel(stock)}` : ""}</p>
                 </td>
                 <td className="p-3">{stock.warehouse?.name ?? "-"}</td>
-                <td className="p-3 text-lg font-bold">{isStockTracked(stock) ? `${stock.quantity}${unitLabel(stock) ? ` ${unitLabel(stock)}` : ""}` : "Non stocke"}</td>
+                <td className="p-3 text-lg font-bold">{isStockTracked(stock) ? `${stock.quantity}${unitLabel(stock) ? ` ${unitLabel(stock)}` : ""}` : "Non stocké"}</td>
                 <td className="p-3"><StockStatusBadge stock={stock} /></td>
                 <td className="p-3">{isStockTracked(stock) ? stock.minimumStock : "-"}</td>
                 <td className="p-3">{stock.product?.supplier?.name ?? "-"}</td>
                 <td className="p-3">
-                  <div className="flex flex-wrap gap-2">
-                    <button onClick={() => openStockModal(stock, "adjust")} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">Ajuster</button>
-                    <button onClick={() => openStockModal(stock, "in")} className="rounded-md border border-green-200 px-3 py-2 text-sm font-semibold text-green-700 dark:border-green-900">Entree stock</button>
-                    <button onClick={() => openStockModal(stock, "out")} className="rounded-md border border-orange-200 px-3 py-2 text-sm font-semibold text-orange-700 dark:border-orange-900">Sortie non commerciale</button>
-                  </div>
+                  {isStockTracked(stock) ? (
+                    <div className="flex flex-wrap gap-2">
+                      <button onClick={() => openStockModal(stock, "adjust")} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">Ajuster</button>
+                      <button onClick={() => openStockModal(stock, "in")} className="rounded-md border border-green-200 px-3 py-2 text-sm font-semibold text-green-700 dark:border-green-900">Entrée stock</button>
+                      <button onClick={() => openStockModal(stock, "out")} className="rounded-md border border-orange-200 px-3 py-2 text-sm font-semibold text-orange-700 dark:border-orange-900">Sortie non commerciale</button>
+                    </div>
+                  ) : <span className="text-sm font-semibold text-slate-500">Aucune action stock</span>}
                 </td>
               </tr>
             ))}
@@ -296,7 +306,7 @@ function stockStatus(stock: Pick<StockLine, "quantity" | "minimumStock" | "stock
 
 function StockStatusBadge({ stock }: { stock: StockLine }) {
   const status = stockStatus(stock);
-  if (status === "NON_STOCK") return <span className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">Service / non stocke</span>;
+  if (status === "NON_STOCK") return <span className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">Non stocké</span>;
   if (status === "OUT_OF_STOCK") return <span className="inline-flex rounded-full bg-red-50 px-2 py-1 text-xs font-bold text-red-700">Rupture</span>;
   if (status === "LOW_STOCK") return <span className="inline-flex rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700">Stock faible</span>;
   return <span className="inline-flex rounded-full bg-green-50 px-2 py-1 text-xs font-bold text-green-700">En stock</span>;
