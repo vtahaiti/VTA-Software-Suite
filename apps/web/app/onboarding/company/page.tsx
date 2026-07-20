@@ -6,7 +6,12 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createCompany } from "@/lib/auth";
 import { getBusinessCatalog, type BusinessSector } from "@/lib/business-profiles";
+import { resolveAssetUrl } from "@/lib/company-branding";
 import { citiesForHaitiDepartment, haitiDepartmentNames } from "@/lib/haiti-locations";
+
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
+const maxLogoBytes = 2 * 1024 * 1024;
+const allowedLogoTypes = ["image/png", "image/jpeg", "image/webp"];
 
 const citiesByCountry: Record<string, string[]> = {
   Haiti: citiesForHaitiDepartment("Nord"),
@@ -75,7 +80,7 @@ const initialForm = {
   timezone: "America/Port-au-Prince",
   primaryColor: "#2563eb",
   secondaryColor: "#0f172a",
-  logoDataUrl: "",
+  logoUrl: "",
   userPhotoDataUrl: ""
 };
 
@@ -89,12 +94,12 @@ export default function OnboardingCompanyPage() {
   const [error, setError] = useState("");
   const [hasCheckedPendingToken, setHasCheckedPendingToken] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [localLogoPreview, setLocalLogoPreview] = useState<string | null>(null);
 
   const selectedSector = useMemo(() => sectors.find((sector) => sector.key === form.businessSector) ?? sectors[0], [sectors, form.businessSector]);
   const selectedSpecialty = useMemo(() => selectedSector.specialties.find((specialty) => specialty.name === form.businessSpecialty) ?? selectedSector.specialties[0], [selectedSector, form.businessSpecialty]);
   const availableCities = form.country === "Haiti" ? [...citiesForHaitiDepartment(form.department), "Autre"] : citiesByCountry[form.country] ?? [];
-  const initials = useMemo(() => getInitials(form.companyName), [form.companyName]);
-
   useEffect(() => {
     const token = window.localStorage.getItem("vta_pending_onboarding") ?? "";
     setPendingToken(token);
@@ -114,6 +119,10 @@ export default function OnboardingCompanyPage() {
       }));
     }).catch(() => undefined);
   }, []);
+
+  useEffect(() => () => {
+    if (localLogoPreview) URL.revokeObjectURL(localLogoPreview);
+  }, [localLogoPreview]);
 
   function updateField<K extends keyof CompanyForm>(field: K, value: CompanyForm[K]) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -195,7 +204,7 @@ export default function OnboardingCompanyPage() {
         timezone: form.timezone,
         primaryColor: form.primaryColor,
         secondaryColor: form.secondaryColor,
-        logoDataUrl: form.logoDataUrl || createInitialsLogoDataUrl(initials, form.primaryColor),
+        logoUrl: form.logoUrl?.startsWith("data:") ? "" : form.logoUrl,
         userPhotoDataUrl: form.userPhotoDataUrl
       });
       window.localStorage.removeItem("vta_pending_onboarding");
@@ -209,8 +218,47 @@ export default function OnboardingCompanyPage() {
 
   async function uploadLogo(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
-    updateField("logoDataUrl", await fileToDataUrl(file));
+    if (!pendingToken) {
+      setError("Session d'inscription introuvable ou expiree. Recommencez la creation du compte.");
+      return;
+    }
+    if (!allowedLogoTypes.includes(file.type)) {
+      setError("Format non accepte. Utilisez PNG, JPG, JPEG ou WebP.");
+      return;
+    }
+    setError("");
+    setIsUploadingLogo(true);
+    const previousLogoUrl = form.logoUrl;
+    try {
+      const optimized = await optimizeLogoFile(file);
+      if (optimized.size > maxLogoBytes) {
+        setError("Le fichier est trop grand. Taille maximale : 2 Mo.");
+        return;
+      }
+      const previewUrl = URL.createObjectURL(optimized);
+      if (localLogoPreview) URL.revokeObjectURL(localLogoPreview);
+      setLocalLogoPreview(previewUrl);
+      const body = new FormData();
+      body.append("file", optimized, optimized.name);
+      body.append("pendingToken", pendingToken);
+      const response = await fetch(`${apiUrl}/uploads/company-logo`, { method: "POST", body });
+      if (!response.ok) {
+        updateField("logoUrl", previousLogoUrl);
+        setLocalLogoPreview(null);
+        setError(await readUploadError(response));
+        return;
+      }
+      const result = await response.json() as { url?: string };
+      if (!result.url) throw new Error("Logo non recu.");
+      updateField("logoUrl", result.url);
+    } catch {
+      updateField("logoUrl", previousLogoUrl);
+      setError("Impossible de charger le logo. Vous pouvez continuer sans logo et l'ajouter plus tard.");
+    } finally {
+      setIsUploadingLogo(false);
+    }
   }
 
   if (!hasCheckedPendingToken) {
@@ -234,15 +282,15 @@ export default function OnboardingCompanyPage() {
               <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Quelques informations suffisent pour ouvrir votre espace.</p>
             </div>
             <label className="group grid cursor-pointer justify-items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
-              {form.logoDataUrl ? (
+              {localLogoPreview || form.logoUrl ? (
                 <span className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-white shadow-xl shadow-slate-200 ring-4 ring-white dark:bg-slate-950 dark:shadow-slate-950 dark:ring-slate-800">
-                  <img src={form.logoDataUrl} alt="Logo entreprise" className="h-full w-full object-cover" />
+                  <img src={localLogoPreview ?? resolveAssetUrl(form.logoUrl) ?? ""} alt="Logo entreprise" className="h-full w-full object-cover" />
                 </span>
               ) : (
                 <span className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-blue-700 shadow-xl shadow-slate-200 ring-1 ring-slate-200 transition group-hover:scale-[1.02] dark:bg-slate-950 dark:text-blue-200 dark:shadow-slate-950 dark:ring-slate-700">Choisir un logo</span>
               )}
-              <span className="text-xs text-blue-700 group-hover:underline dark:text-blue-300">{form.logoDataUrl ? "Changer le logo" : "Facultatif"}</span>
-              <input type="file" accept="image/*" onChange={uploadLogo} className="sr-only" />
+              <span className="text-xs text-blue-700 group-hover:underline dark:text-blue-300">{isUploadingLogo ? "Chargement..." : form.logoUrl ? "Changer le logo" : "Facultatif"}</span>
+              <input type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadLogo} disabled={isUploadingLogo || !pendingToken} className="sr-only" />
             </label>
           </div>
 
@@ -284,7 +332,7 @@ export default function OnboardingCompanyPage() {
           </details>
 
           {error ? <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{error}</div> : null}
-          <button disabled={isLoading || !pendingToken} className="mt-6 w-full rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-green-600/20 transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60">{isLoading ? "Creation en cours..." : "Creer mon entreprise"}</button>
+          <button disabled={isLoading || isUploadingLogo || !pendingToken} className="mt-6 w-full rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-green-600/20 transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60">{isLoading ? "Creation en cours..." : "Creer mon entreprise"}</button>
         </form>
       </section>
     </main>
@@ -303,17 +351,6 @@ function ReadOnly({ label, value }: { label: string; value: string }) {
   return <label className="grid gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">{label}<input readOnly value={value} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-500 dark:border-slate-800 dark:bg-slate-950" /></label>;
 }
 
-function getInitials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "ME";
-  return parts.slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "ME";
-}
-
-function createInitialsLogoDataUrl(initials: string, color: string) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256"><rect width="256" height="256" rx="128" fill="${color}"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="82" font-weight="700" fill="#ffffff">${initials}</text></svg>`;
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
-}
-
 function withDepartmentInAddress(address: string, department: string) {
   const cleanAddress = address.trim();
   if (!department) return cleanAddress;
@@ -321,11 +358,31 @@ function withDepartmentInAddress(address: string, department: string) {
   return `${cleanAddress} - Departement: ${department}`;
 }
 
-function fileToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Lecture du fichier impossible."));
-    reader.readAsDataURL(file);
-  });
+async function optimizeLogoFile(file: File) {
+  if (file.size <= maxLogoBytes && file.type === "image/webp") return file;
+  const bitmap = await createImageBitmap(file);
+  const maxSide = 512;
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) return file;
+  context.drawImage(bitmap, 0, 0, width, height);
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.88));
+  bitmap.close();
+  if (!blob) return file;
+  return new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), { type: "image/webp" });
+}
+
+async function readUploadError(response: Response) {
+  try {
+    const body = await response.json();
+    const message = Array.isArray(body.message) ? body.message[0] : body.message;
+    return message ? `Logo non charge : ${message}` : "Logo non charge. Vous pouvez continuer sans logo.";
+  } catch {
+    return "Logo non charge. Vous pouvez continuer sans logo.";
+  }
 }

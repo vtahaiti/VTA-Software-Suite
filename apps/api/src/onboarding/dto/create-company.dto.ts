@@ -1,4 +1,4 @@
-import { IsArray, IsEmail, IsNotEmpty, IsOptional, IsString } from "class-validator";
+import { IsArray, IsEmail, IsNotEmpty, IsOptional, IsString, Matches } from "class-validator";
 
 export class CreateCompanyDto {
   @IsString() @IsNotEmpty() pendingToken!: string;
@@ -21,6 +21,6 @@ export class CreateCompanyDto {
   @IsOptional() @IsString() timezone?: string;
   @IsOptional() @IsString() primaryColor?: string;
   @IsOptional() @IsString() secondaryColor?: string;
-  @IsOptional() @IsString() logoDataUrl?: string;
+  @IsOptional() @IsString() @Matches(/^(?!data:).*/i, { message: "Le logo doit etre charge comme fichier avant la creation." }) logoUrl?: string;
   @IsOptional() @IsString() userPhotoDataUrl?: string;
 }

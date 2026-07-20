@@ -7,7 +7,7 @@ import { fetchWithAuth } from "@/lib/api-client";
 import { initials, resolveAssetUrl } from "@/lib/company-branding";
 
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
-const tabs = [["Entreprise", "/dashboard/settings/company"], ["POS", "/dashboard/settings/pos"], ["Facturation", "/dashboard/settings/invoicing"], ["Abonnement", "/dashboard/settings/subscription"], ["Emails", "/dashboard/settings/emails"]];
+const tabs = [["Entreprise", "/dashboard/settings/company"], ["ActivitÃ©", "/dashboard/settings/business-modules"], ["POS", "/dashboard/settings/pos"], ["Facturation", "/dashboard/settings/invoicing"], ["Abonnement", "/dashboard/settings/subscription"], ["Emails", "/dashboard/settings/emails"]];
 const colors = [
   ["Bleu", "#2563eb"],
   ["Vert", "#16a34a"],
@@ -27,6 +27,10 @@ export default function CompanySettingsPage() {
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [localLogoPreview, setLocalLogoPreview] = useState<string | null>(null);
+  const [logoFailed, setLogoFailed] = useState(false);
+  const companyName = form.companyName || form.name || "Mon entreprise";
+  const logo = useMemo(() => localLogoPreview ?? resolveAssetUrl(form.logoUrl), [localLogoPreview, form.logoUrl]);
+  const primaryColor = form.primaryColor || "#2563eb";
 
   useEffect(() => {
     fetchWithAuth(`${apiUrl}/settings/company`)
@@ -38,6 +42,10 @@ export default function CompanySettingsPage() {
   useEffect(() => () => {
     if (localLogoPreview) URL.revokeObjectURL(localLogoPreview);
   }, [localLogoPreview]);
+
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [logo]);
 
   function update(key: keyof CompanyForm, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -113,14 +121,10 @@ export default function CompanySettingsPage() {
     }
   }
 
-  const companyName = form.companyName || form.name || "Mon entreprise";
-  const logo = useMemo(() => localLogoPreview ?? resolveAssetUrl(form.logoUrl), [localLogoPreview, form.logoUrl]);
-  const primaryColor = form.primaryColor || "#2563eb";
-
   return <div className="space-y-5"><Header active="Entreprise" />
     <form onSubmit={submit} className="grid gap-4 rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2">
       <div className="md:col-span-2 flex flex-col gap-4 rounded-lg border border-dashed p-4 dark:border-slate-700 sm:flex-row sm:items-center">
-        {logo ? <img src={logo} alt={`Logo ${companyName}`} className="h-20 w-20 rounded-xl object-contain shadow-sm" /> : <div className="flex h-20 w-20 items-center justify-center rounded-xl text-xl font-bold text-white shadow-sm" style={{ backgroundColor: primaryColor }}>{initials(companyName, "ME")}</div>}
+        {logo && !logoFailed ? <img src={logo} alt={`Logo ${companyName}`} onError={() => setLogoFailed(true)} className="h-20 w-20 rounded-xl object-contain shadow-sm" /> : <div className="flex h-20 w-20 items-center justify-center rounded-xl text-xl font-bold text-white shadow-sm" style={{ backgroundColor: primaryColor }}>{initials(companyName, "ME")}</div>}
         <div className="flex-1">
           <label className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-slate-950">
             <Camera className="h-4 w-4" aria-hidden="true" />

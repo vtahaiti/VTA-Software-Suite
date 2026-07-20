@@ -125,17 +125,73 @@ export class BusinessProfilesService {
   }
 
   async assignBusinessSelection(tenantId: string, categoryKey?: string, primaryActivity?: string, secondaryActivities: string[] = []) {
+    await this.syncCatalog();
     const profileSlug = resolveBusinessProfileSlug(categoryKey, primaryActivity);
-    const configuration = await this.activateProfile(tenantId, profileSlug, true);
-    await this.prisma.tenant.update({
-      where: { id: tenantId },
-      data: {
-        businessCategory: categoryKey ?? "commerce",
-        primaryActivity: primaryActivity ?? "Boutique / Market",
+    const [tenant, profile, selectedModules] = await Promise.all([
+      this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } }),
+      this.prisma.businessProfile.findUnique({ where: { slug: profileSlug } }),
+      this.prisma.businessModule.findMany({
+        where: { key: { in: Array.from(resolveBusinessModuleKeys(profileSlug, categoryKey, primaryActivity)) } },
+        select: { id: true, key: true }
+      })
+    ]);
+    if (!profile) throw new NotFoundException("Profil mÃ©tier introuvable.");
+    const moduleIds = selectedModules.map((module) => module.id);
+    const moduleKeys = selectedModules.map((module) => module.key);
+    const nextCategory = categoryKey ?? "commerce";
+    const nextActivity = primaryActivity ?? "Boutique / Market";
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.tenantBusinessProfile.updateMany({
+        where: { tenantId },
+        data: { isActive: false, isPrimary: false, disabledAt: new Date() }
+      });
+      await tx.tenantBusinessProfile.upsert({
+        where: { tenantId_businessProfileId: { tenantId, businessProfileId: profile.id } },
+        update: { isActive: true, isPrimary: true, disabledAt: null },
+        create: { tenantId, businessProfileId: profile.id, isPrimary: true, isActive: true }
+      });
+      await tx.tenantBusinessModule.updateMany({
+        where: { tenantId, source: "profile", businessModuleId: { notIn: moduleIds } },
+        data: { isActive: false, disabledAt: new Date() }
+      });
+      for (const module of selectedModules) {
+        await tx.tenantBusinessModule.upsert({
+          where: { tenantId_businessModuleId: { tenantId, businessModuleId: module.id } },
+          update: { isActive: true, source: "profile", disabledAt: null },
+          create: { tenantId, businessModuleId: module.id, source: "profile", isActive: true }
+        });
+      }
+      const profileData = {
+        businessCategory: nextCategory,
+        primaryActivity: nextActivity,
         secondaryActivities,
         businessProfileType: profileSlug,
-        enabledBusinessModules: configuration.modules.map((module) => module.key)
-      }
+        enabledBusinessModules: moduleKeys
+      };
+      await tx.tenant.update({ where: { id: tenantId }, data: profileData });
+      await tx.tenantSettings.upsert({
+        where: { tenantId },
+        update: profileData,
+        create: {
+          tenantId,
+          currency: "HTG",
+          timezone: "America/Port-au-Prince",
+          language: "fr",
+          ...profileData
+        }
+      });
+      await tx.companyProfile.upsert({
+        where: { tenantId },
+        update: { ...profileData, industry: nextActivity },
+        create: {
+          tenantId,
+          name: tenant?.name ?? "Mon entreprise",
+          companyName: tenant?.name ?? "Mon entreprise",
+          industry: nextActivity,
+          ...profileData
+        }
+      });
     });
     return this.tenantConfiguration(tenantId);
   }

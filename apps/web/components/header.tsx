@@ -28,6 +28,7 @@ export function Header({ user, onMenuClick }: HeaderProps) {
   const [count, setCount] = useState(0);
   const [items, setItems] = useState<Notification[]>([]);
   const [branding, setBranding] = useState<CompanyBranding | null>(null);
+  const [logoFailed, setLogoFailed] = useState(false);
 
   useEffect(() => {
     void loadNotifications();
@@ -35,6 +36,10 @@ export function Header({ user, onMenuClick }: HeaderProps) {
     window.addEventListener("vta:branding-updated", loadBranding);
     return () => window.removeEventListener("vta:branding-updated", loadBranding);
   }, []);
+
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [branding?.logoUrl]);
 
   async function loadBranding() {
     const token = getAccessToken();
@@ -85,8 +90,8 @@ export function Header({ user, onMenuClick }: HeaderProps) {
           <button type="button" onClick={onMenuClick} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 lg:hidden" aria-label="Ouvrir le menu">
             <Menu aria-hidden="true" className="h-5 w-5" />
           </button>
-          {branding?.logoUrl ? (
-            <img src={branding.logoUrl} alt={`Logo ${companyName}`} className="h-8 w-8 rounded-md object-contain shadow-sm sm:h-10 sm:w-10" />
+          {branding?.logoUrl && !logoFailed ? (
+            <img src={branding.logoUrl} alt={`Logo ${companyName}`} onError={() => setLogoFailed(true)} className="h-8 w-8 rounded-md object-contain shadow-sm sm:h-10 sm:w-10" />
           ) : (
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-xs font-bold text-white shadow-sm sm:h-10 sm:w-10 sm:text-sm" style={{ backgroundColor: primaryColor }}>{companyInitials}</div>
           )}

@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
 import { getTenantBusinessConfiguration } from "@/lib/business-profiles";
+import { getCompanyBranding, type CompanyBranding } from "@/lib/company-branding";
 import { downloadPdf, openPrintPreview } from "@/lib/print";
 
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
@@ -164,6 +165,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
   const [paymentReference, setPaymentReference] = useState("");
   const [message, setMessage] = useState("");
   const [showFabricationFields, setShowFabricationFields] = useState(false);
+  const [branding, setBranding] = useState<CompanyBranding | null>(null);
 
   const apiFetch = useCallback(async (path: string, init?: RequestInit) => {
     return fetch(`${apiUrl}${path}`, {
@@ -201,6 +203,8 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
     if (customersResponse.ok) setCustomers((await customersResponse.json()).items ?? []);
     if (productsResponse.ok) setProducts((await productsResponse.json()).items ?? []);
     setShowFabricationFields(isFabricationProfile(tenantConfiguration?.businessProfileType, tenantConfiguration?.primaryActivity));
+    const token = getAccessToken();
+    if (token) setBranding(await getCompanyBranding(token).catch(() => null));
   }
 
   const searchProducts = useCallback(async (term: string) => {
@@ -347,7 +351,8 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
     setMessage(body?.message ?? "Paiement impossible.");
   }
 
-  function printSelected() {
+  async function printSelected() {
+    await waitForPrintableImages();
     window.print();
   }
 
@@ -510,7 +515,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
                 transformAction={transformAction}
                 transformLabel={transformLabel}
                 onSelect={() => setSelected(doc)}
-                onPrint={() => { setSelected(doc); setTimeout(() => window.print(), 0); }}
+                onPrint={() => { setSelected(doc); setTimeout(() => void printSelected(), 0); }}
                 onAction={(action) => runAction(doc, action)}
                 onPayment={() => selectForPayment(doc)}
                 onStatus={(nextStatus) => updateStatus(doc, nextStatus)}
@@ -538,7 +543,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
                         transformAction={transformAction}
                         transformLabel={transformLabel}
                         onSelect={() => setSelected(doc)}
-                        onPrint={() => { setSelected(doc); setTimeout(() => window.print(), 0); }}
+                        onPrint={() => { setSelected(doc); setTimeout(() => void printSelected(), 0); }}
                         onAction={(action) => runAction(doc, action)}
                         onPayment={() => selectForPayment(doc)}
                         onStatus={(nextStatus) => updateStatus(doc, nextStatus)}
@@ -559,6 +564,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
           {selected ? (
             <DocumentDetail
               selected={selected}
+              branding={branding}
               type={type}
               transformAction={transformAction}
               transformLabel={transformLabel}
@@ -708,6 +714,7 @@ function DocumentCard(props: {
 
 function DocumentDetail(props: {
   selected: SalesDocument;
+  branding: CompanyBranding | null;
   type: DocType;
   transformLabel?: string;
   transformAction?: string;
@@ -725,6 +732,7 @@ function DocumentDetail(props: {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="printable-document">
+        <PrintBrandHeader branding={props.branding} title={documentKind(type)} number={selected.number} />
         <p className="font-mono text-xs text-slate-500">{selected.number}</p>
         <h2 className="text-lg font-semibold">{documentKind(type)}</h2>
         <p className="text-sm text-slate-500">Client: {selected.customer?.displayName ?? selected.customer?.name ?? "--"}</p>
@@ -779,6 +787,46 @@ function DocumentDetail(props: {
       ) : null}
     </div>
   );
+}
+
+function PrintBrandHeader({ branding, title, number }: { branding: CompanyBranding | null; title: string; number: string }) {
+  const [logoFailed, setLogoFailed] = useState(false);
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [branding?.logoUrl]);
+  const companyName = branding?.companyName ?? "Mon entreprise";
+  return (
+    <div className="mb-5 hidden items-start justify-between gap-6 border-b border-slate-200 pb-4 print:flex">
+      <div className="flex items-start gap-3">
+        {branding?.logoUrl && !logoFailed ? (
+          <img src={branding.logoUrl} alt={`Logo ${companyName}`} onError={() => setLogoFailed(true)} className="h-16 w-16 rounded-lg object-contain" />
+        ) : (
+          <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-slate-900 text-lg font-bold text-white">{branding?.companyInitials ?? "ME"}</div>
+        )}
+        <div>
+          <p className="text-lg font-bold text-slate-950">{companyName}</p>
+          {branding?.address ? <p className="text-xs text-slate-600">{branding.address}</p> : null}
+          {branding?.phone ? <p className="text-xs text-slate-600">Tel: {branding.phone}</p> : null}
+          {branding?.email ? <p className="text-xs text-slate-600">{branding.email}</p> : null}
+          {branding?.taxNumber ? <p className="text-xs text-slate-600">NIF: {branding.taxNumber}</p> : null}
+        </div>
+      </div>
+      <div className="text-right">
+        <p className="text-xl font-black uppercase text-slate-950">{title}</p>
+        <p className="font-mono text-xs text-slate-500">{number}</p>
+      </div>
+    </div>
+  );
+}
+
+async function waitForPrintableImages() {
+  if (document.fonts?.ready) await document.fonts.ready.catch(() => undefined);
+  const printable = document.querySelector(".printable-document");
+  const images = Array.from(printable?.querySelectorAll("img") ?? []);
+  await Promise.all(images.map((image) => image.complete ? Promise.resolve() : new Promise<void>((resolve) => {
+    image.onload = () => resolve();
+    image.onerror = () => resolve();
+  })));
 }
 
 function Info({ label, value }: { label: string; value: string | number }) {

@@ -73,7 +73,7 @@ export class OnboardingService {
     if (!pending || pending.expiresAt.getTime() < Date.now()) throw new BadRequestException("Inscription expirée. Recommencez la création du compte.");
 
     const slug = await this.uniqueSlug(dto.companyName);
-    const logoUrl = this.uploads.saveDataUrl("tenants", dto.logoDataUrl);
+    const logoUrl = dto.logoUrl?.startsWith("data:") ? null : dto.logoUrl ?? null;
     const userPhotoUrl = this.uploads.saveDataUrl("users", dto.userPhotoDataUrl);
 
     const profileSlug = dto.businessProfileSlug ?? resolveBusinessProfileSlug(dto.businessCategory, dto.primaryActivity);

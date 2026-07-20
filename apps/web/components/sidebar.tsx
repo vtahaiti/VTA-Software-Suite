@@ -24,6 +24,7 @@ export function Sidebar({ className = "", forceExpanded = false, onNavigate }: S
   const [expertSections, setExpertSections] = useState<BusinessMenuSection[]>(fallbackMenuSections);
   const [activity, setActivity] = useState("");
   const [branding, setBranding] = useState<CompanyBranding | null>(null);
+  const [logoFailed, setLogoFailed] = useState(false);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -37,19 +38,27 @@ export function Sidebar({ className = "", forceExpanded = false, onNavigate }: S
         if (mounted) setBranding(value);
       }
     }
-    getTenantBusinessConfiguration().then((configuration) => {
+    async function loadBusinessConfiguration() {
+      const configuration = await getTenantBusinessConfiguration().catch(() => null);
       if (!mounted || !configuration) return;
       setSimpleSections(configuration.simpleMenuSections?.length ? configuration.simpleMenuSections : fallbackMenuSections);
       setExpertSections(configuration.expertMenuSections?.length ? configuration.expertMenuSections : configuration.menuSections.length ? configuration.menuSections : fallbackMenuSections);
       setActivity(configuration.primaryActivity ?? "");
-    }).catch(() => undefined);
+    }
+    void loadBusinessConfiguration();
     void loadBranding();
     window.addEventListener("vta:branding-updated", loadBranding);
+    window.addEventListener("vta:business-profile-updated", loadBusinessConfiguration);
     return () => {
       mounted = false;
       window.removeEventListener("vta:branding-updated", loadBranding);
+      window.removeEventListener("vta:business-profile-updated", loadBusinessConfiguration);
     };
   }, []);
+
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [branding?.logoUrl]);
 
   function toggleMode() {
     const next = mode === "simple" ? "full" : "simple";
@@ -76,9 +85,9 @@ export function Sidebar({ className = "", forceExpanded = false, onNavigate }: S
 
   return <aside className={`h-full max-h-[100dvh] overflow-y-auto overscroll-contain border-r border-slate-200 bg-white px-2 py-3 dark:border-slate-800 dark:bg-slate-950 lg:sticky lg:top-0 lg:h-screen lg:px-4 lg:py-5 ${className}`}>
     <Link href="/dashboard" title={companyName} onClick={onNavigate} className={`flex items-center gap-3 rounded-lg px-1 py-2 text-lg font-bold text-slate-950 transition hover:bg-slate-50 dark:text-white dark:hover:bg-slate-900 lg:justify-start lg:px-3 ${forceExpanded ? "justify-start" : "justify-center"}`}>
-      {branding?.logoUrl ? <>
+      {branding?.logoUrl && !logoFailed ? <>
         {/* eslint-disable-next-line @next/next/no-img-element -- tenant logos are runtime URLs outside the static Next image allowlist */}
-        <img src={branding.logoUrl} alt={`Logo ${companyName}`} className="h-10 w-10 rounded-md object-contain shadow-sm" />
+        <img src={branding.logoUrl} alt={`Logo ${companyName}`} onError={() => setLogoFailed(true)} className="h-10 w-10 rounded-md object-contain shadow-sm" />
       </> : <span className="flex h-10 w-10 items-center justify-center rounded-md text-sm font-bold text-white shadow-sm" style={{ backgroundColor: primaryColor }}>{companyInitials}</span>}
       <span className={`${forceExpanded ? "block" : "hidden"} min-w-0 truncate lg:block`}>{companyName}</span>
     </Link>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
+import { getCompanyBranding, type CompanyBranding } from "@/lib/company-branding";
 import { downloadPdf, openPrintPreview } from "@/lib/print";
 
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
@@ -33,6 +34,7 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
   const [doc, setDoc] = useState<any>(null);
   const [payment, setPayment] = useState({ method: "CASH", amount: "", reference: "", notes: "" });
   const [message, setMessage] = useState("");
+  const [branding, setBranding] = useState<CompanyBranding | null>(null);
 
   const load = useCallback(async () => {
     const response = await fetch(`${apiUrl}/${type}/${params.id}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
@@ -40,6 +42,10 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
   }, [params.id, type]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const token = getAccessToken();
+    if (token) void getCompanyBranding(token).then(setBranding).catch(() => setBranding(null));
+  }, []);
 
   async function action(name: string) {
     const response = await fetch(`${apiUrl}/${type}/${params.id}/${name}`, { method: "POST", headers: { Authorization: `Bearer ${getAccessToken()}` } });
@@ -86,6 +92,11 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
     }
   }
 
+  async function printPage() {
+    await waitForPrintableImages();
+    window.print();
+  }
+
   if (!doc) return <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">Chargement...</div>;
 
   return (
@@ -103,7 +114,7 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
               <button onClick={() => void openPrintPreview(`/invoices/${params.id}/print`)} className="rounded-md border px-4 py-2 text-sm">Imprimer facture</button>
               <button onClick={() => void downloadPdf(`/invoices/${params.id}/pdf`, `facture-${doc.documentNumber ?? doc.number}.pdf`)} className="rounded-md border px-4 py-2 text-sm">Telecharger PDF</button>
             </>
-          ) : <button onClick={() => window.print()} className="rounded-md border px-4 py-2 text-sm">Imprimer</button>}
+          ) : <button onClick={() => void printPage()} className="rounded-md border px-4 py-2 text-sm">Imprimer</button>}
           {transformAction ? <button onClick={() => void action(transformAction)} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">{transformLabel}</button> : null}
           {type === "invoices" ? <button onClick={() => void action("cancel")} className="rounded-md border border-red-300 px-4 py-2 text-sm text-red-700">Annuler</button> : null}
           <Link href={`/dashboard/sales/${type}`} className="rounded-md border px-4 py-2 text-sm">Retour</Link>
@@ -122,7 +133,8 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border bg-white dark:border-slate-800 dark:bg-slate-900">
+      <div className="printable-document overflow-hidden rounded-lg border bg-white dark:border-slate-800 dark:bg-slate-900">
+        <PrintBrandHeader branding={branding} title={title} number={doc.documentNumber ?? doc.number} />
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950">
             <tr><th className="p-3">Produit</th><th className="p-3">Qte</th><th className="p-3">Prix</th><th className="p-3">Remise</th><th className="p-3">Taxe</th><th className="p-3">Total</th></tr>
@@ -180,6 +192,46 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
       ) : null}
     </div>
   );
+}
+
+function PrintBrandHeader({ branding, title, number }: { branding: CompanyBranding | null; title: string; number: string }) {
+  const [logoFailed, setLogoFailed] = useState(false);
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [branding?.logoUrl]);
+  const companyName = branding?.companyName ?? "Mon entreprise";
+  return (
+    <div className="mb-5 hidden items-start justify-between gap-6 border-b border-slate-200 pb-4 print:flex">
+      <div className="flex items-start gap-3">
+        {branding?.logoUrl && !logoFailed ? (
+          <img src={branding.logoUrl} alt={`Logo ${companyName}`} onError={() => setLogoFailed(true)} className="h-16 w-16 rounded-lg object-contain" />
+        ) : (
+          <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-slate-900 text-lg font-bold text-white">{branding?.companyInitials ?? "ME"}</div>
+        )}
+        <div>
+          <p className="text-lg font-bold text-slate-950">{companyName}</p>
+          {branding?.address ? <p className="text-xs text-slate-600">{branding.address}</p> : null}
+          {branding?.phone ? <p className="text-xs text-slate-600">Tel: {branding.phone}</p> : null}
+          {branding?.email ? <p className="text-xs text-slate-600">{branding.email}</p> : null}
+          {branding?.taxNumber ? <p className="text-xs text-slate-600">NIF: {branding.taxNumber}</p> : null}
+        </div>
+      </div>
+      <div className="text-right">
+        <p className="text-xl font-black uppercase text-slate-950">{title}</p>
+        <p className="font-mono text-xs text-slate-500">{number}</p>
+      </div>
+    </div>
+  );
+}
+
+async function waitForPrintableImages() {
+  if (document.fonts?.ready) await document.fonts.ready.catch(() => undefined);
+  const printable = document.querySelector(".printable-document");
+  const images = Array.from(printable?.querySelectorAll("img") ?? []);
+  await Promise.all(images.map((image) => image.complete ? Promise.resolve() : new Promise<void>((resolve) => {
+    image.onload = () => resolve();
+    image.onerror = () => resolve();
+  })));
 }
 
 function Info({ label, value }: { label: string; value: string | number }) {
