@@ -3,30 +3,50 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
-const productForm = fs.readFileSync(path.join(root, "apps/web/app/dashboard/products/product-form.tsx"), "utf8");
-const createPage = fs.readFileSync(path.join(root, "apps/web/app/dashboard/products/create/page.tsx"), "utf8");
-const editPage = fs.readFileSync(path.join(root, "apps/web/app/dashboard/products/[id]/edit/page.tsx"), "utf8");
+const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 
-assert(createPage.includes("<ProductForm />"), "La creation doit utiliser ProductForm.");
-assert(editPage.includes("<ProductForm productId={params.id}"), "La modification doit utiliser le meme ProductForm.");
+const productsPage = read("apps/web/app/dashboard/products/page.tsx");
+const productForm = read("apps/web/app/dashboard/products/product-form.tsx");
+const createPage = read("apps/web/app/dashboard/products/create/page.tsx");
+const editPage = read("apps/web/app/dashboard/products/[id]/edit/page.tsx");
+const posPage = read("apps/web/app/dashboard/pos/page.tsx");
 
-const essentialBlock = productForm.match(/<Section title="Essentiel produit">[\s\S]*?<\/Section>/)?.[0] ?? "";
-assert(essentialBlock.includes("Nom du produit"), "Nom du produit doit rester visible.");
-assert(essentialBlock.includes("Cat") && essentialBlock.includes("categoryId"), "Categorie doit etre visible dans les champs principaux.");
-assert(essentialBlock.includes("Prix vente") || essentialBlock.includes("Prix de vente"), "Prix de vente doit etre visible.");
-assert(essentialBlock.includes("Prix achat") || essentialBlock.includes("prix d'achat") || essentialBlock.includes("Coût"), "Cout / prix d'achat doit etre visible.");
-assert(essentialBlock.includes("ProductStockModeField"), "Le choix Produit stocke / service doit etre visible.");
-assert(essentialBlock.includes("Stock actuel"), "Stock actuel doit etre visible seulement quand Produit stocke.");
-assert(essentialBlock.includes("Seuil minimum"), "Seuil minimum doit etre visible seulement quand Produit stocke.");
-assert(essentialBlock.includes("Options avanc"), "Les champs secondaires doivent etre replies.");
+assert(createPage.includes("<ProductForm />"), "La création doit utiliser ProductForm.");
+assert(editPage.includes("<ProductForm productId={params.id}"), "La modification doit utiliser le même ProductForm.");
 
-for (const advanced of ["SKU automatique", "Code-barres", "Unité", "Fournisseur principal", "Référence", "Couleur", "Dimensions", "Type / mat"]) {
-  assert(productForm.includes(advanced) || productForm.includes(advanced.normalize("NFD").replace(/\p{Diacritic}/gu, "")), `Champ avance attendu: ${advanced}`);
+for (const forbidden of [
+  "Code disponible dans la fiche",
+  "Coût manquant",
+  "Service / non stocké",
+  "Produit stocké",
+  "Produit non stocké",
+  "Service non stocké",
+  "Minimum :"
+]) {
+  assert(!productsPage.includes(forbidden), `La liste Produits ne doit plus afficher: ${forbidden}`);
 }
 
-assert(productForm.includes("Plat / service non stocke"), "Restaurant doit garder Plat / service non stocke.");
-assert(productForm.includes("Produit stocke"), "Restaurant et autres profils doivent garder Produit stocke.");
-assert(productForm.includes('minimumStock: restaurantStockMode === "NON_STOCK" ? 0'), "Non-stock ne doit pas forcer de seuil minimum.");
-assert(productForm.includes('stock: restaurantStockMode === "NON_STOCK" ? 0'), "Non-stock ne doit pas forcer de stock variante.");
+assert(productsPage.includes("<th className=\"p-3\">Quantité</th>"), "La liste Produits doit afficher une colonne Quantité.");
+assert(productsPage.includes("ProductThumb"), "La liste Produits doit afficher une miniature ou des initiales.");
+assert(productsPage.includes("QuantityDisplay"), "La quantité doit être rendue par un affichage simple.");
+assert(!productsPage.includes("openQuickCost"), "Le bouton Coût ne doit plus apparaître sur chaque ligne.");
+
+const mainSection = productForm.match(/<Section title="Produit">[\s\S]*?<\/Section>/)?.[0] ?? "";
+for (const expected of ["Image produit", "Nom du produit", "Catégorie", "Prix de vente", "Quantité actuelle", "Quantité minimale", "Description courte", "Produit actif"]) {
+  assert(mainSection.includes(expected), `Champ principal manquant: ${expected}`);
+}
+assert(mainSection.includes("Coût / prix d'achat"), "Le coût d'achat doit rester accessible dans les champs principaux.");
+assert(!mainSection.includes("Produit sans suivi de stock"), "Le suivi de stock avancé ne doit pas être dans les champs principaux.");
+assert(productForm.includes("<summary className=\"cursor-pointer text-lg font-semibold text-slate-950 dark:text-white\">Options avancées</summary>"), "Options avancées doit exister et être fermé par défaut.");
+
+for (const advanced of ["SKU automatique", "Code-barres", "QR code", "Référence", "Fournisseur principal", "Unité", "Prix gros", "Coût moyen", "Taxe", "Stock maximum", "Emplacement", "Couleur", "Dimensions", "Type / matériau", "Épaisseur / longueur", "Garantie", "Produit sans suivi de stock"]) {
+  assert(productForm.includes(advanced), `Champ avancé attendu: ${advanced}`);
+}
+
+assert(!posPage.includes("Service / non stocké"), "Le POS ne doit plus afficher Service / non stocké.");
+assert(!posPage.includes("Produit stocké"), "Le POS ne doit pas afficher Produit stocké.");
+assert(!posPage.includes("Produit non stocké"), "Le POS ne doit pas afficher Produit non stocké.");
+assert(posPage.includes("Stock ${product.availableStock}") || posPage.includes("Stock ${item.availableStock}"), "Le POS doit afficher une quantité simple quand elle est disponible.");
+assert(posPage.includes("\"Disponible\""), "Le POS doit afficher un libellé discret pour les articles sans quantité suivie.");
 
 console.log("Product form UX smoke OK");

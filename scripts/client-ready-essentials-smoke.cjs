@@ -30,26 +30,25 @@ assert(posPage.includes("Ancienne vente locale nettoy"), "POS must clear stale l
 assert(posPage.includes("aucune vente en attente serveur associ"), "POS must not restore a local draft that has no server held-sale id.");
 assert(posPage.includes("normalizeHeldSalesResponse"), "POS must normalize held-sale list responses before restoring local state.");
 assert(posPage.includes("Nouvelle vente vide"), "POS must expose a clean new-sale reset state.");
-assert(posPage.includes("Service / non stock"), "POS must distinguish services and non-stock products from out-of-stock products.");
+assert(posPage.includes("\"Disponible\""), "POS must keep non-stock products sellable without technical labels.");
 assert(posPage.includes("product.stockTracked !== false"), "POS must avoid decrementing stock locally for non-stock products.");
 assert(posApi.includes("stockTracked") && posApi.includes("private isStockTracked"), "POS API must expose stock tracking state.");
 assert(salesApi.includes("isStockTrackedProduct") && salesApi.includes("hasTrackedStockElsewhere"), "Sales API must not require stock records for non-stock products.");
 assert(salesStatusPage.includes("setDrafts(uniqueDrafts((data.items ?? []).map(normalizeDraft)))"), "Held sales page must avoid server/local duplicates.");
 assert(salesStatusPage.includes("removeMatchingLocalDraft(draft)"), "Held sales cancel must clear matching local draft.");
 
-assert(productForm.includes("<Section title=\"Essentiel produit\">"), "Product form must start with an essential section.");
-assert(productForm.includes("Photo du produit"), "Product form must keep the product image option visible.");
+assert(productForm.includes("<Section title=\"Produit\">"), "Product form must start with a simple product section.");
+assert(productForm.includes("Image produit"), "Product form must keep the product image option visible.");
 assert(productForm.includes("<summary className=\"cursor-pointer text-lg font-semibold text-slate-950 dark:text-white\">Options avancées</summary>"), "Advanced product fields must stay collapsed by default.");
-assert(!/Section title="Tarification"[\\s\\S]*placeholder="Prix achat"[\\s\\S]*placeholder="Prix vente"/.test(productForm), "Advanced pricing must not duplicate essential sale and purchase prices.");
+assert(!/Section title="Tarification"[\s\S]*placeholder="Prix achat"[\s\S]*placeholder="Prix vente"/.test(productForm), "Advanced pricing must not duplicate essential sale and purchase prices.");
 assert(productsPage.includes("px-3 py-3 text-center text-sm font-bold"), "Mobile product edit button must remain large enough to tap.");
-assert(productsPage.includes("costMissingOnly"), "Products page must keep the missing-cost filter.");
-assert(productsPage.includes("openQuickCost") && productsPage.includes("Modifier le co"), "Products page must expose quick purchase-cost editing.");
-assert(productsPage.includes("purchasePrice: Number(quickCostValue || 0)"), "Quick cost edit must patch only the purchase cost.");
-assert(productsPage.includes("visibleMissingCostCount"), "Products page must show missing costs as a discreet summary, not every row.");
+assert(productsPage.includes("<th className=\"p-3\">Quantité</th>"), "Products page must expose a simple quantity column.");
+assert(!productsPage.includes("openQuickCost"), "Products page must not show quick cost actions on every row.");
+assert(!productsPage.includes("Code disponible dans la fiche"), "Products page must not show technical code helper text in rows.");
 assert(!productsPage.includes("ProductTypeHint"), "Products page must not duplicate service/non-stock labels in product rows.");
 
 assert(usersPage.includes("roleTargetId"), "Users table must not show every role selector by default.");
-assert(usersPage.includes("Changer rôle"), "Users table must expose an intentional role-change action.");
+assert(usersPage.includes("Changer r"), "Users table must expose an intentional role-change action.");
 assert(usersPage.includes("setRoleTargetId(null)"), "Users role edit must close after role update or cancel.");
 
 assert(salesStatusPage.includes("md:hidden"), "Sales history must use mobile cards below tablet width.");

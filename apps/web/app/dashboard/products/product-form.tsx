@@ -3,7 +3,6 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchWithAuth } from "@/lib/api-client";
-import type { TenantBusinessConfiguration } from "@/lib/business-profiles";
 
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
@@ -12,30 +11,51 @@ type Supplier = { id: string; name: string };
 type Store = { id: string; name: string };
 type Warehouse = { id: string; name: string };
 type CategoryForm = { name: string; icon: string };
-type HardwareSuggestion = { type: string; units: string[]; keywords: string[] };
-type RestaurantStockMode = "NON_STOCK" | "STOCKED";
 
-const unitOptions = ["pièce", "sac", "tonne", "kg", "mètre", "pied", "feuille", "gallon", "litre", "boîte", "paquet", "verge"];
 const emptyCategoryForm: CategoryForm = { name: "", icon: "" };
-const hardwareSuggestions: HardwareSuggestion[] = [
-  { type: "Fer / acier", units: ["barre", "tonne", "kg", "mètre"], keywords: ["fer", "acier", "barre"] },
-  { type: "Ciment", units: ["sac", "palette"], keywords: ["ciment", "mortier"] },
-  { type: "Tôle", units: ["feuille", "paquet"], keywords: ["tôle", "tole", "feuille"] },
-  { type: "Peinture", units: ["gallon", "litre"], keywords: ["peinture", "vernis"] },
-  { type: "Bois", units: ["pied", "mètre", "planche"], keywords: ["bois", "planche", "contreplaque"] },
-  { type: "Tuyau", units: ["pièce", "mètre"], keywords: ["tuyau", "pvc", "pipe"] },
-  { type: "Vis / clous", units: ["boîte", "paquet", "kg"], keywords: ["vis", "clou", "clous", "boulon"] },
-  { type: "Général", units: ["pièce"], keywords: [] }
-];
-const restaurantSuggestions: HardwareSuggestion[] = [
-  { type: "Plat", units: ["pièce", "portion"], keywords: ["plat", "repas", "menu", "poulet", "riz"] },
-  { type: "Boisson", units: ["pièce", "verre", "bouteille"], keywords: ["boisson", "jus", "soda", "eau", "cafe"] },
-  { type: "Dessert", units: ["pièce", "portion"], keywords: ["dessert", "gateau", "glace"] },
-  { type: "Extra", units: ["pièce", "portion"], keywords: ["extra", "supplement", "sauce"] },
-  { type: "Produit stockable", units: ["pièce", "bouteille", "paquet"], keywords: ["stock", "bouteille", "canette"] },
-  { type: "Ingrédient", units: ["kg", "litre", "paquet"], keywords: ["ingredient", "ingrédient", "farine", "huile", "riz"] },
-  { type: "Service / autre", units: ["service", "pièce"], keywords: ["service", "autre"] }
-];
+
+const emptyForm = {
+  name: "",
+  sku: "",
+  reference: "",
+  qrCode: "",
+  description: "",
+  categoryId: "",
+  subCategory: "",
+  brandId: "",
+  supplierId: "",
+  unitId: "",
+  customUnit: "",
+  purchasePrice: "0",
+  salePrice: "0",
+  promotionalPrice: "",
+  wholesalePrice: "0",
+  averageCost: "0",
+  taxRate: "0",
+  stockInitial: "0",
+  minimumStock: "0",
+  maximumStock: "0",
+  location: "",
+  storeId: "",
+  warehouseId: "",
+  manufacturingDate: "",
+  expirationDate: "",
+  warrantyMonths: "",
+  barcode: "",
+  barcodeType: "EAN",
+  imageUrl: "",
+  galleryUrls: "",
+  variantName: "",
+  variantColor: "",
+  variantSize: "",
+  variantModel: "",
+  variantCapacity: "",
+  variantSku: "",
+  variantBarcode: "",
+  variantStock: "0",
+  noStockTracking: false,
+  isActive: true
+};
 
 export function ProductForm({ productId }: { productId?: string }) {
   const router = useRouter();
@@ -47,57 +67,15 @@ export function ProductForm({ productId }: { productId?: string }) {
     stores: [],
     warehouses: []
   });
-  const [form, setForm] = useState({
-    name: "",
-    sku: "",
-    reference: "",
-    qrCode: "",
-    description: "",
-    categoryId: "",
-    subCategory: "",
-    brandId: "",
-    supplierId: "",
-    unitId: "",
-    customUnit: "",
-    purchasePrice: "0",
-    salePrice: "0",
-    promotionalPrice: "",
-    wholesalePrice: "0",
-    averageCost: "0",
-    taxRate: "0",
-    minimumStock: "0",
-    maximumStock: "0",
-    location: "",
-    storeId: "",
-    warehouseId: "",
-    manufacturingDate: "",
-    expirationDate: "",
-    warrantyMonths: "",
-    barcode: "",
-    barcodeType: "EAN",
-    imageUrl: "",
-    galleryUrls: "",
-    variantName: "",
-    variantColor: "",
-    variantSize: "",
-    variantModel: "",
-    variantCapacity: "",
-    variantSku: "",
-    variantBarcode: "",
-    variantStock: "0",
-    isActive: true
-  });
+  const [form, setForm] = useState(emptyForm);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [categoryForm, setCategoryForm] = useState<CategoryForm>(emptyCategoryForm);
-  const [business, setBusiness] = useState<TenantBusinessConfiguration | null>(null);
-  const [restaurantStockMode, setRestaurantStockMode] = useState<RestaurantStockMode>("NON_STOCK");
 
   useEffect(() => {
     void loadRefs();
     if (productId) void loadProduct();
-    // Product references and edit payload reload when the edited product changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId]);
 
@@ -127,10 +105,6 @@ export function ProductForm({ productId }: { productId?: string }) {
       stores: Array.isArray(storesData) ? storesData : storesData.items ?? [],
       warehouses: Array.isArray(warehousesData) ? warehousesData : warehousesData.items ?? []
     });
-    void fetchWithAuth(`${apiUrl}/business-profiles/tenant`, { cache: "no-store" })
-      .then((response) => response.ok ? response.json() : null)
-      .then((configuration) => setBusiness(configuration as TenantBusinessConfiguration | null))
-      .catch(() => undefined);
   }
 
   async function loadProduct() {
@@ -138,8 +112,11 @@ export function ProductForm({ productId }: { productId?: string }) {
     if (!response.ok) return;
     const product = await response.json();
     const variant = product.variants?.[0] ?? {};
-    const variantKind = restaurantSuggestionStockMode(String(variant.model ?? variant.name ?? product.name ?? ""));
+    const primaryImage = product.images?.[0]?.url ?? "";
+    const stockCurrent = Number(product.stockCurrent ?? product.stocks?.[0]?.quantity ?? 0);
+    const noStockTracking = stockCurrent <= 0 && Number(product.minimumStock ?? 0) <= 0 && isNonStockVariant(variant);
     setForm({
+      ...emptyForm,
       name: product.name ?? "",
       sku: product.sku ?? "",
       reference: product.reference ?? product.sku ?? "",
@@ -150,13 +127,13 @@ export function ProductForm({ productId }: { productId?: string }) {
       brandId: product.brandId ?? "",
       supplierId: product.supplierId ?? "",
       unitId: product.unitId ?? "",
-      customUnit: "",
       purchasePrice: String(product.purchasePrice ?? 0),
       salePrice: String(product.salePrice ?? 0),
       promotionalPrice: product.promotionalPrice ? String(product.promotionalPrice) : "",
       wholesalePrice: String(product.wholesalePrice ?? 0),
       averageCost: String(product.averageCost ?? 0),
       taxRate: String(product.taxRate ?? 0),
+      stockInitial: String(stockCurrent),
       minimumStock: String(product.minimumStock ?? 0),
       maximumStock: String(product.maximumStock ?? 0),
       location: product.location ?? "",
@@ -167,7 +144,7 @@ export function ProductForm({ productId }: { productId?: string }) {
       warrantyMonths: product.warrantyMonths ? String(product.warrantyMonths) : "",
       barcode: product.barcodes?.[0]?.value ?? "",
       barcodeType: product.barcodes?.[0]?.type ?? "EAN",
-      imageUrl: product.images?.[0]?.url ?? "",
+      imageUrl: primaryImage,
       galleryUrls: (product.images ?? []).slice(1).map((image: { url: string }) => image.url).join("\n"),
       variantName: variant.name ?? "",
       variantColor: variant.color ?? "",
@@ -177,36 +154,29 @@ export function ProductForm({ productId }: { productId?: string }) {
       variantSku: variant.sku ?? "",
       variantBarcode: variant.barcode ?? "",
       variantStock: String(variant.stock ?? 0),
+      noStockTracking,
       isActive: product.isActive
     });
-    setRestaurantStockMode(variantKind ?? (Number(product.minimumStock ?? 0) > 0 ? "STOCKED" : "NON_STOCK"));
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    setError(null);
+    setMessage(null);
     const unitId = await resolveUnitId();
     if (unitId === null) return;
+
     const gallery = form.galleryUrls.split(/\r?\n/).map((url) => url.trim()).filter(Boolean);
-    const variants = form.variantName || form.variantColor || form.variantSize || form.variantModel || form.variantCapacity || form.variantStock !== "0" || restaurantStockMode === "NON_STOCK"
-      ? [{
-        name: form.variantName || form.name,
-        color: form.variantColor || undefined,
-        size: form.variantSize || undefined,
-        model: form.variantModel || (restaurantStockMode === "NON_STOCK" ? nonStockProductLabel(business) : undefined),
-        capacity: form.variantCapacity || undefined,
-        sku: form.variantSku || undefined,
-        barcode: form.variantBarcode || undefined,
-        stock: restaurantStockMode === "NON_STOCK" ? 0 : Number(form.variantStock || 0)
-      }]
-      : undefined;
+    const noStock = Boolean(form.noStockTracking);
+    const variants = buildVariants(noStock);
     const payload = {
-      name: form.name,
-      sku: form.sku || undefined,
-      reference: form.reference || undefined,
-      qrCode: form.qrCode || undefined,
-      description: form.description || undefined,
+      name: form.name.trim(),
+      sku: form.sku.trim() || undefined,
+      reference: form.reference.trim() || undefined,
+      qrCode: form.qrCode.trim() || undefined,
+      description: form.description.trim() || undefined,
       categoryId: form.categoryId || undefined,
-      subCategory: form.subCategory || undefined,
+      subCategory: form.subCategory.trim() || undefined,
       brandId: form.brandId || undefined,
       supplierId: form.supplierId || undefined,
       unitId,
@@ -216,9 +186,10 @@ export function ProductForm({ productId }: { productId?: string }) {
       wholesalePrice: Number(form.wholesalePrice || 0),
       averageCost: Number(form.averageCost || 0),
       taxRate: Number(form.taxRate || 0),
-      minimumStock: restaurantStockMode === "NON_STOCK" ? 0 : Number(form.minimumStock || 0),
+      stockInitial: noStock ? 0 : Number(form.stockInitial || 0),
+      minimumStock: noStock ? 0 : Number(form.minimumStock || 0),
       maximumStock: Number(form.maximumStock || 0),
-      location: form.location || undefined,
+      location: form.location.trim() || undefined,
       storeId: form.storeId || undefined,
       warehouseId: form.warehouseId || undefined,
       manufacturingDate: form.manufacturingDate || undefined,
@@ -237,8 +208,12 @@ export function ProductForm({ productId }: { productId?: string }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
-    setMessage(response.ok ? "Produit enregistré." : "Impossible d'enregistrer le produit.");
-    if (response.ok) router.push("/dashboard/products");
+    if (!response.ok) {
+      setError(await readError(response));
+      return;
+    }
+    setMessage("Produit enregistré.");
+    router.push("/dashboard/products");
   }
 
   async function resolveUnitId() {
@@ -261,6 +236,21 @@ export function ProductForm({ productId }: { productId?: string }) {
     return unit.id;
   }
 
+  function buildVariants(noStock: boolean) {
+    const hasVariant = form.variantName || form.variantColor || form.variantSize || form.variantModel || form.variantCapacity || form.variantSku || form.variantBarcode || form.variantStock !== "0" || noStock;
+    if (!hasVariant) return undefined;
+    return [{
+      name: form.variantName || form.name,
+      color: form.variantColor || undefined,
+      size: form.variantSize || undefined,
+      model: noStock ? "Produit sans suivi de stock" : form.variantModel || undefined,
+      capacity: form.variantCapacity || undefined,
+      sku: form.variantSku || undefined,
+      barcode: form.variantBarcode || undefined,
+      stock: noStock ? 0 : Number(form.variantStock || 0)
+    }];
+  }
+
   async function createCategory() {
     setError(null);
     setMessage(null);
@@ -279,7 +269,7 @@ export function ProductForm({ productId }: { productId?: string }) {
     }
     const category = await response.json() as Ref;
     setRefs((current) => ({ ...current, categories: [category, ...current.categories.filter((item) => item.id !== category.id)] }));
-    setForm((current) => ({ ...current, categoryId: category.id }));
+    update("categoryId", category.id);
     setCategoryForm(emptyCategoryForm);
     setShowCategoryModal(false);
     setMessage("Catégorie créée et sélectionnée.");
@@ -294,170 +284,90 @@ export function ProductForm({ productId }: { productId?: string }) {
     setForm((current) => ({ ...current, barcode: value, barcodeType: "EAN", qrCode: current.qrCode || `PROD:${current.sku || current.name}:${value}` }));
   }
 
-  const selectedCategoryName = refs.categories.find((category) => category.id === form.categoryId)?.name ?? "";
-  const isHardwareProfile = ["hardware", "construction-materials"].includes(business?.businessProfileType ?? "") || /quinca|mat[ée]riaux|construction/i.test(`${business?.primaryActivity ?? ""} ${selectedCategoryName}`);
-  const isRestaurantProfile = business?.businessProfileType === "restaurant" || /restaurant|bar|cafe|café|fast.?food/i.test(`${business?.primaryActivity ?? ""} ${selectedCategoryName}`);
-  const hardwareContext = `${form.name} ${selectedCategoryName} ${form.variantModel}`.toLowerCase();
-  const recommendedHardwareSuggestions = useMemo(() => {
-    const matched = hardwareSuggestions.filter((suggestion) => suggestion.keywords.length > 0 && suggestion.keywords.some((keyword) => hardwareContext.includes(keyword)));
-    return matched.length ? matched : hardwareSuggestions.filter((suggestion) => ["Fer / acier", "Ciment", "Tôle", "Peinture", "Bois", "Tuyau", "Vis / clous", "Général"].includes(suggestion.type));
-  }, [hardwareContext]);
-  const recommendedRestaurantSuggestions = useMemo(() => {
-    const matched = restaurantSuggestions.filter((suggestion) => suggestion.keywords.length > 0 && suggestion.keywords.some((keyword) => hardwareContext.includes(keyword)));
-    return matched.length ? matched : restaurantSuggestions;
-  }, [hardwareContext]);
-
-  function applyHardwareSuggestion(suggestion: HardwareSuggestion, unitName?: string) {
-    setForm((current) => {
-      const nextUnit = unitName ?? suggestion.units[0] ?? "";
-      const existingUnit = refs.units.find((unit) => [unit.name, unit.symbol].filter(Boolean).some((value) => value?.toLowerCase() === nextUnit.toLowerCase()));
-      return {
-        ...current,
-        variantModel: suggestion.type,
-        unitId: existingUnit?.id ?? current.unitId,
-        customUnit: existingUnit ? "" : nextUnit
-      };
-    });
-  }
-
-  function applyRestaurantSuggestion(suggestion: HardwareSuggestion, unitName?: string) {
-    const nextMode = restaurantSuggestionStockMode(suggestion.type) ?? "NON_STOCK";
-    setForm((current) => {
-      const nextUnit = unitName ?? suggestion.units[0] ?? "";
-      const existingUnit = refs.units.find((unit) => [unit.name, unit.symbol].filter(Boolean).some((value) => value?.toLowerCase() === nextUnit.toLowerCase()));
-      return {
-        ...current,
-        variantModel: suggestion.type,
-        unitId: existingUnit?.id ?? current.unitId,
-        customUnit: existingUnit ? "" : nextUnit,
-        minimumStock: nextMode === "NON_STOCK" ? "0" : current.minimumStock || "0",
-        maximumStock: nextMode === "NON_STOCK" ? "0" : current.maximumStock,
-        variantStock: nextMode === "NON_STOCK" ? "0" : current.variantStock
-      };
-    });
-    setRestaurantStockMode(nextMode);
-  }
-
   return <form onSubmit={submit} className="space-y-5">
     {error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
-    <Section title="Essentiel produit">
-      <Input value={form.name} onChange={(value) => update("name", value)} placeholder="Nom du produit" />
+    <Section title="Produit">
+      <ImagePicker label="Image produit" selected={Boolean(form.imageUrl)} onChange={(value) => update("imageUrl", value)} />
+      <Input value={form.name} onChange={(value) => update("name", value)} placeholder="Nom du produit *" required />
       <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
         <Select value={form.categoryId} onChange={(value) => update("categoryId", value)} placeholder="Catégorie" items={refs.categories} />
         <button type="button" onClick={() => setShowCategoryModal(true)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">+ Nouvelle catégorie</button>
       </div>
-      <Input value={form.salePrice} onChange={(value) => update("salePrice", value)} placeholder="Prix vente" />
-      <Input value={form.purchasePrice} onChange={(value) => update("purchasePrice", value)} placeholder="Prix achat / coût" />
-      <ProductStockModeField nonStockLabel={nonStockProductLabel(business)} isRestaurant={isRestaurantProfile} mode={restaurantStockMode} onChange={(mode) => {
-        setRestaurantStockMode(mode);
-        if (mode === "NON_STOCK") setForm((current) => ({ ...current, minimumStock: "0", maximumStock: "0", variantStock: "0", variantModel: current.variantModel || nonStockProductLabel(business) }));
-      }} />
-      {restaurantStockMode === "STOCKED" ? <Input value={form.variantStock} onChange={(value) => update("variantStock", value)} placeholder="Stock actuel" /> : null}
-      {restaurantStockMode === "STOCKED" ? <Input value={form.minimumStock} onChange={(value) => update("minimumStock", value)} placeholder="Seuil minimum" /> : <div className="rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:bg-slate-950 dark:text-slate-300">{nonStockProductLabel(business)}: pas de stock actuel ni seuil minimum obligatoire.</div>}
-      <details className="rounded-md border border-dashed border-slate-300 p-3 dark:border-slate-700 md:col-span-2">
-        <summary className="cursor-pointer text-sm font-semibold text-brand-600">Options avancées du produit</summary>
-        <div className="mt-3 grid gap-4 md:grid-cols-2">
-      <Input value={form.sku} onChange={(value) => update("sku", value)} placeholder="SKU automatique si vide" />
-      <div className="flex gap-2">
-        <Input value={form.barcode} onChange={(value) => update("barcode", value)} placeholder="Code-barres UPC/EAN/QR" />
-        <button type="button" onClick={generateBarcode} className="rounded-md border px-3 py-2 text-sm font-semibold">Générer</button>
-      </div>
-      <details className="rounded-md border border-dashed border-slate-300 p-3 dark:border-slate-700 md:col-span-2">
-        <summary className="cursor-pointer text-sm font-semibold text-brand-600">Détails avancés produit</summary>
-        <div className="mt-3 grid gap-4 md:grid-cols-2">
-      <Input value={form.reference} onChange={(value) => update("reference", value)} placeholder="Référence interne ou fournisseur" />
-      <Input value={form.qrCode} onChange={(value) => update("qrCode", value)} placeholder="QR Code" />
-        </div>
-      </details>
-      <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-        <Select value={form.categoryId} onChange={(value) => update("categoryId", value)} placeholder="Catégorie" items={refs.categories} />
-        <button type="button" onClick={() => setShowCategoryModal(true)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">+ Nouvelle catégorie</button>
-      </div>
-      <Select value={form.unitId} onChange={(value) => update("unitId", value)} placeholder="Unité de vente / stock" items={refs.units} />
-      <Input value={form.customUnit} onChange={(value) => update("customUnit", value)} placeholder={`Nouvelle unité (${unitOptions.join(", ")})`} />
-      {isHardwareProfile ? <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100 md:col-span-2">
-        <p className="font-bold">Suggestions Quincaillerie / Matériaux</p>
-        <p className="mt-1 text-xs">Choisissez un type et une unité adaptée. Vous pouvez toujours modifier l’unité manuellement.</p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {recommendedHardwareSuggestions.map((suggestion) => <div key={suggestion.type} className="rounded-md bg-white/75 p-2 dark:bg-slate-900/60">
-            <button type="button" onClick={() => applyHardwareSuggestion(suggestion)} className="font-semibold text-brand-700 dark:text-brand-300">{suggestion.type}</button>
-            <div className="mt-2 flex flex-wrap gap-1">
-              {suggestion.units.map((unit) => <button key={`${suggestion.type}-${unit}`} type="button" onClick={() => applyHardwareSuggestion(suggestion, unit)} className="rounded-full border border-amber-300 px-2 py-1 text-xs font-semibold dark:border-amber-800">{unit}</button>)}
-            </div>
-          </div>)}
-        </div>
-      </div> : null}
-      {isRestaurantProfile ? <div className="rounded-md border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950 dark:border-orange-900 dark:bg-orange-950 dark:text-orange-100 md:col-span-2">
-        <p className="font-bold">Suggestions Restaurant</p>
-        <p className="mt-1 text-xs">Classez rapidement plats, boissons, desserts et extras. Utilisez le stock seulement pour les articles que vous suivez réellement.</p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {recommendedRestaurantSuggestions.map((suggestion) => <div key={suggestion.type} className="rounded-md bg-white/75 p-2 dark:bg-slate-900/60">
-            <button type="button" onClick={() => applyRestaurantSuggestion(suggestion)} className="font-semibold text-brand-700 dark:text-brand-300">{suggestion.type}</button>
-            <div className="mt-2 flex flex-wrap gap-1">
-              {suggestion.units.map((unit) => <button key={`${suggestion.type}-${unit}`} type="button" onClick={() => applyRestaurantSuggestion(suggestion, unit)} className="rounded-full border border-orange-300 px-2 py-1 text-xs font-semibold dark:border-orange-800">{unit}</button>)}
-            </div>
-          </div>)}
-        </div>
-      </div> : null}
-      <ImagePicker label="Photo du produit" selected={Boolean(form.imageUrl)} onChange={(value) => update("imageUrl", value)} />
-        </div>
-      </details>
+      <Input value={form.salePrice} onChange={(value) => update("salePrice", value)} placeholder="Prix de vente *" type="number" required />
+      <Input value={form.stockInitial} onChange={(value) => update("stockInitial", value)} placeholder="Quantité actuelle" type="number" helper="Quantité disponible au départ." />
+      <Input value={form.minimumStock} onChange={(value) => update("minimumStock", value)} placeholder="Quantité minimale pour stock faible" type="number" helper="Alerte quand le stock arrive à ce niveau." />
+      <Input value={form.purchasePrice} onChange={(value) => update("purchasePrice", value)} placeholder="Coût / prix d'achat" type="number" />
+      <textarea value={form.description} onChange={(event) => update("description", event.target.value)} placeholder="Description courte facultative" rows={3} className="min-h-24 rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950 md:col-span-2" />
+      <label className="flex items-center gap-2 text-sm md:col-span-2">
+        <input type="checkbox" checked={form.isActive} onChange={(event) => update("isActive", event.target.checked)} /> Produit actif
+      </label>
     </Section>
+
     <details className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <summary className="cursor-pointer text-lg font-semibold text-slate-950 dark:text-white">Options avancées</summary>
-      <p className="mt-1 text-sm text-slate-500">Prix avancés, fournisseur, images, variantes, dimensions et dates.</p>
       <div className="mt-5 space-y-5">
-    <Section title="Classification et fournisseur">
-      <Input value={form.subCategory} onChange={(value) => update("subCategory", value)} placeholder="Sous-catégorie" />
-      <Select value={form.brandId} onChange={(value) => update("brandId", value)} placeholder="Marque" items={refs.brands} />
-      <Select value={form.supplierId} onChange={(value) => update("supplierId", value)} placeholder="Fournisseur principal" items={refs.suppliers} />
-    </Section>
-    <Section title="Tarification">
-      <Input value={form.promotionalPrice} onChange={(value) => update("promotionalPrice", value)} placeholder="Prix promotionnel" />
-      <Input value={form.wholesalePrice} onChange={(value) => update("wholesalePrice", value)} placeholder="Prix gros" />
-      <Input value={form.averageCost} onChange={(value) => update("averageCost", value)} placeholder="Coût moyen" />
-      <Input value={form.taxRate} onChange={(value) => update("taxRate", value)} placeholder="TVA / Taxe" />
-      <div className="rounded-md bg-green-50 px-3 py-2 text-sm font-semibold text-green-700 dark:bg-green-950 dark:text-green-200">Marge calculée : {margin}%</div>
-    </Section>
-    <Section title="Inventaire">
-      <Input value={form.maximumStock} onChange={(value) => update("maximumStock", value)} placeholder="Stock maximum" />
-      <Input value={form.location} onChange={(value) => update("location", value)} placeholder="Emplacement" />
-      <Select value={form.storeId} onChange={(value) => update("storeId", value)} placeholder="Magasin" items={refs.stores} />
-      <Select value={form.warehouseId} onChange={(value) => update("warehouseId", value)} placeholder="Depot" items={refs.warehouses} />
-      <div className="rounded-md bg-orange-50 px-3 py-2 text-sm text-orange-700 dark:bg-orange-950 dark:text-orange-200">Alerte de rupture activee via stock minimum.</div>
-    </Section>
-    <Section title="Codes et etiquettes">
-      <select value={form.barcodeType} onChange={(event) => update("barcodeType", event.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
-        <option value="EAN">EAN</option>
-        <option value="UPC">UPC</option>
-        <option value="QR">QR code</option>
-        <option value="CUSTOM">Personnalise</option>
-      </select>
-      <GalleryPicker selected={Boolean(form.galleryUrls)} onChange={(value) => update("galleryUrls", value)} />
-    </Section>
-    <Section title="Variante principale">
-      <Input value={form.variantName} onChange={(value) => update("variantName", value)} placeholder="Nom variante" />
-      <Input value={form.variantColor} onChange={(value) => update("variantColor", value)} placeholder="Couleur" />
-      <Input value={form.variantSize} onChange={(value) => update("variantSize", value)} placeholder="Dimensions / taille" />
-      <Input value={form.variantModel} onChange={(value) => update("variantModel", value)} placeholder="Type / matériau" />
-      <Input value={form.variantCapacity} onChange={(value) => update("variantCapacity", value)} placeholder="Épaisseur / longueur" />
-      <Input value={form.variantStock} onChange={(value) => update("variantStock", value)} placeholder="Stock variante" />
-    </Section>
-    <Section title="Dates">
-      <input type="date" value={form.manufacturingDate} onChange={(event) => update("manufacturingDate", event.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-      <input type="date" value={form.expirationDate} onChange={(event) => update("expirationDate", event.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-      <Input value={form.warrantyMonths} onChange={(value) => update("warrantyMonths", value)} placeholder="Garantie en mois" />
-    </Section>
-    <textarea value={form.description} onChange={(event) => update("description", event.target.value)} placeholder="Description" className="min-h-28 w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+        <Section title="Codes et références">
+          <Input value={form.sku} onChange={(value) => update("sku", value)} placeholder="SKU automatique si vide" />
+          <div className="flex gap-2">
+            <Input value={form.barcode} onChange={(value) => update("barcode", value)} placeholder="Code-barres" />
+            <button type="button" onClick={generateBarcode} className="rounded-md border px-3 py-2 text-sm font-semibold">Générer</button>
+          </div>
+          <Input value={form.qrCode} onChange={(value) => update("qrCode", value)} placeholder="QR code" />
+          <Input value={form.reference} onChange={(value) => update("reference", value)} placeholder="Référence interne ou fournisseur" />
+        </Section>
+
+        <Section title="Classification">
+          <Input value={form.subCategory} onChange={(value) => update("subCategory", value)} placeholder="Sous-catégorie" />
+          <Select value={form.brandId} onChange={(value) => update("brandId", value)} placeholder="Marque" items={refs.brands} />
+          <Select value={form.supplierId} onChange={(value) => update("supplierId", value)} placeholder="Fournisseur principal" items={refs.suppliers} />
+          <Select value={form.unitId} onChange={(value) => update("unitId", value)} placeholder="Unité" items={refs.units} />
+          <Input value={form.customUnit} onChange={(value) => update("customUnit", value)} placeholder="Nouvelle unité" />
+        </Section>
+
+        <Section title="Prix avancés">
+          <Input value={form.promotionalPrice} onChange={(value) => update("promotionalPrice", value)} placeholder="Prix promotionnel" type="number" />
+          <Input value={form.wholesalePrice} onChange={(value) => update("wholesalePrice", value)} placeholder="Prix gros" type="number" />
+          <Input value={form.averageCost} onChange={(value) => update("averageCost", value)} placeholder="Coût moyen" type="number" />
+          <Input value={form.taxRate} onChange={(value) => update("taxRate", value)} placeholder="Taxe" type="number" />
+          <div className="rounded-md bg-green-50 px-3 py-2 text-sm font-semibold text-green-700 dark:bg-green-950 dark:text-green-200">Marge calculée : {margin}%</div>
+        </Section>
+
+        <Section title="Stock et emplacement">
+          <Input value={form.maximumStock} onChange={(value) => update("maximumStock", value)} placeholder="Stock maximum" type="number" />
+          <Input value={form.location} onChange={(value) => update("location", value)} placeholder="Emplacement" />
+          <Select value={form.storeId} onChange={(value) => update("storeId", value)} placeholder="Magasin" items={refs.stores} />
+          <Select value={form.warehouseId} onChange={(value) => update("warehouseId", value)} placeholder="Dépôt" items={refs.warehouses} />
+          <label className="flex items-center gap-2 text-sm md:col-span-2">
+            <input type="checkbox" checked={form.noStockTracking} onChange={(event) => update("noStockTracking", event.target.checked)} />
+            Produit sans suivi de stock
+          </label>
+        </Section>
+
+        <Section title="Variantes et détails">
+          <Input value={form.variantName} onChange={(value) => update("variantName", value)} placeholder="Nom variante" />
+          <Input value={form.variantColor} onChange={(value) => update("variantColor", value)} placeholder="Couleur" />
+          <Input value={form.variantSize} onChange={(value) => update("variantSize", value)} placeholder="Dimensions" />
+          <Input value={form.variantModel} onChange={(value) => update("variantModel", value)} placeholder="Type / matériau" />
+          <Input value={form.variantCapacity} onChange={(value) => update("variantCapacity", value)} placeholder="Épaisseur / longueur" />
+          <Input value={form.variantStock} onChange={(value) => update("variantStock", value)} placeholder="Stock variante" type="number" />
+          <Input value={form.variantSku} onChange={(value) => update("variantSku", value)} placeholder="SKU variante" />
+          <Input value={form.variantBarcode} onChange={(value) => update("variantBarcode", value)} placeholder="Code-barres variante" />
+        </Section>
+
+        <Section title="Images et dates">
+          <GalleryPicker selected={Boolean(form.galleryUrls)} onChange={(value) => update("galleryUrls", value)} />
+          <input type="date" value={form.manufacturingDate} onChange={(event) => update("manufacturingDate", event.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+          <input type="date" value={form.expirationDate} onChange={(event) => update("expirationDate", event.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+          <Input value={form.warrantyMonths} onChange={(value) => update("warrantyMonths", value)} placeholder="Garantie en mois" type="number" />
+        </Section>
       </div>
     </details>
-    <label className="flex items-center gap-2 text-sm">
-      <input type="checkbox" checked={form.isActive} onChange={(event) => update("isActive", event.target.checked)} /> Produit actif
-    </label>
+
     <div className="flex items-center gap-3">
       <button className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Enregistrer</button>
       {message ? <p className="text-sm text-slate-500">{message}</p> : null}
     </div>
+
     {showCategoryModal ? (
       <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4">
         <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900">
@@ -473,7 +383,7 @@ export function ProductForm({ productId }: { productId?: string }) {
               <input value={categoryForm.name} onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))} className="rounded-md border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-950" />
             </label>
             <label className="grid gap-1 text-sm font-semibold">Icône
-              <input value={categoryForm.icon} onChange={(event) => setCategoryForm((current) => ({ ...current, icon: event.target.value }))} placeholder="Ex: 📦" className="rounded-md border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-950" />
+              <input value={categoryForm.icon} onChange={(event) => setCategoryForm((current) => ({ ...current, icon: event.target.value }))} className="rounded-md border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-950" />
             </label>
             <button type="button" onClick={() => void createCategory()} className="rounded-md bg-brand-600 px-4 py-3 text-sm font-bold text-white">Créer et sélectionner</button>
           </div>
@@ -490,8 +400,8 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   </section>;
 }
 
-function Input({ value, onChange, placeholder }: { value: string; placeholder: string; onChange: (value: string) => void }) {
-  return <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="min-w-0 rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />;
+function Input({ value, onChange, placeholder, helper, required = false, type = "text" }: { value: string; placeholder: string; helper?: string; required?: boolean; type?: string; onChange: (value: string) => void }) {
+  return <label className="grid gap-1"><input type={type} required={required} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="min-w-0 rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />{helper ? <span className="text-xs text-slate-500">{helper}</span> : null}</label>;
 }
 
 function Select({ value, onChange, placeholder, items }: { value: string; placeholder: string; items: Ref[]; onChange: (value: string) => void }) {
@@ -501,59 +411,24 @@ function Select({ value, onChange, placeholder, items }: { value: string; placeh
   </select>;
 }
 
-function isRestaurantBusiness(business: TenantBusinessConfiguration | null) {
-  const profile = `${business?.businessProfileType ?? ""} ${business?.primaryActivity ?? ""}`.toLowerCase();
-  return /restaurant|bar|cafe|fast.?food/.test(profile);
-}
-
-function isMultiActivityBusiness(business: TenantBusinessConfiguration | null) {
-  const profile = `${business?.businessProfileType ?? ""} ${business?.primaryActivity ?? ""}`.toLowerCase();
-  return /multi|service|repair|reparation|imprimerie|studio/.test(profile);
-}
-
-function nonStockProductLabel(business: TenantBusinessConfiguration | null) {
-  if (isRestaurantBusiness(business)) return "Plat / service non stocké";
-  if (isMultiActivityBusiness(business)) return "Service non stocké";
-  return "Produit non stocké";
-}
-
-function ProductStockModeField({ isRestaurant, nonStockLabel, mode, onChange }: { isRestaurant: boolean; nonStockLabel: string; mode: RestaurantStockMode; onChange: (mode: RestaurantStockMode) => void }) {
-  const nonStockHint = isRestaurant ? "Plats, portions, extras et services vendables sans rupture." : "Services, frais ou articles ponctuels vendables sans suivi de stock.";
-  return <fieldset className="rounded-md border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950 dark:border-orange-900 dark:bg-orange-950 dark:text-orange-100 md:col-span-2">
-    <legend className="px-1 font-bold">Type de produit</legend>
-    <div className="mt-2 grid gap-2 sm:grid-cols-2">
-      <label className="flex cursor-pointer items-start gap-2 rounded-md bg-white/75 p-3 dark:bg-slate-900/60">
-        <input type="radio" name="restaurant-stock-mode" checked={mode === "NON_STOCK"} onChange={() => onChange("NON_STOCK")} />
-        <span><span className="block font-semibold">{nonStockLabel}</span><span className="text-xs">{nonStockHint}</span></span>
-      </label>
-      <label className="flex cursor-pointer items-start gap-2 rounded-md bg-white/75 p-3 dark:bg-slate-900/60">
-        <input type="radio" name="restaurant-stock-mode" checked={mode === "STOCKED"} onChange={() => onChange("STOCKED")} />
-        <span><span className="block font-semibold">Produit stocké</span><span className="text-xs">Articles physiques, boissons ou ingrédients avec stock et seuil minimum.</span></span>
-      </label>
-    </div>
-  </fieldset>;
-}
-
-function restaurantSuggestionStockMode(value: string): RestaurantStockMode | null {
-  if (/stockable|ingredient|ingr[ée]dient|boisson|bouteille|canette/i.test(value)) return "STOCKED";
-  if (/plat|portion|dessert|extra|service|menu|repas/i.test(value)) return "NON_STOCK";
-  return null;
-}
-
 function ImagePicker({ label, selected, onChange }: { label: string; selected: boolean; onChange: (value: string) => void }) {
   return <label className="grid gap-2 rounded-md border border-dashed border-slate-300 px-3 py-3 text-sm font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">
     {label}
     <input type="file" accept="image/*" onChange={(event) => void loadImage(event.target.files?.[0], onChange)} className="sr-only" />
-    {selected ? <span className="text-xs font-normal text-green-600">Image sélectionnée</span> : <span className="text-xs font-normal text-slate-400">Facultatif</span>}
+    {selected ? <span className="text-xs font-normal text-green-600">Image sélectionnée</span> : <span className="text-xs font-normal text-slate-400">Choisir une image</span>}
   </label>;
 }
 
 function GalleryPicker({ selected, onChange }: { selected: boolean; onChange: (value: string) => void }) {
   return <label className="grid gap-2 rounded-md border border-dashed border-slate-300 px-3 py-3 text-sm font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">
-    📷 Ajouter des photos
+    Ajouter des photos
     <input type="file" accept="image/*" multiple onChange={(event) => void loadImages(event.target.files, onChange)} className="sr-only" />
     {selected ? <span className="text-xs font-normal text-green-600">Galerie sélectionnée</span> : <span className="text-xs font-normal text-slate-400">Facultatif</span>}
   </label>;
+}
+
+function isNonStockVariant(variant: { model?: string | null; name?: string | null }) {
+  return /sans suivi|non stock|non-stock|service|plat/i.test(`${variant.model ?? ""} ${variant.name ?? ""}`);
 }
 
 function loadImage(file: File | undefined, onDone: (value: string) => void) {

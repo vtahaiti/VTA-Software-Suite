@@ -918,7 +918,7 @@ export default function PosPage() {
                 <label className="grid gap-1 text-sm font-semibold">Type
                   <select value={customItemForm.type} onChange={(event) => setCustomItemForm((current) => ({ ...current, type: event.target.value as CustomItemType }))} className="rounded-md border border-slate-300 bg-white px-3 py-3 font-normal dark:border-slate-700 dark:bg-slate-950">
                     <option value="SERVICE">Service</option>
-                    <option value="NON_STOCK_PRODUCT">Produit non stocké</option>
+                    <option value="NON_STOCK_PRODUCT">Article sans quantité suivie</option>
                     <option value="OUT_OF_STOCK_PRODUCT">Produit hors stock ponctuel</option>
                     <option value="CUSTOM_WORK">Travail personnalisé</option>
                     <option value="OTHER">Autre</option>
@@ -998,7 +998,7 @@ function ProductCard({ product, onAdd }: { product: Product; onAdd: () => void }
         <div className="flex items-end justify-between gap-2">
           <div>
             <p className="text-base font-bold tabular-nums text-slate-950">{formatMoney(product.salePrice)}</p>
-            <p className={`mt-1 text-xs font-medium ${isOut ? "text-red-600" : isLowStock ? "text-orange-600" : "text-slate-500"}`}>{stockTracked ? (isOut ? "Rupture" : `Stock ${product.availableStock}`) : "Service / non stocké"}</p>
+            <p className={`mt-1 text-xs font-medium ${isOut ? "text-red-600" : isLowStock ? "text-orange-600" : "text-slate-500"}`}>{stockTracked ? (isOut ? "Rupture" : `Stock ${product.availableStock}`) : "Disponible"}</p>
           </div>
       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-slate-950 text-white transition group-hover:bg-brand-600" aria-label="Ajouter"><Plus aria-hidden="true" className="h-5 w-5" /></span>
         </div>
@@ -1118,7 +1118,7 @@ function CartLineItem({ item, updateQuantity, removeProduct }: { item: CartLine;
         <div className="min-w-0">
           <p className="truncate font-semibold">{item.name}</p>
           {item.unit ? <p className="text-xs font-semibold text-slate-600">Unité: {item.unit}</p> : null}
-          <p className="text-xs text-slate-500">{item.isCustom ? customTypeLabel(item.customType) : item.stockTracked === false ? `${item.sku} · service / non stocké` : `${item.sku} · stock ${item.availableStock}`}</p>
+          <p className="text-xs text-slate-500">{item.isCustom ? customTypeLabel(item.customType) : item.stockTracked === false ? "Disponible" : `Stock ${item.availableStock}`}</p>
           {item.isCustom ? <span className="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">{customTypeBadge(item.customType)}</span> : null}
         </div>
         <button onClick={() => removeProduct(id)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600" aria-label={`Retirer ${item.name}`}>
@@ -1437,7 +1437,7 @@ function cartLineToPayload(item: CartLine): CartPayloadItem {
 
 function customTypeLabel(type?: CustomItemType) {
   if (type === "OUT_OF_STOCK_PRODUCT") return "Produit hors stock";
-  if (type === "NON_STOCK_PRODUCT") return "Produit non stocké";
+  if (type === "NON_STOCK_PRODUCT") return "Article sans quantité suivie";
   if (type === "CUSTOM_WORK") return "Travail personnalisé";
   if (type === "SERVICE") return "Service";
   return "Article personnalisé";

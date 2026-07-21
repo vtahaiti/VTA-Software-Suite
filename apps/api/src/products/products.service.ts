@@ -25,6 +25,7 @@ const productListSelect = {
   category: { select: { id: true, name: true } },
   unit: { select: { id: true, name: true, symbol: true } },
   supplier: { select: { id: true, name: true } },
+  images: { select: { url: true, alt: true, sortOrder: true }, take: 1, orderBy: { sortOrder: "asc" } },
   variants: { select: { name: true, model: true, stock: true } },
   stocks: { select: { quantity: true, reserved: true, minimumStock: true } }
 } satisfies Prisma.ProductSelect;
@@ -154,10 +155,12 @@ export class ProductsService {
       if (dto.images) await tx.productImage.deleteMany({ where: { productId: id } });
       if (dto.variants) await tx.productVariant.deleteMany({ where: { productId: id } });
       const product = await tx.product.update({ where: { id }, data: this.productUpdateData(dto), include: productInclude });
+      await this.updateStockFromProductEdit(tx, tenantId, product, dto);
       if ([dto.purchasePrice, dto.salePrice, dto.wholesalePrice, dto.averageCost].some((value) => value !== undefined)) {
         await tx.priceHistory.create({ data: { productId: id, purchasePrice: dto.purchasePrice ?? product.purchasePrice, salePrice: dto.salePrice ?? product.salePrice, wholesalePrice: dto.wholesalePrice ?? product.wholesalePrice, averageCost: dto.averageCost ?? product.averageCost } });
       }
-      return this.withComputedFields(product);
+      const updated = await tx.product.findUniqueOrThrow({ where: { id }, include: productInclude });
+      return this.withComputedFields(updated);
     });
   }
 
@@ -250,6 +253,48 @@ export class ProductsService {
       location: dto.location, storeId: dto.storeId, warehouseId: dto.warehouseId, manufacturingDate: dto.manufacturingDate ? new Date(dto.manufacturingDate) : undefined, expirationDate: dto.expirationDate ? new Date(dto.expirationDate) : undefined, warrantyMonths: dto.warrantyMonths,
       barcodes: dto.barcodes ? { create: dto.barcodes } : undefined, images: dto.images ? { create: dto.images } : undefined, variants: dto.variants ? { create: dto.variants } : undefined
     };
+  }
+
+  private async updateStockFromProductEdit(tx: Prisma.TransactionClient, tenantId: string, product: Prisma.ProductGetPayload<{ include: typeof productInclude }>, dto: UpdateProductDto) {
+    const quantityDefined = dto.stockInitial !== undefined;
+    const minimumDefined = dto.minimumStock !== undefined;
+    if (!quantityDefined && !minimumDefined) return;
+
+    const existingStock = product.stocks[0];
+    const warehouse = dto.warehouseId
+      ? await tx.warehouse.findFirst({ where: { id: dto.warehouseId, tenantId, isActive: true } })
+      : existingStock
+        ? await tx.warehouse.findFirst({ where: { id: existingStock.warehouseId, tenantId, isActive: true } })
+        : await tx.warehouse.findFirst({ where: { tenantId, isActive: true }, orderBy: { createdAt: "asc" } });
+    if (!warehouse) return;
+
+    const quantity = Number(dto.stockInitial ?? existingStock?.quantity ?? 0);
+    const minimumStock = Number(dto.minimumStock ?? existingStock?.minimumStock ?? product.minimumStock ?? 0);
+    const beforeQty = Number(existingStock?.quantity ?? 0);
+
+    const stock = await tx.stock.upsert({
+      where: { tenantId_productId_warehouseId: { tenantId, productId: product.id, warehouseId: warehouse.id } },
+      update: { ...(quantityDefined ? { quantity } : {}), ...(minimumDefined ? { minimumStock } : {}) },
+      create: { tenantId, productId: product.id, warehouseId: warehouse.id, quantity, minimumStock }
+    });
+
+    if (quantityDefined && beforeQty !== quantity) {
+      await tx.inventoryMovement.create({
+        data: {
+          tenantId,
+          productId: product.id,
+          warehouseId: warehouse.id,
+          storeId: warehouse.storeId,
+          type: "ADJUSTMENT",
+          reason: "Correction fiche produit",
+          quantity: Math.abs(quantity - beforeQty),
+          beforeQty,
+          afterQty: Number(stock.quantity),
+          reference: product.sku,
+          note: "Modification quantite depuis la fiche produit"
+        }
+      });
+    }
   }
 
   private withComputedFields<T extends { purchasePrice: unknown; averageCost?: unknown; salePrice: unknown; promotionalPrice?: unknown; variants?: Array<{ stock: number }>; stocks?: Array<{ quantity: number; reserved?: number | null; minimumStock?: number | null }> }>(product: T) {
