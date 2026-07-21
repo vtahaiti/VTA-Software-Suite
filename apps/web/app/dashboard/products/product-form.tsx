@@ -1,10 +1,9 @@
 "use client";
+import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchWithAuth } from "@/lib/api-client";
-
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 type Ref = { id: string; name: string; symbol?: string };
 type Supplier = { id: string; name: string };

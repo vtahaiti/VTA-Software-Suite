@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
+import { fetchApi } from "@/lib/api-url";
 
 export function useNetworkStatus() {
   const [isOnline, setIsOnline] = useState(true);
@@ -21,7 +20,7 @@ export function useNetworkStatus() {
       }
 
       try {
-        const response = await fetch(`${apiUrl}/health`, { cache: "no-store" });
+        const response = await fetchApi("/health", { cache: "no-store" });
         if (isMounted) setIsOnline(response.ok);
       } catch {
         if (isMounted) setIsOnline(false);

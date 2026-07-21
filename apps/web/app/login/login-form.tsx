@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { publicApiErrorMessage } from "@/lib/api-url";
 import { login } from "@/lib/auth";
 import { PasswordVisibilityInput } from "@/components/password-visibility-input";
 
@@ -36,7 +37,7 @@ export function LoginForm() {
       router.push(isPlatformAdmin ? "/admin/dashboard" : "/dashboard");
       router.refresh();
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Connexion impossible.");
+      setError(publicApiErrorMessage(caughtError));
     } finally {
       setIsLoading(false);
     }

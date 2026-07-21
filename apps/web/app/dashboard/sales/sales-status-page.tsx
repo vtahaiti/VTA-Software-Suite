@@ -1,4 +1,5 @@
 "use client";
+import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
@@ -7,7 +8,6 @@ import { getReceiptPrintSettings, openPrintPreview } from "@/lib/print";
 import { summarizePayments } from "@/lib/payment-summary";
 import { formatBusinessDateTime } from "@/lib/business-timezone";
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 type Sale = {
   id: string;

@@ -4,12 +4,12 @@
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { fetchApi, publicApiErrorMessage } from "@/lib/api-url";
 import { createCompany } from "@/lib/auth";
 import { getBusinessCatalog, type BusinessSector } from "@/lib/business-profiles";
 import { resolveAssetUrl } from "@/lib/company-branding";
 import { citiesForHaitiDepartment, haitiDepartmentNames } from "@/lib/haiti-locations";
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 const maxLogoBytes = 2 * 1024 * 1024;
 const allowedLogoTypes = ["image/png", "image/jpeg", "image/webp"];
 
@@ -210,7 +210,7 @@ export default function OnboardingCompanyPage() {
       window.localStorage.removeItem("vta_pending_onboarding");
       router.push("/dashboard");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Création de l'entreprise impossible.");
+      setError(publicApiErrorMessage(caught, "Création de l'entreprise impossible."));
     } finally {
       setIsLoading(false);
     }
@@ -243,7 +243,7 @@ export default function OnboardingCompanyPage() {
       const body = new FormData();
       body.append("file", optimized, optimized.name);
       body.append("pendingToken", pendingToken);
-      const response = await fetch(`${apiUrl}/uploads/company-logo`, { method: "POST", body });
+      const response = await fetchApi("/uploads/company-logo", { method: "POST", body });
       if (!response.ok) {
         updateField("logoUrl", previousLogoUrl);
         setLocalLogoPreview(null);
@@ -255,7 +255,7 @@ export default function OnboardingCompanyPage() {
       updateField("logoUrl", result.url);
     } catch {
       updateField("logoUrl", previousLogoUrl);
-      setError("Impossible de charger le logo. Vous pouvez continuer sans logo et l'ajouter plus tard.");
+      setError("Connexion momentanément impossible. Vérifiez votre connexion Internet puis réessayez.");
     } finally {
       setIsUploadingLogo(false);
     }
@@ -381,7 +381,7 @@ async function readUploadError(response: Response) {
   try {
     const body = await response.json();
     const message = Array.isArray(body.message) ? body.message[0] : body.message;
-    return message ? `Logo non chargé : ${message}` : "Logo non chargé. Vous pouvez continuer sans logo.";
+    return message ? publicApiErrorMessage(`Logo non chargé : ${message}`) : "Logo non chargé. Vous pouvez continuer sans logo.";
   } catch {
     return "Logo non chargé. Vous pouvez continuer sans logo.";
   }

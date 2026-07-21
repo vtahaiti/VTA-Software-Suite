@@ -1,10 +1,10 @@
 "use client";
+import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 type Supplier = { id: string; code: string; name: string; phone?: string; email?: string; address?: string; status: string; balance: string };
 const emptyForm = { name: "", phone: "", address: "", email: "" };

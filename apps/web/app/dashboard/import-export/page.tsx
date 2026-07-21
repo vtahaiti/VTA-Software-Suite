@@ -1,11 +1,11 @@
 "use client";
+import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
 import { useMemo, useState } from "react";
 import { Download, FileSpreadsheet, RefreshCw, Upload } from "lucide-react";
 import { getAccessToken } from "@/lib/auth";
 import { downloadAuthenticatedFile } from "@/lib/authenticated-download";
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 type Analysis = {
   headers: string[];

@@ -1,4 +1,5 @@
 "use client";
+import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { clearSession, getAccessToken, getCurrentUser } from "@/lib/auth";
 import { fetchWithAuth } from "@/lib/api-client";
@@ -10,7 +11,6 @@ import { getTenantBusinessConfiguration, type TenantBusinessConfiguration } from
 import { getReceiptPrintSettings, openPrintPreview } from "@/lib/print";
 import { Info, MoreHorizontal, Plus, Search, Trash2, X } from "lucide-react";
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 type Product = { id: string; name: string; sku: string; salePrice: number; availableStock: number; stockTracked?: boolean; image?: string | null; primaryBarcode?: string | null; category?: string | null; unit?: string | null };
 type Store = { id: string; name: string; code: string };

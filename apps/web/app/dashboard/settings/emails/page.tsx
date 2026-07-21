@@ -1,4 +1,5 @@
 "use client";
+import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
 import { FormEvent, useEffect, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
@@ -15,7 +16,6 @@ type EmailStatus = {
   recentFailures: Array<{ id: string; type: string; provider: string; status: string; errorCode?: string | null; createdAt: string }>;
 };
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 export default function EmailSettingsPage() {
   const [status, setStatus] = useState<EmailStatus | null>(null);

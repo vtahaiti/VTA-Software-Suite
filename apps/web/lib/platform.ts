@@ -1,8 +1,8 @@
 "use client";
 
 import type { AuthUser } from "@/lib/auth";
+import { fetchApi, publicApiErrorMessage } from "@/lib/api-url";
 
-const apiUrl = ((process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"))).replace(/^"|"$/g, "");
 const accessTokenKey = "vta_platform_access_token";
 const refreshTokenKey = "vta_platform_refresh_token";
 const userKey = "vta_platform_user";
@@ -20,7 +20,7 @@ export function isPlatformAdmin() {
 }
 
 export async function platformLogin(payload: { email: string; password: string; rememberMe: boolean }) {
-  const response = await fetch(`${apiUrl}/auth/platform/login`, {
+  const response = await fetchApi("/auth/platform/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -35,7 +35,7 @@ export async function platformLogin(payload: { email: string; password: string; 
 export async function platformLogout() {
   const token = getPlatformAccessToken();
   if (token) {
-    await fetch(`${apiUrl}/auth/platform/logout`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, credentials: "include" }).catch(() => undefined);
+    await fetchApi("/auth/platform/logout", { method: "POST", headers: { Authorization: `Bearer ${token}` }, credentials: "include" }).catch(() => undefined);
   }
   clearPlatformSession();
 }
@@ -86,8 +86,7 @@ export async function platformFetch<T>(path: string, init: RequestInit = {}) {
 }
 
 function platformRequest(path: string, token: string, init: RequestInit) {
-  const url = path.startsWith("/auth/") ? `${apiUrl}${path}` : `${apiUrl}${path}`;
-  return fetch(url, {
+  return fetchApi(path, {
     ...init,
     credentials: "include",
     headers: {
@@ -119,7 +118,7 @@ async function refreshPlatformSession() {
   if (typeof window === "undefined") return null;
   const refreshToken = window.localStorage.getItem(refreshTokenKey);
   if (!refreshToken) return null;
-  const response = await fetch(`${apiUrl}/auth/platform/refresh`, {
+  const response = await fetchApi("/auth/platform/refresh", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -153,7 +152,7 @@ function isSuperAdmin(user: AuthUser | null) {
 async function readError(response: Response) {
   try {
     const body = await response.json();
-    return Array.isArray(body.message) ? body.message[0] : body.message ?? "Accès impossible";
+    return publicApiErrorMessage(Array.isArray(body.message) ? body.message[0] : body.message ?? "Accès impossible", "Accès impossible");
   } catch {
     return "Accès impossible";
   }

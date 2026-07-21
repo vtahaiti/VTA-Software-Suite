@@ -1,9 +1,9 @@
 "use client";
+import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getAccessToken } from "@/lib/auth";
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 const emptyForm = { customerCode: "", firstName: "", lastName: "", company: "", displayName: "", phone: "", mobile: "", whatsapp: "", email: "", website: "", taxNumber: "", country: "", city: "", address: "", postalCode: "", creditLimit: "0", currentBalance: "0", customerType: "INDIVIDUAL", status: "ACTIVE", notes: "" };
 
 export function CustomerForm({ customerId }: { customerId?: string }) {

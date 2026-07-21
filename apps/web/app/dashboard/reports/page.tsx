@@ -1,10 +1,10 @@
 "use client";
+import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
 import { businessDateKey, formatBusinessDateTime } from "@/lib/business-timezone";
 import { pluralize } from "@/lib/format";
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 type Primitive = string | number | boolean | null | undefined;
 type ReportRow = Record<string, Primitive>;

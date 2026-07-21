@@ -1,3 +1,5 @@
+import { apiUnavailableMessage, fetchApi, publicApiErrorMessage } from "@/lib/api-url";
+
 export type AuthUser = {
   id: string;
   name: string;
@@ -24,7 +26,6 @@ type AuthResponse = {
   user: AuthUser;
 };
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 const accessTokenKey = "vta_access_token";
 const refreshTokenKey = "vta_refresh_token";
 const userKey = "vta_user";
@@ -36,14 +37,14 @@ export async function login(payload: LoginPayload) {
   let response: Response;
 
   try {
-    response = await fetch(`${apiUrl}/auth/login`, {
+    response = await fetchApi("/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify(payload)
     });
   } catch {
-    throw new Error("Impossible de joindre le service VTA Commerce. Verifiez votre connexion puis reessayez.");
+    throw new Error(apiUnavailableMessage);
   }
 
   if (!response.ok) {
@@ -60,7 +61,7 @@ export async function logout() {
   const token = getAccessToken();
 
   if (token) {
-    await fetch(`${apiUrl}/auth/logout`, {
+    await fetchApi("/auth/logout", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
       credentials: "include"
@@ -78,12 +79,18 @@ export async function refreshSession() {
     return null;
   }
 
-  const response = await fetch(`${apiUrl}/auth/refresh`, {
+  let response: Response;
+  try {
+    response = await fetchApi("/auth/refresh", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify({ refreshToken })
   });
+  } catch {
+    clearSession();
+    return null;
+  }
 
   if (!response.ok) {
     clearSession();
@@ -165,13 +172,14 @@ export function clearTenantScopedCaches(reason = "session-reset") {
 async function readApiError(response: Response) {
   try {
     const body = await response.json();
-    return Array.isArray(body.message) ? body.message[0] : body.message ?? "Connexion impossible";
+    const message = Array.isArray(body.message) ? body.message[0] : body.message ?? "Connexion impossible";
+    return publicApiErrorMessage(message, "Connexion impossible.");
   } catch {
     return "Connexion impossible";
   }
 }
 export async function registerUser(payload: { firstName: string; lastName: string; email: string; phone?: string; password: string; confirmPassword: string; acceptedTerms: boolean }) {
-  const response = await fetch(`${apiUrl}/onboarding/register`, {
+  const response = await fetchApi("/onboarding/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
@@ -181,7 +189,7 @@ export async function registerUser(payload: { firstName: string; lastName: strin
 }
 
 export async function requestPasswordReset(payload: { email: string }) {
-  const response = await fetch(`${apiUrl}/auth/forgot-password`, {
+  const response = await fetchApi("/auth/forgot-password", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
@@ -191,7 +199,7 @@ export async function requestPasswordReset(payload: { email: string }) {
 }
 
 export async function resetPassword(payload: { token: string; newPassword: string; confirmPassword: string }) {
-  const response = await fetch(`${apiUrl}/auth/reset-password`, {
+  const response = await fetchApi("/auth/reset-password", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
@@ -201,7 +209,7 @@ export async function resetPassword(payload: { token: string; newPassword: strin
 }
 
 export async function createCompany(payload: Record<string, unknown>) {
-  const response = await fetch(`${apiUrl}/onboarding/company`, {
+  const response = await fetchApi("/onboarding/company", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -216,7 +224,12 @@ export async function createCompany(payload: Record<string, unknown>) {
 export async function getOnboardingStatus() {
   const token = getAccessToken();
   if (!token) return { completed: false };
-  const response = await fetch(`${apiUrl}/onboarding/status`, { headers: { Authorization: `Bearer ${token}` } });
+  let response: Response;
+  try {
+    response = await fetchApi("/onboarding/status", { headers: { Authorization: `Bearer ${token}` } });
+  } catch {
+    return { completed: false };
+  }
   if (!response.ok) return { completed: false };
   return response.json() as Promise<{ completed: boolean }>;
 }

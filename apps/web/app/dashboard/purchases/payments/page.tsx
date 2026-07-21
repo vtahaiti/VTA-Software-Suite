@@ -1,8 +1,8 @@
 "use client";
+import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 import { useEffect, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 type SupplierPayment = { id: string; number: string; method: string; amount: string; paidAt: string; supplier?: { name: string }; supplierInvoice?: { number: string } };
 const methodLabels: Record<string, string> = { CASH: "Comptant", CREDIT: "Credit", CARD: "Carte", BANK_TRANSFER: "Virement", MIXED: "Mixte" };
 

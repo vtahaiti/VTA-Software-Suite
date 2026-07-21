@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { publicApiErrorMessage } from "@/lib/api-url";
 import { registerUser } from "@/lib/auth";
 import { PasswordVisibilityInput } from "@/components/password-visibility-input";
 import { isPasswordStrong, passwordPolicyMessage } from "@/lib/password-policy";
@@ -38,7 +39,7 @@ export default function SignupPage() {
       window.localStorage.setItem("vta_pending_onboarding", result.pendingToken);
       router.push("/onboarding/company");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Inscription impossible.");
+      setError(publicApiErrorMessage(caught, "Inscription impossible."));
     } finally {
       setIsLoading(false);
     }

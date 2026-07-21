@@ -52,7 +52,7 @@ export default function AdminTenantDetailPage({ params }: { params: { id: string
 
   async function dangerDelete() {
     if (!tenant) return;
-    const typed = window.prompt(`Zone dangereuse. Saisissez exactement le nom de l'entreprise pour confirmer : ${tenant.name}`);
+    const typed = window.prompt(`Zone dangereuse. Saisissez exactement le nom de l&apos;entreprise pour confirmer : ${tenant.name}`);
     if (typed !== tenant.name) { setError("Confirmation incorrecte. Aucune action effectuée."); return; }
     const reason = window.prompt("Motif obligatoire de suppression :");
     if (!reason || reason.trim().length < 6) { setError("Motif obligatoire, au moins 6 caractères."); return; }
@@ -85,7 +85,7 @@ export default function AdminTenantDetailPage({ params }: { params: { id: string
           <div className="grid gap-3 text-sm text-slate-300 md:grid-cols-2"><Info label="Plan actuel" value={tenant.subscription.plan} /><Info label="Prix" value={`${tenant.subscription.price ?? tenant.subscription.monthlyPrice} ${tenant.subscription.currency ?? "HTG"}`} /><Info label="Statut abonnement" value={tenant.subscription.status} /><Info label="Statut paiement" value={tenant.subscription.paymentStatus ?? "UNPAID"} /><Info label="Début" value={tenant.subscription.startedAt ? new Date(tenant.subscription.startedAt).toLocaleDateString("fr-HT") : "-"} /><Info label="Expiration" value={tenant.subscription.endsAt ? new Date(tenant.subscription.endsAt).toLocaleDateString("fr-HT") : "Non définie"} /></div>
           <div className="mt-4 flex flex-wrap gap-2"><Button onClick={() => action(() => platformFetch(`/platform/tenants/${tenant.id}/subscription`, { method: "PATCH", body: JSON.stringify({ plan: "ESSENTIAL", status: "ACTIVE", reason: "Changement de plan depuis Control Center" }) }), "Plan Essentiel appliqué.")}>Essentiel</Button><Button onClick={() => action(() => platformFetch(`/platform/tenants/${tenant.id}/subscription`, { method: "PATCH", body: JSON.stringify({ plan: "STANDARD", status: "ACTIVE", reason: "Changement de plan depuis Control Center" }) }), "Plan Standard appliqué.")}>Standard</Button><Button onClick={() => action(() => platformFetch(`/platform/tenants/${tenant.id}/subscription`, { method: "PATCH", body: JSON.stringify({ plan: "EXPERT", status: "ACTIVE", reason: "Changement de plan depuis Control Center" }) }), "Plan Expert appliqué.")}>Expert</Button><Button onClick={() => action(() => platformFetch(`/platform/tenants/${tenant.id}/subscription`, { method: "PATCH", body: JSON.stringify({ status: "PAST_DUE", reason: "Paiement en attente" }) }), "Paiement marqué en attente.")}>Paiement en attente</Button></div>
         </Panel>
-        <Panel title="Licences et ressources" subtitle="Aucune donnée métier privée n'est ouverte depuis ce panneau."><div className="grid gap-3 md:grid-cols-2"><Info label="Utilisateurs" value={tenant.licenses.users} /><Info label="Magasins" value={tenant.licenses.stores} /><Info label="Dépôts" value={tenant.licenses.warehouses} /><Info label="Stockage" value={tenant.statistics.storage} /></div></Panel>
+        <Panel title="Licences et ressources" subtitle="Aucune donnée métier privée n&apos;est ouverte depuis ce panneau."><div className="grid gap-3 md:grid-cols-2"><Info label="Utilisateurs" value={tenant.licenses.users} /><Info label="Magasins" value={tenant.licenses.stores} /><Info label="Dépôts" value={tenant.licenses.warehouses} /><Info label="Stockage" value={tenant.statistics.storage} /></div></Panel>
       </div>
 
       <Panel title="Modules autorisés" subtitle="Activation par entreprise sans consulter ses ventes, produits, clients ou stocks." className="mt-5">
@@ -106,8 +106,8 @@ export default function AdminTenantDetailPage({ params }: { params: { id: string
       </Panel>
 
       <Panel title="Zone dangereuse" subtitle="Suppression désactivante uniquement. La purge définitive exige une tâche séparée et testée sur un tenant dédié." className="mt-5" id="danger-zone">
-        <p className="text-sm text-slate-400">Cette action désactive l'entreprise, bloque ses utilisateurs et conserve les données pour audit. Elle ne purge pas physiquement les données client.</p>
-        <button onClick={() => void dangerDelete()} className="mt-4 rounded-xl bg-red-500/20 px-4 py-2 text-sm font-bold text-red-100 hover:bg-red-500/30">Désactiver l'entreprise</button>
+        <p className="text-sm text-slate-400">Cette action désactive l&apos;entreprise, bloque ses utilisateurs et conserve les données pour audit. Elle ne purge pas physiquement les données client.</p>
+        <button onClick={() => void dangerDelete()} className="mt-4 rounded-xl bg-red-500/20 px-4 py-2 text-sm font-bold text-red-100 hover:bg-red-500/30">Désactiver l&apos;entreprise</button>
       </Panel>
     </AdminShell>
   );

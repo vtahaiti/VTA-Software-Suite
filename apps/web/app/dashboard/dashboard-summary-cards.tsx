@@ -1,4 +1,5 @@
 "use client";
+import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
 import { useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "../../lib/auth";
@@ -14,7 +15,6 @@ type DashboardSummary = {
   salesLast30Days: SalesPoint[];
 };
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 const emptySummary: DashboardSummary = {
   databaseAvailable: true,

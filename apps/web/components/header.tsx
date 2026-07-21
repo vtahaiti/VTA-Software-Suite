@@ -4,11 +4,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, LogOut, Menu } from "lucide-react";
+import { fetchApi } from "@/lib/api-url";
 import { AuthUser, getAccessToken, logout } from "@/lib/auth";
 import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
 import { formatRole } from "@/lib/format";
-
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 type HeaderProps = { user: AuthUser | null; onMenuClick?: () => void };
 type Notification = { id: string; title: string; message: string; type: string; status: string; module?: string; createdAt: string };
@@ -52,8 +51,8 @@ export function Header({ user, onMenuClick }: HeaderProps) {
     if (!token) return;
     const headers = { Authorization: `Bearer ${token}` };
     const [countResponse, itemsResponse] = await Promise.all([
-      fetch(`${apiUrl}/notifications/unread-count`, { headers }).catch(() => null),
-      fetch(`${apiUrl}/notifications?status=unread`, { headers }).catch(() => null)
+      fetchApi("/notifications/unread-count", { headers }).catch(() => null),
+      fetchApi("/notifications?status=unread", { headers }).catch(() => null)
     ]);
     if (countResponse?.ok) {
       const payload = (await countResponse.json()) as { count?: unknown };
@@ -68,7 +67,7 @@ export function Header({ user, onMenuClick }: HeaderProps) {
   async function markAsRead(id: string) {
     const token = getAccessToken();
     if (!token) return;
-    await fetch(`${apiUrl}/notifications/${id}/read`, { method: "PATCH", headers: { Authorization: `Bearer ${token}` } });
+    await fetchApi(`/notifications/${id}/read`, { method: "PATCH", headers: { Authorization: `Bearer ${token}` } });
     await loadNotifications();
   }
 

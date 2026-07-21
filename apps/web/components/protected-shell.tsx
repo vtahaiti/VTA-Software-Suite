@@ -4,10 +4,9 @@ import { ReactNode, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
+import { fetchApi } from "@/lib/api-url";
 import { AuthUser, clearSession, clearTenantScopedCaches, getAccessToken, getCurrentUser, refreshSession, updateStoredUser } from "@/lib/auth";
 import { canAccessHref } from "@/lib/role-access";
-
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 type ProtectedShellProps = {
   children: ReactNode | ((user: AuthUser) => ReactNode);
@@ -28,7 +27,7 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
       let sessionUser: AuthUser | null = null;
 
       if (currentUser && currentToken) {
-        const response = await fetch(`${apiUrl}/auth/me`, { headers: { Authorization: `Bearer ${currentToken}` } }).catch(() => null);
+        const response = await fetchApi("/auth/me", { headers: { Authorization: `Bearer ${currentToken}` } }).catch(() => null);
         if (response?.ok) {
           const body = await response.json().catch(() => null) as { user?: AuthUser } | null;
           sessionUser = body?.user ?? currentUser;

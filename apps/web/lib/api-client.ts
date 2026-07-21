@@ -1,7 +1,10 @@
 import { getAccessToken, refreshSession } from "@/lib/auth";
+import { apiUrl } from "@/lib/api-url";
+
+export { apiUrl };
 
 export async function fetchWithAuth(input: RequestInfo | URL, init: RequestInit = {}) {
-  return fetchWithCurrentToken(input, init).then(async (response) => {
+  return fetchWithCurrentToken(resolveInput(input), init).then(async (response) => {
     if (response.status === 403 && typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("vta:tenant-access-blocked"));
       return response;
@@ -9,8 +12,13 @@ export async function fetchWithAuth(input: RequestInfo | URL, init: RequestInit 
     if (response.status !== 401) return response;
     const refreshedUser = await refreshSession();
     if (!refreshedUser) return response;
-    return fetchWithCurrentToken(input, init);
+    return fetchWithCurrentToken(resolveInput(input), init);
   });
+}
+
+function resolveInput(input: RequestInfo | URL) {
+  if (typeof input === "string" && input.startsWith("/")) return apiUrl(input);
+  return input;
 }
 
 async function fetchWithCurrentToken(input: RequestInfo | URL, init: RequestInit) {

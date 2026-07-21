@@ -1,10 +1,10 @@
 "use client";
+import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getAccessToken } from "@/lib/auth";
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 type Supplier = { id: string; name: string; phone?: string | null };
 type Product = { id: string; name: string; sku: string; purchasePrice?: string | number; unit?: { name?: string | null; symbol?: string | null } | null };

@@ -1,4 +1,4 @@
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
+import { apiUrl, fetchApi } from "@/lib/api-url";
 
 export type CompanyBranding = {
   companyName: string;
@@ -20,7 +20,7 @@ export type CompanyBranding = {
 };
 
 export async function getCompanyBranding(token: string): Promise<CompanyBranding | null> {
-  const response = await fetch(`${apiUrl}/profile/me?branding=${Date.now()}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
+  const response = await fetchApi(`/profile/me?branding=${Date.now()}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
   if (!response.ok) return null;
   const data = await response.json();
   const profile = data.tenant?.companyProfile;
@@ -57,5 +57,5 @@ export function initials(name?: string, fallback = "ME") {
 export function resolveAssetUrl(value?: string | null) {
   if (!value) return null;
   if (value.startsWith("http://") || value.startsWith("https://") || value.startsWith("data:")) return value;
-  return `${apiUrl}${value.startsWith("/") ? value : `/${value}`}`;
+  return apiUrl(value);
 }

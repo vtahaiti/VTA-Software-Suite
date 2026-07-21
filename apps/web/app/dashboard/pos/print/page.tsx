@@ -1,4 +1,5 @@
-﻿"use client";
+"use client";
+import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -7,7 +8,6 @@ import { getAccessToken } from "@/lib/auth";
 import { isNativePrintAvailable, printHtmlNative, sharePdfNative } from "@/lib/native-print";
 import { formatBusinessDateTime } from "@/lib/business-timezone";
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 type ReceiptWidth = "58" | "72" | "80";
 
 export default function PosTicketPrintPage() {

@@ -1,9 +1,9 @@
 "use client";
+import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 const statusLabels: Record<string,string> = { ACTIVE: "Actif", INACTIVE: "Inactif", BLOCKED: "Bloque" };
 const typeLabels: Record<string,string> = { INDIVIDUAL: "Particulier", BUSINESS: "Entreprise", VIP: "VIP", WHOLESALE: "Grossiste", GOVERNMENT: "Gouvernement" };
 type Customer = any;

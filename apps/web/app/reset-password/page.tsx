@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { publicApiErrorMessage } from "@/lib/api-url";
 import { resetPassword } from "@/lib/auth";
 import { PasswordVisibilityInput } from "@/components/password-visibility-input";
 import { isPasswordStrong, passwordPolicyMessage } from "@/lib/password-policy";
@@ -50,7 +51,7 @@ function ResetPasswordForm() {
       setConfirmPassword("");
       window.history.replaceState(null, "", "/login?reset=success");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Impossible de réinitialiser le mot de passe.");
+      setError(publicApiErrorMessage(caught, "Impossible de réinitialiser le mot de passe."));
     } finally {
       setIsLoading(false);
     }

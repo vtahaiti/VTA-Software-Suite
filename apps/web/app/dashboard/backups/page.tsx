@@ -1,9 +1,9 @@
 "use client";
+import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
 import { useEffect, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 type Backup = { id: string; status: string; filePath?: string; fileSize: number; userEmail?: string; message?: string; createdAt: string };
 

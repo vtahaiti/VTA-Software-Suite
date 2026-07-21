@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+import { publicApiErrorMessage } from "@/lib/api-url";
 import { requestPasswordReset } from "@/lib/auth";
 
 export default function ForgotPasswordPage() {
@@ -25,7 +26,7 @@ export default function ForgotPasswordPage() {
       const result = await requestPasswordReset({ email });
       setMessage(result.message);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Impossible de traiter la demande pour le moment.");
+      setError(publicApiErrorMessage(caught, "Impossible de traiter la demande pour le moment."));
     } finally {
       setIsLoading(false);
     }
