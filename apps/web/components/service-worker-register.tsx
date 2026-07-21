@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-const clientVersion = "2026-07-09-users-cache-fix";
+const clientVersion = "2026-07-21-product-form-cache-fix";
 const versionStorageKey = "vta_web_client_version";
 
 export function ServiceWorkerRegister() {

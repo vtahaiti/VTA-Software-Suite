@@ -1,4 +1,4 @@
-const CACHE_NAME = "vta-commerce-pos-shell-v3";
+const CACHE_NAME = "vta-commerce-pos-shell-v4";
 const APP_SHELL = [
   "/",
   "/login",
@@ -38,6 +38,11 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/api") || url.port === "3001") return;
+
+  if (url.pathname.startsWith("/dashboard") || url.pathname.startsWith("/admin")) {
+    event.respondWith(fetch(request).catch(() => caches.match("/offline")));
+    return;
+  }
 
   if (request.mode === "navigate") {
     event.respondWith(
