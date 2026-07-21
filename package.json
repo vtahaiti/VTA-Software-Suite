@@ -37,6 +37,7 @@
     "test:business-profile-navigation": "node scripts/business-profile-navigation-smoke.cjs",
     "test:business-sector-specialty": "node scripts/business-sector-specialty-smoke.cjs",
     "test:inventory-stock-status": "node scripts/inventory-stock-status-smoke.cjs",
+    "test:inventory-v1": "node scripts/inventory-v1-smoke.cjs",
     "test:orders-deposits": "node scripts/orders-deposits-smoke.cjs",
     "test:users-management": "node scripts/users-management-smoke.cjs",
     "test:subscriptions": "node scripts/subscription-entitlements-smoke.cjs",

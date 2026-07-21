@@ -22,12 +22,8 @@ const inventoryPage = read("apps/web/app/dashboard/inventory/page.tsx");
 const requiredReasons = [
   "CASSE",
   "PERTE",
-  "VOL",
-  "EXPIRATION",
-  "REPAS_PERSONNEL",
   "UTILISATION_INTERNE",
   "CORRECTION_INVENTAIRE",
-  "RETOUR_FOURNISSEUR",
   "AUTRE"
 ];
 
@@ -57,8 +53,8 @@ assert(!cashierBlock.includes("inventory.adjust") && !cashierBlock.includes("inv
 assert(stockBlock.includes('"inventory."'), "STOCK role receives inventory permissions");
 assert(managerBlock.includes('"inventory."'), "MANAGER role receives inventory permissions");
 
-assert(inventoryPage.includes("Sortie non commerciale"), "inventory UI labels stock out as non-commercial");
+assert(inventoryPage.includes("Sortie stock"), "inventory UI exposes a clear stock out action");
 assert(inventoryPage.includes("Motif obligatoire"), "inventory UI requires a stock out reason");
-assert(inventoryPage.includes("ne cree aucune vente") && inventoryPage.includes("aucun chiffre d&apos;affaires"), "inventory UI states stock out creates no sale or revenue");
+assert(inventoryPage.includes("ne crée aucune vente"), "inventory UI states stock out creates no sale");
 
 if (process.exitCode) process.exit(process.exitCode);

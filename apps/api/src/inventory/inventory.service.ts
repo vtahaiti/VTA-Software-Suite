@@ -47,7 +47,7 @@ export class InventoryService {
     if (dto.fromWarehouseId === dto.toWarehouseId) throw new BadRequestException("Les depots doivent etre differents");
     const transfer = await this.prisma.transfer.create({ data: { tenantId, fromWarehouseId: dto.fromWarehouseId, toWarehouseId: dto.toWarehouseId, note: dto.note, status: TransferStatus.SENT, items: { create: dto.items } } });
     for (const item of dto.items) {
-      await this.stock.stockOut(tenantId, { productId: item.productId, warehouseId: dto.fromWarehouseId, quantity: item.quantity, reference: transfer.id, note: "Transfert sortant" });
+      await this.stock.stockOut(tenantId, { productId: item.productId, warehouseId: dto.fromWarehouseId, quantity: item.quantity, reference: transfer.id, reason: "CORRECTION_INVENTAIRE", note: "Transfert sortant" });
       await this.stock.stockIn(tenantId, { productId: item.productId, warehouseId: dto.toWarehouseId, quantity: item.quantity, reference: transfer.id, note: "Transfert entrant" });
     }
     return this.prisma.transfer.update({ where: { id: transfer.id }, data: { status: TransferStatus.RECEIVED }, include: { fromWarehouse: true, toWarehouse: true, items: { include: { product: true } } } });
@@ -80,7 +80,7 @@ export class InventoryService {
 
   async createAdjustment(tenantId: string, dto: AdjustmentDto) {
     if (dto.mode === "IN") return this.stock.stockIn(tenantId, { productId: dto.productId, warehouseId: dto.warehouseId, quantity: dto.quantity, reference: dto.reference, note: dto.reason });
-    if (dto.mode === "OUT") return this.stock.stockOut(tenantId, { productId: dto.productId, warehouseId: dto.warehouseId, quantity: dto.quantity, reference: dto.reference, note: dto.reason });
+    if (dto.mode === "OUT") return this.stock.stockOut(tenantId, { productId: dto.productId, warehouseId: dto.warehouseId, quantity: dto.quantity, reference: dto.reference, reason: "CORRECTION_INVENTAIRE", note: dto.reason });
     return this.stock.adjustTo(tenantId, dto.productId, dto.warehouseId, dto.quantity, dto.reference, dto.reason);
   }
 

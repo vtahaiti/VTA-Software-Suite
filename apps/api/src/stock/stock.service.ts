@@ -67,8 +67,10 @@ export class StockService {
         stockTracked
       }));
     });
-    const filteredItems = query.lowStock ? items.filter((item) => item.stockTracked && item.quantity <= item.minimumStock) : items;
-    return { items: filteredItems, meta: { page, limit, total: query.lowStock ? filteredItems.length : total, pageCount: Math.ceil((query.lowStock ? filteredItems.length : total) / limit) } };
+    const stockTrackedItems = query.includeNonStock ? items : items.filter((item) => item.stockTracked);
+    const filteredItems = query.lowStock ? stockTrackedItems.filter((item) => item.stockTracked && item.quantity <= item.minimumStock) : stockTrackedItems;
+    const filteredTotal = query.includeNonStock && !query.lowStock ? total : filteredItems.length;
+    return { items: filteredItems, meta: { page, limit, total: filteredTotal, pageCount: Math.ceil(filteredTotal / limit) } };
   }
 
   alerts(tenantId: string) {
