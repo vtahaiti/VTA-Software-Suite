@@ -1,11 +1,12 @@
-const assert = require("assert");
-const fs = require("fs");
-const path = require("path");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 
 const salesDocumentPage = read("apps/web/app/dashboard/sales/sales-document-page.tsx");
+const detailPage = read("apps/web/app/dashboard/sales/sales-document-detail-page.tsx");
 const proformasService = read("apps/api/src/sales/proformas.service.ts");
 const quotesService = read("apps/api/src/sales/quotes.service.ts");
 const schema = read("database/prisma/schema.prisma");
@@ -41,26 +42,34 @@ assert.deepStrictEqual(quote, { subtotal: 275, discount: 15, tax: 0, total: 260,
 const draftOrder = { ...quote, status: "DRAFT", paymentStatus: "UNPAID" };
 const confirmedOrder = { ...draftOrder, status: "CONFIRMED" };
 const withAdvance = applyPayment(confirmedOrder, 60);
-assert.strictEqual(withAdvance.status, "CONFIRMED", "Le paiement ne doit pas remplacer le statut opérationnel.");
-assert.strictEqual(withAdvance.paymentStatus, "PARTIALLY_PAID");
-assert.strictEqual(withAdvance.balance, 200);
+assert.equal(withAdvance.status, "CONFIRMED", "Le paiement ne doit pas remplacer le statut opérationnel.");
+assert.equal(withAdvance.paymentStatus, "PARTIALLY_PAID");
+assert.equal(withAdvance.balance, 200);
 const paid = applyPayment(withAdvance, 200);
-assert.strictEqual(paid.balance, 0);
-assert.strictEqual(paid.paymentStatus, "PAID");
+assert.equal(paid.balance, 0);
+assert.equal(paid.paymentStatus, "PAID");
 assert.throws(() => calculateTotals([{ quantity: 1, unitPrice: 1 }]), /produit ou un service/);
 
-for (const label of ["A) Produit du catalogue", "B) Ajouter un service ou travail personnalisé", "Ajouter au devis", "Ajouter à la commande", "Rechercher un produit", "Produit sélectionné", "Total", "Avance", "Balance"]) {
+for (const label of [
+  "A) Produit du catalogue",
+  "B) Ligne personnalisée ou service",
+  "Ajouter au devis",
+  "Ajouter à la commande",
+  "Rechercher un produit",
+  "Produit sélectionné",
+  "Total",
+  "Avance",
+  "Balance",
+  "Le devis prépare un prix. Il ne modifie pas le stock et ne crée pas de vente POS."
+]) {
   assert(salesDocumentPage.includes(label), `Libellé Devis & Commandes attendu: ${label}`);
 }
 
-assert(salesDocumentPage.includes("/products?${params}"), "La recherche produit doit appeler l'API produits avec les paramètres serveur.");
+assert(salesDocumentPage.includes("/products?${query.toString()}"), "La recherche produit doit appeler l'API produits avec les paramètres serveur.");
 assert(salesDocumentPage.includes("setProducts((current)"), "Les résultats produits recherchés doivent être fusionnés pour garder la sélection.");
-assert(salesDocumentPage.includes("ProductResultCard"), "La sélection produit doit être en cartes compactes.");
 assert(!salesDocumentPage.includes("product.sku} - {product.name}"), "La liste produit ne doit pas afficher SKU complet + nom + prix.");
-assert(salesDocumentPage.includes("Le devis ne modifie pas le stock") && salesDocumentPage.includes("ne crée pas de vente POS"), "Le devis doit rappeler l'absence d'impact stock/POS.");
-assert(salesDocumentPage.includes("Aucun devis pour l'instant"), "Etat vide devis attendu.");
-assert(salesDocumentPage.includes("Aucune commande pour l'instant"), "Etat vide commandes attendu.");
-assert(salesDocumentPage.includes("Créez un devis"), "Etat vide devis doit expliquer l'action.");
+assert(detailPage.includes("Marquer livrée"), "La livraison doit être visible dans le détail commande.");
+assert(detailPage.includes("Avance / balance enregistrée."), "Le détail commande doit enregistrer avance/balance.");
 
 assert(schema.includes("model StockReservation"), "La réservation de stock doit être modélisée.");
 assert(schema.includes("paymentStatus  SalesDocumentPaymentStatus"), "Le statut financier doit être séparé du statut opérationnel.");
