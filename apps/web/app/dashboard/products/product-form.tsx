@@ -12,6 +12,8 @@ type Store = { id: string; name: string };
 type Warehouse = { id: string; name: string };
 type CategoryForm = { name: string; icon: string };
 
+const hardwareUnitSuggestions = ["pièce", "sac", "tonne", "kg", "mètre", "pied", "feuille", "gallon", "litre", "boîte", "paquet", "verge"];
+
 const emptyCategoryForm: CategoryForm = { name: "", icon: "" };
 
 const emptyForm = {
@@ -322,6 +324,7 @@ export function ProductForm({ productId }: { productId?: string }) {
           <Select value={form.supplierId} onChange={(value) => update("supplierId", value)} placeholder="Fournisseur principal" items={refs.suppliers} />
           <Select value={form.unitId} onChange={(value) => update("unitId", value)} placeholder="Unité" items={refs.units} />
           <Input value={form.customUnit} onChange={(value) => update("customUnit", value)} placeholder="Nouvelle unité" />
+          <p className="text-xs text-slate-500 md:col-span-2">Suggestions matériaux : {hardwareUnitSuggestions.join(", ")}.</p>
         </Section>
 
         <Section title="Prix avancés">

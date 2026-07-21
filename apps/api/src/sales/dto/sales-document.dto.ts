@@ -1,6 +1,6 @@
 import { PaymentMethod, SalesDocumentStatus } from "@prisma/client";
 import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min, ValidateNested } from "class-validator";
+import { ArrayMinSize, IsArray, IsDateString, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min, ValidateNested } from "class-validator";
 
 export class SalesDocumentItemDto {
   @IsOptional()
@@ -52,6 +52,18 @@ export class CreateSalesDocumentDto {
   @IsString()
   notes?: string;
 
+  @IsOptional()
+  @IsString()
+  terms?: string;
+
+  @IsOptional()
+  @IsDateString()
+  expiresAt?: string;
+
+  @IsOptional()
+  @IsString()
+  warehouseId?: string;
+
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
@@ -69,6 +81,10 @@ export class SalesDocumentQueryDto {
   @IsOptional()
   @IsString()
   status?: string;
+
+  @IsOptional()
+  @IsString()
+  paymentStatus?: string;
 
   @IsOptional()
   @Type(() => Number)

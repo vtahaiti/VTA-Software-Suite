@@ -12,6 +12,7 @@ type Product = {
   id: string;
   name: string;
   salePrice: string | number;
+  purchasePrice?: string | number;
   stockCurrent?: number;
   minimumStock?: number;
   category?: { name: string } | null;
@@ -151,6 +152,7 @@ export default function ProductsPage() {
             <ProductThumb product={product} />
             <div className="min-w-0 flex-1">
               <h2 className="truncate font-semibold text-slate-950 dark:text-white">{product.name}</h2>
+              {isCostMissing(product) ? <p className="text-xs font-medium text-amber-600">Coût manquant</p> : null}
               <p className="text-sm text-slate-500">{product.category?.name ?? "Sans catégorie"}</p>
             </div>
             <p className="shrink-0 text-right text-sm font-bold text-slate-950 dark:text-white">{formatMoney(product.salePrice)}</p>
@@ -172,7 +174,7 @@ export default function ProductsPage() {
             <tr><th className="p-3">Produit</th><th className="p-3">Catégorie</th><th className="p-3">Prix</th><th className="p-3">Quantité</th><th className="p-3">Actions</th></tr>
           </thead>
           <tbody>{items.map((product) => <tr key={product.id} className="border-t border-slate-100 dark:border-slate-800">
-            <td className="p-3"><div className="flex items-center gap-3"><ProductThumb product={product} /><p className="font-semibold">{product.name}</p></div></td>
+            <td className="p-3"><div className="flex items-center gap-3"><ProductThumb product={product} /><div><p className="font-semibold">{product.name}</p>{isCostMissing(product) ? <p className="text-xs font-medium text-amber-600">Coût manquant</p> : null}</div></div></td>
             <td className="p-3">{product.category?.name ?? "--"}</td>
             <td className="p-3 font-semibold">{formatMoney(product.salePrice)}</td>
             <td className="p-3"><QuantityDisplay product={product} /></td>
@@ -242,6 +244,10 @@ function QuantityDisplay({ product }: { product: Product }) {
     {tracked && quantity <= 0 ? <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-bold text-red-700">Rupture</span> : null}
     {tracked && quantity > 0 && quantity <= minimum ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700">Stock faible</span> : null}
   </div>;
+}
+
+function isCostMissing(product: Product) {
+  return Number(product.purchasePrice ?? 0) <= 0;
 }
 
 function Pagination({ page, pages, total, displayed, label, onPrev, onNext }: { page: number; pages: number; total: number; displayed: number; label: string; onPrev: () => void; onNext: () => void }) {

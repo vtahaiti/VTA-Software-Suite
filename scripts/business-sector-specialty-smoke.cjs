@@ -14,11 +14,11 @@ for (const sector of [
   "Commerce / Market",
   "Restaurant / Bar",
   "Hotel / Hebergement",
-  "Services / Multi-activite",
+  "Services / Multi-activité",
   "Fabrication / Atelier",
   "Construction / Quincaillerie",
   "Sante / Clinique / Pharmacie",
-  "Telephone / Electronique",
+  "Téléphone / Electronique",
   "Beaute / Salon",
   "Transport / Location",
   "Autre activite"
@@ -38,11 +38,11 @@ for (const specialty of [
   "Vente telephones",
   "Hotel avec restaurant",
   "Quincaillerie",
-  "Materiaux de construction",
+  "Matériaux de construction",
   "Fabrication fenêtres/portes",
-  "Multi-activite"
+  "Multi-activité"
 ]) {
-  expect(catalog.includes(`name: "${specialty}"`), `specialite manquante: ${specialty}`);
+  expect(catalog.includes(`name: "${specialty}"`), `spécialité manquante: ${specialty}`);
 }
 
 for (const slug of ["commerce", "restaurant", "hotel", "hotel-restaurant", "services", "it-services", "phone-sales-repair", "printing", "manufacturing", "windows-aluminium", "construction-materials", "hardware", "pharmacy", "clinic", "school", "fashion", "multi-activities"]) {
@@ -53,11 +53,11 @@ const profileBlock = (slug) => catalog.match(new RegExp(`\\{\\s*slug:\\s*"${slug
 const profileHasModule = (slug, moduleKey) => profileBlock(slug).includes(`"${moduleKey}"`);
 
 for (const slug of ["commerce", "restaurant", "hotel", "hotel-restaurant", "pharmacy", "clinic", "fashion"]) {
-  expect(!profileHasModule(slug, "sales"), `Devis & Commandes ne doit pas etre actif par defaut pour ${slug}`);
+  expect(!profileHasModule(slug, "sales"), `Devis & Commandes ne doit pas etre actif par défaut pour ${slug}`);
 }
 
 for (const slug of ["services", "it-services", "printing", "manufacturing", "windows-aluminium", "construction-materials", "hardware", "multi-activities"]) {
-  expect(profileHasModule(slug, "sales"), `Devis & Commandes doit etre actif par defaut pour ${slug}`);
+  expect(profileHasModule(slug, "sales"), `Devis & Commandes doit etre actif par défaut pour ${slug}`);
 }
 expect(profileHasModule("phone-sales-repair", "sales"), "Vente & Reparation telephones doit activer Devis & Commandes.");
 expect(profileHasModule("phone-sales-repair", "inventory"), "Vente & Reparation telephones doit activer Inventaire.");
@@ -66,17 +66,17 @@ expect(!profileHasModule("clinic", "pharmacy"), "Clinique ne doit pas embarquer 
 expect(service.includes("businessModuleAssignment.deleteMany"), "Le catalogue doit retirer les associations de modules obsoletes.");
 expect(catalog.includes("export function resolveBusinessModuleKeys"), "La matrice centrale des modules visibles doit etre exportee.");
 expect(service.includes("resolveBusinessModuleKeys"), "La configuration tenant doit utiliser la matrice centrale des modules.");
-expect(service.includes("matrixModuleKeys.has(assignment.businessModule.key) || assignment.source === \"manual\""), "Les modules herites doivent etre filtres, sauf override manuel explicite.");
-expect(service.includes("enabledBusinessModules: activeModules.map((module) => module.key)"), "L'API ne doit pas renvoyer une ancienne liste enabledBusinessModules non filtree.");
-expect(catalog.includes("export const businessSectors"), "source de verite BusinessSector absente");
+expect(service.includes("matrixModuleKeys.has(assignment.businessModule.key) || assignment.source === \"manual\""), "Les modules hérités doivent etre filtres, sauf override manuel explicite.");
+expect(service.includes("enabledBusinessModules: activeModules.map((module) => module.key)"), "L'API ne doit pas renvoyer une ancienne liste enabledBusinessModules non filtrée.");
+expect(catalog.includes("export const businessSectors"), "source de vérité BusinessSector absente");
 expect(catalog.includes("businessActivityTemplates: BusinessActivityTemplate[] = businessSectors.flatMap"), "compatibilite templates derivee des secteurs");
 expect(catalog.includes("businessCategories: BusinessCategoryDefinition[] = businessSectors.map"), "compatibilite categories derivee des secteurs");
 expect(service.includes("sectors: businessSectors"), "API catalog expose les secteurs");
 expect(webLib.includes("export type BusinessSector"), "Web connait BusinessSector");
 expect(onboarding.includes('label="Secteur"'), "Onboarding affiche le select Secteur");
-expect(onboarding.includes('label="Specialite"'), "Onboarding affiche le select Specialite");
+expect(onboarding.includes('label="Spécialité"'), "Onboarding affiche le select Spécialité");
 expect(onboarding.includes("businessCategory: form.businessSector"), "Onboarding sauvegarde le secteur dans businessCategory");
-expect(onboarding.includes("primaryActivity: form.businessSpecialty"), "Onboarding sauvegarde la specialite dans primaryActivity");
+expect(onboarding.includes("primaryActivity: form.businessSpecialty"), "Onboarding sauvegarde la spécialité dans primaryActivity");
 expect(onboarding.includes("businessProfileSlug: form.businessProfileSlug"), "Onboarding transmet le profil mappe");
 
 if (failures.length) {

@@ -359,7 +359,7 @@ function SaleList({ sales, type, isLoading }: { sales: Sale[]; type: "completed"
               <p className="mt-1 text-sm text-slate-500">{sale.customer?.displayName ?? sale.customer?.phone ?? "Client comptoir"}</p>
               <p className="mt-1 text-xs text-slate-500">Caissier : {sale.createdByUserName ?? "Non renseigne"}</p>
             </div>
-            <p className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold dark:bg-slate-800">{type === "cancelled" ? "Annulee" : paid >= total ? "Payee" : "Partielle"}</p>
+            <p className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold dark:bg-slate-800">{type === "cancelled" ? "Annulée" : paid >= total ? "Payée" : "Partielle"}</p>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
             <div className="rounded-md bg-slate-50 p-2 dark:bg-slate-950"><span className="text-slate-500">Total</span><p className="font-bold">{formatMoney(total)}</p></div>

@@ -100,7 +100,7 @@ for (const expected of ["Fabrication fenêtres/portes", "Fenêtres", "Moustiquai
 }
 
 const salesDocumentPageSource = fs.readFileSync(path.join(root, "apps/web/app/dashboard/sales/sales-document-page.tsx"), "utf8");
-for (const expected of ["showFabricationFields", "Notes de mesure", "Livraison / installation", "En cours / En fabrication", "Prete pour livraison/installation"]) {
+for (const expected of ["showFabricationFields", "Notes de mesure", "Livraison / installation", "En cours / En fabrication", "Prête pour livraison/installation"]) {
   if (!salesDocumentPageSource.includes(expected)) {
     failures.push(`UI Devis & Commandes fabrication incomplete: ${expected}`);
   }

@@ -3,10 +3,10 @@ import Link from "next/link";
 const cards = [
   { title: "Devis en attente", href: "/dashboard/sales/quotes?status=DRAFT", text: "Prix proposés aux clients." },
   { title: "Commandes en préparation", href: "/dashboard/sales/proformas?status=IN_PROGRESS", text: "Commandes confirmées à préparer." },
-  { title: "Balances à recevoir", href: "/dashboard/sales/proformas?status=PARTIALLY_PAID", text: "Commandes avec un reste à payer." },
+  { title: "Balances à recevoir", href: "/dashboard/sales/proformas?paymentStatus=PARTIALLY_PAID", text: "Commandes avec un reste à payer." },
   { title: "Commandes prêtes", href: "/dashboard/sales/proformas?status=READY", text: "Commandes prêtes pour remise, livraison ou installation." },
   { title: "Commandes terminées", href: "/dashboard/sales/proformas?status=COMPLETED", text: "Commandes clôturées." },
-  { title: "Avances reçues", href: "/dashboard/sales/proformas?status=PARTIALLY_PAID", text: "Paiements déjà reçus avant la balance finale." }
+  { title: "Avances reçues", href: "/dashboard/sales/proformas?paymentStatus=PARTIALLY_PAID", text: "Paiements déjà reçus avant la balance finale." }
 ];
 
 const flowSteps = ["1. Devis", "2. Commande", "3. Avance", "4. Balance", "5. Terminé"];
@@ -17,7 +17,7 @@ export default function SalesPage() {
       <p className="text-sm font-medium text-brand-600">Devis & Commandes</p>
       <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Devis, commandes, avances et balances</h1>
       <p className="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-300">
-        Préparez un devis, transformez-le en commande, puis suivez l’avance et la balance.
+        Préparez un devis, transformez-le en commande, puis suivez l&apos;avance et la balance.
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
         {flowSteps.map((step) => <span key={step} className="rounded-full bg-brand-50 px-3 py-1 text-xs font-bold text-brand-700 dark:bg-brand-950 dark:text-brand-200">{step}</span>)}

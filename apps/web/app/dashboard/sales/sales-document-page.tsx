@@ -9,20 +9,22 @@ import { downloadPdf, openPrintPreview } from "@/lib/print";
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://api.vtaerp.com" : "http://localhost:3001"));
 
 const statusLabels: Record<string, string> = {
-  DRAFT: "Devis",
-  SENT: "Envoye",
-  ACCEPTED: "Accepte",
+  DRAFT: "Brouillon",
+  SENT: "Envoyé",
+  ACCEPTED: "Accepté",
   CONFIRMED: "Confirmée",
   IN_PROGRESS: "En cours / En fabrication",
-  READY: "Prete pour livraison/installation",
-  DELIVERED: "Livree",
+  READY: "Prête pour livraison/installation",
+  DELIVERED: "Livrée",
   COMPLETED: "Terminée",
-  REJECTED: "Refuse",
-  CONVERTED: "Transforme",
-  PAID: "Soldee",
+  REJECTED: "Refusé",
+  EXPIRED: "Expiré",
+  CONVERTED: "Converti",
+  UNPAID: "Non payée",
+  PAID: "Payée",
   PARTIALLY_PAID: "Avance reçue",
-  CANCELLED: "Annulee",
-  RETURNED: "Retournee"
+  CANCELLED: "Annulée",
+  RETURNED: "Retournée"
 };
 
 const orderStatuses = ["CONFIRMED", "IN_PROGRESS", "READY", "DELIVERED", "COMPLETED", "CANCELLED"];
@@ -58,6 +60,7 @@ type SalesDocument = {
   customer?: Customer;
   items: DocumentItem[];
   payments?: Payment[];
+  paymentStatus?: string;
 };
 type Line = {
   productId: string;
@@ -94,13 +97,13 @@ function documentKind(type: DocType) {
 
 function documentHelpText(type: DocType) {
   if (type === "quotes") return "Devis = proposition de prix pour le client.";
-  if (type === "proformas") return "Commande = suivi du total, de l’avance et de la balance.";
+  if (type === "proformas") return "Commande = suivi du total, de l'avance et de la balance.";
   return "Facture = document finalisé issu d'une vente ou commande.";
 }
 
 function documentCreateHelp(type: DocType) {
   if (type === "quotes") return "Préparez une proposition claire pour le client.";
-  if (type === "proformas") return "Suivez le total, l’avance et la balance de la commande.";
+  if (type === "proformas") return "Suivez le total, l'avance et la balance de la commande.";
   return "Préparez un document finalisé.";
 }
 
@@ -132,7 +135,7 @@ function isFabricationProfile(profileType?: string, primaryActivity?: string) {
 }
 
 function composeFabricationNote(line: Line) {
-  const details = [
+  const détails = [
     line.material ? `Matériau: ${line.material}` : "",
     line.width ? `Largeur: ${line.width}` : "",
     line.height ? `Hauteur: ${line.height}` : "",
@@ -143,7 +146,7 @@ function composeFabricationNote(line: Line) {
     line.installationNotes ? `Livraison / installation: ${line.installationNotes}` : "",
     line.measurementNotes ? `Notes de mesure: ${line.measurementNotes}` : ""
   ].filter(Boolean);
-  return details.length ? details.join("\n") : undefined;
+  return détails.length ? détails.join("\n") : undefined;
 }
 
 export function SalesDocumentPage({ type, title, eyebrow, createLabel, transformLabel, transformAction }: Props) {
@@ -154,6 +157,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
   const [summary, setSummary] = useState<Summary | null>(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
+  const [paymentStatus, setPaymentStatus] = useState("");
   const [productSearch, setProductSearch] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [notes, setNotes] = useState("");
@@ -178,17 +182,20 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
     const params = new URLSearchParams({ limit: "20" });
     if (search) params.set("search", search);
     if (status) params.set("status", status);
+    if (paymentStatus) params.set("paymentStatus", paymentStatus);
     const response = await apiFetch(`/${type}?${params}`);
     if (response.ok) setItems((await response.json()).items ?? []);
     if (type === "proformas") {
       const summaryResponse = await apiFetch("/proformas/reports/summary");
       if (summaryResponse.ok) setSummary(await summaryResponse.json());
     }
-  }, [apiFetch, search, status, type]);
+  }, [apiFetch, paymentStatus, search, status, type]);
 
   useEffect(() => {
     const initialStatus = new URLSearchParams(window.location.search).get("status");
+    const initialPaymentStatus = new URLSearchParams(window.location.search).get("paymentStatus");
     if (initialStatus) setStatus(initialStatus);
+    if (initialPaymentStatus) setPaymentStatus(initialPaymentStatus);
     void loadReferences();
   }, []);
   useEffect(() => { const timer = setTimeout(() => void loadDocuments(), 250); return () => clearTimeout(timer); }, [loadDocuments]);
@@ -276,7 +283,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
     event.preventDefault();
     setMessage("");
     if (lines.length === 0) {
-      setMessage(type === "quotes" ? "Ajoutez au moins un produit ou service au devis." : "Ajoutez au moins un produit ou service a la commande.");
+      setMessage(type === "quotes" ? "Ajoutez au moins un produit ou service au devis." : "Ajoutez au moins un produit ou service à la commande.");
       return;
     }
     const payload = {
@@ -340,7 +347,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
       body: JSON.stringify({ method: "CASH", amount, reference: paymentReference || undefined, notes: "Avance / paiement partiel" })
     });
     if (response.ok) {
-      setMessage("Paiement enregistre.");
+      setMessage("Paiement enregistré.");
       setPaymentAmount("");
       setPaymentReference("");
       await refreshSelected(document.id);
@@ -358,19 +365,19 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
 
   function selectForPayment(document: SalesDocument) {
     setSelected(document);
-    setMessage("Commande sélectionnée: ajoutez l'avance ou la balance dans le detail.");
+    setMessage("Commande sélectionnée: ajoutez l'avance ou la balance dans le détail.");
   }
 
   const totalPreview = useMemo(() => lines.reduce((sum, line) => sum + line.quantity * line.unitPrice - line.discount + line.tax, 0) - discount, [lines, discount]);
-  const canTakePayment = selected && (type === "proformas" || type === "invoices") && Number(selected.balance) > 0 && selected.status !== "CANCELLED";
+  const canTakePayment = selected && (type === "proformas" || type === "invoices") && Number(selected.balance) > 0 && !["DRAFT", "CANCELLED"].includes(selected.status);
   function compactProducts() {
     const term = productSearch.trim().toLowerCase();
     const filtered = term ? products.filter((product) => `${product.sku} ${product.name}`.toLowerCase().includes(term)) : products;
     return filtered.slice(0, 20);
   }
 
-  const addToDocumentLabel = type === "quotes" ? "Ajouter au devis" : type === "proformas" ? "Ajouter a la commande" : "Ajouter au document";
-  const addCustomToDocumentLabel = type === "quotes" ? "Ajouter la ligne au devis" : type === "proformas" ? "Ajouter la ligne a la commande" : "Ajouter la ligne";
+  const addToDocumentLabel = type === "quotes" ? "Ajouter au devis" : type === "proformas" ? "Ajouter à la commande" : "Ajouter au document";
+  const addCustomToDocumentLabel = type === "quotes" ? "Ajouter la ligne au devis" : type === "proformas" ? "Ajouter la ligne à la commande" : "Ajouter la ligne";
   const selectedCatalogProduct = products.find((product) => product.id === catalogDraft.productId);
   const currentBalancePreview = type === "proformas" ? Math.max(totalPreview, 0) : null;
 
@@ -379,7 +386,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
       <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <p className="text-sm font-medium text-brand-600">{eyebrow}</p>
         <h1 className="text-2xl font-bold text-slate-950 dark:text-white">{title}</h1>
-        <p className="mt-1 text-sm text-slate-500">Préparez un devis, transformez-le en commande, puis suivez l’avance et la balance.</p>
+        <p className="mt-1 text-sm text-slate-500">Préparez un devis, transformez-le en commande, puis suivez l&apos;avance et la balance.</p>
         <div className="mt-3 rounded-md border border-brand-100 bg-brand-50 px-3 py-2 text-sm text-slate-700 dark:border-brand-900 dark:bg-slate-950 dark:text-slate-200">
           {documentHelpText(type)}
         </div>
@@ -390,7 +397,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
         <div className="grid gap-3 md:grid-cols-5">
           <Metric label="Commandes en cours" value={summary.ordersInProgress} />
           <Metric label="Avances reçues" value={money(summary.depositsReceived)} />
-          <Metric label="Balances a recevoir" value={money(summary.balancesToCollect)} />
+          <Metric label="Balances à recevoir" value={money(summary.balancesToCollect)} />
           <Metric label="Prêtes avec balance" value={summary.readyUnpaidOrders} />
           <Metric label="Terminées" value={summary.completedOrders} />
         </div>
@@ -413,7 +420,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
               <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="text-sm font-bold text-slate-950 dark:text-white">A) Produit du catalogue</p>
-                  <p className="text-xs text-slate-600 dark:text-slate-300">La liste charge les produits disponibles. La recherche trouvé aussi un produit hors des premiers résultats.</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300">La liste charge les produits disponibles. La recherche trouve aussi un produit hors des premiers résultats.</p>
                 </div>
                 <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-brand-700 dark:bg-slate-900 dark:text-brand-200">{compactProducts().length} produits visibles</span>
               </div>
@@ -427,7 +434,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
                     onSelect={() => selectProduct(product.id)}
                   />
                 ))}
-                {compactProducts().length === 0 ? <p className="rounded-md border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900">Aucun produit trouvé. Utilisez la ligne personnalisée si besoin.</p> : null}
+                {compactProducts().length === 0 ? <p className="rounded-md border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900">Aucun produit trouve. Utilisez la ligne personnalisée si besoin.</p> : null}
               </div>
               {selectedCatalogProduct ? <SelectedProduct product={selectedCatalogProduct} /> : null}
               <div className="mt-3 grid gap-2 sm:grid-cols-3">
@@ -488,7 +495,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
               <Info label="Avance reçue" value={money(0)} />
               <Info label="Balance restante" value={money(currentBalancePreview ?? totalPreview)} />
             </div>
-            <p className="mt-3 text-xs text-slate-300">{type === "quotes" ? "Le devis reste séparé du POS." : "La commande suit le total, l’avance et la balance."}</p>
+            <p className="mt-3 text-xs text-slate-300">{type === "quotes" ? "Le devis ne modifie pas le stock et ne crée pas de vente POS." : "La commande suit le total, l'avance et la balance."}</p>
           </div>
 
           <button className="mt-4 w-full rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">{type === "quotes" ? "Enregistrer devis" : type === "proformas" ? "Enregistrer commande" : "Enregistrer"}</button>
@@ -633,7 +640,7 @@ function NumberField({ label, value, min, step, onChange }: { label: string; val
 function LinePreview({ line, index, product, onRemove }: { line: Line; index: number; product?: Product; onRemove: () => void }) {
   const lineName = product?.name ?? line.customName;
   const lineSku = product?.sku;
-  const lineUnit = product?.unit;
+  const lineUnit = product ? productUnitLabel(product) : "";
   const lineTotal = line.quantity * line.unitPrice - line.discount + line.tax;
   return <div className="rounded-md border border-slate-200 bg-white p-3 text-sm dark:border-slate-800 dark:bg-slate-900">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -673,10 +680,11 @@ function DocumentActions(props: {
     <button onClick={props.onPrint} className="rounded-md border px-2 py-1 text-xs">Imprimer</button>
     {type === "quotes" && props.transformAction ? <button onClick={() => props.onAction(props.transformAction!)} className="rounded-md bg-brand-600 px-2 py-1 text-xs font-semibold text-white">{props.transformLabel ?? "Convertir"}</button> : null}
     {type === "quotes" ? <button onClick={() => props.onAction("reject")} className="rounded-md border px-2 py-1 text-xs">Annuler</button> : null}
-    {type === "proformas" && Number(doc.balance) > 0 ? <button onClick={props.onPayment} className="rounded-md border px-2 py-1 text-xs">{paymentActionLabel(doc)}</button> : null}
-    {type === "proformas" && doc.status !== "READY" ? <button onClick={() => props.onStatus("READY")} className="rounded-md border px-2 py-1 text-xs">Marquer prête</button> : null}
-    {type === "proformas" && doc.status !== "DELIVERED" ? <button onClick={() => props.onStatus("DELIVERED")} className="rounded-md border px-2 py-1 text-xs">Marquer livrée</button> : null}
-    {type === "proformas" && doc.status !== "COMPLETED" ? <button onClick={() => props.onStatus("COMPLETED")} className="rounded-md border px-2 py-1 text-xs">Terminer</button> : null}
+    {type === "proformas" && doc.status === "DRAFT" ? <button onClick={() => props.onStatus("CONFIRMED")} className="rounded-md bg-brand-600 px-2 py-1 text-xs font-semibold text-white">Confirmer</button> : null}
+    {type === "proformas" && doc.status !== "DRAFT" && Number(doc.balance) > 0 ? <button onClick={props.onPayment} className="rounded-md border px-2 py-1 text-xs">{paymentActionLabel(doc)}</button> : null}
+    {type === "proformas" && ["CONFIRMED", "IN_PROGRESS"].includes(doc.status) ? <button onClick={() => props.onStatus("READY")} className="rounded-md border px-2 py-1 text-xs">Marquer prête</button> : null}
+    {type === "proformas" && doc.status === "READY" ? <button onClick={() => props.onStatus("DELIVERED")} className="rounded-md border px-2 py-1 text-xs">Marquer livrée</button> : null}
+    {type === "proformas" && doc.status === "DELIVERED" ? <button onClick={() => props.onStatus("COMPLETED")} className="rounded-md border px-2 py-1 text-xs">Terminer</button> : null}
     {type === "proformas" && doc.status !== "CANCELLED" ? <button onClick={() => props.onStatus("CANCELLED")} className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-700">Annuler</button> : null}
   </div>;
 }
@@ -769,7 +777,7 @@ function DocumentDetail(props: {
 
       <div className="mt-4 flex flex-wrap gap-2">
         <button onClick={props.onPrint} className="rounded-md border px-3 py-2 text-sm">Imprimer</button>
-        {type === "invoices" ? <button onClick={() => void openPrintPreview(`/invoices/${selected.id}/print`)} className="rounded-md border px-3 py-2 text-sm">Apercu facture</button> : null}
+        {type === "invoices" ? <button onClick={() => void openPrintPreview(`/invoices/${selected.id}/print`)} className="rounded-md border px-3 py-2 text-sm">Aperçu facture</button> : null}
         {type === "invoices" ? <button onClick={() => void downloadPdf(`/invoices/${selected.id}/pdf`, `facture-${selected.number}.pdf`)} className="rounded-md border px-3 py-2 text-sm">PDF</button> : null}
         {props.transformAction ? <button onClick={() => props.onAction(props.transformAction!)} className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white">{props.transformLabel}</button> : null}
         {type === "proformas" ? orderStatuses.map((status) => <button key={status} onClick={() => props.onStatus(status)} className="rounded-md border px-3 py-2 text-sm">{statusLabels[status]}</button>) : null}
@@ -780,7 +788,7 @@ function DocumentDetail(props: {
           <h3 className="text-sm font-semibold">Ajouter une avance ou encaisser la balance</h3>
           <div className="mt-3 grid gap-2 md:grid-cols-[1fr_1fr_auto]">
             <input type="number" min="0.01" step="0.01" value={props.paymentAmount} onChange={(event) => props.onPaymentAmount(event.target.value)} placeholder="Montant" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-            <input value={props.paymentReference} onChange={(event) => props.onPaymentReference(event.target.value)} placeholder="Reference facultative" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+            <input value={props.paymentReference} onChange={(event) => props.onPaymentReference(event.target.value)} placeholder="Référence facultative" className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
             <button onClick={props.onRegisterPayment} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Enregistrer</button>
           </div>
         </div>
