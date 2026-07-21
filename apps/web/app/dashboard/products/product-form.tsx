@@ -287,16 +287,16 @@ export function ProductForm({ productId }: { productId?: string }) {
   return <form onSubmit={submit} className="space-y-5">
     {error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
     <Section title="Produit">
-      <ImagePicker label="Image produit" selected={Boolean(form.imageUrl)} onChange={(value) => update("imageUrl", value)} />
       <Input value={form.name} onChange={(value) => update("name", value)} placeholder="Nom du produit *" required />
       <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
         <Select value={form.categoryId} onChange={(value) => update("categoryId", value)} placeholder="Catégorie" items={refs.categories} />
         <button type="button" onClick={() => setShowCategoryModal(true)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">+ Nouvelle catégorie</button>
       </div>
+      <Input value={form.purchasePrice} onChange={(value) => update("purchasePrice", value)} placeholder="Prix d'achat / coût - facultatif" type="number" />
       <Input value={form.salePrice} onChange={(value) => update("salePrice", value)} placeholder="Prix de vente *" type="number" required />
-      <Input value={form.stockInitial} onChange={(value) => update("stockInitial", value)} placeholder="Quantité actuelle" type="number" helper="Quantité disponible au départ." />
+      <Input value={form.stockInitial} onChange={(value) => update("stockInitial", value)} placeholder={productId ? "Quantité actuelle" : "Quantité initiale"} type="number" />
       <Input value={form.minimumStock} onChange={(value) => update("minimumStock", value)} placeholder="Quantité minimale pour stock faible" type="number" helper="Alerte quand le stock arrive à ce niveau." />
-      <Input value={form.purchasePrice} onChange={(value) => update("purchasePrice", value)} placeholder="Coût / prix d'achat" type="number" />
+      <ImagePicker label="Image produit" selected={Boolean(form.imageUrl)} onChange={(value) => update("imageUrl", value)} />
       <textarea value={form.description} onChange={(event) => update("description", event.target.value)} placeholder="Description courte facultative" rows={3} className="min-h-24 rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950 md:col-span-2" />
       <label className="flex items-center gap-2 text-sm md:col-span-2">
         <input type="checkbox" checked={form.isActive} onChange={(event) => update("isActive", event.target.checked)} /> Produit actif

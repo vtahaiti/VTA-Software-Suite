@@ -49,6 +49,7 @@
     "test:client-ready": "node scripts/client-ready-essentials-smoke.cjs",
     "test:stabilization-access": "node scripts/stabilization-access-held-sales-smoke.cjs",
     "test:products-ux": "node scripts/product-form-ux-smoke.cjs",
+    "test:product-delete-soft": "node scripts/product-delete-soft-smoke.cjs",
     "test:product-edit-persistence": "node scripts/product-edit-persistence-smoke.cjs",
     "test:tenant-session-cache": "node scripts/tenant-session-cache-smoke.cjs",
     "test:inventory-non-stock-actions": "node scripts/inventory-non-stock-actions-smoke.cjs",

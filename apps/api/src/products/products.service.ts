@@ -164,7 +164,11 @@ export class ProductsService {
     });
   }
 
-  async remove(tenantId: string, id: string) { await this.findOne(tenantId, id); await this.prisma.product.delete({ where: { id } }); return { success: true }; }
+  async remove(tenantId: string, id: string) {
+    await this.findOne(tenantId, id);
+    await this.prisma.product.update({ where: { id }, data: { isActive: false } });
+    return { success: true, mode: "soft-delete" };
+  }
 
   async importCsv(tenantId: string, csv: string) {
     const rows = csv.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);

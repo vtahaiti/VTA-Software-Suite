@@ -21,6 +21,7 @@ type Product = {
 type Category = { id: string; name: string };
 type ProductForm = {
   name: string;
+  purchasePrice: string;
   salePrice: string;
   categoryId: string;
   stockInitial: string;
@@ -32,6 +33,7 @@ type ProductForm = {
 
 const emptyForm: ProductForm = {
   name: "",
+  purchasePrice: "",
   salePrice: "",
   categoryId: "",
   stockInitial: "",
@@ -93,6 +95,7 @@ export default function ProductsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: form.name.trim(),
+        purchasePrice: Number(form.purchasePrice || 0),
         salePrice: Number(form.salePrice || 0),
         categoryId: form.categoryId || undefined,
         stockInitial: Number(form.stockInitial || 0),
@@ -110,6 +113,19 @@ export default function ProductsPage() {
     setForm(emptyForm);
     setIsModalOpen(false);
     await loadProducts();
+  }
+
+  async function deleteProduct(product: Product) {
+    const confirmed = window.confirm("Supprimer ce produit ? Cette action ne doit pas supprimer les anciennes ventes.");
+    if (!confirmed) return;
+    setMessage("");
+    const response = await fetchWithAuth(`${apiUrl}/products/${product.id}`, { method: "DELETE" }).catch(() => null);
+    if (!response?.ok) {
+      setMessage(response ? await readError(response) : "Suppression impossible.");
+      return;
+    }
+    setItems((current) => current.filter((item) => item.id !== product.id));
+    setTotal((current) => Math.max(0, current - 1));
   }
 
   const displayTotal = Math.max(total, items.length);
@@ -143,8 +159,9 @@ export default function ProductsPage() {
             <InfoBox label="Quantité"><QuantityDisplay product={product} /></InfoBox>
             <InfoBox label="Catégorie"><p className="truncate font-semibold">{product.category?.name ?? "--"}</p></InfoBox>
           </div>
-          <div className="mt-4">
+          <div className="mt-4 grid grid-cols-2 gap-2">
             <Link className="block rounded-md bg-brand-600 px-3 py-3 text-center text-sm font-bold text-white" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link>
+            <button type="button" onClick={() => void deleteProduct(product)} className="rounded-md border border-red-200 px-3 py-3 text-sm font-bold text-red-600 dark:border-red-900">Supprimer</button>
           </div>
         </article>)}
       </div>
@@ -159,7 +176,7 @@ export default function ProductsPage() {
             <td className="p-3">{product.category?.name ?? "--"}</td>
             <td className="p-3 font-semibold">{formatMoney(product.salePrice)}</td>
             <td className="p-3"><QuantityDisplay product={product} /></td>
-            <td className="p-3"><Link className="font-semibold text-brand-600" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link></td>
+            <td className="p-3"><div className="flex flex-wrap gap-3"><Link className="font-semibold text-brand-600" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link><button type="button" onClick={() => void deleteProduct(product)} className="font-semibold text-red-600">Supprimer</button></div></td>
           </tr>)}</tbody>
         </table>
         {!isLoading && !message && items.length === 0 ? <p className="p-5 text-sm text-slate-500">Aucun produit trouvé.</p> : null}
@@ -171,12 +188,13 @@ export default function ProductsPage() {
       {isModalOpen ? (
         <Modal title="Nouveau produit" onClose={() => setIsModalOpen(false)}>
           <form onSubmit={createProduct} className="space-y-3">
-            <ImagePicker selected={Boolean(form.imageUrl)} onChange={(value) => setForm((current) => ({ ...current, imageUrl: value }))} />
             <Input required value={form.name} onChange={(value) => setForm((current) => ({ ...current, name: value }))} placeholder="Nom du produit *" />
             <select value={form.categoryId} onChange={(event) => setForm((current) => ({ ...current, categoryId: event.target.value }))} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option value="">Catégorie</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
+            <Input type="number" value={form.purchasePrice} onChange={(value) => setForm((current) => ({ ...current, purchasePrice: value }))} placeholder="Prix d'achat / coût - facultatif" />
             <Input required type="number" value={form.salePrice} onChange={(value) => setForm((current) => ({ ...current, salePrice: value }))} placeholder="Prix de vente *" />
-            <Input type="number" value={form.stockInitial} onChange={(value) => setForm((current) => ({ ...current, stockInitial: value }))} placeholder="Quantité initiale" helper="Quantité disponible au départ." />
+            <Input type="number" value={form.stockInitial} onChange={(value) => setForm((current) => ({ ...current, stockInitial: value }))} placeholder="Quantité initiale" />
             <Input type="number" value={form.minimumStock} onChange={(value) => setForm((current) => ({ ...current, minimumStock: value }))} placeholder="Quantité minimale pour stock faible" helper="Alerte quand le stock arrive à ce niveau." />
+            <ImagePicker selected={Boolean(form.imageUrl)} onChange={(value) => setForm((current) => ({ ...current, imageUrl: value }))} />
             <textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Description courte facultative" rows={3} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
             <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={form.isActive} onChange={(event) => setForm((current) => ({ ...current, isActive: event.target.checked }))} /> Produit actif</label>
             {message ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{message}</p> : null}

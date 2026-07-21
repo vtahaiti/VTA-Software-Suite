@@ -30,12 +30,40 @@ assert(productsPage.includes("<th className=\"p-3\">Quantité</th>"), "La liste 
 assert(productsPage.includes("ProductThumb"), "La liste Produits doit afficher une miniature ou des initiales.");
 assert(productsPage.includes("QuantityDisplay"), "La quantité doit être rendue par un affichage simple.");
 assert(!productsPage.includes("openQuickCost"), "Le bouton Coût ne doit plus apparaître sur chaque ligne.");
+assert(productsPage.includes("Supprimer ce produit ? Cette action ne doit pas supprimer les anciennes ventes."), "La suppression produit doit demander confirmation.");
+assert(productsPage.includes("method: \"DELETE\""), "La page Produits doit appeler l'endpoint de suppression.");
+
+const modalStart = productsPage.indexOf("<Modal title=\"Nouveau produit\"");
+const modalEnd = productsPage.indexOf(") : null}", modalStart);
+const modalSection = productsPage.slice(modalStart, modalEnd);
+const modalOrder = [
+  "Nom du produit *",
+  "Catégorie",
+  "Prix d'achat / coût - facultatif",
+  "Prix de vente *",
+  "Quantité initiale",
+  "Quantité minimale pour stock faible",
+  "<ImagePicker",
+  "Description courte facultative"
+];
+assert(modalStart >= 0 && modalEnd > modalStart, "Le formulaire Nouveau produit doit être présent.");
+assertFieldOrder(modalSection, modalOrder, "Nouveau produit");
+assert(!modalSection.includes("required type=\"number\" value={form.purchasePrice}"), "Le prix d'achat ne doit pas être obligatoire.");
+assert(modalSection.indexOf("<ImagePicker") > modalSection.indexOf("Quantité minimale pour stock faible"), "L'image ne doit plus être le premier champ du nouveau produit.");
 
 const mainSection = productForm.match(/<Section title="Produit">[\s\S]*?<\/Section>/)?.[0] ?? "";
-for (const expected of ["Image produit", "Nom du produit", "Catégorie", "Prix de vente", "Quantité actuelle", "Quantité minimale", "Description courte", "Produit actif"]) {
-  assert(mainSection.includes(expected), `Champ principal manquant: ${expected}`);
-}
-assert(mainSection.includes("Coût / prix d'achat"), "Le coût d'achat doit rester accessible dans les champs principaux.");
+const editOrder = [
+  "Nom du produit *",
+  "Catégorie",
+  "Prix d'achat / coût - facultatif",
+  "Prix de vente *",
+  "Quantité actuelle",
+  "Quantité minimale pour stock faible",
+  "Image produit",
+  "Description courte facultative",
+  "Produit actif"
+];
+assertFieldOrder(mainSection, editOrder, "Modifier produit");
 assert(!mainSection.includes("Produit sans suivi de stock"), "Le suivi de stock avancé ne doit pas être dans les champs principaux.");
 assert(productForm.includes("<summary className=\"cursor-pointer text-lg font-semibold text-slate-950 dark:text-white\">Options avancées</summary>"), "Options avancées doit exister et être fermé par défaut.");
 
@@ -48,5 +76,14 @@ assert(!posPage.includes("Produit stocké"), "Le POS ne doit pas afficher Produi
 assert(!posPage.includes("Produit non stocké"), "Le POS ne doit pas afficher Produit non stocké.");
 assert(posPage.includes("Stock ${product.availableStock}") || posPage.includes("Stock ${item.availableStock}"), "Le POS doit afficher une quantité simple quand elle est disponible.");
 assert(posPage.includes("\"Disponible\""), "Le POS doit afficher un libellé discret pour les articles sans quantité suivie.");
+
+function assertFieldOrder(source, labels, context) {
+  let previousIndex = -1;
+  for (const label of labels) {
+    const index = source.indexOf(label);
+    assert(index > previousIndex, `${context}: ordre de champ invalide ou champ absent: ${label}`);
+    previousIndex = index;
+  }
+}
 
 console.log("Product form UX smoke OK");
