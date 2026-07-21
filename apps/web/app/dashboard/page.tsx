@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { clearSession, getAccessToken, getCurrentUser, refreshSession } from "@/lib/auth";
+import { fetchWithAuth } from "@/lib/api-client";
+import { clearSession, getAccessToken, getCurrentUser } from "@/lib/auth";
 import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
 import { businessDateKey, formatBusinessDateTime } from "@/lib/business-timezone";
 
@@ -138,6 +139,7 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary>(emptyDashboard);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [accessBlocked, setAccessBlocked] = useState(false);
 
   useEffect(() => {
     const currentUser = getCurrentUser();
@@ -151,26 +153,17 @@ export default function DashboardPage() {
 
       void getCompanyBranding(token).then(setBranding).catch(() => undefined);
 
-      let response = await fetch(`${apiUrl}/dashboard/summary`, {
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: "include"
-      });
+      const response = await fetchWithAuth(`${apiUrl}/dashboard/summary`, { credentials: "include" });
 
-      if (response.status === 401 || response.status === 403) {
-        const refreshedUser = await refreshSession();
-        token = refreshedUser ? getAccessToken() : null;
+      if (response.status === 403) {
+        setAccessBlocked(true);
+        return null;
+      }
 
-        if (!token) {
-          clearSession();
-          window.location.href = "/login";
-          return null;
-        }
-
-        void getCompanyBranding(token).then(setBranding).catch(() => undefined);
-        response = await fetch(`${apiUrl}/dashboard/summary`, {
-          headers: { Authorization: `Bearer ${token}` },
-          credentials: "include"
-        });
+      if (response.status === 401) {
+        clearSession();
+        window.location.href = "/login";
+        return null;
       }
 
       if (!response.ok) {
@@ -207,6 +200,8 @@ export default function DashboardPage() {
     { label: "Factures impayées", value: formatNumber(summary.kpis.invoicesUnpaid), tone: "amber" },
     { label: "Commandes en attente", value: formatNumber(summary.kpis.pendingOrders), tone: "slate" }
   ], [summary]);
+
+  if (accessBlocked) return <DashboardAccessBlocked />;
 
   return (
     <div className="space-y-4 pb-6 lg:space-y-8 lg:pb-8">
@@ -293,6 +288,18 @@ function KpiCard({ label, value, tone, isLoading }: { label: string; value: stri
       <p className="text-xs font-bold uppercase tracking-[0.16em] opacity-70">{label}</p>
       <p className="mt-4 text-2xl font-black tracking-tight">{isLoading ? <span className="block h-8 w-24 animate-pulse rounded bg-slate-200 dark:bg-slate-800" /> : value}</p>
     </article>
+  );
+}
+
+function DashboardAccessBlocked() {
+  return (
+    <main className="flex min-h-[60vh] items-center justify-center">
+      <section className="w-full max-w-lg rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center shadow-sm dark:border-amber-900 dark:bg-amber-950/30">
+        <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">Accès suspendu</p>
+        <h1 className="mt-2 text-2xl font-bold text-slate-950 dark:text-white">Votre compte est temporairement bloqué.</h1>
+        <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">Contactez l&apos;administrateur ou le support VTA Commerce pour réactiver l&apos;accès.</p>
+      </section>
+    </main>
   );
 }
 
@@ -568,5 +575,3 @@ function formatGrowth(value: number | null | undefined) {
 function formatNullableMoney(value: number | null | undefined) {
   return value === null || value === undefined ? "À compléter" : formatMoney(value);
 }
-
-

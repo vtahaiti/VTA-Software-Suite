@@ -47,6 +47,7 @@
     "test:held-sales-locking": "node scripts/held-sales-locking-smoke.cjs",
     "test:launch-stabilization": "node scripts/launch-stabilization-smoke.cjs",
     "test:client-ready": "node scripts/client-ready-essentials-smoke.cjs",
+    "test:stabilization-access": "node scripts/stabilization-access-held-sales-smoke.cjs",
     "test:products-ux": "node scripts/product-form-ux-smoke.cjs",
     "test:product-edit-persistence": "node scripts/product-edit-persistence-smoke.cjs",
     "test:tenant-session-cache": "node scripts/tenant-session-cache-smoke.cjs",

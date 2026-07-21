@@ -54,12 +54,18 @@ export class SalesService {
     };
   }
 
-  async findOne(tenantId: string, id: string) {
+  async findOne(tenantId: string, id: string, user?: Pick<AuthUser, "id" | "role" | "roles" | "permissions">) {
     const sale = await this.prisma.sale.findFirst({
       where: { id, tenantId },
       include: { items: { include: { product: true } }, payments: { include: { invoice: true } }, receipt: true, customer: true, cashSession: { include: { cashRegister: true } } }
     });
     if (!sale) throw new NotFoundException("Vente introuvable");
+    if (user) {
+      const access = this.saleAccess(user);
+      if (access.forcedUserId && sale.createdById !== access.forcedUserId) {
+        throw new ForbiddenException("Accès interdit à la vente d'un autre caissier");
+      }
+    }
     return sale;
   }
 

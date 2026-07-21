@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
-import { clearSession, getAccessToken, getCurrentUser, refreshSession } from "@/lib/auth";
+import { clearSession, getCurrentUser } from "@/lib/auth";
 import { getReceiptPrintSettings, openPrintPreview } from "@/lib/print";
 import { summarizePayments } from "@/lib/payment-summary";
 import { formatBusinessDateTime } from "@/lib/business-timezone";
@@ -57,6 +57,7 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
   const [customEnd, setCustomEnd] = useState("");
   const [summary, setSummary] = useState<SalesSummary | null>(null);
   const [cashiers, setCashiers] = useState<CashierOption[]>([]);
+  const [accessBlocked, setAccessBlocked] = useState(false);
   const currentUser = getCurrentUser();
   const canViewAllSales = userCanViewAllSales(currentUser);
 
@@ -67,26 +68,25 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
     setMessage("");
     if (type === "in-progress") {
       setIsLoading(true);
-      let token = getAccessToken();
-      let response = await fetch(`${apiUrl}/pos/held-sales`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
-      if (response?.status === 401 || response?.status === 403) {
-        const refreshedUser = await refreshSession();
-        token = refreshedUser ? getAccessToken() : null;
-        if (!token) {
-          clearSession();
-          window.location.href = "/login";
-          return;
-        }
-        response = await fetch(`${apiUrl}/pos/held-sales`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
-      }
+      const response = await fetchWithAuth(`${apiUrl}/pos/held-sales`).catch(() => null);
       setIsLoading(false);
+      if (response?.status === 403) {
+        setAccessBlocked(true);
+        setDrafts([]);
+        return;
+      }
+      if (response?.status === 401) {
+        clearSession();
+        window.location.href = "/login";
+        return;
+      }
       if (response?.ok) {
         const data = await response.json();
         setDrafts(uniqueDrafts((data.items ?? []).map(normalizeDraft)));
         return;
       }
-      setDrafts(loadDrafts());
-      setMessage("Impossible de charger les ventes en attente du serveur. Brouillons locaux affichés.");
+      setDrafts([]);
+      setMessage("Impossible de charger les ventes en attente du serveur.");
       return;
     }
     const status = type === "cancelled" ? "CANCELLED" : "COMPLETED";
@@ -100,20 +100,19 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
       }
       if (canViewAllSales && cashierId !== "all") params.set("cashierId", cashierId);
     }
-    let token = getAccessToken();
         setIsLoading(true);
-        let response = await fetch(`${apiUrl}/sales?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
-        if (response?.status === 401 || response?.status === 403) {
-          const refreshedUser = await refreshSession();
-          token = refreshedUser ? getAccessToken() : null;
-          if (!token) {
-            clearSession();
-            window.location.href = "/login";
-            return;
-          }
-          response = await fetch(`${apiUrl}/sales?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
-        }
+        const response = await fetchWithAuth(`${apiUrl}/sales?${params.toString()}`).catch(() => null);
         setIsLoading(false);
+        if (response?.status === 403) {
+          setAccessBlocked(true);
+          setSales([]);
+          return;
+        }
+        if (response?.status === 401) {
+          clearSession();
+          window.location.href = "/login";
+          return;
+        }
         if (!response?.ok) {
           setMessage("Impossible de charger les ventes.");
           return;
@@ -132,6 +131,8 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
   const subtitle = type === "in-progress" ? "Brouillons POS, commandes en attente et paiements partiels." : type === "completed" ? "Ventes payées ou clôturées." : "Historique des ventes annulées.";
 
   const pages = useMemo(() => Math.max(1, Math.ceil(total / 25)), [total]);
+
+  if (accessBlocked) return <TenantAccessBlockedInline />;
 
   return <div className="space-y-5">
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -400,18 +401,6 @@ function isPaidCompletedSale(sale: Sale) {
   return sale.status === "COMPLETED" && paid >= Number(sale.total ?? 0);
 }
 
-function loadDrafts() {
-  if (typeof window === "undefined") return [];
-  const user = getCurrentUser();
-  const key = posDraftKey(user?.tenantId);
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? [normalizeDraft({ ...JSON.parse(raw), storageKey: key })] : [];
-  } catch {
-    return [];
-  }
-}
-
 function normalizeDraft(draft: Draft): Draft {
   return {
     ...draft,
@@ -519,4 +508,16 @@ function formatMoney(value: number) {
 
 function Pagination({ page, pages, total, onPrev, onNext }: { page: number; pages: number; total: number; onPrev: () => void; onNext: () => void }) {
   return <div className="flex items-center justify-between"><p className="text-sm text-slate-500">{total} vente{total > 1 ? "s" : ""}</p><div className="flex gap-2"><button disabled={page <= 1} onClick={onPrev} className="rounded-md border px-3 py-2 disabled:opacity-50">Précédent</button><span className="px-3 py-2 text-sm">{page}/{pages}</span><button disabled={page >= pages} onClick={onNext} className="rounded-md border px-3 py-2 disabled:opacity-50">Suivant</button></div></div>;
+}
+
+function TenantAccessBlockedInline() {
+  return (
+    <main className="flex min-h-[60vh] items-center justify-center">
+      <section className="w-full max-w-lg rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center shadow-sm dark:border-amber-900 dark:bg-amber-950/30">
+        <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">Accès suspendu</p>
+        <h1 className="mt-2 text-2xl font-bold text-slate-950 dark:text-white">Votre compte est temporairement bloqué.</h1>
+        <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">Contactez l&apos;administrateur ou le support VTA Commerce pour réactiver l&apos;accès.</p>
+      </section>
+    </main>
+  );
 }

@@ -19,11 +19,14 @@ export class SalesController {
   @Get(":id/receipt")
   @Header("Content-Type", "text/html; charset=utf-8")
   @Permissions("sales.view")
-  receipt(@Req() req: AuthenticatedRequest, @Param("id") id: string, @Query("width") width?: "58" | "72" | "80") { return this.printService.renderReceipt(req.user.tenantId, id, width ?? "80"); }
+  async receipt(@Req() req: AuthenticatedRequest, @Param("id") id: string, @Query("width") width?: "58" | "72" | "80") {
+    await this.service.findOne(req.user.tenantId, id, req.user);
+    return this.printService.renderReceipt(req.user.tenantId, id, width ?? "80");
+  }
 
   @Get(":id")
   @Permissions("sales.view")
-  findOne(@Req() req: AuthenticatedRequest, @Param("id") id: string) { return this.service.findOne(req.user.tenantId, id); }
+  findOne(@Req() req: AuthenticatedRequest, @Param("id") id: string) { return this.service.findOne(req.user.tenantId, id, req.user); }
 
   @Post()
   @Permissions("sales.create")
