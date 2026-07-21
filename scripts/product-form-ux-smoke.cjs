@@ -29,6 +29,8 @@ for (const forbidden of [
 assert(productsPage.includes("<th className=\"p-3\">Quantité</th>"), "La liste Produits doit afficher une colonne Quantité.");
 assert(productsPage.includes("ProductThumb"), "La liste Produits doit afficher une miniature ou des initiales.");
 assert(productsPage.includes("QuantityDisplay"), "La quantité doit être rendue par un affichage simple.");
+assert(productsPage.includes("Coût à compléter"), "Le coût manquant doit rester disponible sous forme discrète.");
+assert(productsPage.includes("text-[11px]") && productsPage.includes("text-amber-600/75"), "Le coût manquant doit être visuellement discret.");
 assert(!productsPage.includes("openQuickCost"), "Le bouton Coût ne doit plus apparaître sur chaque ligne.");
 assert(productsPage.includes("Supprimer ce produit ? Cette action ne doit pas supprimer les anciennes ventes."), "La suppression produit doit demander confirmation.");
 assert(productsPage.includes("method: \"DELETE\""), "La page Produits doit appeler l'endpoint de suppression.");
@@ -57,14 +59,16 @@ const editOrder = [
   "Catégorie",
   "Prix d'achat / coût - facultatif",
   "Prix de vente *",
-  "Quantité actuelle",
+  "Quantité initiale / stock actuel",
   "Quantité minimale pour stock faible",
   "Image produit",
   "Description courte facultative",
   "Produit actif"
 ];
 assertFieldOrder(mainSection, editOrder, "Modifier produit");
+assert(!mainSection.includes("Quantité actuelle"), "Modifier produit ne doit plus afficher le libellé ambigu Quantité actuelle.");
 assert(!mainSection.includes("Produit sans suivi de stock"), "Le suivi de stock avancé ne doit pas être dans les champs principaux.");
+assert(productForm.includes("showAdvancedOptions") && productForm.includes("showAdvancedOptions ? <div className=\"mt-5 space-y-5\">"), "Les options avancées doivent être rendues seulement après ouverture.");
 assert(productForm.includes("<summary className=\"cursor-pointer text-lg font-semibold text-slate-950 dark:text-white\">Options avancées</summary>"), "Options avancées doit exister et être fermé par défaut.");
 
 for (const advanced of ["SKU automatique", "Code-barres", "QR code", "Référence", "Fournisseur principal", "Unité", "Prix gros", "Coût moyen", "Taxe", "Stock maximum", "Emplacement", "Couleur", "Dimensions", "Type / matériau", "Épaisseur / longueur", "Garantie", "Produit sans suivi de stock"]) {

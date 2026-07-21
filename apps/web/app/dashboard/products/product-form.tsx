@@ -72,6 +72,7 @@ export function ProductForm({ productId }: { productId?: string }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [categoryForm, setCategoryForm] = useState<CategoryForm>(emptyCategoryForm);
 
   useEffect(() => {
@@ -295,7 +296,7 @@ export function ProductForm({ productId }: { productId?: string }) {
       </div>
       <Input value={form.purchasePrice} onChange={(value) => update("purchasePrice", value)} placeholder="Prix d'achat / coût - facultatif" type="number" />
       <Input value={form.salePrice} onChange={(value) => update("salePrice", value)} placeholder="Prix de vente *" type="number" required />
-      <Input value={form.stockInitial} onChange={(value) => update("stockInitial", value)} placeholder={productId ? "Quantité actuelle" : "Quantité initiale"} type="number" />
+      <Input value={form.stockInitial} onChange={(value) => update("stockInitial", value)} placeholder={productId ? "Quantité initiale / stock actuel" : "Quantité initiale"} type="number" />
       <Input value={form.minimumStock} onChange={(value) => update("minimumStock", value)} placeholder="Quantité minimale pour stock faible" type="number" helper="Alerte quand le stock arrive à ce niveau." />
       <ImagePicker label="Image produit" selected={Boolean(form.imageUrl)} onChange={(value) => update("imageUrl", value)} />
       <textarea value={form.description} onChange={(event) => update("description", event.target.value)} placeholder="Description courte facultative" rows={3} className="min-h-24 rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950 md:col-span-2" />
@@ -304,9 +305,9 @@ export function ProductForm({ productId }: { productId?: string }) {
       </label>
     </Section>
 
-    <details className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <details open={showAdvancedOptions} onToggle={(event) => setShowAdvancedOptions(event.currentTarget.open)} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <summary className="cursor-pointer text-lg font-semibold text-slate-950 dark:text-white">Options avancées</summary>
-      <div className="mt-5 space-y-5">
+      {showAdvancedOptions ? <div className="mt-5 space-y-5">
         <Section title="Codes et références">
           <Input value={form.sku} onChange={(value) => update("sku", value)} placeholder="SKU automatique si vide" />
           <div className="flex gap-2">
@@ -362,7 +363,7 @@ export function ProductForm({ productId }: { productId?: string }) {
           <input type="date" value={form.expirationDate} onChange={(event) => update("expirationDate", event.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
           <Input value={form.warrantyMonths} onChange={(value) => update("warrantyMonths", value)} placeholder="Garantie en mois" type="number" />
         </Section>
-      </div>
+      </div> : null}
     </details>
 
     <div className="flex items-center gap-3">
