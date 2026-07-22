@@ -12,7 +12,6 @@ type Warehouse = { id: string; name: string };
 type CategoryForm = { name: string; icon: string };
 
 const hardwareUnitSuggestions = ["pièce", "sac", "tonne", "kg", "mètre", "pied", "feuille", "gallon", "litre", "boîte", "paquet", "verge"];
-
 const emptyCategoryForm: CategoryForm = { name: "", icon: "" };
 
 const emptyForm = {

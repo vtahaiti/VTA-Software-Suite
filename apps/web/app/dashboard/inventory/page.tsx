@@ -4,6 +4,7 @@ import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
+import { getTenantBusinessConfiguration, type TenantBusinessConfiguration } from "@/lib/business-profiles";
 
 type StockLine = {
   id: string;
@@ -53,6 +54,7 @@ export default function InventoryPage() {
   const [stockForm, setStockForm] = useState<StockForm>(emptyStockForm);
   const [isTransferOpen, setIsTransferOpen] = useState(false);
   const [transferForm, setTransferForm] = useState<TransferForm>(emptyTransferForm);
+  const [business, setBusiness] = useState<TenantBusinessConfiguration | null>(null);
 
   const summary = useMemo(() => {
     const tracked = stocks.filter((stock) => isStockTracked(stock));
@@ -93,6 +95,9 @@ export default function InventoryPage() {
     const timer = setTimeout(() => void loadStocks(), 200);
     return () => clearTimeout(timer);
   }, [loadStocks]);
+  useEffect(() => {
+    void getTenantBusinessConfiguration().then(setBusiness).catch(() => undefined);
+  }, []);
 
   function openStockModal(stock: StockLine, action: StockAction) {
     if (!isStockTracked(stock)) {
@@ -193,7 +198,9 @@ export default function InventoryPage() {
             <p className="text-sm font-medium text-brand-600">Inventaire</p>
             <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Mouvements et contrôle stock</h1>
             <p className="mt-1 text-sm text-slate-500">Les produits se gèrent dans le catalogue. Ici, suivez les entrées, sorties, transferts et historiques de stock.</p>
-            <p className="mt-1 text-xs text-slate-500">Restaurant : Dépôt principal, Réfrigérateur, Cuisine, Bar. Market, Quincaillerie et Pharmacie : Dépôt principal.</p>
+            {isRestaurantInventoryProfile(business) ? (
+              <p className="mt-1 text-xs text-slate-500">Emplacements Restaurant : Dépôt principal, Réfrigérateur, Cuisine, Bar.</p>
+            ) : null}
           </div>
           <Link href="/dashboard/products" className="rounded-md border border-slate-300 px-4 py-3 text-center text-sm font-bold dark:border-slate-700">Ouvrir le catalogue</Link>
         </div>
@@ -377,6 +384,12 @@ function unitLabel(stock: StockLine) {
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("fr-HT", { style: "currency", currency: "HTG", maximumFractionDigits: 2 }).format(value);
+}
+
+function isRestaurantInventoryProfile(business: TenantBusinessConfiguration | null) {
+  const profile = String(business?.businessProfileType ?? "").toLowerCase();
+  const activity = String(business?.primaryActivity ?? "").toLowerCase();
+  return profile === "restaurant" || profile === "hotel-restaurant" || activity.includes("restaurant") || activity.includes("bar");
 }
 
 function authHeaders() {

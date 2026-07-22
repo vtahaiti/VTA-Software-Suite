@@ -311,10 +311,9 @@ export class BusinessProfilesService {
         { label: "Commandes ouvertes", href: "/dashboard/sales/in-progress", module: "pos" },
         { label: "Historique ventes", href: "/dashboard/sales/completed", module: "pos" },
         { label: "Produits / menus", href: "/dashboard/products", module: "products" },
-        { label: "Categories", href: "/dashboard/products/categories", module: "products" },
-        { label: "Stock ingredients / Inventaire", href: "/dashboard/inventory", module: "inventory" },
+        { label: "Catégories", href: "/dashboard/products/categories", module: "products" },
+        { label: "Stock ingrédients / Inventaire", href: "/dashboard/inventory", module: "inventory" },
         { label: "Clients", href: "/dashboard/customers", module: "customers" },
-        { label: "Dépenses / achats", href: "/dashboard/purchases", module: "suppliers" },
         { label: "Rapports", href: "/dashboard/reports", module: "reports" },
         { label: "Notifications", href: "/dashboard/notifications", module: "dashboard" },
         { label: "Paramètres", href: "/dashboard/settings/company", module: "settings" }
@@ -361,9 +360,8 @@ export class BusinessProfilesService {
         { label: "Historique ventes", href: "/dashboard/sales/completed", module: "pos" },
         { label: "Produits / Menus", href: "/dashboard/products", module: "products" },
         { label: "Catégories", href: "/dashboard/products/categories", module: "products" },
-        { label: "Stock ingredients / Inventaire", href: "/dashboard/inventory", module: "inventory" },
+        { label: "Stock ingrédients / Inventaire", href: "/dashboard/inventory", module: "inventory" },
         { label: "Clients", href: "/dashboard/customers", module: "customers" },
-        { label: "Dépenses / achats", href: "/dashboard/purchases", module: "suppliers" },
         { label: "Rapports", href: "/dashboard/reports", module: "reports" },
         { label: "Notifications", href: "/dashboard/notifications", module: "dashboard" },
         { label: "Paramètres", href: "/dashboard/settings/company", module: "settings" }

@@ -13,8 +13,9 @@ const salesPage = read("apps/web/app/dashboard/sales/sales-status-page.tsx");
 assert(salesPage.includes("/pos/held-sales"), "In-progress sales page must use /pos/held-sales.");
 assert(!salesPage.includes('status: "PENDING"') && !salesPage.includes('status=PENDING'), "In-progress sales page must not call invalid PENDING sale status.");
 assert(salesPage.includes("/dashboard/pos"), "Held sale resume must route back to POS.");
-assert(salesPage.includes("uniqueDrafts([...(data.items ?? []), ...loadDrafts()].map(normalizeDraft))"), "In-progress sales page must de-duplicate server and local held-sale drafts.");
-assert(salesPage.includes("heldSaleId?: string") && salesPage.includes("id: draft.id ??"), "Local held-sale drafts must normalize heldSaleId to id.");
+assert(salesPage.includes("setDrafts(uniqueDrafts((data.items ?? []).map(normalizeDraft)))"), "In-progress sales page must de-duplicate server held-sale drafts.");
+assert(!salesPage.includes("loadDrafts()") && !salesPage.includes("function loadDrafts"), "In-progress sales page must not use localStorage as a held-sale source.");
+assert(salesPage.includes("heldSaleId?: string") && salesPage.includes("id: draft.id ??"), "Held-sale drafts must normalize heldSaleId to id.");
 assert(salesPage.includes("userCanForceHeldSale") && salesPage.includes("Annuler (forcer)"), "Owner/Admin/Manager must be able to cancel a locked held sale from the UI.");
 assert(salesPage.includes("fetchWithAuth(apiUrl + \"/pos/held-sales/\" + draft.id"), "Held-sale claim/delete actions must refresh auth before failing.");
 
@@ -24,7 +25,7 @@ assert(posPage.includes("/pos/held-sales"), "POS hold action must persist held s
 assert(posPage.includes("heldSaleId"), "POS must track heldSaleId for cleanup after finalization.");
 assert(posPage.includes("function clearCurrentSale()"), "POS must expose a single local sale reset helper.");
 assert(
-  posPage.includes("clearCurrentSale();\n    setMessage(\"Vente mise en attente.\""),
+  posPage.includes("clearCurrentSale();") && posPage.includes("setMessage(\"Vente mise en attente.\");"),
   "POS must reset cart and local draft after a held sale is saved on the server."
 );
 
