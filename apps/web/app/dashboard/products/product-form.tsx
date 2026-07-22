@@ -84,6 +84,7 @@ export function ProductForm({ productId }: { productId?: string }) {
   const margin = useMemo(() => {
     const sale = Number(form.promotionalPrice || form.salePrice || 0);
     const cost = Number(form.purchasePrice || 0);
+    if (cost <= 0) return null;
     return sale > 0 ? (((sale - cost) / sale) * 100).toFixed(2) : "0.00";
   }, [form.promotionalPrice, form.purchasePrice, form.salePrice]);
 
@@ -341,7 +342,9 @@ export function ProductForm({ productId }: { productId?: string }) {
           <Input value={form.wholesalePrice} onChange={(value) => update("wholesalePrice", value)} placeholder="Prix gros" type="number" />
           <Input value={form.averageCost} onChange={(value) => update("averageCost", value)} placeholder="Coût moyen" type="number" />
           <Input value={form.taxRate} onChange={(value) => update("taxRate", value)} placeholder="Taxe" type="number" />
-          <div className="rounded-md bg-green-50 px-3 py-2 text-sm font-semibold text-green-700 dark:bg-green-950 dark:text-green-200">Marge calculée : {margin}%</div>
+          <div className="rounded-md bg-green-50 px-3 py-2 text-sm font-semibold text-green-700 dark:bg-green-950 dark:text-green-200">
+            Marge calculée : {margin === null ? "N/A (prix d'achat manquant)" : `${margin}%`}
+          </div>
         </Section>
 
         <Section title="Stock et emplacement">

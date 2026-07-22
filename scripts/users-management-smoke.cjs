@@ -39,7 +39,7 @@ assert(page.includes("/reactivate"), "UI reactivate manquante");
 assert(page.includes("/password"), "UI changement mot de passe manquante");
 assert(page.includes("window.confirm"), "confirmation changement mot de passe manquante");
 assert(page.includes("PasswordVisibilityInput"), "afficher/masquer mot de passe manquant");
-assert(page.includes("Reactiver"), "bouton reactiver manquant");
+assert(/R[eé]activer/.test(page), "bouton reactiver manquant");
 assert(roleDto.includes('"OBSERVATEUR"') && roleDto.includes('"BASIC"'), "roles observateur/basic manquants");
 assert(rolePresets.includes("OBSERVATEUR") && rolePresets.includes("BASIC"), "presets observateur/basic manquants");
 const cashierPreset = roleBlock(rolePresets, "CAISSIER");
