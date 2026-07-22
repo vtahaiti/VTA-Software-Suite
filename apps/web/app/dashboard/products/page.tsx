@@ -15,6 +15,7 @@ type Product = {
   purchasePrice?: string | number;
   stockCurrent?: number;
   minimumStock?: number;
+  stockTracked?: boolean;
   category?: { name: string } | null;
   images?: Array<{ url?: string | null; alt?: string | null }>;
 };
@@ -29,6 +30,7 @@ type ProductForm = {
   minimumStock: string;
   description: string;
   imageUrl: string;
+  trackStock: boolean;
   isActive: boolean;
 };
 
@@ -41,6 +43,7 @@ const emptyForm: ProductForm = {
   minimumStock: "0",
   description: "",
   imageUrl: "",
+  trackStock: true,
   isActive: true
 };
 
@@ -99,8 +102,9 @@ export default function ProductsPage() {
         purchasePrice: Number(form.purchasePrice || 0),
         salePrice: Number(form.salePrice || 0),
         categoryId: form.categoryId || undefined,
-        stockInitial: Number(form.stockInitial || 0),
-        minimumStock: Number(form.minimumStock || 0),
+        trackStock: form.trackStock,
+        stockInitial: form.trackStock ? Number(form.stockInitial || 0) : 0,
+        minimumStock: form.trackStock ? Number(form.minimumStock || 0) : 0,
         description: form.description.trim() || undefined,
         images: form.imageUrl ? [{ url: form.imageUrl, alt: form.name, sortOrder: 0 }] : undefined,
         isActive: form.isActive
@@ -194,8 +198,13 @@ export default function ProductsPage() {
             <select value={form.categoryId} onChange={(event) => setForm((current) => ({ ...current, categoryId: event.target.value }))} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option value="">Catégorie</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
             <Input type="number" value={form.purchasePrice} onChange={(value) => setForm((current) => ({ ...current, purchasePrice: value }))} placeholder="Prix d'achat / coût - facultatif" />
             <Input required type="number" value={form.salePrice} onChange={(value) => setForm((current) => ({ ...current, salePrice: value }))} placeholder="Prix de vente *" />
-            <Input type="number" value={form.stockInitial} onChange={(value) => setForm((current) => ({ ...current, stockInitial: value }))} placeholder="Quantité initiale" />
-            <Input type="number" value={form.minimumStock} onChange={(value) => setForm((current) => ({ ...current, minimumStock: value }))} placeholder="Quantité minimale pour stock faible" helper="Alerte quand le stock arrive à ce niveau." />
+            <StockTrackingChoice tracked={form.trackStock} onChange={(trackStock) => setForm((current) => ({ ...current, trackStock }))} />
+            {form.trackStock ? (
+              <>
+                <Input type="number" value={form.stockInitial} onChange={(value) => setForm((current) => ({ ...current, stockInitial: value }))} placeholder="Quantité initiale" />
+                <Input type="number" value={form.minimumStock} onChange={(value) => setForm((current) => ({ ...current, minimumStock: value }))} placeholder="Quantité minimale pour stock faible" helper="Alerte quand le stock arrive à ce niveau." />
+              </>
+            ) : <p className="rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:bg-slate-950 dark:text-slate-300">Non suivi en stock : vendable dans le POS, masqué de l&apos;inventaire par défaut.</p>}
             <ImagePicker selected={Boolean(form.imageUrl)} onChange={(value) => setForm((current) => ({ ...current, imageUrl: value }))} />
             <textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Description courte facultative" rows={3} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
             <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={form.isActive} onChange={(event) => setForm((current) => ({ ...current, isActive: event.target.checked }))} /> Produit actif</label>
@@ -214,6 +223,16 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
 
 function Input({ value, onChange, placeholder, helper, required = false, type = "text" }: { value: string; placeholder: string; helper?: string; required?: boolean; type?: string; onChange: (value: string) => void }) {
   return <label className="grid gap-1"><input type={type} required={required} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />{helper ? <span className="text-xs text-slate-500">{helper}</span> : null}</label>;
+}
+
+function StockTrackingChoice({ tracked, onChange }: { tracked: boolean; onChange: (tracked: boolean) => void }) {
+  return <fieldset className="rounded-md border border-slate-200 p-3 dark:border-slate-800">
+    <legend className="px-1 text-sm font-semibold text-slate-700 dark:text-slate-200">Gérer le stock de ce produit ?</legend>
+    <div className="mt-2 grid grid-cols-2 gap-2">
+      <button type="button" onClick={() => onChange(true)} className={`rounded-md border px-3 py-2 text-sm font-bold ${tracked ? "border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-950" : "border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"}`}>Oui</button>
+      <button type="button" onClick={() => onChange(false)} className={`rounded-md border px-3 py-2 text-sm font-bold ${!tracked ? "border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-950" : "border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"}`}>Non</button>
+    </div>
+  </fieldset>;
 }
 
 function ImagePicker({ selected, onChange }: { selected: boolean; onChange: (value: string) => void }) {
@@ -238,9 +257,9 @@ function ProductThumb({ product }: { product: Product }) {
 function QuantityDisplay({ product }: { product: Product }) {
   const quantity = Number(product.stockCurrent ?? 0);
   const minimum = Number(product.minimumStock ?? 0);
-  const tracked = quantity > 0 || minimum > 0;
+  const tracked = product.stockTracked ?? (quantity > 0 || minimum > 0);
   return <div className="flex flex-wrap items-center gap-2">
-    <span className="font-semibold">{tracked ? quantity : "—"}</span>
+    <span className="font-semibold">{tracked ? quantity : "Non suivi en stock"}</span>
     {tracked && quantity <= 0 ? <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-bold text-red-700">Rupture</span> : null}
     {tracked && quantity > 0 && quantity <= minimum ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700">Stock faible</span> : null}
   </div>;

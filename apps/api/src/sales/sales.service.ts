@@ -1,11 +1,13 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { InventoryMovementType, PaymentMethod, Prisma, Product, SaleStatus, SalesDocumentStatus } from "@prisma/client";
+import { InventoryMovementType, PaymentMethod, Prisma, SaleStatus, SalesDocumentStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { StockService } from "../stock/stock.service";
 import type { AuthUser } from "../auth/types/auth-user";
 import { businessDayRange, businessMonthRange, businessWeekRange, businessDayRangeForDateKey } from "../common/business-timezone";
 import { CreateSaleDto } from "./dto/create-sale.dto";
 import { SaleQueryDto } from "./dto/sale-query.dto";
+
+type SaleProduct = Prisma.ProductGetPayload<{ include: { variants: true; stocks: true } }>;
 
 @Injectable()
 export class SalesService {
@@ -100,7 +102,7 @@ export class SalesService {
       }
 
       const productIds = [...new Set(dto.items.map((item) => item.productId).filter((productId): productId is string => Boolean(productId)))];
-      const products = await tx.product.findMany({ where: { tenantId, id: { in: productIds }, isActive: true } });
+      const products = await tx.product.findMany({ where: { tenantId, id: { in: productIds }, isActive: true }, include: { variants: true, stocks: true } });
       const productMap = new Map(products.map((product) => [product.id, product]));
       const taxRate = dto.taxRate ?? 0;
       const orderDiscount = dto.discount ?? 0;
@@ -108,7 +110,7 @@ export class SalesService {
       let itemTax = 0;
 
       const saleItems = dto.items.map((item) => {
-        let product: Product | null = null;
+        let product: SaleProduct | null = null;
         let unitPrice = Number(item.unitPrice ?? NaN);
         let customName: string | undefined;
         if (item.productId) {
@@ -161,8 +163,7 @@ export class SalesService {
       for (const item of saleItems) {
         if (!item.productId || !item.product) continue;
         const stock = await tx.stock.findUnique({ where: { tenantId_productId_warehouseId: { tenantId, productId: item.productId, warehouseId: dto.warehouseId } } });
-        const hasTrackedStockElsewhere = stock ? true : (await tx.stock.count({ where: { tenantId, productId: item.productId } })) > 0;
-        if (!stock && !this.isStockTrackedProduct(item.product) && !hasTrackedStockElsewhere) continue;
+        if (!this.isStockTrackedProduct(item.product)) continue;
         const available = (stock?.quantity ?? 0) - (stock?.reserved ?? 0);
         if (!stock || available < item.quantity) throw new BadRequestException(`Stock insuffisant pour ${item.product.name}`);
       }
@@ -223,8 +224,7 @@ export class SalesService {
       for (const item of saleItems) {
         if (!item.productId || !item.product) continue;
         const stock = await tx.stock.findUnique({ where: { tenantId_productId_warehouseId: { tenantId, productId: item.productId, warehouseId: dto.warehouseId } } });
-        const hasTrackedStockElsewhere = stock ? true : (await tx.stock.count({ where: { tenantId, productId: item.productId } })) > 0;
-        if (!stock && !this.isStockTrackedProduct(item.product) && !hasTrackedStockElsewhere) continue;
+        if (!this.isStockTrackedProduct(item.product)) continue;
         if (!stock) throw new BadRequestException(`Stock insuffisant pour ${item.product.name}`);
         const afterQty = stock.quantity - item.quantity;
         if (afterQty < 0) throw new BadRequestException(`Stock insuffisant pour ${item.product.name}`);
@@ -318,8 +318,10 @@ export class SalesService {
     };
   }
 
-  private isStockTrackedProduct(product: Pick<Product, "minimumStock">) {
-    return Number(product.minimumStock ?? 0) > 0;
+  private isStockTrackedProduct(product: Pick<SaleProduct, "minimumStock"> & { stocks?: unknown[]; variants?: Array<{ name?: string | null; model?: string | null }> }) {
+    const variantText = (product.variants ?? []).map((variant) => `${variant.name ?? ""} ${variant.model ?? ""}`).join(" ").toLowerCase();
+    if (/non stock|non-stock|sans suivi|service non stock|produit non stock|plat \/ service/.test(variantText)) return false;
+    return Number(product.minimumStock ?? 0) > 0 || Number(product.stocks?.length ?? 0) > 0;
   }
 
   private receiptContent(receiptNumber: string, items: Array<{ product: { name: string } | null; customName?: string; productId?: string; quantity: number; total: number }>, total: number, settledAmount: number, receivedAmount: number, changeAmount: number) {

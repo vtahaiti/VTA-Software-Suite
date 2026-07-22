@@ -59,6 +59,7 @@ export class CreateProductDto {
   @IsOptional() @IsNumber() @Min(0) taxRate?: number;
   @IsOptional() @IsNumber() @Min(0) minimumStock?: number;
   @IsOptional() @IsNumber() @Min(0) stockInitial?: number;
+  @IsOptional() @IsBoolean() trackStock?: boolean;
   @IsOptional() @IsNumber() @Min(0) maximumStock?: number;
   @IsOptional() @IsString() location?: string;
   @IsOptional() @IsString() storeId?: string;

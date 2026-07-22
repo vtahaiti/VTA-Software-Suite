@@ -117,7 +117,8 @@ export function ProductForm({ productId }: { productId?: string }) {
     const variant = product.variants?.[0] ?? {};
     const primaryImage = product.images?.[0]?.url ?? "";
     const stockCurrent = Number(product.stockCurrent ?? product.stocks?.[0]?.quantity ?? 0);
-    const noStockTracking = stockCurrent <= 0 && Number(product.minimumStock ?? 0) <= 0 && isNonStockVariant(variant);
+    const hasStockLine = Number(product.stocks?.length ?? 0) > 0;
+    const noStockTracking = isNonStockVariant(variant) || (!hasStockLine && Number(product.minimumStock ?? 0) <= 0);
     setForm({
       ...emptyForm,
       name: product.name ?? "",
@@ -194,6 +195,7 @@ export function ProductForm({ productId }: { productId?: string }) {
       wholesalePrice: Number(form.wholesalePrice || 0),
       averageCost: Number(form.averageCost || 0),
       taxRate: Number(form.taxRate || 0),
+      trackStock: !noStock,
       stockInitial: noStock ? 0 : Number(form.stockInitial || 0),
       minimumStock: noStock ? 0 : Number(form.minimumStock || 0),
       maximumStock: Number(form.maximumStock || 0),
@@ -249,13 +251,14 @@ export function ProductForm({ productId }: { productId?: string }) {
   }
 
   function buildVariants(noStock: boolean) {
-    const hasVariant = form.variantName || form.variantColor || form.variantSize || form.variantModel || form.variantCapacity || form.variantSku || form.variantBarcode || form.variantStock !== "0" || noStock;
+    const variantModel = noStock ? "Produit sans suivi de stock" : isNonStockText(form.variantModel) ? "" : form.variantModel;
+    const hasVariant = form.variantName || form.variantColor || form.variantSize || variantModel || form.variantCapacity || form.variantSku || form.variantBarcode || form.variantStock !== "0" || noStock;
     if (!hasVariant) return undefined;
     return [{
       name: form.variantName || form.name,
       color: form.variantColor || undefined,
       size: form.variantSize || undefined,
-      model: noStock ? "Produit sans suivi de stock" : form.variantModel || undefined,
+      model: variantModel || undefined,
       capacity: form.variantCapacity || undefined,
       sku: form.variantSku || undefined,
       barcode: form.variantBarcode || undefined,
@@ -306,8 +309,13 @@ export function ProductForm({ productId }: { productId?: string }) {
       </div>
       <Input value={form.purchasePrice} onChange={(value) => update("purchasePrice", value)} placeholder="Prix d'achat / coût - facultatif" type="number" />
       <Input value={form.salePrice} onChange={(value) => update("salePrice", value)} placeholder="Prix de vente *" type="number" required />
-      <Input value={form.stockInitial} onChange={(value) => update("stockInitial", value)} placeholder={productId ? "Quantité initiale / stock actuel" : "Quantité initiale"} type="number" />
-      <Input value={form.minimumStock} onChange={(value) => update("minimumStock", value)} placeholder="Quantité minimale pour stock faible" type="number" helper="Alerte quand le stock arrive à ce niveau." />
+      <StockTrackingChoice tracked={!form.noStockTracking} onChange={(tracked) => update("noStockTracking", !tracked)} />
+      {!form.noStockTracking ? (
+        <>
+          <Input value={form.stockInitial} onChange={(value) => update("stockInitial", value)} placeholder={productId ? "Quantité initiale / stock actuel" : "Quantité initiale"} type="number" />
+          <Input value={form.minimumStock} onChange={(value) => update("minimumStock", value)} placeholder="Quantité minimale pour stock faible" type="number" helper="Alerte quand le stock arrive à ce niveau." />
+        </>
+      ) : <p className="rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:bg-slate-950 dark:text-slate-300">Non suivi en stock : le produit reste vendable dans le POS et ne s&apos;affiche pas dans l&apos;inventaire par défaut.</p>}
       <ImagePicker label="Image produit" selected={Boolean(form.imageUrl)} onChange={(value) => update("imageUrl", value)} />
       <textarea value={form.description} onChange={(event) => update("description", event.target.value)} placeholder="Description courte facultative" rows={3} className="min-h-24 rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950 md:col-span-2" />
       <label className="flex items-center gap-2 text-sm md:col-span-2">
@@ -352,10 +360,6 @@ export function ProductForm({ productId }: { productId?: string }) {
           <Input value={form.location} onChange={(value) => update("location", value)} placeholder="Emplacement" />
           <Select value={form.storeId} onChange={(value) => update("storeId", value)} placeholder="Magasin" items={refs.stores} />
           <Select value={form.warehouseId} onChange={(value) => update("warehouseId", value)} placeholder="Dépôt" items={refs.warehouses} />
-          <label className="flex items-center gap-2 text-sm md:col-span-2">
-            <input type="checkbox" checked={form.noStockTracking} onChange={(event) => update("noStockTracking", event.target.checked)} />
-            Produit sans suivi de stock
-          </label>
         </Section>
 
         <Section title="Variantes et détails">
@@ -437,6 +441,16 @@ function Select({ value, onChange, placeholder, items }: { value: string; placeh
   </select>;
 }
 
+function StockTrackingChoice({ tracked, onChange }: { tracked: boolean; onChange: (tracked: boolean) => void }) {
+  return <fieldset className="rounded-md border border-slate-200 p-3 dark:border-slate-800">
+    <legend className="px-1 text-sm font-semibold text-slate-700 dark:text-slate-200">Gérer le stock de ce produit ?</legend>
+    <div className="mt-2 grid grid-cols-2 gap-2">
+      <button type="button" onClick={() => onChange(true)} className={`rounded-md border px-3 py-2 text-sm font-bold ${tracked ? "border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-950" : "border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"}`}>Oui</button>
+      <button type="button" onClick={() => onChange(false)} className={`rounded-md border px-3 py-2 text-sm font-bold ${!tracked ? "border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-950" : "border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"}`}>Non</button>
+    </div>
+  </fieldset>;
+}
+
 function ImagePicker({ label, selected, onChange }: { label: string; selected: boolean; onChange: (value: string) => void }) {
   return <label className="grid gap-2 rounded-md border border-dashed border-slate-300 px-3 py-3 text-sm font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">
     {label}
@@ -454,7 +468,11 @@ function GalleryPicker({ selected, onChange }: { selected: boolean; onChange: (v
 }
 
 function isNonStockVariant(variant: { model?: string | null; name?: string | null }) {
-  return /sans suivi|non stock|non-stock|service|plat/i.test(`${variant.model ?? ""} ${variant.name ?? ""}`);
+  return isNonStockText(`${variant.model ?? ""} ${variant.name ?? ""}`);
+}
+
+function isNonStockText(value: string) {
+  return /sans suivi|non stock|non-stock|service non stock|produit non stock|plat \/ service/i.test(value);
 }
 
 function loadImage(file: File | undefined, onDone: (value: string) => void) {

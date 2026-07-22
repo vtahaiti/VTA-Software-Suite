@@ -8,7 +8,7 @@ type Transaction = Prisma.TransactionClient;
 export function isStockTrackedProduct(product: { minimumStock?: number | null; stocks?: unknown[]; variants?: Array<{ name?: string | null; model?: string | null }> }) {
   const variantText = (product.variants ?? []).map((variant) => `${variant.name ?? ""} ${variant.model ?? ""}`).join(" ").toLowerCase();
   const explicitlyNonStock = /non stock|non-stock|sans suivi|service|plat/.test(variantText);
-  if (explicitlyNonStock && Number(product.stocks?.length ?? 0) === 0) return false;
+  if (explicitlyNonStock) return false;
   return Number(product.minimumStock ?? 0) > 0 || Number(product.stocks?.length ?? 0) > 0;
 }
 

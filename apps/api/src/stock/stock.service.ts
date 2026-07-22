@@ -164,9 +164,6 @@ export class StockService {
 
   private isServiceOrNonStockProduct(product: { name?: string | null; category?: { name?: string | null } | null; variants?: { name?: string | null; model?: string | null }[] }) {
     const variantText = (product.variants ?? []).map((variant) => `${variant.name ?? ""} ${variant.model ?? ""}`).join(" ").toLowerCase();
-    const productText = `${product.name ?? ""} ${product.category?.name ?? ""} ${variantText}`.toLowerCase();
-    const explicitlyNonStock = /non stock|non-stock|service non stock|produit non stock|plat \/ service/.test(variantText);
-    const serviceLike = /service|impression|réparation|reparation|installation|sur mesure|personnalis|plat|portion|menu|repas|dessert|extra|supplement|suppl[ée]ment/.test(productText);
-    return explicitlyNonStock || serviceLike;
+    return /non stock|non-stock|sans suivi|service non stock|produit non stock|plat \/ service/.test(variantText);
   }
 }

@@ -120,6 +120,7 @@ export class PosService {
           barcodes: { select: { value: true, isPrimary: true } },
           images: { select: { url: true }, take: 1, orderBy: { sortOrder: "asc" } },
           stocks: { select: { warehouseId: true, quantity: true, reserved: true } },
+          variants: { select: { name: true, model: true } },
           category: { select: { name: true } },
           brand: { select: { name: true } },
           unit: { select: { name: true, symbol: true } }
@@ -138,7 +139,7 @@ export class PosService {
     if (!barcode?.trim()) throw new BadRequestException("Code-barres requis");
     const product = await this.prisma.product.findFirst({
       where: { tenantId, isActive: true, barcodes: { some: { value: barcode.trim() } } },
-      include: { barcodes: true, images: true, stocks: true, category: true, brand: true, unit: true }
+      include: { barcodes: true, images: true, stocks: true, category: true, brand: true, unit: true, variants: true }
     });
     if (!product) throw new NotFoundException("Produit introuvable pour ce code-barres");
     return this.productForPos(product);
@@ -169,7 +170,7 @@ export class PosService {
     const productIds = dto.items.map((item) => item.productId).filter((productId): productId is string => Boolean(productId));
     const products = await this.prisma.product.findMany({
       where: { tenantId, id: { in: productIds }, isActive: true },
-      include: { barcodes: true, stocks: true, unit: true }
+      include: { barcodes: true, stocks: true, unit: true, variants: true }
     });
     const productMap = new Map(products.map((product) => [product.id, product]));
     const taxRate = dto.taxRate ?? 0;
@@ -545,6 +546,7 @@ export class PosService {
     barcodes: { select: { value: true; isPrimary: true } };
     images: { select: { url: true } };
       stocks: { select: { warehouseId: true; quantity: true; reserved: true } };
+      variants: { select: { name: true; model: true } };
     category: { select: { name: true } };
     brand: { select: { name: true } };
     unit: { select: { name: true; symbol: true } };
@@ -569,8 +571,14 @@ export class PosService {
     };
   }
 
-  private isStockTracked(product: { stocks?: Array<unknown>; minimumStock?: number | null }) {
+  private isStockTracked(product: { stocks?: Array<unknown>; minimumStock?: number | null; variants?: Array<{ name?: string | null; model?: string | null }> }) {
+    if (this.isExplicitlyNonStock(product)) return false;
     return Boolean((product.stocks?.length ?? 0) > 0 || Number(product.minimumStock ?? 0) > 0);
+  }
+
+  private isExplicitlyNonStock(product: { variants?: Array<{ name?: string | null; model?: string | null }> }) {
+    const variantText = (product.variants ?? []).map((variant) => `${variant.name ?? ""} ${variant.model ?? ""}`).join(" ").toLowerCase();
+    return /non stock|non-stock|sans suivi|service non stock|produit non stock|plat \/ service/.test(variantText);
   }
 
   private availableStock(stocks: Array<{ warehouseId: string; quantity: number; reserved: number }>, warehouseId?: string) {

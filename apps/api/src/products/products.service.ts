@@ -115,7 +115,8 @@ export class ProductsService {
       return this.withComputedFields(await this.prisma.$transaction(async (tx) => {
         const product = await tx.product.create({ data: this.productCreateData(tenantId, sku, dto), include: productInclude });
         const stockInitial = Number(dto.stockInitial ?? 0);
-        if (stockInitial > 0) {
+        const trackStock = dto.trackStock ?? (stockInitial > 0 || Number(dto.minimumStock ?? 0) > 0);
+        if (trackStock) {
           const warehouse = dto.warehouseId
             ? await tx.warehouse.findFirst({ where: { id: dto.warehouseId, tenantId } })
             : await tx.warehouse.findFirst({ where: { tenantId, isActive: true }, orderBy: { createdAt: "asc" } });
@@ -260,9 +261,11 @@ export class ProductsService {
   }
 
   private async updateStockFromProductEdit(tx: Prisma.TransactionClient, tenantId: string, product: Prisma.ProductGetPayload<{ include: typeof productInclude }>, dto: UpdateProductDto) {
+    if (dto.trackStock === false) return;
     const quantityDefined = dto.stockInitial !== undefined;
     const minimumDefined = dto.minimumStock !== undefined;
-    if (!quantityDefined && !minimumDefined) return;
+    const trackingRequested = dto.trackStock === true;
+    if (!quantityDefined && !minimumDefined && !trackingRequested) return;
 
     const existingStock = product.stocks[0];
     const warehouse = dto.warehouseId
@@ -301,7 +304,7 @@ export class ProductsService {
     }
   }
 
-  private withComputedFields<T extends { purchasePrice: unknown; averageCost?: unknown; salePrice: unknown; promotionalPrice?: unknown; variants?: Array<{ stock: number }>; stocks?: Array<{ quantity: number; reserved?: number | null; minimumStock?: number | null }> }>(product: T) {
+  private withComputedFields<T extends { purchasePrice: unknown; averageCost?: unknown; salePrice: unknown; promotionalPrice?: unknown; minimumStock?: Prisma.Decimal | number | string | null; variants?: Array<{ stock: number; name?: string | null; model?: string | null }>; stocks?: Array<{ quantity: number; reserved?: number | null; minimumStock?: number | null }> }>(product: T) {
     const cost = knownUnitCost(product as { purchasePrice?: Prisma.Decimal | number | string | null; averageCost?: Prisma.Decimal | number | string | null });
     const purchase = cost.amount ?? 0;
     const sale = Number(product.promotionalPrice ?? product.salePrice ?? 0);
@@ -309,7 +312,10 @@ export class ProductsService {
     const marginRate = cost.known && sale > 0 ? Number((((sale - purchase) / sale) * 100).toFixed(2)) : null;
     const stockCurrent = product.stocks?.reduce((sum, stock) => sum + availableStock(stock), 0) ?? product.variants?.reduce((sum, variant) => sum + Number(variant.stock ?? 0), 0) ?? 0;
     const stockValueTotal = product.stocks?.reduce((sum, item) => sum + (stockValue(item, product as { purchasePrice?: Prisma.Decimal | number | string | null; averageCost?: Prisma.Decimal | number | string | null }) ?? 0), 0) ?? null;
-    return { ...product, costKnown: cost.known, unitCost: cost.amount, marginAmount, marginRate, stockCurrent, stockValue: stockValueTotal };
+    const variantText = (product.variants ?? []).map((variant) => `${variant.name ?? ""} ${variant.model ?? ""}`).join(" ").toLowerCase();
+    const explicitlyNonStock = /non stock|non-stock|sans suivi|service non stock|produit non stock|plat \/ service/.test(variantText);
+    const stockTracked = !explicitlyNonStock && (Number(product.minimumStock ?? 0) > 0 || Number(product.stocks?.length ?? 0) > 0);
+    return { ...product, costKnown: cost.known, unitCost: cost.amount, marginAmount, marginRate, stockCurrent, stockValue: stockValueTotal, stockTracked };
   }
 
   private async ensureCategory(tenantId: string, id: string) { if (!(await this.prisma.category.findFirst({ where: { id, tenantId } }))) throw new NotFoundException("Catégorie introuvable"); }
