@@ -73,6 +73,7 @@ export function ProductForm({ productId }: { productId?: string }) {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [categoryForm, setCategoryForm] = useState<CategoryForm>(emptyCategoryForm);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     void loadRefs();
@@ -162,10 +163,15 @@ export function ProductForm({ productId }: { productId?: string }) {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (isSaving) return;
     setError(null);
     setMessage(null);
+    setIsSaving(true);
     const unitId = await resolveUnitId();
-    if (unitId === null) return;
+    if (unitId === null) {
+      setIsSaving(false);
+      return;
+    }
 
     const gallery = form.galleryUrls.split(/\r?\n/).map((url) => url.trim()).filter(Boolean);
     const noStock = Boolean(form.noStockTracking);
@@ -204,17 +210,21 @@ export function ProductForm({ productId }: { productId?: string }) {
       ],
       variants
     };
-    const response = await fetchWithAuth(productId ? `${apiUrl}/products/${productId}` : `${apiUrl}/products`, {
-      method: productId ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    if (!response.ok) {
-      setError(await readError(response));
-      return;
+    try {
+      const response = await fetchWithAuth(productId ? `${apiUrl}/products/${productId}` : `${apiUrl}/products`, {
+        method: productId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        setError(await readError(response));
+        return;
+      }
+      setMessage("Produit enregistré.");
+      router.push("/dashboard/products");
+    } finally {
+      setIsSaving(false);
     }
-    setMessage("Produit enregistré.");
-    router.push("/dashboard/products");
   }
 
   async function resolveUnitId() {
@@ -285,7 +295,7 @@ export function ProductForm({ productId }: { productId?: string }) {
     setForm((current) => ({ ...current, barcode: value, barcodeType: "EAN", qrCode: current.qrCode || `PROD:${current.sku || current.name}:${value}` }));
   }
 
-  return <form onSubmit={submit} className="space-y-5">
+  return <form onSubmit={submit} className="space-y-5 pb-4">
     {error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
     <Section title="Produit">
       <Input value={form.name} onChange={(value) => update("name", value)} placeholder="Nom du produit *" required />
@@ -365,9 +375,20 @@ export function ProductForm({ productId }: { productId?: string }) {
       </div> : null}
     </details>
 
-    <div className="flex items-center gap-3">
-      <button className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Enregistrer</button>
-      {message ? <p className="text-sm text-slate-500">{message}</p> : null}
+    <div className="sticky bottom-0 z-30 rounded-xl border border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-h-5 text-sm text-slate-600 dark:text-slate-300">
+          {error ? <span className="font-medium text-red-700 dark:text-red-300">{error}</span> : message ? <span>{message}</span> : <span>Vérifiez les champs principaux puis enregistrez.</span>}
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+          <button type="button" onClick={() => router.push("/dashboard/products")} disabled={isSaving} className="rounded-md border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-900">
+            Annuler / fermer
+          </button>
+          <button type="submit" disabled={isSaving} className="rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60">
+            {isSaving ? "Enregistrement..." : "Enregistrer"}
+          </button>
+        </div>
+      </div>
     </div>
 
     {showCategoryModal ? (

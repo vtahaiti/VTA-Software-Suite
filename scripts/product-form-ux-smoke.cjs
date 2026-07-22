@@ -71,6 +71,12 @@ assert(!mainSection.includes("Produit sans suivi de stock"), "Le suivi de stock 
 assert(productForm.includes("showAdvancedOptions") && productForm.includes("showAdvancedOptions ? <div className=\"mt-5 space-y-5\">"), "Les options avancées doivent être rendues seulement après ouverture.");
 assert(productForm.includes("<summary className=\"cursor-pointer text-lg font-semibold text-slate-950 dark:text-white\">Options avancées</summary>"), "Options avancées doit exister et être fermé par défaut.");
 
+assert(productForm.includes("className=\"space-y-5 pb-4\""), "Le formulaire produit doit rester compact avec la barre d'action dans le flux.");
+assert(productForm.includes("sticky bottom-0"), "Le formulaire produit doit afficher une barre d'action sticky en bas du formulaire.");
+assert(!productForm.includes("fixed inset-x-0 bottom-0"), "La barre d'action ne doit pas être fixed pour éviter de cacher les champs sur laptop.");
+assert(productForm.includes("Annuler / fermer"), "La barre d'action doit proposer Annuler / fermer.");
+assert(productForm.includes("isSaving ? \"Enregistrement...\" : \"Enregistrer\""), "La barre d'action doit afficher Enregistrer et prevenir les doubles soumissions.");
+
 for (const advanced of ["SKU automatique", "Code-barres", "QR code", "Référence", "Fournisseur principal", "Unité", "Prix gros", "Coût moyen", "Taxe", "Stock maximum", "Emplacement", "Couleur", "Dimensions", "Type / matériau", "Épaisseur / longueur", "Garantie", "Produit sans suivi de stock"]) {
   assert(productForm.includes(advanced), `Champ avancé attendu: ${advanced}`);
 }
