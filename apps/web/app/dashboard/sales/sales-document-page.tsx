@@ -4,6 +4,7 @@ import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
+import { getCompanyBranding, type CompanyBranding } from "@/lib/company-branding";
 
 type DocType = "quotes" | "proformas" | "invoices";
 type Customer = { id: string; name?: string; displayName?: string };
@@ -28,6 +29,7 @@ type SalesDocument = {
 type Line = {
   productId?: string;
   customName?: string;
+  label: string;
   quantity: number;
   unitPrice: number;
   discount: number;
@@ -49,39 +51,17 @@ const statusLabels: Record<string, string> = {
   ACCEPTED: "Accepté",
   REJECTED: "Refusé",
   EXPIRED: "Expiré",
-  CONVERTED: "Converti",
-  CONFIRMED: "Confirmée",
-  IN_PROGRESS: "En préparation",
-  READY: "Prête",
-  DELIVERED: "Livrée",
-  COMPLETED: "Terminée",
+  CONVERTED: "Converti en commande",
+  CONFIRMED: "Commande en cours",
+  COMPLETED: "Vente terminée",
   CANCELLED: "Annulée",
   UNPAID: "Non payée",
   PARTIALLY_PAID: "Avance reçue",
   PAID: "Payée"
 };
 
-const orderStatuses = [
-  { value: "CONFIRMED", label: "Confirmer" },
-  { value: "IN_PROGRESS", label: "En préparation" },
-  { value: "READY", label: "Marquer prête" },
-  { value: "DELIVERED", label: "Marquer livrée" },
-  { value: "COMPLETED", label: "Terminer" },
-  { value: "CANCELLED", label: "Annuler" }
-];
-
 function money(value: string | number | null | undefined) {
   return Number(value ?? 0).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function numberValue(value: string | number | null | undefined) {
-  return Number(value ?? 0);
-}
-
-function unitLabel(product?: Product | null) {
-  if (!product?.unit) return "";
-  if (typeof product.unit === "string") return product.unit;
-  return product.unit.symbol ?? product.unit.name ?? "";
 }
 
 function documentName(type: DocType) {
@@ -91,29 +71,38 @@ function documentName(type: DocType) {
 }
 
 function createTitle(type: DocType) {
-  if (type === "quotes") return "Créer un devis";
-  if (type === "proformas") return "Créer une commande";
-  return "Créer une facture";
+  if (type === "quotes") return "Nouveau devis";
+  if (type === "proformas") return "Nouvelle commande";
+  return "Nouvelle facture";
 }
 
 function emptyLine(): Line {
-  return { quantity: 1, unitPrice: 0, discount: 0, tax: 0 };
+  return { label: "", quantity: 1, unitPrice: 0, discount: 0, tax: 0 };
+}
+
+function lineTotal(line: Line) {
+  return line.quantity * line.unitPrice - line.discount + line.tax;
+}
+
+function matchingProducts(products: Product[], query: string) {
+  const term = query.trim().toLowerCase();
+  if (!term) return [];
+  return products.filter((product) => `${product.name} ${product.sku ?? ""}`.toLowerCase().includes(term)).slice(0, 8);
 }
 
 export function SalesDocumentPage({ type, title, eyebrow, createLabel, transformAction, transformLabel }: Props) {
   const [documents, setDocuments] = useState<SalesDocument[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [productSearch, setProductSearch] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [notes, setNotes] = useState("");
   const [globalDiscount, setGlobalDiscount] = useState(0);
-  const [catalogLine, setCatalogLine] = useState<Line>(emptyLine);
-  const [customLine, setCustomLine] = useState<Line>(emptyLine);
-  const [lines, setLines] = useState<Line[]>([]);
+  const [lines, setLines] = useState<Line[]>([emptyLine()]);
+  const [openRowIndex, setOpenRowIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [fromQuoteId, setFromQuoteId] = useState<string | null>(null);
+  const [branding, setBranding] = useState<CompanyBranding | null>(null);
 
   const apiFetch = useCallback((path: string, init?: RequestInit) => {
     return fetch(`${apiUrl}${path}`, {
@@ -151,9 +140,40 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
     void loadDocuments();
   }, [loadDocuments, loadReferences]);
 
+  useEffect(() => {
+    const token = getAccessToken();
+    if (token) void getCompanyBranding(token).then(setBranding).catch(() => setBranding(null));
+  }, []);
+
+  useEffect(() => {
+    if (type !== "proformas") return;
+    const quoteId = new URLSearchParams(window.location.search).get("fromQuote");
+    if (!quoteId) return;
+    setFromQuoteId(quoteId);
+    void (async () => {
+      const response = await apiFetch(`/quotes/${quoteId}`);
+      if (!response.ok) return;
+      const quote = await response.json();
+      setCustomerId(quote.customerId ?? "");
+      setNotes(quote.notes ?? "");
+      setGlobalDiscount(0);
+      const quoteLines: Line[] = (quote.items ?? []).map((item: DocumentItem) => ({
+        productId: item.product?.id,
+        customName: item.customName ?? undefined,
+        label: item.product?.name ?? item.customName ?? "",
+        quantity: Number(item.quantity),
+        unitPrice: Number(item.unitPrice),
+        discount: Number(item.discount),
+        tax: Number(item.tax)
+      }));
+      setLines(quoteLines.length ? quoteLines : [emptyLine()]);
+      setMessage("Lignes du devis chargées. Vous pouvez les modifier avant de créer la commande.");
+    })();
+  }, [apiFetch, type]);
+
   const searchProducts = useCallback(async (term: string) => {
-    const query = new URLSearchParams({ limit: "30" });
-    if (term.trim()) query.set("search", term.trim());
+    if (!term.trim()) return;
+    const query = new URLSearchParams({ limit: "20", search: term.trim() });
     const response = await apiFetch(`/products?${query.toString()}`);
     if (!response.ok) return;
     const incoming: Product[] = (await response.json()).items ?? [];
@@ -165,110 +185,69 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
     });
   }, [apiFetch]);
 
+  const activeQuery = openRowIndex !== null ? lines[openRowIndex]?.label ?? "" : "";
   useEffect(() => {
-    const timer = window.setTimeout(() => void searchProducts(productSearch), 250);
+    const timer = window.setTimeout(() => void searchProducts(activeQuery), 250);
     return () => window.clearTimeout(timer);
-  }, [productSearch, searchProducts]);
-
-  const visibleProducts = useMemo(() => {
-    const term = productSearch.trim().toLowerCase();
-    const filtered = term ? products.filter((product) => `${product.name} ${product.sku ?? ""}`.toLowerCase().includes(term)) : products;
-    return filtered.slice(0, 12);
-  }, [productSearch, products]);
+  }, [activeQuery, searchProducts]);
 
   const totalPreview = useMemo(() => {
-    return Math.max(0, lines.reduce((sum, line) => sum + line.quantity * line.unitPrice - line.discount + line.tax, 0) - globalDiscount);
+    return Math.max(0, lines.reduce((sum, line) => sum + lineTotal(line), 0) - globalDiscount);
   }, [globalDiscount, lines]);
 
-  function chooseProduct(product: Product) {
-    setSelectedProduct(product);
-    setCatalogLine({ productId: product.id, quantity: 1, unitPrice: numberValue(product.salePrice), discount: 0, tax: 0 });
+  function updateLine(index: number, next: Line) {
+    setLines((current) => current.map((line, lineIndex) => (lineIndex === index ? next : line)));
   }
 
-  function addCatalogLine() {
-    if (!selectedProduct) {
-      setMessage("Choisissez un produit du catalogue.");
-      return;
-    }
-    setLines((current) => [...current, { ...catalogLine, productId: selectedProduct.id }]);
-    setSelectedProduct(null);
-    setCatalogLine(emptyLine());
-    setMessage("");
+  function pickProduct(index: number, product: Product) {
+    updateLine(index, { ...lines[index], productId: product.id, customName: undefined, label: product.name, unitPrice: Number(product.salePrice ?? 0) });
+    setOpenRowIndex(null);
   }
 
-  function addCustomLine() {
-    if (!customLine.customName?.trim()) {
-      setMessage("Indiquez le nom du service ou du travail personnalisé.");
-      return;
-    }
-    setLines((current) => [...current, { ...customLine, productId: undefined }]);
-    setCustomLine(emptyLine());
-    setMessage("");
+  function addRow() {
+    setLines((current) => [...current, emptyLine()]);
   }
 
-  function removeLine(index: number) {
-    setLines((current) => current.filter((_, lineIndex) => lineIndex !== index));
+  function removeRow(index: number) {
+    setLines((current) => (current.length > 1 ? current.filter((_, lineIndex) => lineIndex !== index) : [emptyLine()]));
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setMessage("");
-    if (lines.length === 0) {
+    const validLines = lines.filter((line) => line.productId || line.label.trim());
+    if (validLines.length === 0) {
       setMessage(`Ajoutez au moins une ligne au ${documentName(type)}.`);
       return;
     }
     setLoading(true);
-    const response = await apiFetch(`/${type}`, {
-      method: "POST",
-      body: JSON.stringify({
-        customerId: customerId || undefined,
-        notes,
-        discount: globalDiscount,
-        items: lines.map((line) => ({
-          productId: line.productId,
-          customName: line.productId ? undefined : line.customName,
-          customType: line.productId ? undefined : "SERVICE",
-          quantity: line.quantity,
-          unitPrice: line.unitPrice,
-          discount: line.discount,
-          tax: line.tax
-        }))
-      })
-    });
+    const items = validLines.map((line) => ({
+      productId: line.productId,
+      customName: line.productId ? undefined : line.label.trim(),
+      customType: line.productId ? undefined : "SERVICE",
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+      discount: line.discount,
+      tax: line.tax
+    }));
+    const response = fromQuoteId
+      ? await apiFetch(`/quotes/${fromQuoteId}/to-proforma`, { method: "POST", body: JSON.stringify({ items }) })
+      : await apiFetch(`/${type}`, {
+          method: "POST",
+          body: JSON.stringify({ customerId: customerId || undefined, notes, discount: globalDiscount, items })
+        });
     setLoading(false);
     if (response.ok) {
-      setLines([]);
+      setLines([emptyLine()]);
       setNotes("");
       setGlobalDiscount(0);
-      setMessage(`${createLabel} enregistré.`);
+      setMessage(fromQuoteId ? "Commande créée depuis le devis, stock sorti." : `${createLabel} enregistré.`);
+      setFromQuoteId(null);
       await loadDocuments();
       return;
     }
     const body = await response.json().catch(() => null);
     setMessage(Array.isArray(body?.message) ? body.message[0] : body?.message ?? "Enregistrement impossible.");
-  }
-
-  async function runTransform(document: SalesDocument) {
-    if (!transformAction) return;
-    const response = await apiFetch(`/${type}/${document.id}/${transformAction}`, { method: "POST" });
-    if (response.ok) {
-      setMessage("Devis converti en commande.");
-      await loadDocuments();
-      return;
-    }
-    const body = await response.json().catch(() => null);
-    setMessage(body?.message ?? "Conversion impossible.");
-  }
-
-  async function updateOrderStatus(document: SalesDocument, status: string) {
-    const response = await apiFetch(`/proformas/${document.id}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
-    if (response.ok) {
-      setMessage("Statut mis à jour.");
-      await loadDocuments();
-      return;
-    }
-    const body = await response.json().catch(() => null);
-    setMessage(body?.message ?? "Statut impossible.");
   }
 
   return (
@@ -278,139 +257,173 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
         <h1 className="text-2xl font-bold text-slate-950 dark:text-white">{title}</h1>
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
           {type === "quotes"
-            ? "Le devis prépare un prix. Il ne modifie pas le stock et ne crée pas de vente POS."
+            ? "Le devis prépare un prix imprimable. Il ne modifie pas le stock et ne crée pas de vente POS."
             : type === "proformas"
-              ? "La commande suit Total, Avance, Balance, préparation et livraison."
-              : "Document finalisé issu d'une vente ou d'une commande."}
+              ? "La commande sort le stock à la création et suit Total, Avance et Balance jusqu'à la vente terminée."
+              : "Document finalisé issu d'une commande soldée."}
         </p>
         {message ? <p className="mt-3 rounded-md bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800">{message}</p> : null}
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-[440px_1fr]">
-        <form onSubmit={submit} className="space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{createTitle(type)}</h2>
-            <p className="mt-1 text-sm text-slate-500">Choisissez un produit existant ou ajoutez un service personnalisé.</p>
+      <form onSubmit={submit} className="rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-col gap-4 border-b border-slate-100 p-5 dark:border-slate-800 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-center gap-3">
+            {branding?.logoUrl ? (
+              <img src={branding.logoUrl} alt="" className="h-12 w-12 rounded-lg object-contain" />
+            ) : (
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-900 text-sm font-bold text-white">{branding?.companyInitials ?? "ME"}</div>
+            )}
+            <div>
+              <p className="font-bold text-slate-950 dark:text-white">{branding?.companyName ?? "Mon entreprise"}</p>
+              <p className="text-xs text-slate-500">{createTitle(type)}</p>
+            </div>
           </div>
-
-          <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
-            <option value="">Client facultatif</option>
+          <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} className="w-full rounded-md border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 sm:w-64">
+            <option value="">Client comptoir / facultatif</option>
             {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.displayName ?? customer.name}</option>)}
           </select>
+        </div>
 
-          <section className="rounded-lg border border-brand-100 bg-brand-50 p-4 dark:border-brand-900 dark:bg-slate-950">
-            <h3 className="font-semibold text-slate-950 dark:text-white">A) Produit du catalogue</h3>
-            <input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Rechercher un produit" className="mt-3 w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-            <div className="mt-3 grid max-h-72 gap-2 overflow-auto">
-              {visibleProducts.map((product) => (
-                <button key={product.id} type="button" onClick={() => chooseProduct(product)} className={`rounded-md border p-3 text-left transition ${selectedProduct?.id === product.id ? "border-brand-500 bg-white ring-2 ring-brand-100 dark:bg-slate-900" : "border-slate-200 bg-white hover:border-brand-300 dark:border-slate-800 dark:bg-slate-900"}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-slate-950 dark:text-white">{product.name}</p>
-                      <p className="mt-1 text-xs text-slate-500">{unitLabel(product) || "Produit catalogue"}{Number.isFinite(Number(product.stockCurrent)) ? ` · Stock ${product.stockCurrent}` : ""}</p>
-                    </div>
-                    <span className="text-sm font-bold text-brand-700 dark:text-brand-200">{money(product.salePrice)}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-            {selectedProduct ? (
-              <div className="mt-3 rounded-md border border-brand-200 bg-white p-3 dark:border-brand-900 dark:bg-slate-900">
-                <p className="font-semibold text-slate-950 dark:text-white">Produit sélectionné: {selectedProduct.name}</p>
-                <p className="text-xs text-slate-500">SKU: {selectedProduct.sku ?? "--"}</p>
-                <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                  <NumberInput label="Quantité" value={catalogLine.quantity} min="0.01" step="0.01" onChange={(quantity) => setCatalogLine((line) => ({ ...line, quantity }))} />
-                  <NumberInput label="Prix" value={catalogLine.unitPrice} min="0" step="0.01" onChange={(unitPrice) => setCatalogLine((line) => ({ ...line, unitPrice }))} />
-                  <NumberInput label="Remise" value={catalogLine.discount} min="0" step="0.01" onChange={(discount) => setCatalogLine((line) => ({ ...line, discount }))} />
-                </div>
-                <button type="button" onClick={addCatalogLine} className="mt-3 rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">{type === "quotes" ? "Ajouter au devis" : "Ajouter à la commande"}</button>
-              </div>
-            ) : null}
-          </section>
-
-          <section className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-            <h3 className="font-semibold text-slate-950 dark:text-white">B) Ligne personnalisée ou service</h3>
-            <input value={customLine.customName ?? ""} onChange={(event) => setCustomLine((line) => ({ ...line, customName: event.target.value }))} placeholder="Nom ou description" className="mt-3 w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-            <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              <NumberInput label="Quantité" value={customLine.quantity} min="0.01" step="0.01" onChange={(quantity) => setCustomLine((line) => ({ ...line, quantity }))} />
-              <NumberInput label="Prix" value={customLine.unitPrice} min="0" step="0.01" onChange={(unitPrice) => setCustomLine((line) => ({ ...line, unitPrice }))} />
-              <NumberInput label="Remise" value={customLine.discount} min="0" step="0.01" onChange={(discount) => setCustomLine((line) => ({ ...line, discount }))} />
-            </div>
-            <button type="button" onClick={addCustomLine} className="mt-3 rounded-md border px-4 py-2 text-sm font-semibold">{type === "quotes" ? "Ajouter au devis" : "Ajouter à la commande"}</button>
-          </section>
-
-          <section className="space-y-2">
-            <h3 className="font-semibold text-slate-950 dark:text-white">Lignes ajoutées</h3>
-            {lines.length === 0 ? <p className="rounded-md border border-dashed p-3 text-sm text-slate-500 dark:border-slate-800">Aucune ligne ajoutée.</p> : null}
-            {lines.map((line, index) => {
-              const product = line.productId ? products.find((item) => item.id === line.productId) : null;
-              return <LineCard key={`${line.productId ?? line.customName}-${index}`} line={line} product={product} index={index} onRemove={() => removeLine(index)} />;
-            })}
-          </section>
-
-          <div className="grid gap-2 sm:grid-cols-3">
-            <NumberInput label="Remise globale" value={globalDiscount} min="0" step="0.01" onChange={setGlobalDiscount} />
-            <SummaryBox label="Total" value={money(totalPreview)} />
-            {type === "proformas" ? <SummaryBox label="Balance" value={money(totalPreview)} /> : null}
-          </div>
-
-          <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Notes" className="min-h-24 w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-          <button disabled={loading} className="w-full rounded-md bg-brand-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60">{loading ? "Enregistrement..." : createLabel}</button>
-        </form>
-
-        <section className="space-y-4">
-          <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{type === "quotes" ? "Devis" : type === "proformas" ? "Commandes" : "Factures"}</h2>
-              <p className="text-sm text-slate-500">{documents.length} document(s) affiché(s)</p>
-            </div>
-            <Link href={`/dashboard/sales/${type}/create`} className="rounded-md bg-brand-600 px-4 py-2 text-center text-sm font-semibold text-white">{createLabel}</Link>
-          </div>
-
-          {documents.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-              <h3 className="font-semibold text-slate-950 dark:text-white">{type === "quotes" ? "Aucun devis pour l'instant" : type === "proformas" ? "Aucune commande pour l'instant" : "Aucune facture pour l'instant"}</h3>
-              <p className="mt-1">{type === "quotes" ? "Créez un devis avec un produit existant ou un service personnalisé." : "Créez une commande pour suivre Total, Avance et Balance."}</p>
-            </div>
-          ) : null}
-
-          <div className="grid gap-3 md:hidden">
-            {documents.map((document) => (
-              <DocumentCard key={document.id} document={document} type={type} transformLabel={transformLabel} onTransform={() => runTransform(document)} onStatus={(status) => updateOrderStatus(document, status)} />
-            ))}
-          </div>
-
-          <div className="hidden overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 md:block">
-            <table className="w-full min-w-[760px] text-left text-sm">
-              <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950">
-                <tr><th className="p-3">Numéro</th><th className="p-3">Client</th><th className="p-3">Total</th><th className="p-3">Avance</th><th className="p-3">Balance</th><th className="p-3">Statut</th><th className="p-3">Actions</th></tr>
-              </thead>
-              <tbody>
-                {documents.map((document) => (
-                  <tr key={document.id} className="border-t border-slate-100 dark:border-slate-800">
-                    <td className="p-3 font-mono text-xs">{document.documentNumber ?? document.number}</td>
-                    <td className="p-3">{document.customer?.displayName ?? document.customer?.name ?? "--"}</td>
-                    <td className="p-3">{money(document.total)}</td>
-                    <td className="p-3">{money(document.paidAmount)}</td>
-                    <td className="p-3">{money(document.balance)}</td>
-                    <td className="p-3"><StatusBadge status={document.status} paymentStatus={document.paymentStatus} /></td>
-                    <td className="p-3"><DocumentActions document={document} type={type} transformLabel={transformLabel} onTransform={() => runTransform(document)} onStatus={(status) => updateOrderStatus(document, status)} /></td>
+        <div className="overflow-x-auto p-5 pb-0">
+          <table className="w-full min-w-[640px] text-left text-sm">
+            <thead className="text-xs uppercase text-slate-500">
+              <tr>
+                <th className="p-2">Produit / description</th>
+                <th className="p-2 w-24">Quantité</th>
+                <th className="p-2 w-28">Prix</th>
+                <th className="p-2 w-24">Remise</th>
+                <th className="p-2 w-28 text-right">Total</th>
+                <th className="w-8"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((line, index) => {
+                const suggestions = openRowIndex === index ? matchingProducts(products, line.label) : [];
+                return (
+                  <tr key={index} className="border-t border-slate-100 align-top dark:border-slate-800">
+                    <td className="relative p-2">
+                      <input
+                        value={line.label}
+                        onChange={(event) => updateLine(index, { ...line, label: event.target.value, productId: undefined })}
+                        onFocus={() => setOpenRowIndex(index)}
+                        onBlur={() => window.setTimeout(() => setOpenRowIndex((current) => (current === index ? null : current)), 150)}
+                        placeholder="Rechercher un produit ou décrire un service"
+                        className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950"
+                      />
+                      {suggestions.length > 0 ? (
+                        <div className="absolute left-2 top-full z-20 mt-1 w-80 overflow-auto rounded-md border bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                          {suggestions.map((product) => (
+                            <button
+                              key={product.id}
+                              type="button"
+                              onClick={() => pickProduct(index, product)}
+                              className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
+                            >
+                              <span className="font-medium text-slate-950 dark:text-white">{product.name}</span>
+                              <span className="whitespace-nowrap text-xs text-slate-500">{money(product.salePrice)} · Stock {product.stockCurrent ?? "--"}</span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="p-2"><Cell value={line.quantity} min="0.01" onChange={(quantity) => updateLine(index, { ...line, quantity })} /></td>
+                    <td className="p-2"><Cell value={line.unitPrice} min="0" onChange={(unitPrice) => updateLine(index, { ...line, unitPrice })} /></td>
+                    <td className="p-2"><Cell value={line.discount} min="0" onChange={(discount) => updateLine(index, { ...line, discount })} /></td>
+                    <td className="p-2 pt-4 text-right font-semibold text-slate-950 dark:text-white">{money(lineTotal(line))}</td>
+                    <td className="p-2 pt-3 text-center">
+                      <button type="button" onClick={() => removeRow(index)} title="Retirer la ligne" className="text-slate-400 hover:text-red-600">×</button>
+                    </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                );
+              })}
+            </tbody>
+          </table>
+          <button type="button" onClick={addRow} className="mt-2 rounded-md border border-dashed px-3 py-2 text-sm font-semibold text-slate-600 hover:border-brand-400 hover:text-brand-600 dark:border-slate-700 dark:text-slate-300">+ Ajouter une ligne</button>
+        </div>
+
+        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
+          <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Notes" className="min-h-20 w-full rounded-md border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 sm:max-w-sm" />
+          <div className="grid w-full gap-2 sm:w-64">
+            <NumberInput label="Remise globale" value={globalDiscount} onChange={setGlobalDiscount} />
+            <SummaryBox label="Total" value={money(totalPreview)} />
+            {type === "proformas" ? (
+              <>
+                <SummaryBox label="Avance" value={money(0)} />
+                <SummaryBox label="Balance" value={money(totalPreview)} />
+              </>
+            ) : null}
           </div>
-        </section>
-      </div>
+        </div>
+
+        <div className="border-t border-slate-100 p-5 dark:border-slate-800">
+          <button disabled={loading} className="w-full rounded-md bg-brand-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto">{loading ? "Enregistrement..." : createLabel}</button>
+        </div>
+      </form>
+
+      <section className="space-y-4">
+        <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{type === "quotes" ? "Devis" : type === "proformas" ? "Commandes" : "Factures"}</h2>
+            <p className="text-sm text-slate-500">{documents.length} document(s) affiché(s)</p>
+          </div>
+          <Link href={`/dashboard/sales/${type}/create`} className="rounded-md bg-brand-600 px-4 py-2 text-center text-sm font-semibold text-white">{createLabel}</Link>
+        </div>
+
+        {documents.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+            <h3 className="font-semibold text-slate-950 dark:text-white">{type === "quotes" ? "Aucun devis pour l'instant" : type === "proformas" ? "Aucune commande pour l'instant" : "Aucune facture pour l'instant"}</h3>
+            <p className="mt-1">{type === "quotes" ? "Créez un devis avec un produit existant ou un service personnalisé." : "Créez une commande pour suivre Total, Avance et Balance."}</p>
+          </div>
+        ) : null}
+
+        <div className="grid gap-3 md:hidden">
+          {documents.map((document) => (
+            <DocumentCard key={document.id} document={document} type={type} transformLabel={transformLabel} showTransform={Boolean(transformAction)} />
+          ))}
+        </div>
+
+        <div className="hidden overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 md:block">
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950">
+              <tr>
+                <th className="p-3">Numéro</th>
+                <th className="p-3">Client</th>
+                <th className="p-3">Total</th>
+                {type !== "quotes" ? <th className="p-3">Avance</th> : null}
+                {type !== "quotes" ? <th className="p-3">Balance</th> : null}
+                <th className="p-3">Statut</th>
+                <th className="p-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {documents.map((document) => (
+                <tr key={document.id} className="border-t border-slate-100 dark:border-slate-800">
+                  <td className="p-3 font-mono text-xs">{document.documentNumber ?? document.number}</td>
+                  <td className="p-3">{document.customer?.displayName ?? document.customer?.name ?? "--"}</td>
+                  <td className="p-3">{money(document.total)}</td>
+                  {type !== "quotes" ? <td className="p-3">{money(document.paidAmount)}</td> : null}
+                  {type !== "quotes" ? <td className="p-3">{money(document.balance)}</td> : null}
+                  <td className="p-3"><StatusBadge status={document.status} paymentStatus={document.paymentStatus} /></td>
+                  <td className="p-3"><DocumentActions document={document} type={type} transformLabel={transformLabel} showTransform={Boolean(transformAction)} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }
 
-function NumberInput({ label, value, min, step, onChange }: { label: string; value: number; min: string; step: string; onChange: (value: number) => void }) {
+function Cell({ value, min, onChange }: { value: number; min: string; onChange: (value: number) => void }) {
+  return <input type="number" min={min} step="0.01" value={value} onChange={(event) => onChange(Number(event.target.value))} className="w-full rounded-md border px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" />;
+}
+
+function NumberInput({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
   return (
     <label className="grid gap-1 text-xs font-semibold text-slate-500">
       {label}
-      <input type="number" min={min} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} className="rounded-md border px-3 py-2 text-sm font-normal text-slate-950 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+      <input type="number" min="0" step="0.01" value={value} onChange={(event) => onChange(Number(event.target.value))} className="rounded-md border px-3 py-2 text-sm font-normal text-slate-950 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
     </label>
   );
 }
@@ -419,29 +432,8 @@ function SummaryBox({ label, value }: { label: string; value: string }) {
   return <div className="rounded-md bg-slate-50 p-3 dark:bg-slate-950"><p className="text-xs text-slate-500">{label}</p><p className="font-bold">{value}</p></div>;
 }
 
-function LineCard({ line, product, index, onRemove }: { line: Line; product?: Product | null; index: number; onRemove: () => void }) {
-  const total = line.quantity * line.unitPrice - line.discount + line.tax;
-  return (
-    <article className="rounded-md border border-slate-200 bg-white p-3 text-sm dark:border-slate-800 dark:bg-slate-900">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-semibold text-slate-950 dark:text-white">{index + 1}. {product?.name ?? line.customName}</p>
-          <p className="text-xs text-slate-500">{product ? `Produit catalogue${product.sku ? ` · ${product.sku}` : ""}` : "Service personnalisé"}</p>
-        </div>
-        <button type="button" onClick={onRemove} className="rounded-md border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 dark:border-red-900 dark:text-red-300">Retirer</button>
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <SummaryBox label="Quantité" value={String(line.quantity)} />
-        <SummaryBox label="Prix" value={money(line.unitPrice)} />
-        <SummaryBox label="Remise" value={money(line.discount)} />
-        <SummaryBox label="Total ligne" value={money(total)} />
-      </div>
-    </article>
-  );
-}
-
-function DocumentCard(props: { document: SalesDocument; type: DocType; transformLabel?: string; onTransform: () => void; onStatus: (status: string) => void }) {
-  const { document } = props;
+function DocumentCard(props: { document: SalesDocument; type: DocType; transformLabel?: string; showTransform: boolean }) {
+  const { document, type } = props;
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="flex items-start justify-between gap-3">
@@ -451,25 +443,24 @@ function DocumentCard(props: { document: SalesDocument; type: DocType; transform
         </div>
         <StatusBadge status={document.status} paymentStatus={document.paymentStatus} />
       </div>
-      <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
+      <div className={`mt-3 grid gap-2 text-sm ${type === "quotes" ? "grid-cols-1" : "grid-cols-3"}`}>
         <SummaryBox label="Total" value={money(document.total)} />
-        <SummaryBox label="Avance" value={money(document.paidAmount)} />
-        <SummaryBox label="Balance" value={money(document.balance)} />
+        {type !== "quotes" ? <SummaryBox label="Avance" value={money(document.paidAmount)} /> : null}
+        {type !== "quotes" ? <SummaryBox label="Balance" value={money(document.balance)} /> : null}
       </div>
       <div className="mt-3"><DocumentActions {...props} /></div>
     </article>
   );
 }
 
-function DocumentActions({ document, type, transformLabel, onTransform, onStatus }: { document: SalesDocument; type: DocType; transformLabel?: string; onTransform: () => void; onStatus: (status: string) => void }) {
+function DocumentActions({ document, type, transformLabel, showTransform }: { document: SalesDocument; type: DocType; transformLabel?: string; showTransform: boolean }) {
   return (
     <div className="flex flex-wrap gap-2">
       <Link href={`/dashboard/sales/${type}/${document.id}`} className="rounded-md border px-3 py-2 text-xs font-semibold">Voir</Link>
       <Link href={`/dashboard/sales/${type}/${document.id}`} className="rounded-md border px-3 py-2 text-xs font-semibold">Imprimer</Link>
-      {type === "quotes" ? <button type="button" onClick={onTransform} className="rounded-md bg-brand-600 px-3 py-2 text-xs font-semibold text-white">{transformLabel ?? "Convertir en commande"}</button> : null}
-      {type === "proformas" ? orderStatuses.map((status) => (
-        <button key={status.value} type="button" onClick={() => onStatus(status.value)} className="rounded-md border px-3 py-2 text-xs font-semibold">{status.label}</button>
-      )) : null}
+      {type === "quotes" && showTransform ? (
+        <Link href={`/dashboard/sales/proformas/create?fromQuote=${document.id}`} className="rounded-md bg-brand-600 px-3 py-2 text-xs font-semibold text-white">{transformLabel ?? "Convertir en commande"}</Link>
+      ) : null}
     </div>
   );
 }

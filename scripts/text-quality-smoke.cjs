@@ -56,7 +56,7 @@ const forbidden = [
 ];
 
 const expected = new Map([
-  ["apps/web/app/dashboard/sales/page.tsx", [text("Devis en attente"), text("Commandes pr\u00eates"), text("Avances re\u00e7ues")]],
+  ["apps/web/app/dashboard/sales/page.tsx", [text("Devis en attente"), text("Commandes en cours"), text("Ventes termin\u00e9es")]],
   ["apps/web/app/dashboard/sales/sales-document-page.tsx", [text("Cr\u00e9er"), text("Quantit\u00e9"), text("personnalis\u00e9e")]],
   ["apps/web/app/dashboard/purchases/page.tsx", [text("R\u00e9ception"), text("Re\u00e7u"), text("d\u00e9penses g\u00e9n\u00e9rales restent s\u00e9par\u00e9es")]],
   ["apps/web/app/dashboard/reports/page.tsx", [text("Rapports")]],

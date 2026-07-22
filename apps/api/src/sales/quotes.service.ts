@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, SalesDocumentPaymentStatus, SalesDocumentStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
-import { CreateSalesDocumentDto, SalesDocumentQueryDto, UpdateSalesDocumentDto } from "./dto/sales-document.dto";
-import { calculateDocumentTotals, ensureCustomer, ensureProducts, generateDocumentNumber, mapDocumentItems, withDocumentNumber, withDocumentNumbers } from "./sales-documents.util";
+import { ConvertQuoteDto, CreateSalesDocumentDto, SalesDocumentQueryDto, UpdateSalesDocumentDto } from "./dto/sales-document.dto";
+import { calculateDocumentTotals, deductStockForItems, ensureCustomer, ensureProducts, generateDocumentNumber, mapDocumentItems, withDocumentNumber, withDocumentNumbers } from "./sales-documents.util";
 
 type SalesDocumentLine = {
   productId?: string | null;
@@ -110,7 +110,7 @@ export class QuotesService {
     return withDocumentNumber(await this.prisma.quote.update({ where: { id }, data: { status: SalesDocumentStatus.REJECTED, rejectedAt: new Date() } }));
   }
 
-  async convertToProforma(tenantId: string, id: string, createdById?: string) {
+  async convertToProforma(tenantId: string, id: string, dto: ConvertQuoteDto, createdById?: string) {
     const quote = await this.findOne(tenantId, id);
     if (([SalesDocumentStatus.REJECTED, SalesDocumentStatus.CANCELLED, SalesDocumentStatus.CONVERTED, SalesDocumentStatus.EXPIRED] as SalesDocumentStatus[]).includes(quote.status)) {
       throw new BadRequestException("Ce devis ne peut pas être transformé");
@@ -119,32 +119,52 @@ export class QuotesService {
       await this.prisma.quote.update({ where: { id }, data: { status: SalesDocumentStatus.EXPIRED } });
       throw new BadRequestException("Ce devis est expiré");
     }
-    const lines = quote.items as SalesDocumentLine[];
-    const proforma = await this.prisma.proforma.create({
-      data: {
-        tenantId,
-        customerId: quote.customerId,
-        quoteId: quote.id,
-        documentNumber: generateDocumentNumber("CMD"),
-        status: SalesDocumentStatus.DRAFT,
-        paymentStatus: SalesDocumentPaymentStatus.UNPAID,
-        subtotal: quote.subtotal,
-        discount: quote.discount,
-        tax: quote.tax,
-        total: quote.total,
-        paidAmount: 0,
-        balance: quote.total,
-        notes: quote.notes,
-        customerSnapshot: quote.customerSnapshot ?? undefined,
-        companySnapshot: quote.companySnapshot ?? undefined,
-        quoteSnapshot: this.quoteSnapshot(quote) as Prisma.InputJsonValue,
-        createdById,
-        items: { create: lines.map((item) => this.copyLine(item)) }
-      },
-      include: { customer: true, items: { include: { product: true } }, payments: true, stockReservations: true }
+    const editedItems = dto.items;
+    if (editedItems) await ensureProducts(this.prisma, tenantId, editedItems.map((item) => item.productId).filter((productId): productId is string => Boolean(productId)));
+    const lines = editedItems ?? (quote.items as SalesDocumentLine[]);
+    const totals = editedItems ? calculateDocumentTotals(editedItems, 0) : { subtotal: quote.subtotal, discount: quote.discount, tax: quote.tax, total: quote.total };
+    const documentNumber = generateDocumentNumber("CMD");
+    return this.prisma.$transaction(async (tx) => {
+      const warehouse = await this.resolveWarehouse(tx, tenantId, dto.warehouseId);
+      const proforma = await tx.proforma.create({
+        data: {
+          tenantId,
+          customerId: quote.customerId,
+          warehouseId: warehouse?.id,
+          quoteId: quote.id,
+          documentNumber,
+          status: SalesDocumentStatus.CONFIRMED,
+          paymentStatus: SalesDocumentPaymentStatus.UNPAID,
+          subtotal: totals.subtotal,
+          discount: totals.discount,
+          tax: totals.tax,
+          total: totals.total,
+          paidAmount: 0,
+          balance: totals.total,
+          notes: quote.notes,
+          customerSnapshot: quote.customerSnapshot ?? undefined,
+          companySnapshot: quote.companySnapshot ?? undefined,
+          quoteSnapshot: this.quoteSnapshot(quote) as Prisma.InputJsonValue,
+          createdById,
+          reservedAt: new Date(),
+          items: { create: editedItems ? mapDocumentItems(editedItems) : lines.map((item) => this.copyLine(item as SalesDocumentLine)) }
+        },
+        include: { items: true }
+      });
+      await deductStockForItems(tx, tenantId, warehouse?.id, proforma.items, proforma.id, documentNumber, createdById);
+      await tx.quote.update({ where: { id }, data: { status: SalesDocumentStatus.CONVERTED, convertedAt: new Date() } });
+      const refreshed = await tx.proforma.findUniqueOrThrow({ where: { id: proforma.id }, include: { customer: true, items: { include: { product: true } }, payments: true } });
+      return withDocumentNumber(refreshed);
     });
-    await this.prisma.quote.update({ where: { id }, data: { status: SalesDocumentStatus.CONVERTED, convertedAt: new Date() } });
-    return withDocumentNumber(proforma);
+  }
+
+  private async resolveWarehouse(client: PrismaService | Prisma.TransactionClient, tenantId: string, warehouseId?: string) {
+    if (warehouseId) {
+      const warehouse = await client.warehouse.findFirst({ where: { id: warehouseId, tenantId, isActive: true } });
+      if (!warehouse) throw new NotFoundException("Dépôt introuvable");
+      return warehouse;
+    }
+    return client.warehouse.findFirst({ where: { tenantId, isActive: true }, orderBy: { createdAt: "asc" } });
   }
 
   private defaultExpirationDate() {

@@ -120,3 +120,16 @@ export class UpdateSalesDocumentStatusDto {
   @IsEnum(SalesDocumentStatus)
   status!: SalesDocumentStatus;
 }
+
+export class ConvertQuoteDto {
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => SalesDocumentItemDto)
+  items?: SalesDocumentItemDto[];
+
+  @IsOptional()
+  @IsString()
+  warehouseId?: string;
+}

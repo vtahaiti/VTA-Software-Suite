@@ -13,26 +13,14 @@ const statusLabels: Record<string, string> = {
   ACCEPTED: "Accepté",
   REJECTED: "Refusé",
   EXPIRED: "Expiré",
-  CONVERTED: "Converti",
-  CONFIRMED: "Confirmée",
-  IN_PROGRESS: "En préparation",
-  READY: "Prête",
-  DELIVERED: "Livrée",
-  COMPLETED: "Terminée",
+  CONVERTED: "Converti en commande",
+  CONFIRMED: "Commande en cours",
+  COMPLETED: "Vente terminée",
   CANCELLED: "Annulée",
   UNPAID: "Non payée",
   PARTIALLY_PAID: "Avance reçue",
   PAID: "Payée"
 };
-
-const orderStatuses = [
-  { value: "CONFIRMED", label: "Confirmer" },
-  { value: "IN_PROGRESS", label: "En préparation" },
-  { value: "READY", label: "Marquer prête" },
-  { value: "DELIVERED", label: "Marquer livrée" },
-  { value: "COMPLETED", label: "Terminer" },
-  { value: "CANCELLED", label: "Annuler" }
-];
 
 function money(value: string | number | null | undefined) {
   return Number(value ?? 0).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -57,32 +45,26 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
     if (token) void getCompanyBranding(token).then(setBranding).catch(() => setBranding(null));
   }, []);
 
-  async function transform() {
+  function goToConversion() {
     if (!transformAction) return;
-    const response = await fetch(`${apiUrl}/${type}/${params.id}/${transformAction}`, { method: "POST", headers: { Authorization: `Bearer ${getAccessToken()}` } });
-    if (response.ok) {
-      const data = await response.json();
-      router.push(`/dashboard/sales/proformas/${data.id}`);
-      return;
-    }
-    const body = await response.json().catch(() => null);
-    setMessage(body?.message ?? "Conversion impossible.");
+    router.push(`/dashboard/sales/proformas/create?fromQuote=${params.id}`);
   }
 
-  async function updateStatus(status: string) {
+  async function cancelOrder() {
     if (type !== "proformas") return;
+    if (!window.confirm("Annuler cette commande ? Le stock sorti sera remis en inventaire.")) return;
     const response = await fetch(`${apiUrl}/proformas/${params.id}/status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
-      body: JSON.stringify({ status })
+      body: JSON.stringify({ status: "CANCELLED" })
     });
     if (response.ok) {
       setDoc(await response.json());
-      setMessage("Statut mis à jour.");
+      setMessage("Commande annulée, stock remis en inventaire.");
       return;
     }
     const body = await response.json().catch(() => null);
-    setMessage(body?.message ?? "Statut impossible.");
+    setMessage(body?.message ?? "Annulation impossible.");
   }
 
   async function registerPayment(event: FormEvent) {
@@ -121,27 +103,31 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
           </div>
           <div className="flex flex-wrap gap-2">
             <button onClick={() => void printPage()} className="rounded-md border px-4 py-2 text-sm">Imprimer</button>
-            {transformAction ? <button onClick={() => void transform()} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">{transformLabel ?? "Convertir en commande"}</button> : null}
+            {transformAction ? <button onClick={goToConversion} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">{transformLabel ?? "Convertir en commande"}</button> : null}
             <Link href={`/dashboard/sales/${type}`} className="rounded-md border px-4 py-2 text-sm">Retour</Link>
           </div>
         </div>
         {message ? <p className="mt-3 rounded-md bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800">{message}</p> : null}
       </section>
 
-      <section className="grid gap-4 md:grid-cols-4 print:hidden">
+      <section className={`grid gap-4 print:hidden ${type === "quotes" ? "md:grid-cols-2" : "md:grid-cols-4"}`}>
         <Info label="Total" value={money(doc.total)} />
-        <Info label="Avance" value={money(doc.paidAmount)} />
-        <Info label="Balance" value={money(doc.balance)} />
+        {type !== "quotes" ? <Info label="Avance" value={money(doc.paidAmount)} /> : null}
+        {type !== "quotes" ? <Info label="Balance" value={money(doc.balance)} /> : null}
         <Info label="Statut" value={statusLabels[doc.paymentStatus] ?? statusLabels[doc.status] ?? doc.status} />
       </section>
 
       <section className="printable-document overflow-hidden rounded-lg border bg-white dark:border-slate-800 dark:bg-slate-900">
         <PrintBrandHeader branding={branding} title={title} number={doc.documentNumber ?? doc.number} />
         <div className="p-5 print:p-0">
-          <div className="mb-4 print:hidden">
-            <p className="font-mono text-xs text-slate-500">{doc.documentNumber ?? doc.number}</p>
-            <h2 className="text-lg font-semibold">{title}</h2>
-            <p className="text-sm text-slate-500">Client: {doc.customer?.displayName ?? doc.customer?.name ?? "--"}</p>
+          <div className="mb-4 flex items-start justify-between gap-4 border-b border-slate-100 pb-4 print:border-slate-300">
+            <div>
+              <p className="font-mono text-xs text-slate-500 print:hidden">{doc.documentNumber ?? doc.number}</p>
+              <h2 className="text-lg font-semibold print:hidden">{title}</h2>
+              <p className="text-sm font-semibold text-slate-950 dark:text-white">Client: {doc.customer?.displayName ?? doc.customer?.name ?? "Client comptoir"}</p>
+              {doc.customer?.customerCode ? <p className="text-xs text-slate-500">N° client: {doc.customer.customerCode}</p> : null}
+            </div>
+            <p className="text-xs text-slate-500">{new Date(doc.createdAt).toLocaleDateString("fr-FR")}</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-left text-sm print:min-w-0">
@@ -164,21 +150,31 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
               </tbody>
             </table>
           </div>
-          <div className="mt-4 grid gap-2 text-sm md:grid-cols-3 print:grid-cols-3">
+          <div className={`mt-4 grid gap-2 text-sm ${type === "quotes" ? "md:w-64 md:grid-cols-1 print:w-64 print:grid-cols-1 md:ml-auto print:ml-auto" : "md:grid-cols-3 print:grid-cols-3"}`}>
             <Info label="Total" value={money(doc.total)} />
-            <Info label="Avance" value={money(doc.paidAmount)} />
-            <Info label="Balance" value={money(doc.balance)} />
+            {type !== "quotes" ? <Info label="Avance" value={money(doc.paidAmount)} /> : null}
+            {type !== "quotes" ? <Info label="Balance" value={money(doc.balance)} /> : null}
           </div>
           {doc.notes ? <p className="mt-4 whitespace-pre-wrap text-sm text-slate-600">{doc.notes}</p> : null}
+          {type === "quotes" ? (
+            <div className="mt-8">
+              <p className="text-sm text-slate-500">
+                {doc.expiresAt ? `Ce devis est valide jusqu'au ${new Date(doc.expiresAt).toLocaleDateString("fr-FR")}.` : "Ce devis est valide 7 jours."}
+              </p>
+              <div className="mt-10 grid grid-cols-2 gap-8">
+                <div className="border-t border-slate-300 pt-2 text-xs text-slate-500">Signature du client</div>
+                <div className="border-t border-slate-300 pt-2 text-xs text-slate-500">Signature de l&apos;entreprise</div>
+              </div>
+            </div>
+          ) : null}
         </div>
       </section>
 
-      {type === "proformas" ? (
+      {type === "proformas" && !["CANCELLED", "COMPLETED"].includes(doc.status) ? (
         <section className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900 print:hidden">
-          <h2 className="text-lg font-semibold">Suivi de commande</h2>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {orderStatuses.map((status) => <button key={status.value} onClick={() => void updateStatus(status.value)} className="rounded-md border px-4 py-2 text-sm">{status.label}</button>)}
-          </div>
+          <h2 className="text-lg font-semibold">Commande</h2>
+          <p className="mt-1 text-sm text-slate-500">Le stock a été sorti à la création de cette commande. Une annulation le remet en inventaire.</p>
+          <button onClick={() => void cancelOrder()} className="mt-4 rounded-md border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 dark:border-red-900 dark:text-red-300">Annuler la commande</button>
         </section>
       ) : null}
 

@@ -4,7 +4,7 @@ import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
 import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
 import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
-import { CreateSalesDocumentDto, SalesDocumentQueryDto, UpdateSalesDocumentDto } from "./dto/sales-document.dto";
+import { ConvertQuoteDto, CreateSalesDocumentDto, SalesDocumentQueryDto, UpdateSalesDocumentDto } from "./dto/sales-document.dto";
 import { QuotesService } from "./quotes.service";
 @RequiresFeature("QUOTES")
 @UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
@@ -17,6 +17,6 @@ export class QuotesController { constructor(private readonly service: QuotesServ
   @Post(":id/send") @Permissions("quote.update") send(@Req() req: AuthenticatedRequest, @Param("id") id: string) { return this.service.send(req.user.tenantId, id); }
   @Post(":id/accept") @Permissions("quote.update") accept(@Req() req: AuthenticatedRequest, @Param("id") id: string) { return this.service.accept(req.user.tenantId, id); }
   @Post(":id/reject") @Permissions("quote.update") reject(@Req() req: AuthenticatedRequest, @Param("id") id: string) { return this.service.reject(req.user.tenantId, id); }
-  @Post(":id/to-proforma") @Permissions("quote.convert") convertToProforma(@Req() req: AuthenticatedRequest, @Param("id") id: string) { return this.service.convertToProforma(req.user.tenantId, id, req.user.id); }
+  @Post(":id/to-proforma") @Permissions("quote.convert") convertToProforma(@Req() req: AuthenticatedRequest, @Param("id") id: string, @Body() dto: ConvertQuoteDto) { return this.service.convertToProforma(req.user.tenantId, id, dto ?? {}, req.user.id); }
   @Get(":id/print") @Permissions("quote.read") print(@Req() req: AuthenticatedRequest, @Param("id") id: string) { return this.service.findOne(req.user.tenantId, id); }
 }
