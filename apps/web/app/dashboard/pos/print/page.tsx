@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { getAccessToken } from "@/lib/auth";
-import { isNativePrintAvailable, printHtmlNative, sharePdfNative } from "@/lib/native-print";
+import { isNativePrintAvailable, printReceiptSmart, sharePdfNative } from "@/lib/native-print";
 import { formatBusinessDateTime } from "@/lib/business-timezone";
 
 type ReceiptWidth = "58" | "72" | "80";
@@ -71,11 +71,16 @@ export default function PosTicketPrintPage() {
         return;
       }
       try {
-        setStatus("Ouverture de l'impression Android...");
-        await printHtmlNative({ html, title: `Ticket VTA Commerce ${widthConfig.label}`, format: width === "58" ? "58" : "80" });
-        setStatus("Dialogue d'impression Android ouvert.");
+        setStatus("Impression en cours...");
+        const result = await printReceiptSmart({
+          html,
+          title: `Ticket VTA Commerce ${widthConfig.label}`,
+          format: width === "58" ? "58" : "80",
+          widthDots: width === "58" ? 384 : 576
+        });
+        setStatus(result.status === "printed-bluetooth" ? "Ticket envoyé à l'imprimante Bluetooth." : "Dialogue d'impression Android ouvert.");
       } catch {
-        setError("Impossible d'ouvrir l'impression Android. Essayez le partage PDF.");
+        setError("Impossible d'imprimer. Essayez le partage PDF.");
       }
       return;
     }

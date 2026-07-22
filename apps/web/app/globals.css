@@ -30,8 +30,8 @@ html[data-capacitor="true"] body {
     visibility: hidden;
   }
 
-  .printable-document,
-  .printable-document * {
+  body:has(.printable-document) .printable-document,
+  body:has(.printable-document) .printable-document * {
     visibility: visible;
   }
 
