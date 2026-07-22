@@ -321,7 +321,7 @@ export class SalesService {
   private isStockTrackedProduct(product: Pick<SaleProduct, "minimumStock"> & { stocks?: unknown[]; variants?: Array<{ name?: string | null; model?: string | null }> }) {
     const variantText = (product.variants ?? []).map((variant) => `${variant.name ?? ""} ${variant.model ?? ""}`).join(" ").toLowerCase();
     if (/non stock|non-stock|sans suivi|service non stock|produit non stock|plat \/ service/.test(variantText)) return false;
-    return Number(product.minimumStock ?? 0) > 0 || Number(product.stocks?.length ?? 0) > 0;
+    return Number(product.stocks?.length ?? 0) > 0;
   }
 
   private receiptContent(receiptNumber: string, items: Array<{ product: { name: string } | null; customName?: string; productId?: string; quantity: number; total: number }>, total: number, settledAmount: number, receivedAmount: number, changeAmount: number) {

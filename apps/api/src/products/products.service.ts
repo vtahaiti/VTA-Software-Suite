@@ -268,6 +268,7 @@ export class ProductsService {
     if (!quantityDefined && !minimumDefined && !trackingRequested) return;
 
     const existingStock = product.stocks[0];
+    const activatingStock = trackingRequested && !existingStock;
     const warehouse = dto.warehouseId
       ? await tx.warehouse.findFirst({ where: { id: dto.warehouseId, tenantId, isActive: true } })
       : existingStock
@@ -285,7 +286,7 @@ export class ProductsService {
       create: { tenantId, productId: product.id, warehouseId: warehouse.id, quantity, minimumStock }
     });
 
-    if (quantityDefined && beforeQty !== quantity) {
+    if (activatingStock || (quantityDefined && beforeQty !== quantity)) {
       await tx.inventoryMovement.create({
         data: {
           tenantId,
@@ -293,12 +294,12 @@ export class ProductsService {
           warehouseId: warehouse.id,
           storeId: warehouse.storeId,
           type: "ADJUSTMENT",
-          reason: "Correction fiche produit",
+          reason: activatingStock ? "Activation suivi stock" : "Correction fiche produit",
           quantity: Math.abs(quantity - beforeQty),
           beforeQty,
           afterQty: Number(stock.quantity),
           reference: product.sku,
-          note: "Modification quantite depuis la fiche produit"
+          note: activatingStock ? "Activation manuelle du suivi stock depuis la fiche produit" : "Modification quantite depuis la fiche produit"
         }
       });
     }
@@ -314,7 +315,7 @@ export class ProductsService {
     const stockValueTotal = product.stocks?.reduce((sum, item) => sum + (stockValue(item, product as { purchasePrice?: Prisma.Decimal | number | string | null; averageCost?: Prisma.Decimal | number | string | null }) ?? 0), 0) ?? null;
     const variantText = (product.variants ?? []).map((variant) => `${variant.name ?? ""} ${variant.model ?? ""}`).join(" ").toLowerCase();
     const explicitlyNonStock = /non stock|non-stock|sans suivi|service non stock|produit non stock|plat \/ service/.test(variantText);
-    const stockTracked = !explicitlyNonStock && (Number(product.minimumStock ?? 0) > 0 || Number(product.stocks?.length ?? 0) > 0);
+    const stockTracked = !explicitlyNonStock && Number(product.stocks?.length ?? 0) > 0;
     return { ...product, costKnown: cost.known, unitCost: cost.amount, marginAmount, marginRate, stockCurrent, stockValue: stockValueTotal, stockTracked };
   }
 

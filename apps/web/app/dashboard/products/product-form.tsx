@@ -74,6 +74,7 @@ export function ProductForm({ productId }: { productId?: string }) {
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [categoryForm, setCategoryForm] = useState<CategoryForm>(emptyCategoryForm);
   const [isSaving, setIsSaving] = useState(false);
+  const [initialStockTracked, setInitialStockTracked] = useState(false);
 
   useEffect(() => {
     void loadRefs();
@@ -118,7 +119,8 @@ export function ProductForm({ productId }: { productId?: string }) {
     const primaryImage = product.images?.[0]?.url ?? "";
     const stockCurrent = Number(product.stockCurrent ?? product.stocks?.[0]?.quantity ?? 0);
     const hasStockLine = Number(product.stocks?.length ?? 0) > 0;
-    const noStockTracking = isNonStockVariant(variant) || (!hasStockLine && Number(product.minimumStock ?? 0) <= 0);
+    const noStockTracking = isNonStockVariant(variant) || !hasStockLine;
+    setInitialStockTracked(hasStockLine);
     setForm({
       ...emptyForm,
       name: product.name ?? "",
@@ -294,6 +296,14 @@ export function ProductForm({ productId }: { productId?: string }) {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  function changeStockTracking(tracked: boolean) {
+    if (!tracked && initialStockTracked && !form.noStockTracking) {
+      const confirmed = window.confirm("Desactiver le suivi stock ? Les mouvements et l'historique seront conserves, mais ce produit sera masque de l'inventaire principal.");
+      if (!confirmed) return;
+    }
+    update("noStockTracking", !tracked);
+  }
+
   function generateBarcode() {
     const value = Date.now().toString().slice(-12).padStart(12, "0");
     setForm((current) => ({ ...current, barcode: value, barcodeType: "EAN", qrCode: current.qrCode || `PROD:${current.sku || current.name}:${value}` }));
@@ -309,7 +319,7 @@ export function ProductForm({ productId }: { productId?: string }) {
       </div>
       <Input value={form.purchasePrice} onChange={(value) => update("purchasePrice", value)} placeholder="Prix d'achat / coût - facultatif" type="number" />
       <Input value={form.salePrice} onChange={(value) => update("salePrice", value)} placeholder="Prix de vente *" type="number" required />
-      <StockTrackingChoice tracked={!form.noStockTracking} onChange={(tracked) => update("noStockTracking", !tracked)} />
+      <StockTrackingChoice tracked={!form.noStockTracking} onChange={changeStockTracking} />
       {!form.noStockTracking ? (
         <>
           <Input value={form.stockInitial} onChange={(value) => update("stockInitial", value)} placeholder={productId ? "Quantité initiale / stock actuel" : "Quantité initiale"} type="number" />

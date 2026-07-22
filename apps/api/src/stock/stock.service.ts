@@ -159,7 +159,7 @@ export class StockService {
 
   private isStockTrackedProduct(product: { name?: string | null; category?: { name?: string | null } | null; minimumStock?: Prisma.Decimal | number | string | null; stocks?: unknown[]; variants?: { name?: string | null; model?: string | null }[] }) {
     if (this.isServiceOrNonStockProduct(product)) return false;
-    return Number(product.minimumStock ?? 0) > 0 || Number(product.stocks?.length ?? 0) > 0;
+    return Number(product.stocks?.length ?? 0) > 0;
   }
 
   private isServiceOrNonStockProduct(product: { name?: string | null; category?: { name?: string | null } | null; variants?: { name?: string | null; model?: string | null }[] }) {

@@ -573,7 +573,7 @@ export class PosService {
 
   private isStockTracked(product: { stocks?: Array<unknown>; minimumStock?: number | null; variants?: Array<{ name?: string | null; model?: string | null }> }) {
     if (this.isExplicitlyNonStock(product)) return false;
-    return Boolean((product.stocks?.length ?? 0) > 0 || Number(product.minimumStock ?? 0) > 0);
+    return Boolean((product.stocks?.length ?? 0) > 0);
   }
 
   private isExplicitlyNonStock(product: { variants?: Array<{ name?: string | null; model?: string | null }> }) {
