@@ -78,6 +78,7 @@ const routeOrder: NavigationSection[] = [
     title: "Principal",
     items: [
       { id: "home", label: "Accueil", href: "/dashboard", icon: navigationIcons.Accueil },
+      { id: "notifications", label: "Notifications", href: "/dashboard/notifications", icon: navigationIcons.Notifications },
       {
         id: "sales",
         label: "Ventes",
@@ -143,27 +144,29 @@ const routeOrder: NavigationSection[] = [
 
 export function buildNavigation(user: AuthUser | null, sourceSections: BusinessMenuSection[] = []): NavigationSection[] {
   const sourceHrefs = new Set(sourceSections.flatMap((section) => section.items.map((item) => item.href)));
+  const sourceLabels = new Map(sourceSections.flatMap((section) => section.items.map((item) => [item.href, item.label] as const)));
   const allowBySource = sourceHrefs.size === 0;
 
   return routeOrder
     .map((section) => ({
       ...section,
       items: section.items
-        .map((item) => filterNavigationItem(item, user, sourceHrefs, allowBySource))
+        .map((item) => filterNavigationItem(item, user, sourceHrefs, sourceLabels, allowBySource))
         .filter((item): item is NavigationItem => Boolean(item))
     }))
     .filter((section) => section.items.length > 0);
 }
 
-function filterNavigationItem(item: NavigationItem, user: AuthUser | null, sourceHrefs: Set<string>, allowBySource: boolean): NavigationItem | null {
+function filterNavigationItem(item: NavigationItem, user: AuthUser | null, sourceHrefs: Set<string>, sourceLabels: Map<string, string>, allowBySource: boolean): NavigationItem | null {
   if (item.href === "/dashboard/users" && !canManageUsers(user)) return null;
   const children = item.children
     ?.filter((child) => isKnownOrSource(child.href, sourceHrefs, allowBySource))
-    .filter((child) => canAccessHref(user, child.href));
+    .filter((child) => canAccessHref(user, child.href))
+    .map((child) => ({ ...child, label: sourceLabels.get(child.href) ?? child.label }));
 
   const selfAllowed = isKnownOrSource(item.href, sourceHrefs, allowBySource) && canAccessHref(user, item.href);
   if (!selfAllowed && (!children || children.length === 0)) return null;
-  return { ...item, children };
+  return { ...item, label: children?.length ? item.label : sourceLabels.get(item.href) ?? item.label, children };
 }
 
 function isKnownOrSource(href: string, sourceHrefs: Set<string>, allowBySource: boolean) {
