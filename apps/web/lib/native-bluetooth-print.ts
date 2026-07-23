@@ -50,6 +50,6 @@ export async function clearDefaultBluetoothPrinter() {
 }
 
 /** Imprime directement sur l'imprimante Bluetooth par defaut, sans boite de dialogue. */
-export async function printTicketOverBluetooth(html: string, widthDots = 384) {
+export async function printTicketOverBluetooth(html: string, widthDots = 576) {
   return BluetoothPrinter.printTicket({ html, widthDots });
 }

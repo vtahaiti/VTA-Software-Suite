@@ -38,6 +38,7 @@ export default function PosSettingsPage() {
   const [defaultPrinter, setDefaultPrinter] = useState<DefaultPrinter>({ configured: false });
   const [bluetoothMsg, setBluetoothMsg] = useState("");
   const [bluetoothLoading, setBluetoothLoading] = useState(false);
+  const [bluetoothTestPrinting, setBluetoothTestPrinting] = useState(false);
 
   useEffect(() => {
     fetchWithAuth(`${apiUrl}/settings/pos`)
@@ -77,12 +78,24 @@ export default function PosSettingsPage() {
   }
 
   async function testBluetoothPrint() {
+    if (bluetoothTestPrinting) return;
     setBluetoothMsg("");
+    setBluetoothTestPrinting(true);
     try {
-      await printTicketOverBluetooth(buildBluetoothTestTicketHtml());
+      const widthDots = receiptWidth === "58" ? 384 : 576;
+      await printTicketOverBluetooth(buildBluetoothTestTicketHtml(), widthDots);
       setBluetoothMsg("Ticket de test envoyé à l'imprimante.");
-    } catch {
-      setBluetoothMsg("Impression impossible. Vérifiez que l'imprimante est allumée et à portée.");
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "";
+      if (code === "CONNECTION_FAILED") {
+        setBluetoothMsg("Connexion Bluetooth impossible. Vérifiez que l'imprimante est allumée, à portée, et non connectée à un autre appareil.");
+      } else if (code === "RENDER_FAILED") {
+        setBluetoothMsg("Impossible de préparer le ticket à imprimer. Réessayez.");
+      } else {
+        setBluetoothMsg("Impression impossible. Vérifiez que l'imprimante est allumée et à portée.");
+      }
+    } finally {
+      setBluetoothTestPrinting(false);
     }
   }
 
@@ -149,7 +162,7 @@ export default function PosSettingsPage() {
             <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm dark:border-emerald-900 dark:bg-emerald-950">
               <span className="font-semibold text-emerald-800 dark:text-emerald-200">Imprimante par défaut : {defaultPrinter.name || defaultPrinter.address}</span>
               <button type="button" onClick={() => void removeDefaultPrinter()} className="rounded-md border border-emerald-300 px-2 py-1 text-xs font-semibold text-emerald-800 dark:border-emerald-800 dark:text-emerald-200">Retirer</button>
-              <button type="button" onClick={() => void testBluetoothPrint()} className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-semibold text-white">Imprimer un ticket de test</button>
+              <button type="button" onClick={() => void testBluetoothPrint()} disabled={bluetoothTestPrinting} className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{bluetoothTestPrinting ? "Impression..." : "Imprimer un ticket de test"}</button>
             </div>
           ) : (
             <p className="mt-3 text-sm text-amber-700 dark:text-amber-300">Aucune imprimante Bluetooth configurée pour l&apos;instant.</p>

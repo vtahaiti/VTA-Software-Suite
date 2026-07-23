@@ -61,7 +61,7 @@ export async function printReceiptSmart(options: {
   try {
     const printer = await getDefaultBluetoothPrinter();
     if (printer.configured) {
-      await printTicketOverBluetooth(options.html, options.widthDots ?? 384);
+      await printTicketOverBluetooth(options.html, options.widthDots ?? 576);
       return { status: "printed-bluetooth" as const };
     }
   } catch {
