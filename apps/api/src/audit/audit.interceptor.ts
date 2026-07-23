@@ -1,4 +1,4 @@
-﻿import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from "@nestjs/common";
+﻿import { CallHandler, ExecutionContext, Injectable, Logger, NestInterceptor } from "@nestjs/common";
 import { AuditAction, Prisma } from "@prisma/client";
 import type { Request } from "express";
 import { Observable, tap } from "rxjs";
@@ -10,6 +10,8 @@ const sensitiveKeys = ["password", "confirmPassword", "token", "accessToken", "r
 
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
+  private readonly logger = new Logger(AuditInterceptor.name);
+
   constructor(private readonly auditLogs: AuditLogsService) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
@@ -45,7 +47,9 @@ export class AuditInterceptor implements NestInterceptor {
           userAgent: request.headers["user-agent"],
           browser: parseBrowser(request.headers["user-agent"]),
           operatingSystem: parseOperatingSystem(request.headers["user-agent"])
-        }).catch(() => undefined);
+        }).catch((error) => {
+          this.logger.error(`Echec d'ecriture du journal d'audit (action=${action}, path=${request.path ?? request.url})`, error instanceof Error ? error.stack : String(error));
+        });
       })
     );
   }

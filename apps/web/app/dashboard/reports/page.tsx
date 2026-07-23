@@ -156,8 +156,36 @@ export default function ReportsPage() {
     void loadReports();
   }, [loadReports]);
 
-  function prepareExport(format: "CSV" | "Excel") {
-    window.alert(`Export ${format} pr\u00e9par\u00e9 pour les rapports.`);
+  function prepareExport() {
+    if (!reports) {
+      window.alert("Chargez d'abord les rapports avant d'exporter.");
+      return;
+    }
+    const lines: string[] = [];
+    for (const section of sections) {
+      const rows = reports[section.key].items ?? [];
+      lines.push(csvField(section.title));
+      lines.push(section.columns.map((column) => csvField(column.label)).join(","));
+      if (rows.length === 0) {
+        lines.push(csvField(section.emptyText));
+      } else {
+        for (const row of rows) {
+          lines.push(section.columns.map((column) => csvField(formatCell(row[column.key], column.format, column.key))).join(","));
+        }
+      }
+      lines.push("");
+    }
+    // BOM : Excel n'interprete correctement les accents en UTF-8 que si le fichier commence par ce marqueur.
+    const csvContent = "\ufeff" + lines.join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `rapports-vta-${dateFrom || "debut"}-${dateTo}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   const cards = reports
@@ -182,8 +210,7 @@ export default function ReportsPage() {
         <details className="rounded-md border border-slate-300 px-4 py-2 text-sm dark:border-slate-700">
           <summary className="cursor-pointer font-semibold">Options avancées</summary>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button onClick={() => prepareExport("CSV")} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">Exporter CSV</button>
-            <button onClick={() => prepareExport("Excel")} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">Exporter Excel</button>
+            <button onClick={() => prepareExport()} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">Exporter CSV (compatible Excel)</button>
             <button onClick={() => window.print()} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Imprimer</button>
           </div>
         </details>
@@ -269,6 +296,12 @@ function formatCell(value: Primitive, format?: Column["format"], key?: string) {
   if (format === "boolean") return value ? "Oui" : "Non";
   if (format === "status") return String(value).replaceAll("_", " ");
   return String(value);
+}
+
+function csvField(value: string) {
+  const needsQuoting = /[",\n\r]/.test(value);
+  const escaped = value.replaceAll('"', '""');
+  return needsQuoting ? `"${escaped}"` : escaped;
 }
 
 function formatMoney(value: number) {

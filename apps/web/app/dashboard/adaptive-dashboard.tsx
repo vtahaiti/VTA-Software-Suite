@@ -36,33 +36,33 @@ const activityCards: Record<string, Array<{ label: string; description: string; 
     { label: "Ventes du jour", description: "Suivre les ventes restaurant.", href: "/dashboard/reports" }
   ],
   hotel: [
-    { label: "Chambres", description: "Gestion des chambres preparee.", href: "/dashboard/stores" },
-    { label: "Reservations", description: "Suivi des reservations prepare.", href: "/dashboard/customers" },
-    { label: "Check-in", description: "Accueil client prepare.", href: "/dashboard/customers" },
+    { label: "Chambres", description: "Utilise la liste des magasins pour representer vos chambres (pas de module chambres dedie).", href: "/dashboard/stores" },
+    { label: "Reservations", description: "Utilise le carnet clients pour le suivi (pas de module reservations dedie).", href: "/dashboard/customers" },
+    { label: "Check-in", description: "Utilise le carnet clients pour l'accueil (pas de module check-in dedie).", href: "/dashboard/customers" },
     { label: "Clients", description: "Fichier clients hotel.", href: "/dashboard/customers" }
   ],
   school: [
-    { label: "Eleves", description: "Base eleves preparee.", href: "/dashboard/customers" },
+    { label: "Eleves", description: "Utilise le carnet clients pour la liste des eleves (pas de module scolaire dedie).", href: "/dashboard/customers" },
     { label: "Paiements", description: "Suivi des paiements scolaires.", href: "/dashboard/payments" },
-    { label: "Classes", description: "Organisation des classes preparee.", href: "/dashboard/customers" },
+    { label: "Classes", description: "Utilise le carnet clients (pas de gestion de classes dediee).", href: "/dashboard/customers" },
     { label: "Rapports", description: "Rapports scolaires et financiers.", href: "/dashboard/reports" }
   ],
   manufacturing: [
-    { label: "Production", description: "Commandes et fabrication preparees.", href: "/dashboard/sales/quotes" },
+    { label: "Production", description: "Utilise les devis pour suivre les commandes de fabrication (pas de module production dedie).", href: "/dashboard/sales/quotes" },
     { label: "Matieres premieres", description: "Suivi des matieres en stock.", href: "/dashboard/inventory" },
     { label: "Commandes", description: "Demandes clients et devis.", href: "/dashboard/sales" },
     { label: "Stock", description: "Stock produits finis et composants.", href: "/dashboard/inventory" }
   ],
   printing: [
     { label: "Commandes", description: "Commandes clients impression.", href: "/dashboard/sales/quotes" },
-    { label: "Production", description: "Suivi de production prepare.", href: "/dashboard/sales/quotes" },
+    { label: "Production", description: "Utilise les devis pour le suivi (pas de module production dedie).", href: "/dashboard/sales/quotes" },
     { label: "DTF / Broderie / Laser", description: "Ateliers specialises regroupés.", href: "/dashboard/sales/quotes" },
-    { label: "Delais", description: "Suivi des delais prepare.", href: "/dashboard/reports" }
+    { label: "Delais", description: "Utilise les rapports (pas de suivi de delais dedie).", href: "/dashboard/reports" }
   ],
   garage: [
-    { label: "Vehicules", description: "Fiches vehicules preparees.", href: "/dashboard/customers" },
+    { label: "Vehicules", description: "Utilise le carnet clients pour les fiches vehicules (pas de module vehicules dedie).", href: "/dashboard/customers" },
     { label: "Reparations", description: "Suivi reparations et factures.", href: "/dashboard/sales/invoices" },
-    { label: "Rendez-vous", description: "Planning prepare.", href: "/dashboard/customers" },
+    { label: "Rendez-vous", description: "Utilise le carnet clients (pas de planning dedie).", href: "/dashboard/customers" },
     { label: "Pieces", description: "Stock pieces et produits.", href: "/dashboard/products" }
   ],
   multi: [
