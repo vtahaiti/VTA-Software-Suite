@@ -229,7 +229,23 @@ public class VtaBluetoothPrinterPlugin extends Plugin {
                 }, 350);
             }
         });
-        webView.loadDataWithBaseURL("https://vtaerp.com/", html, "text/html", "UTF-8", null);
+        webView.loadDataWithBaseURL("https://vtaerp.com/", withPrintFontOverride(html), "text/html", "UTF-8", null);
+    }
+
+    /**
+     * Les gabarits de ticket demandent des polices (Consolas, Courier New...) qui n'existent pas
+     * sur Android : le systeme retombe sur sa police monospace generique, moins nette/lisible une
+     * fois imprimee en noir et blanc pur que la meme facture imprimee depuis un PC (qui a
+     * Consolas). On force une police systeme bien testee et suffisamment grasse, sans toucher au
+     * gabarit d'origine (partage avec l'export PDF et l'impression classique).
+     */
+    private String withPrintFontOverride(String html) {
+        String override = "<style>*,html,body{font-family:sans-serif !important;font-weight:400 !important;-webkit-font-smoothing:none !important;}</style>";
+        int headIndex = html.indexOf("</head>");
+        if (headIndex >= 0) {
+            return html.substring(0, headIndex) + override + html.substring(headIndex);
+        }
+        return override + html;
     }
 
     private void layoutAndCapture(WebView view, int widthDots, int measuredWidthPx, BitmapReady callback) {
