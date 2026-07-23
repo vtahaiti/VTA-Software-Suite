@@ -152,8 +152,12 @@ export default function PosTicketPrintPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/dashboard/pos" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold">Retour au POS</Link>
-          <Link href="/dashboard/pos/print?demo=1&width=72" className="rounded-xl border border-emerald-600 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800">Test POS80 Windows</Link>
-          <Link href="/dashboard/pos/print?demo=1&width=58" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold">Test 58 mm</Link>
+          {isDemo ? (
+            <>
+              <Link href="/dashboard/pos/print?demo=1&width=72" className="rounded-xl border border-emerald-600 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800">Test POS80 Windows</Link>
+              <Link href="/dashboard/pos/print?demo=1&width=58" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold">Test 58 mm</Link>
+            </>
+          ) : null}
           {nativePrint ? <button onClick={() => void sharePdf()} disabled={!html || Boolean(error)} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">Partager en PDF</button> : null}
           <button onClick={() => void printFrame()} disabled={!html || Boolean(error)} className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">Imprimer</button>
         </div>
@@ -172,9 +176,11 @@ export default function PosTicketPrintPage() {
           <div className="no-print rounded-2xl bg-white p-8 text-sm text-slate-500 shadow-sm">Chargement du ticket...</div>
         )}
       </section>
-      <section className="no-print mx-auto mt-4 max-w-3xl rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900">
-        Windows POS80 : dans le driver, choisissez PaperSize 72.00 x 3276.00 mm, marges nulles et échelle 100 %. Dans VTA, choisissez &quot;Imprimante thermique 80mm (POS80 Windows)&quot;.
-      </section>
+      {isDemo ? (
+        <section className="no-print mx-auto mt-4 max-w-3xl rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900">
+          Windows POS80 : dans le driver, choisissez PaperSize 72.00 x 3276.00 mm, marges nulles et échelle 100 %. Dans VTA, choisissez &quot;Imprimante thermique 80mm (POS80 Windows)&quot;.
+        </section>
+      ) : null}
     </main>
   );
 }

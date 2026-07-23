@@ -178,88 +178,136 @@ public class VtaBluetoothPrinterPlugin extends Plugin {
         void onReady(Bitmap bitmap);
     }
 
-    // Le texte HTML est dimensionne en pixels CSS (pensés pour un ecran ~96dpi), alors que
-    // l'imprimante thermique a une densite bien plus fine (~203dpi/8 points par mm). Capturer 1
-    // pixel CSS = 1 point d'imprimante donne donc un texte deux fois trop petit physiquement. On
-    // met en page le contenu sur une largeur virtuelle plus etroite (texte proportionnellement
-    // plus gros a l'ecran) puis on agrandit l'image capturee a la largeur reelle de l'imprimante.
-    private static final float PRINT_DENSITY_SCALE = 1.6f;
+    // Largeur de mise en page initiale, generreuse, uniquement pour laisser le contenu (mm ou px)
+    // se mettre en page a sa taille naturelle sans etre artificiellement retreci. Tous les
+    // gabarits de ticket declarent une largeur explicite sur html/body (en mm ou en px), donc
+    // cette valeur n'affecte pas le resultat : elle sert juste de "canvas" assez large.
+    private static final int INITIAL_LAYOUT_WIDTH_PX = 2000;
 
     private void renderTicketToBitmap(String html, int widthDots, BitmapReady callback) {
-        int renderWidthDots = Math.round(widthDots / PRINT_DENSITY_SCALE);
         WebView webView = new WebView(getActivity());
         // Rendu logiciel obligatoire : cette WebView n'est jamais attachee a une fenetre, et en
         // accélération matérielle (par defaut), view.draw(canvas) produit une capture vide.
         webView.setLayerType(WebView.LAYER_TYPE_SOFTWARE, null);
-        webView.getSettings().setJavaScriptEnabled(false);
+        webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setAllowFileAccess(false);
         webView.getSettings().setAllowContentAccess(false);
 
-        // Donne une largeur a la WebView AVANT le chargement du HTML : sans cela, le moteur de
-        // rendu (Chromium) met en page le contenu avec une largeur inconnue/nulle, et
-        // getContentHeight() reste bloque a 0 meme apres un measure()/layout() fait apres coup.
-        // La hauteur initiale n'a pas d'importance pour la mise en page HTML (seule la largeur
-        // affecte le retour a la ligne) : WebView ne "retrecit" jamais a la hauteur du contenu
-        // (elle utilise systematiquement la borne fournie, meme en AT_MOST), donc on lui donne
-        // une hauteur minimale ici et on lira la vraie hauteur via getContentHeight() plus bas.
         webView.measure(
-            WebView.MeasureSpec.makeMeasureSpec(renderWidthDots, WebView.MeasureSpec.EXACTLY),
+            WebView.MeasureSpec.makeMeasureSpec(INITIAL_LAYOUT_WIDTH_PX, WebView.MeasureSpec.EXACTLY),
             WebView.MeasureSpec.makeMeasureSpec(1, WebView.MeasureSpec.EXACTLY)
         );
-        webView.layout(0, 0, renderWidthDots, 1);
+        webView.layout(0, 0, INITIAL_LAYOUT_WIDTH_PX, 1);
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
                 mainHandler.postDelayed(() -> {
-                    try {
-                        // Garde-fou : borne la hauteur a une plage raisonnable (jusqu'a ~125cm de
-                        // ticket) au cas ou le contenu ou la mesure WebView deraille.
-                        int contentHeight = Math.min(10000, Math.max(20, view.getContentHeight()));
-
-                        // Deuxieme passe : mise en page finale a la hauteur reelle pour la capture.
-                        view.measure(
-                            WebView.MeasureSpec.makeMeasureSpec(renderWidthDots, WebView.MeasureSpec.EXACTLY),
-                            WebView.MeasureSpec.makeMeasureSpec(contentHeight, WebView.MeasureSpec.EXACTLY)
-                        );
-                        view.layout(0, 0, renderWidthDots, contentHeight);
-
-                        // postVisualStateCallback garantit que le rendu (texte compris) est bien
-                        // commit avant la capture. Un simple delai apres onPageFinished ne suffit
-                        // pas de facon fiable (constate : capture parfois vide malgre 350ms).
-                        view.postVisualStateCallback(1, new WebView.VisualStateCallback() {
-                            @Override
-                            public void onComplete(long requestId) {
-                                boolean[] destroyed = { false };
-                                try {
-                                    Bitmap smallBitmap = Bitmap.createBitmap(renderWidthDots, contentHeight, Bitmap.Config.ARGB_8888);
-                                    Canvas canvas = new Canvas(smallBitmap);
-                                    canvas.drawColor(Color.WHITE);
-                                    view.draw(canvas);
-                                    view.destroy();
-                                    destroyed[0] = true;
-
-                                    int scaledHeight = Math.round(contentHeight * PRINT_DENSITY_SCALE);
-                                    Bitmap bitmap = Bitmap.createScaledBitmap(smallBitmap, widthDots, scaledHeight, true);
-                                    smallBitmap.recycle();
-                                    callback.onReady(bitmap);
-                                } catch (Exception exception) {
-                                    Log.e("VtaBtPrint", "capture failed", exception);
-                                    if (!destroyed[0]) view.destroy();
-                                    callback.onReady(null);
-                                }
+                    // Les gabarits de ticket (facture reelle en mm, ticket de test en px) declarent
+                    // tous une largeur explicite sur html/body : on la mesure directement dans le
+                    // DOM plutot que de deviner un facteur d'echelle, ce qui marche quel que soit
+                    // le systeme d'unites utilise par le gabarit. getBoundingClientRect().width
+                    // (pas scrollWidth) : le gabarit reel utilise "overflow-x:hidden" pour masquer
+                    // un contenu qui deborde de la largeur voulue, mais scrollWidth capte quand
+                    // meme ce debordement cache. getBoundingClientRect() respecte la contrainte de
+                    // largeur CSS (mm/px) telle que voulue, sans etre pollue par ce debordement.
+                    view.evaluateJavascript(
+                        "document.documentElement.getBoundingClientRect().width",
+                        (String result) -> {
+                            int measuredWidthPx;
+                            try {
+                                measuredWidthPx = (int) Math.round(Double.parseDouble(result));
+                            } catch (Exception exception) {
+                                measuredWidthPx = 0;
                             }
-                        });
-                        view.invalidate();
-                    } catch (Exception exception) {
-                        Log.e("VtaBtPrint", "renderTicketToBitmap failed", exception);
-                        view.destroy();
-                        callback.onReady(null);
-                    }
+                            if (measuredWidthPx <= 0) {
+                                measuredWidthPx = INITIAL_LAYOUT_WIDTH_PX;
+                            }
+                            layoutAndCapture(view, widthDots, measuredWidthPx, callback);
+                        }
+                    );
                 }, 350);
             }
         });
         webView.loadDataWithBaseURL("https://vtaerp.com/", html, "text/html", "UTF-8", null);
+    }
+
+    private void layoutAndCapture(WebView view, int widthDots, int measuredWidthPx, BitmapReady callback) {
+        try {
+            float scale = widthDots / (float) measuredWidthPx;
+
+            // Reflow a la largeur naturelle mesuree. Hauteur EXACTLY minimale (pas une grande
+            // valeur) : WebView ne calcule pas une vraie hauteur intrinseque avec getContentHeight()
+            // sinon, elle echo simplement la borne donnee (constate plus tot : donner 10000 fait
+            // reapparaitre un enorme espace blanc). On attend un postVisualStateCallback avant de
+            // lire getContentHeight() : un measure()/layout() qui CHANGE la largeur apres le
+            // chargement initial ne se reflete pas forcement de facon synchrone dans Chromium
+            // (constate : sans cette attente, getContentHeight() peut refleter l'ancienne largeur
+            // et produire une capture tronquee/rognee).
+            view.measure(
+                WebView.MeasureSpec.makeMeasureSpec(measuredWidthPx, WebView.MeasureSpec.EXACTLY),
+                WebView.MeasureSpec.makeMeasureSpec(1, WebView.MeasureSpec.EXACTLY)
+            );
+            view.layout(0, 0, measuredWidthPx, 1);
+            view.postVisualStateCallback(1, new WebView.VisualStateCallback() {
+                @Override
+                public void onComplete(long requestId) {
+                    captureAtFinalHeight(view, widthDots, measuredWidthPx, scale, callback);
+                }
+            });
+            view.invalidate();
+        } catch (Exception exception) {
+            Log.e("VtaBtPrint", "layoutAndCapture failed", exception);
+            view.destroy();
+            callback.onReady(null);
+        }
+    }
+
+    private void captureAtFinalHeight(WebView view, int widthDots, int measuredWidthPx, float scale, BitmapReady callback) {
+        try {
+            // Garde-fou : borne la hauteur a une plage raisonnable (jusqu'a ~125cm de ticket une
+            // fois agrandie) au cas ou le contenu ou la mesure WebView deraille.
+            int contentHeight = Math.min((int) (10000 / scale), Math.max(20, view.getContentHeight()));
+
+            view.measure(
+                WebView.MeasureSpec.makeMeasureSpec(measuredWidthPx, WebView.MeasureSpec.EXACTLY),
+                WebView.MeasureSpec.makeMeasureSpec(contentHeight, WebView.MeasureSpec.EXACTLY)
+            );
+            view.layout(0, 0, measuredWidthPx, contentHeight);
+
+            final int finalContentHeight = contentHeight;
+            // Deuxieme attente : la mise en page precedente utilisait une hauteur volontairement
+            // trop grande (10000) pour laisser le contenu respirer ; celle-ci passe a la vraie
+            // hauteur avant la capture, et doit donc, elle aussi, etre confirmee commitee.
+            view.postVisualStateCallback(2, new WebView.VisualStateCallback() {
+                @Override
+                public void onComplete(long requestId) {
+                    boolean[] destroyed = { false };
+                    try {
+                        Bitmap smallBitmap = Bitmap.createBitmap(measuredWidthPx, finalContentHeight, Bitmap.Config.ARGB_8888);
+                        Canvas canvas = new Canvas(smallBitmap);
+                        canvas.drawColor(Color.WHITE);
+                        view.draw(canvas);
+                        view.destroy();
+                        destroyed[0] = true;
+
+                        int scaledHeight = Math.round(finalContentHeight * scale);
+                        Bitmap bitmap = Bitmap.createScaledBitmap(smallBitmap, widthDots, scaledHeight, true);
+                        smallBitmap.recycle();
+                        callback.onReady(bitmap);
+                    } catch (Exception exception) {
+                        Log.e("VtaBtPrint", "capture failed", exception);
+                        if (!destroyed[0]) view.destroy();
+                        callback.onReady(null);
+                    }
+                }
+            });
+            view.invalidate();
+        } catch (Exception exception) {
+            Log.e("VtaBtPrint", "captureAtFinalHeight failed", exception);
+            view.destroy();
+            callback.onReady(null);
+        }
     }
 
     private void sendBitmapOverBluetooth(PluginCall call, String address, Bitmap bitmap) {

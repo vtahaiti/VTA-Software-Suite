@@ -83,7 +83,8 @@ export default function PosSettingsPage() {
     setBluetoothTestPrinting(true);
     try {
       const widthDots = receiptWidth === "58" ? 384 : 576;
-      await printTicketOverBluetooth(buildBluetoothTestTicketHtml(), widthDots);
+      const contentWidthMm = receiptWidth === "58" ? 58 : 72;
+      await printTicketOverBluetooth(buildBluetoothTestTicketHtml(contentWidthMm), widthDots);
       setBluetoothMsg("Ticket de test envoyé à l'imprimante.");
     } catch (error) {
       const code = error instanceof Error ? error.message : "";
@@ -190,9 +191,11 @@ export default function PosSettingsPage() {
   );
 }
 
-function buildBluetoothTestTicketHtml() {
+function buildBluetoothTestTicketHtml(contentWidthMm: number) {
   return `<!doctype html><html><head><meta charset="utf-8"><style>
-    body { font-family: Consolas, "Courier New", monospace; font-size: 13px; font-weight: 700; margin: 0; padding: 6px; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body { width: ${contentWidthMm}mm; margin: 0 auto; padding: 2mm; font-family: Consolas, "Courier New", monospace; font-size: 13px; font-weight: 700; }
     .center { text-align: center; } .line { border-top: 1px dashed #000; margin: 6px 0; }
   </style></head><body>
     <div class="center">TEST IMPRESSION BLUETOOTH</div>
