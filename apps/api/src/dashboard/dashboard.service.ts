@@ -48,6 +48,8 @@ export class DashboardService {
       const start30Days = addBusinessDays(startOfDay, -29, timeZone);
       const completedSaleWhere: Prisma.SaleWhereInput = { tenantId, status: SaleStatus.COMPLETED };
 
+      const unpaidInvoiceWhere: Prisma.InvoiceWhereInput = { tenantId, status: { not: SalesDocumentStatus.CANCELLED }, balance: { gt: 0 } };
+
       const [
         sales,
         saleItems,
@@ -55,7 +57,10 @@ export class DashboardService {
         customers,
         products,
         stocks,
-        invoices,
+        customersTotal,
+        paidInvoicesCount,
+        unpaidInvoicesCount,
+        overdueInvoices,
         pendingOrders,
         recentSales,
         recentCustomer,
@@ -76,10 +81,18 @@ export class DashboardService {
           where: { sale: { tenantId, createdAt: { gte: start30Days, lt: endOfDay } } },
           select: { method: true, amount: true, createdAt: true }
         }),
-        this.prisma.customer.findMany({ where: { tenantId }, select: { id: true, displayName: true, createdAt: true }, orderBy: { createdAt: "desc" } }),
+        // Filtre sur les 30 derniers jours a la requete plutot qu'en JS : buildTrend n'utilise que
+        // les clients de cette fenetre (tout le reste est ignore silencieusement), donc charger tout
+        // l'historique clients du tenant a chaque appel du dashboard n'apportait rien.
+        this.prisma.customer.findMany({ where: { tenantId, createdAt: { gte: start30Days, lt: endOfDay } }, select: { id: true, displayName: true, createdAt: true }, orderBy: { createdAt: "desc" } }),
         this.prisma.product.findMany({ where: { tenantId, isActive: true }, include: { category: true, stocks: true } }),
         this.prisma.stock.findMany({ where: { tenantId }, include: { product: true, warehouse: true }, orderBy: { updatedAt: "desc" } }),
-        this.prisma.invoice.findMany({ where: { tenantId }, select: { id: true, documentNumber: true, status: true, total: true, paidAmount: true, balance: true, createdAt: true, updatedAt: true }, orderBy: { createdAt: "desc" } }),
+        this.prisma.customer.count({ where: { tenantId } }),
+        this.prisma.invoice.count({ where: { tenantId, OR: [{ status: SalesDocumentStatus.PAID }, { balance: { lte: 0 } }] } }),
+        this.prisma.invoice.count({ where: unpaidInvoiceWhere }),
+        // On ne charge que les factures en retard necessaires a l'affichage (3 max), plus leur
+        // compteur exact, au lieu de charger tout l'historique des factures du tenant pour filtrer en JS.
+        this.prisma.invoice.findMany({ where: { ...unpaidInvoiceWhere, createdAt: { lt: addBusinessDays(startOfDay, -30, timeZone) } }, select: { documentNumber: true }, orderBy: { createdAt: "desc" }, take: 3 }),
         this.prisma.purchaseOrder.count({ where: { tenantId, status: { in: [PurchaseOrderStatus.DRAFT, PurchaseOrderStatus.SENT, PurchaseOrderStatus.APPROVED] } } }),
         this.prisma.sale.findMany({ where: completedSaleWhere, include: { customer: true, receipt: true }, orderBy: { createdAt: "desc" }, take: 1 }),
         this.prisma.customer.findFirst({ where: { tenantId }, orderBy: { createdAt: "desc" } }),
@@ -109,9 +122,6 @@ export class DashboardService {
       const lowStockProductCount = countLowStockProducts(activeStocks);
       const outOfStockProductCount = countOutOfStockProducts(activeStocks);
       const missingCostProductCount = stockValuation.productsWithoutCost;
-      const paidInvoices = invoices.filter((invoice) => invoice.status === SalesDocumentStatus.PAID || this.money(invoice.balance) <= 0);
-      const unpaidInvoices = invoices.filter((invoice) => invoice.status !== SalesDocumentStatus.CANCELLED && this.money(invoice.balance) > 0);
-      const overdueInvoices = unpaidInvoices.filter((invoice) => invoice.createdAt < addBusinessDays(startOfDay, -30, timeZone));
       const averageOrderValue = allTimeSalesCount > 0 ? this.money(allTimeRevenue._sum.total) / allTimeSalesCount : 0;
       const averageDailySales = sales.length / 30;
 
@@ -139,12 +149,12 @@ export class DashboardService {
           costIncompleteMessage: monthProfit.reliable ? null : "Données de coût incomplètes",
           salesToday: salesToday.length,
           salesTotal: allTimeSalesCount,
-          customersTotal: customers.length,
+          customersTotal,
           productsTotal: products.length,
           outOfStock: outOfStockProductCount,
           lowStock: lowStockProductCount,
-          invoicesPaid: paidInvoices.length,
-          invoicesUnpaid: unpaidInvoices.length,
+          invoicesPaid: paidInvoicesCount,
+          invoicesUnpaid: unpaidInvoicesCount,
           pendingOrders
         },
         performance: {
