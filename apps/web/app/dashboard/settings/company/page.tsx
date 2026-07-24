@@ -7,7 +7,7 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
 import { initials, resolveAssetUrl } from "@/lib/company-branding";
 
-const tabs = [["Entreprise", "/dashboard/settings/company"], ["Activité", "/dashboard/settings/business-modules"], ["POS", "/dashboard/settings/pos"], ["Facturation", "/dashboard/settings/invoicing"], ["Abonnement", "/dashboard/settings/subscription"], ["Emails", "/dashboard/settings/emails"]];
+const tabs = [["Entreprise", "/dashboard/settings/company"], ["Activité", "/dashboard/settings/business-modules"], ["Impression", "/dashboard/settings/pos"], ["Facturation", "/dashboard/settings/invoicing"], ["Abonnement", "/dashboard/settings/subscription"], ["Emails", "/dashboard/settings/emails"]];
 const colors = [
   ["Bleu", "#2563eb"],
   ["Vert", "#16a34a"],
@@ -19,10 +19,10 @@ const colors = [
 const maxLogoBytes = 2 * 1024 * 1024;
 const allowedLogoTypes = ["image/png", "image/jpeg", "image/webp"];
 
-type CompanyForm = { name: string; companyName?: string; logoUrl?: string; primaryColor?: string; phone?: string; whatsapp?: string; email?: string; address?: string; city?: string; country?: string; taxNumber?: string; currency?: string; language?: string; timezone?: string };
+type CompanyForm = { name: string; companyName?: string; logoUrl?: string; primaryColor?: string; phone?: string; whatsapp?: string; email?: string; address?: string; city?: string; country?: string; taxNumber?: string; businessLicenseNumber?: string; bankAccountNumber?: string; currency?: string; language?: string; timezone?: string };
 
 export default function CompanySettingsPage() {
-  const [form, setForm] = useState<CompanyForm>({ name: "", companyName: "", logoUrl: "", primaryColor: "#2563eb", phone: "", whatsapp: "", email: "", address: "", city: "", country: "", taxNumber: "", currency: "HTG", language: "fr", timezone: "America/Port-au-Prince" });
+  const [form, setForm] = useState<CompanyForm>({ name: "", companyName: "", logoUrl: "", primaryColor: "#2563eb", phone: "", whatsapp: "", email: "", address: "", city: "", country: "", taxNumber: "", businessLicenseNumber: "", bankAccountNumber: "", currency: "HTG", language: "fr", timezone: "America/Port-au-Prince" });
   const [msg, setMsg] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -143,6 +143,8 @@ export default function CompanySettingsPage() {
       <Input label="Pays" value={form.country} onChange={(value) => update("country", value)} />
       <Input label="WhatsApp" value={form.whatsapp} onChange={(value) => update("whatsapp", value)} />
       <Input label="Numéro fiscal" value={form.taxNumber} onChange={(value) => update("taxNumber", value)} />
+      <Input label="Patente (facultatif)" value={form.businessLicenseNumber} onChange={(value) => update("businessLicenseNumber", value)} />
+      <Input label="N° compte bancaire (facultatif)" value={form.bankAccountNumber} onChange={(value) => update("bankAccountNumber", value)} />
       <div className="md:col-span-2">
         <p className="mb-2 text-sm font-semibold">Couleur principale</p>
         <div className="flex flex-wrap gap-2">
@@ -197,6 +199,8 @@ function toCompanyForm(data: Partial<CompanyForm>): CompanyForm {
     city: data.city ?? "",
     country: data.country ?? "",
     taxNumber: data.taxNumber ?? "",
+    businessLicenseNumber: data.businessLicenseNumber ?? "",
+    bankAccountNumber: data.bankAccountNumber ?? "",
     currency: data.currency ?? "HTG",
     language: data.language ?? "fr",
     timezone: data.timezone ?? "America/Port-au-Prince"
@@ -217,6 +221,8 @@ function toCompanyPayload(form: CompanyForm) {
     city: form.city ?? "",
     country: form.country ?? "",
     taxNumber: form.taxNumber ?? "",
+    businessLicenseNumber: form.businessLicenseNumber ?? "",
+    bankAccountNumber: form.bankAccountNumber ?? "",
     currency: form.currency ?? "HTG",
     language: form.language ?? "fr",
     timezone: form.timezone ?? "America/Port-au-Prince"

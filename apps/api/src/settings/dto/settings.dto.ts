@@ -15,6 +15,8 @@ export class UpdateCompanyProfileDto {
   @Transform(emptyToNull) @IsOptional() @IsString() city?: string;
   @Transform(emptyToNull) @IsOptional() @IsString() country?: string;
   @Transform(emptyToNull) @IsOptional() @IsString() taxNumber?: string;
+  @Transform(emptyToNull) @IsOptional() @IsString() businessLicenseNumber?: string;
+  @Transform(emptyToNull) @IsOptional() @IsString() bankAccountNumber?: string;
   @Transform(emptyToNull) @IsOptional() @IsString() currency?: string;
   @Transform(emptyToNull) @IsOptional() @IsString() language?: string;
   @Transform(emptyToNull) @IsOptional() @IsString() timezone?: string;

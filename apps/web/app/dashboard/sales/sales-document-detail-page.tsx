@@ -217,6 +217,8 @@ function PrintBrandHeader({ branding, title, number }: { branding: CompanyBrandi
           {branding?.phone ? <p className="text-xs text-slate-600">Tél: {branding.phone}</p> : null}
           {branding?.email ? <p className="text-xs text-slate-600">{branding.email}</p> : null}
           {branding?.taxNumber ? <p className="text-xs text-slate-600">NIF: {branding.taxNumber}</p> : null}
+          {branding?.businessLicenseNumber ? <p className="text-xs text-slate-600">Patente: {branding.businessLicenseNumber}</p> : null}
+          {branding?.bankAccountNumber ? <p className="text-xs text-slate-600">Compte bancaire: {branding.bankAccountNumber}</p> : null}
         </div>
       </div>
       <div className="text-right">

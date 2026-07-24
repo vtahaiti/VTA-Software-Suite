@@ -12,6 +12,8 @@ export type CompanyBranding = {
   city: string;
   country: string;
   taxNumber: string;
+  businessLicenseNumber: string;
+  bankAccountNumber: string;
   userName: string;
   userInitials: string;
   userPhotoUrl: string | null;
@@ -37,6 +39,8 @@ export async function getCompanyBranding(token: string): Promise<CompanyBranding
     city: profile?.city ?? "",
     country: profile?.country ?? "",
     taxNumber: profile?.taxNumber ?? "",
+    businessLicenseNumber: profile?.businessLicenseNumber ?? "",
+    bankAccountNumber: profile?.bankAccountNumber ?? "",
     userName: data.name ?? "Utilisateur",
     userInitials: initials(data.name, "U"),
     userPhotoUrl: resolveAssetUrl(data.profile?.photoUrl),

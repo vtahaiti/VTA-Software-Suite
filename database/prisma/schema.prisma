@@ -382,6 +382,8 @@ model CompanyProfile {
   city String?
   country String?
   taxNumber String?
+  businessLicenseNumber String?
+  bankAccountNumber String?
   currency String @default("HTG")
   language String @default("fr")
   businessCategory String?
