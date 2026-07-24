@@ -3,7 +3,7 @@ import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { fetchWithAuth, isTenantAccessBlockedResponse } from "@/lib/api-client";
+import { fetchWithAuth } from "@/lib/api-client";
 import { clearSession, getAccessToken, getCurrentUser } from "@/lib/auth";
 import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
 import { businessDateKey, formatBusinessDateTime } from "@/lib/business-timezone";
@@ -155,7 +155,7 @@ export default function DashboardPage() {
 
       const response = await fetchWithAuth(`${apiUrl}/dashboard/summary`, { credentials: "include" });
 
-      if (await isTenantAccessBlockedResponse(response)) {
+      if (response.status === 403) {
         setAccessBlocked(true);
         return null;
       }
