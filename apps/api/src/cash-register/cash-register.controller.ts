@@ -5,6 +5,15 @@ import { Permissions } from "../rbac/decorators/permissions.decorator";
 import { CashRegisterService } from "./cash-register.service";
 import { CloseCashSessionDto, CreateCashMovementDto, CreateCashRegisterDto, OpenCashSessionDto } from "./dto/create-cash-register.dto";
 
+// Owner/Admin/Manager voient toutes les sessions de caisse ; les autres roles (ex. Caissier)
+// ne voient et ne peuvent fermer que celles qu'ils ont eux-memes ouvertes.
+const broadVisibilityRoles = new Set(["OWNER", "ADMIN", "ADMINISTRATOR", "PLATFORMADMIN", "MANAGER"]);
+
+function hasBroadVisibility(user: AuthenticatedRequest["user"]) {
+  const roles = [user.role, ...(user.roles ?? [])].filter(Boolean).map((role) => String(role).trim().toUpperCase());
+  return roles.some((role) => broadVisibilityRoles.has(role));
+}
+
 @UseGuards(JwtAuthGuard)
 @Controller("cash-registers")
 export class CashRegisterController {
@@ -20,15 +29,15 @@ export class CashRegisterController {
 
   @Get("sessions")
   @Permissions("cash.read")
-  sessions(@Req() req: AuthenticatedRequest) { return this.service.sessions(req.user.tenantId); }
+  sessions(@Req() req: AuthenticatedRequest) { return this.service.sessions(req.user.tenantId, hasBroadVisibility(req.user) ? undefined : req.user.id); }
 
   @Get("sessions/active")
   @Permissions("cash.read")
-  active(@Req() req: AuthenticatedRequest) { return this.service.activeSession(req.user.tenantId); }
+  active(@Req() req: AuthenticatedRequest) { return this.service.activeSession(req.user.tenantId, hasBroadVisibility(req.user) ? undefined : req.user.id); }
 
   @Post("sessions/open")
   @Permissions("cash.open")
-  open(@Req() req: AuthenticatedRequest, @Body() dto: OpenCashSessionDto) { return this.service.open(req.user.tenantId, dto); }
+  open(@Req() req: AuthenticatedRequest, @Body() dto: OpenCashSessionDto) { return this.service.open(req.user.tenantId, dto, req.user.id); }
 
   @Post("sessions/movements")
   @Permissions("cash.movement")
@@ -40,5 +49,7 @@ export class CashRegisterController {
 
   @Post("sessions/:id/close")
   @Permissions("cash.close")
-  close(@Req() req: AuthenticatedRequest, @Param("id") id: string, @Body() dto: CloseCashSessionDto) { return this.service.close(req.user.tenantId, id, dto); }
+  close(@Req() req: AuthenticatedRequest, @Param("id") id: string, @Body() dto: CloseCashSessionDto) {
+    return this.service.close(req.user.tenantId, id, dto, req.user.id, hasBroadVisibility(req.user) ? undefined : req.user.id);
+  }
 }

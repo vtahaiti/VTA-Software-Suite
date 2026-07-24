@@ -29,6 +29,7 @@ import {
   Truck,
   UserCog,
   Users,
+  Wallet,
   Warehouse,
   type LucideIcon
 } from "lucide-react";
@@ -56,6 +57,7 @@ export const navigationIcons = {
   VentesAttente: Clock3,
   Historique: History,
   Paiements: CreditCard,
+  CashSessions: Wallet,
   Catalogue: Package,
   Produits: PackageOpen,
   Categories: Tags,
@@ -106,7 +108,8 @@ const routeOrder: NavigationSection[] = [
           { id: "quotes-orders", label: "Devis & Commandes", href: "/dashboard/sales", icon: navigationIcons.Facturation },
           { id: "pending-sales", label: "Ventes en attente / Commandes ouvertes", href: "/dashboard/sales/in-progress", icon: navigationIcons.VentesAttente },
           { id: "sales-history", label: "Historique", href: "/dashboard/sales/completed", icon: navigationIcons.Historique },
-          { id: "payments", label: "Paiements", href: "/dashboard/payments", icon: navigationIcons.Paiements }
+          { id: "payments", label: "Paiements", href: "/dashboard/payments", icon: navigationIcons.Paiements },
+          { id: "cash-sessions", label: "Sessions de caisse", href: "/dashboard/cash-registers/sessions", icon: navigationIcons.CashSessions }
         ]
       }
     ]
@@ -224,6 +227,7 @@ function isKnownOrSource(href: string, sourceHrefs: Set<string>, allowBySource: 
   if (href === "/dashboard/inventory/transfers" && sourceHrefs.has("/dashboard/inventory")) return true;
   if (href === "/dashboard/inventory/movements" && sourceHrefs.has("/dashboard/inventory")) return true;
   if (href === "/dashboard/payments" && sourceHrefs.has("/dashboard/pos")) return true;
+  if (href === "/dashboard/cash-registers/sessions" && sourceHrefs.has("/dashboard/pos")) return true;
   return false;
 }
 

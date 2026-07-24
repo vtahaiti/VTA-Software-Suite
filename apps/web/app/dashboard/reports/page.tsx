@@ -1,5 +1,6 @@
 "use client";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
 import { businessDateKey, formatBusinessDateTime } from "@/lib/business-timezone";
@@ -207,13 +208,16 @@ export default function ReportsPage() {
           <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Rapports</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Analyse des ventes, produits, stocks, clients, achats et profits.</p>
         </div>
-        <details className="rounded-md border border-slate-300 px-4 py-2 text-sm dark:border-slate-700">
-          <summary className="cursor-pointer font-semibold">Options avancées</summary>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button onClick={() => prepareExport()} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">Exporter CSV (compatible Excel)</button>
-            <button onClick={() => window.print()} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Imprimer</button>
-          </div>
-        </details>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/dashboard/reports/top-products" className="rounded-md border border-brand-600 bg-brand-50 px-4 py-2 text-sm font-semibold text-brand-800 dark:border-brand-800 dark:bg-brand-950 dark:text-brand-200">Produits les plus vendus</Link>
+          <details className="rounded-md border border-slate-300 px-4 py-2 text-sm dark:border-slate-700">
+            <summary className="cursor-pointer font-semibold">Options avancées</summary>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button onClick={() => prepareExport()} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">Exporter CSV (compatible Excel)</button>
+              <button onClick={() => window.print()} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Imprimer</button>
+            </div>
+          </details>
+        </div>
       </div>
 
       <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-[1fr_1fr_auto]">

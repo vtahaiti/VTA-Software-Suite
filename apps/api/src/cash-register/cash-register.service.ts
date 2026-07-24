@@ -21,22 +21,29 @@ export class CashRegisterService {
     }
   }
 
-  sessions(tenantId: string) {
-    return this.prisma.cashSession.findMany({ where: { tenantId }, include: { cashRegister: true, sales: { include: { payments: true } }, movements: true }, orderBy: { openedAt: "desc" } });
+  sessions(tenantId: string, scopeToUserId?: string) {
+    return this.prisma.cashSession.findMany({
+      where: { tenantId, ...(scopeToUserId ? { openedById: scopeToUserId } : {}) },
+      include: { cashRegister: true, sales: { include: { payments: true } }, movements: true },
+      orderBy: { openedAt: "desc" }
+    });
   }
 
-  async activeSession(tenantId: string) {
-    const session = await this.prisma.cashSession.findFirst({ where: { tenantId, status: CashSessionStatus.OPEN }, include: { cashRegister: true } });
+  async activeSession(tenantId: string, scopeToUserId?: string) {
+    const session = await this.prisma.cashSession.findFirst({
+      where: { tenantId, status: CashSessionStatus.OPEN, ...(scopeToUserId ? { openedById: scopeToUserId } : {}) },
+      include: { cashRegister: true }
+    });
     if (!session) throw new NotFoundException("Aucune caisse ouverte");
     return session;
   }
 
-  async open(tenantId: string, dto: OpenCashSessionDto) {
+  async open(tenantId: string, dto: OpenCashSessionDto, userId?: string) {
     const register = await this.prisma.cashRegister.findFirst({ where: { id: dto.cashRegisterId, tenantId, isActive: true } });
     if (!register) throw new NotFoundException("Caisse introuvable");
     const open = await this.prisma.cashSession.findFirst({ where: { tenantId, cashRegisterId: dto.cashRegisterId, status: CashSessionStatus.OPEN } });
     if (open) throw new BadRequestException("Une session est déjà ouverte pour cette caisse");
-    return this.prisma.cashSession.create({ data: { tenantId, cashRegisterId: dto.cashRegisterId, openingAmount: dto.openingAmount, status: CashSessionStatus.OPEN }, include: { cashRegister: true } });
+    return this.prisma.cashSession.create({ data: { tenantId, cashRegisterId: dto.cashRegisterId, openingAmount: dto.openingAmount, status: CashSessionStatus.OPEN, openedById: userId }, include: { cashRegister: true } });
   }
 
   async movement(tenantId: string, dto: CreateCashMovementDto) {
@@ -45,13 +52,13 @@ export class CashRegisterService {
     return this.prisma.cashMovement.create({ data: { tenantId, cashSessionId: dto.cashSessionId, type: dto.type as CashMovementType, amount: dto.amount, reason: dto.reason, reference: dto.reference } });
   }
 
-  async close(tenantId: string, id: string, dto: CloseCashSessionDto) {
-    const session = await this.prisma.cashSession.findFirst({ where: { id, tenantId, status: CashSessionStatus.OPEN } });
+  async close(tenantId: string, id: string, dto: CloseCashSessionDto, userId?: string, scopeToUserId?: string) {
+    const session = await this.prisma.cashSession.findFirst({ where: { id, tenantId, status: CashSessionStatus.OPEN, ...(scopeToUserId ? { openedById: scopeToUserId } : {}) } });
     if (!session) throw new NotFoundException("Session ouverte introuvable");
     const report = await this.report(tenantId, id);
     const closingAmount = Number(dto.closingAmount);
     const variance = this.round(closingAmount - report.theoreticalAmount);
-    const closed = await this.prisma.cashSession.update({ where: { id }, data: { status: CashSessionStatus.CLOSED, closingAmount, closedAt: new Date() }, include: { cashRegister: true } });
+    const closed = await this.prisma.cashSession.update({ where: { id }, data: { status: CashSessionStatus.CLOSED, closingAmount, closedAt: new Date(), closedById: userId }, include: { cashRegister: true } });
     return { ...closed, report: { ...report, closingAmount, variance } };
   }
 

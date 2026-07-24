@@ -108,6 +108,63 @@ export class ReportsService {
     };
   }
 
+  /** Lecture seule : classement des produits les plus vendus sur la periode (aucune ecriture stock/ventes/paiements). */
+  async topProducts(tenantId: string, query: ReportQueryDto) {
+    const createdAt = this.dateRange(query);
+    const limit = Math.min(50, Math.max(1, Number(query.limit ?? 10)));
+
+    const rows = await this.prisma.saleItem.findMany({
+      where: {
+        sale: {
+          tenantId,
+          status: { not: SaleStatus.CANCELLED },
+          ...(createdAt ? { createdAt } : {})
+        }
+      },
+      select: {
+        saleId: true,
+        productId: true,
+        customName: true,
+        quantity: true,
+        total: true,
+        product: { select: { name: true, sku: true } }
+      }
+    });
+
+    const grouped = new Map<string, { key: string; name: string; sku: string | null; quantity: number; revenue: number; saleIds: Set<string> }>();
+    for (const row of rows) {
+      const key = row.productId ?? `custom:${row.customName ?? "Article personnalisé"}`;
+      const existing = grouped.get(key) ?? {
+        key,
+        name: row.product?.name ?? row.customName ?? "Article personnalisé",
+        sku: row.product?.sku ?? null,
+        quantity: 0,
+        revenue: 0,
+        saleIds: new Set<string>()
+      };
+      existing.quantity += row.quantity;
+      existing.revenue += Number(row.total);
+      existing.saleIds.add(row.saleId);
+      grouped.set(key, existing);
+    }
+
+    const ranked = [...grouped.values()]
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, limit)
+      .map((entry) => ({
+        name: entry.name,
+        sku: entry.sku,
+        quantitySold: entry.quantity,
+        revenue: this.money(entry.revenue),
+        salesCount: entry.saleIds.size
+      }));
+
+    return {
+      items: ranked,
+      meta: { total: grouped.size, limit }
+    };
+  }
+
   async inventory(tenantId: string, query: ReportQueryDto) {
     const createdAt = this.dateRange(query);
     const pagination = this.pagination(query);

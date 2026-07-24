@@ -25,6 +25,12 @@ export class ReportsController {
     return this.reportsService.products(request.user.tenantId, query);
   }
 
+  @Get("top-products")
+  @Permissions("reports.products")
+  topProducts(@Req() request: AuthenticatedRequest, @Query() query: ReportQueryDto) {
+    return this.reportsService.topProducts(request.user.tenantId, query);
+  }
+
   @Get("inventory")
   @Permissions("reports.inventory")
   inventory(@Req() request: AuthenticatedRequest, @Query() query: ReportQueryDto) {
