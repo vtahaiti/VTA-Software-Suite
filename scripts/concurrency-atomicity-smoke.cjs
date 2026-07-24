@@ -1,6 +1,7 @@
 // Verifie, contre une vraie base Postgres, que les correctifs de concurrence du 2026-07-24 tiennent :
 // stock (survente du dernier article), paiement facture, paiement commande (double facture), retours
-// (double retour). Contrairement aux autres scripts *-smoke.cjs de ce dossier (qui ne font que grep du
+// (double retour), creation de commande (survente du stock reserve). Contrairement aux autres scripts
+// *-smoke.cjs de ce dossier (qui ne font que grep du
 // code source), celui-ci importe et execute les VRAIS services compiles depuis apps/api/dist, donc une
 // regression dans le code reel fera echouer ce script.
 //
@@ -67,7 +68,7 @@ async function main() {
     assert(saleOutcome.rejected.every((r) => String(r.reason?.message ?? "").includes("Stock insuffisant")), "Tous les rejets doivent etre 'Stock insuffisant'");
     const stockAfterSale = await prisma.stock.findUnique({ where: { tenantId_productId_warehouseId: { tenantId: tenant.id, productId: product.id, warehouseId: warehouse.id } } });
     assert(stockAfterSale.quantity === 0, `Stock final attendu 0, obtenu ${stockAfterSale.quantity}`);
-    console.log(`scenario 1/4 OK : survente du dernier article bloquee sur ${CONCURRENCY} tentatives simultanees (une seule vente passe)`);
+    console.log(`scenario 1/5 OK : survente du dernier article bloquee sur ${CONCURRENCY} tentatives simultanees (une seule vente passe)`);
 
     // --- Scenario 2 : double paiement facture (InvoicesService.registerPayment) -------------------
     const invoice = await prisma.invoice.create({
@@ -80,7 +81,7 @@ async function main() {
     assert(invoiceAfter.status === SalesDocumentStatus.PAID, `Statut facture attendu PAID, obtenu ${invoiceAfter.status}`);
     const invoicePayments = await prisma.payment.count({ where: { invoiceId: invoice.id } });
     assert(invoicePayments === 1, `Un seul paiement attendu sur la facture, obtenu ${invoicePayments}`);
-    console.log(`scenario 2/4 OK : double paiement facture bloque sur ${CONCURRENCY} tentatives simultanees (un seul paiement enregistre)`);
+    console.log(`scenario 2/5 OK : double paiement facture bloque sur ${CONCURRENCY} tentatives simultanees (un seul paiement enregistre)`);
 
     // --- Scenario 3 : double generation de facture depuis une commande (ProformasService.registerPayment) ---
     const proforma = await prisma.proforma.create({
@@ -100,7 +101,7 @@ async function main() {
     assert(proformaOutcome.fulfilled.length === 1, `Paiement commande concurrent (${CONCURRENCY}x) : attendu 1 succes, obtenu ${proformaOutcome.fulfilled.length}`);
     const generatedInvoices = await prisma.invoice.count({ where: { proformaId: proforma.id } });
     assert(generatedInvoices === 1, `Une seule facture attendue pour la commande, obtenu ${generatedInvoices}`);
-    console.log(`scenario 3/4 OK : double generation de facture bloquee sur ${CONCURRENCY} tentatives simultanees (une seule facture creee)`);
+    console.log(`scenario 3/5 OK : double generation de facture bloquee sur ${CONCURRENCY} tentatives simultanees (une seule facture creee)`);
 
     // --- Scenario 4 : double retour sur la meme ligne de facture (ReturnsService.create) ----------
     const returnInvoice = await prisma.invoice.create({
@@ -123,7 +124,28 @@ async function main() {
     assert(returnOutcome.rejected.every((r) => String(r.reason?.message ?? "").includes("Quantité retournée invalide")), "Tous les rejets doivent etre 'Quantité retournée invalide'");
     const totalReturned = await prisma.salesReturnItem.aggregate({ where: { invoiceItemId: returnInvoiceItem.id }, _sum: { quantity: true } });
     assert(Number(totalReturned._sum.quantity ?? 0) === 2, `Quantite totale retournee attendue 2, obtenu ${totalReturned._sum.quantity}`);
-    console.log(`scenario 4/4 OK : double retour bloque sur ${CONCURRENCY} tentatives simultanees (quantite totale retournee correcte)`);
+    console.log(`scenario 4/5 OK : double retour bloque sur ${CONCURRENCY} tentatives simultanees (quantite totale retournee correcte)`);
+
+    // --- Scenario 5 : survente du stock reserve a la creation de commande (ProformasService.create) ---
+    // Une commande (Proforma) sort le stock des sa creation (deductStockForItems), avant tout paiement -
+    // c'est le comportement voulu (le stock est reserve des l'engagement du client), verifie ici a la
+    // fois pour la concurrence ET pour la tracabilite du mouvement de stock genere.
+    await prisma.stock.upsert({
+      where: { tenantId_productId_warehouseId: { tenantId: tenant.id, productId: product.id, warehouseId: warehouse.id } },
+      update: { quantity: 1 },
+      create: { tenantId: tenant.id, productId: product.id, warehouseId: warehouse.id, quantity: 1, minimumStock: 0 }
+    });
+    const orderDto = { items: [{ productId: product.id, quantity: 1, unitPrice: 20 }], warehouseId: warehouse.id };
+    const orderOutcome = await runConcurrent(Array.from({ length: CONCURRENCY }, () => () => proformas.create(tenant.id, orderDto, user.id)));
+    assert(orderOutcome.fulfilled.length === 1, `Creation commande concurrente (${CONCURRENCY}x) : attendu 1 succes, obtenu ${orderOutcome.fulfilled.length}`);
+    assert(orderOutcome.rejected.length === CONCURRENCY - 1, `Creation commande concurrente : attendu ${CONCURRENCY - 1} echecs, obtenu ${orderOutcome.rejected.length}`);
+    const stockAfterOrder = await prisma.stock.findUnique({ where: { tenantId_productId_warehouseId: { tenantId: tenant.id, productId: product.id, warehouseId: warehouse.id } } });
+    assert(stockAfterOrder.quantity === 0, `Stock final apres commande attendu 0, obtenu ${stockAfterOrder.quantity}`);
+    const createdOrder = orderOutcome.fulfilled[0].value;
+    const orderMovement = await prisma.inventoryMovement.findFirst({ where: { reference: createdOrder.id, type: "ORDER_DELIVERY" } });
+    assert(orderMovement !== null, "Le mouvement de stock de la commande doit etre trace dans InventoryMovement");
+    assert(orderMovement.beforeQty === 1 && orderMovement.afterQty === 0, `Mouvement de stock incorrect : beforeQty=${orderMovement.beforeQty} afterQty=${orderMovement.afterQty}`);
+    console.log(`scenario 5/5 OK : survente du stock reserve bloquee sur ${CONCURRENCY} tentatives simultanees, mouvement de stock trace`);
 
     console.log("CONCURRENCY_ATOMICITY_SMOKE_OK");
   } finally {
