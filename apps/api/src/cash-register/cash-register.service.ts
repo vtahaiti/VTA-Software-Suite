@@ -21,12 +21,24 @@ export class CashRegisterService {
     }
   }
 
-  sessions(tenantId: string, scopeToUserId?: string) {
-    return this.prisma.cashSession.findMany({
+  async sessions(tenantId: string, scopeToUserId?: string) {
+    const sessions = await this.prisma.cashSession.findMany({
       where: { tenantId, ...(scopeToUserId ? { openedById: scopeToUserId } : {}) },
       include: { cashRegister: true, sales: { include: { payments: true } }, movements: true },
       orderBy: { openedAt: "desc" }
     });
+    return this.withOpenerNames(tenantId, sessions);
+  }
+
+  private async withOpenerNames<T extends { openedById: string | null; closedById: string | null }>(tenantId: string, sessions: T[]) {
+    const userIds = [...new Set(sessions.flatMap((session) => [session.openedById, session.closedById]).filter((id): id is string => Boolean(id)))];
+    const users = userIds.length ? await this.prisma.user.findMany({ where: { tenantId, id: { in: userIds } }, select: { id: true, name: true } }) : [];
+    const userMap = new Map(users.map((user) => [user.id, user.name]));
+    return sessions.map((session) => ({
+      ...session,
+      openedByName: session.openedById ? userMap.get(session.openedById) ?? "Utilisateur supprimé" : null,
+      closedByName: session.closedById ? userMap.get(session.closedById) ?? "Utilisateur supprimé" : null
+    }));
   }
 
   async activeSession(tenantId: string, scopeToUserId?: string) {
