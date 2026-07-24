@@ -344,11 +344,14 @@ export class ReportsService {
 
     const [salesAggregate, saleItems, purchaseAggregate, returnsAggregate] = await this.prisma.$transaction([
       this.prisma.sale.aggregate({ where: saleWhere, _sum: { total: true, discount: true, tax: true } }),
+      // Pas de `take` ici : le resume (costOfGoods, grossProfit, marginRate) est calcule a partir de
+      // CE MEME tableau, donc le tronquer aurait fait porter le cout des marchandises sur un
+      // echantillon des 100 premieres lignes tout en gardant le chiffre d'affaires (`revenue`) issu
+      // d'un aggregate sur TOUTE la periode - une marge fausse des qu'une periode depasse 100 lignes.
       this.prisma.saleItem.findMany({
         where: { sale: saleWhere },
-        include: { product: true, sale: true },
-        orderBy: { createdAt: "desc" },
-        take: 100
+        include: { product: true },
+        orderBy: { createdAt: "desc" }
       }),
       this.prisma.purchaseOrder.aggregate({
         where: { tenantId, ...(createdAt ? { createdAt } : {}) },

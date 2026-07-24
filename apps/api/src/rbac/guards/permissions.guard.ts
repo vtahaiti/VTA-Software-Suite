@@ -12,7 +12,7 @@ export class PermissionsGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<{ user?: { permissions?: string[]; role?: string; roles?: string[] } }>();
     if (!request.user) throw new UnauthorizedException("Authentification requise");
     const userRoles = new Set([request.user.role, ...(request.user.roles ?? [])].filter(Boolean).map((role) => String(role).trim().toUpperCase()));
-    if (["OWNER", "PROPRIETAIRE", "PROPRI?TAIRE", "ADMINISTRATOR", "ADMIN", "PLATFORMADMIN", "SUPER_ADMIN"].some((role) => userRoles.has(role))) return true;
+    if (["OWNER", "PROPRIETAIRE", "PROPRIÉTAIRE", "ADMINISTRATOR", "ADMIN", "PLATFORMADMIN", "SUPER_ADMIN"].some((role) => userRoles.has(role))) return true;
     const userPermissions = request.user?.permissions ?? [];
     return requiredPermissions.every((permission) => userPermissions.includes(permission));
   }
