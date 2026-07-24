@@ -13,6 +13,12 @@ export class ReturnsService {
       const invoice = await tx.invoice.findFirst({ where: { id: dto.invoiceId, tenantId }, include: { items: true } });
       if (!invoice) throw new NotFoundException("Facture introuvable");
       if (invoice.status === "CANCELLED") throw new BadRequestException("Facture annulée");
+      // Verrou de ligne explicite sur la facture : le SELECT des retours precedents ci-dessous ne
+      // prend pas de verrou par lui-meme, donc sans ce FOR UPDATE, deux retours concurrents sur la
+      // meme facture pourraient tous les deux lire "aucun retour anterieur" avant que l'un des deux
+      // ne valide, et depasser ensemble la quantite vendue. Ce verrou force la deuxieme transaction a
+      // attendre que la premiere valide avant de relire l'etat des retours.
+      await tx.$queryRaw`SELECT id FROM "Invoice" WHERE id = ${invoice.id} FOR UPDATE`;
       // Cap contre les retours deja effectues sur cette facture (l'ancien code ne comparait la
       // quantite demandee qu'a la quantite d'origine de la ligne, donc la meme ligne pouvait etre
       // retournee plusieurs fois au-dela de ce qui a ete vendu).
