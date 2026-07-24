@@ -1,4 +1,6 @@
+"use client";
 import Link from "next/link";
+import { useState } from "react";
 
 const sections = [
   {
@@ -35,7 +37,13 @@ const sections = [
     title: "Rôles",
     href: "/dashboard/settings/roles",
     description: "Rôles internes et permissions associées."
-  },
+  }
+];
+
+// Vue technique (liste brute des cles de permission par role) : utile pour un support avance, pas pour
+// une gestion quotidienne. Retiree de la grille principale et repliee par defaut plutot que supprimee,
+// pour ne pas la mettre devant un client qui gere juste son entreprise au quotidien.
+const advancedSections = [
   {
     title: "Permissions",
     href: "/dashboard/settings/permissions",
@@ -44,6 +52,7 @@ const sections = [
 ];
 
 export default function SettingsPage() {
+  const [showAdvanced, setShowAdvanced] = useState(false);
   return (
     <div className="space-y-5">
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -62,6 +71,20 @@ export default function SettingsPage() {
           </Link>
         ))}
       </section>
+
+      <button type="button" onClick={() => setShowAdvanced((value) => !value)} className="text-sm font-semibold text-slate-500 hover:text-brand-600">
+        {showAdvanced ? "Masquer les options avancées" : "Options avancées"}
+      </button>
+      {showAdvanced ? (
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {advancedSections.map((section) => (
+            <Link key={section.href} href={section.href} className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-5 shadow-sm transition hover:border-brand-300 dark:border-slate-700 dark:bg-slate-950">
+              <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{section.title}</h2>
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{section.description}</p>
+            </Link>
+          ))}
+        </section>
+      ) : null}
     </div>
   );
 }
