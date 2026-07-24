@@ -62,7 +62,7 @@ export default function CustomerStatementPage() {
 
   return (
     <div className="space-y-6">
-      <div className="no-print flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:flex-row md:items-center">
+      <div className="flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:flex-row md:items-center">
         <div>
           <p className="text-sm font-medium text-brand-600">Clients</p>
           <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Relevé client{statement ? ` — ${statement.customer.displayName}` : ""}</h1>
@@ -74,7 +74,7 @@ export default function CustomerStatementPage() {
         </div>
       </div>
 
-      <div className="no-print flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
         <button onClick={() => setPeriod("today")} className={`rounded-md border px-3 py-2 text-sm font-semibold ${period === "today" ? "bg-brand-600 text-white" : "dark:border-slate-700"}`}>Aujourd&apos;hui</button>
         <button onClick={() => setPeriod("month")} className={`rounded-md border px-3 py-2 text-sm font-semibold ${period === "month" ? "bg-brand-600 text-white" : "dark:border-slate-700"}`}>Ce mois</button>
         <button onClick={() => setPeriod("custom")} className={`rounded-md border px-3 py-2 text-sm font-semibold ${period === "custom" ? "bg-brand-600 text-white" : "dark:border-slate-700"}`}>Personnalisé</button>
@@ -90,7 +90,8 @@ export default function CustomerStatementPage() {
       {isLoading ? <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900">Chargement du relevé...</div> : null}
 
       {!isLoading && statement ? (
-        <>
+        <div className="printable-document space-y-6">
+          <p className="hidden text-sm font-semibold text-slate-500 print:mb-4 print:block">Relevé client — {statement.customer.displayName} ({statement.customer.customerCode}) — {dateFrom} → {dateTo}</p>
           <div className="grid gap-4 md:grid-cols-3">
             <SummaryCard label="Total ventes" value={formatMoney(statement.summary.totalSales)} detail={`${statement.summary.salesCount} vente(s)`} />
             <SummaryCard label="Total payé" value={formatMoney(statement.summary.totalPaid)} />
@@ -159,7 +160,7 @@ export default function CustomerStatementPage() {
               ) : null}
             </section>
           ) : null}
-        </>
+        </div>
       ) : null}
     </div>
   );

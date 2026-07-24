@@ -234,25 +234,28 @@ export default function ReportsPage() {
 
       {error ? <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{error}</div> : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {cards.map((card) => (
-          <div key={card.label} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{card.label}</p>
-            <p className="mt-2 text-2xl font-bold text-slate-950 dark:text-white">{card.value}</p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{card.detail}</p>
-          </div>
-        ))}
-      </div>
-
       {isLoading ? <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900">Chargement des rapports...</div> : null}
 
-      {!isLoading && reports ? (
-        <div className="grid gap-5">
-          {sections.map((section) => (
-            <ReportTable key={section.key} config={section} report={reports[section.key]} />
+      <div className="printable-document space-y-6">
+        <p className="hidden text-sm font-semibold text-slate-500 print:mb-4 print:block">Rapports — {dateFrom || "Début"} au {dateTo}</p>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {cards.map((card) => (
+            <div key={card.label} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{card.label}</p>
+              <p className="mt-2 text-2xl font-bold text-slate-950 dark:text-white">{card.value}</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{card.detail}</p>
+            </div>
           ))}
         </div>
-      ) : null}
+
+        {!isLoading && reports ? (
+          <div className="grid gap-5">
+            {sections.map((section) => (
+              <ReportTable key={section.key} config={section} report={reports[section.key]} />
+            ))}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
