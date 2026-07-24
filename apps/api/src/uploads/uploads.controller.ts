@@ -17,16 +17,16 @@ export class UploadsController {
       const pending = await this.prisma.pendingRegistration.findUnique({ where: { token }, select: { expiresAt: true } });
       if (!pending || pending.expiresAt.getTime() < Date.now()) throw new UnauthorizedException("Session d'inscription expiree.");
     }
-    if (file) return { url: this.uploads.saveImageFile("tenants", file) };
+    if (file) return { url: await this.uploads.saveImageFile("tenants", file) };
     if (body?.dataUrl) throw new BadRequestException("Le logo entreprise doit etre envoye comme fichier.");
     return { url: this.uploads.normalizeUploadedName("tenants", body?.fileName) };
   }
 
   @Post("user-photo")
   @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 2 * 1024 * 1024 } }))
-  userPhoto(@Req() request: AuthenticatedRequest, @UploadedFile() file?: { originalname?: string; mimetype?: string; size?: number; buffer?: Buffer }, @Body() body?: { dataUrl?: string; fileName?: string }) {
+  async userPhoto(@Req() request: AuthenticatedRequest, @UploadedFile() file?: { originalname?: string; mimetype?: string; size?: number; buffer?: Buffer }, @Body() body?: { dataUrl?: string; fileName?: string }) {
     if (!request.user) throw new UnauthorizedException("Session requise");
-    if (file) return { url: this.uploads.saveImageFile("users", file) };
-    return { url: this.uploads.saveDataUrl("users", body?.dataUrl) ?? this.uploads.normalizeUploadedName("users", body?.fileName) };
+    if (file) return { url: await this.uploads.saveImageFile("users", file) };
+    return { url: (await this.uploads.saveDataUrl("users", body?.dataUrl)) ?? this.uploads.normalizeUploadedName("users", body?.fileName) };
   }
 }

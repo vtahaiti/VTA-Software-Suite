@@ -74,7 +74,7 @@ export class OnboardingService {
 
     const slug = await this.uniqueSlug(dto.companyName);
     const logoUrl = dto.logoUrl?.startsWith("data:") ? null : dto.logoUrl ?? null;
-    const userPhotoUrl = this.uploads.saveDataUrl("users", dto.userPhotoDataUrl);
+    const userPhotoUrl = await this.uploads.saveDataUrl("users", dto.userPhotoDataUrl);
 
     const profileSlug = dto.businessProfileSlug ?? resolveBusinessProfileSlug(dto.businessCategory, dto.primaryActivity);
     const selectedBusinessProfile = businessProfiles.find((profile) => profile.slug === profileSlug) ?? businessProfiles[0];
