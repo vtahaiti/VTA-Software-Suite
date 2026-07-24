@@ -3,7 +3,7 @@ import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { fetchWithAuth } from "@/lib/api-client";
+import { fetchWithAuth, isTenantAccessBlockedResponse } from "@/lib/api-client";
 import { clearSession, getAccessToken, getCurrentUser } from "@/lib/auth";
 import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
 import { businessDateKey, formatBusinessDateTime } from "@/lib/business-timezone";
@@ -155,7 +155,7 @@ export default function DashboardPage() {
 
       const response = await fetchWithAuth(`${apiUrl}/dashboard/summary`, { credentials: "include" });
 
-      if (response.status === 403) {
+      if (await isTenantAccessBlockedResponse(response)) {
         setAccessBlocked(true);
         return null;
       }
@@ -474,7 +474,7 @@ function PerformancePanel({ performance }: { performance: Performance }) {
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <h2 className="text-xl font-black text-slate-950 dark:text-white">Performance du business</h2>
-      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Valeur potentielle = prix de vente x stock disponible. Si le cout d&apos;achat manque, la marge reelle n&apos;est pas calculable.</p>
+      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Valeur potentielle = prix de vente x stock disponible. Si le coût d&apos;achat manque, la marge réelle n&apos;est pas calculable.</p>
       {(performance.missingCostProducts ?? 0) > 0 ? (
         <p className="mt-2 text-sm font-semibold text-amber-700 dark:text-amber-300">
           {performance.missingCostProducts} produit(s) avec coût manquant.

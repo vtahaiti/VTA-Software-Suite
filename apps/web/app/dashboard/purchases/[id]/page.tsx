@@ -121,7 +121,7 @@ export default function PurchaseDetailPage() {
               <p className="text-sm text-slate-500">{new Date(receipt.createdAt).toLocaleDateString("fr-FR")}</p>
             </div>
           ))}
-          {order.receipts.length === 0 ? <p className="text-sm text-slate-500">Aucune reception pour le moment.</p> : null}
+          {order.receipts.length === 0 ? <p className="text-sm text-slate-500">Aucune réception pour le moment.</p> : null}
         </div>
       </section>
     </div>

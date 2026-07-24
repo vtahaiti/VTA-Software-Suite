@@ -104,7 +104,7 @@ export default function GoodsReceiptsPage() {
       <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <p className="text-sm font-medium text-brand-600">Achats</p>
         <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Réception marchandises</h1>
-        <p className="mt-1 text-sm text-slate-500">Les quantites receptionnees augmentent le stock des produits du bon d&apos;achat.</p>
+        <p className="mt-1 text-sm text-slate-500">Les quantités réceptionnées augmentent le stock des produits du bon d&apos;achat.</p>
         {message ? <p className="mt-3 rounded-md bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800">{message}</p> : null}
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           <select required value={purchaseOrderId} onChange={(event) => setPurchaseOrderId(event.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
@@ -119,12 +119,12 @@ export default function GoodsReceiptsPage() {
         </div>
         <label className="mt-4 flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
           <input type="checkbox" checked={updateMissingCosts} onChange={(event) => setUpdateMissingCosts(event.target.checked)} className="mt-1" />
-          Mettre a jour le cout d&apos;achat seulement pour les produits sans cout enregistre.
+          Mettre à jour le coût d&apos;achat seulement pour les produits sans coût enregistré.
         </label>
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold">Articles a receptionner</h2>
+        <h2 className="text-lg font-semibold">Articles à réceptionner</h2>
         <div className="mt-4 space-y-3">
           {receivableItems.map((item) => (
             <div key={item.id} className="grid gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-800 md:grid-cols-[1fr_120px_120px_160px]">
@@ -132,16 +132,16 @@ export default function GoodsReceiptsPage() {
                 <p className="font-medium">{item.product?.name}</p>
                 <p className="text-xs text-slate-500">{item.product?.sku}</p>
               </div>
-              <p className="text-sm">Commande: {item.quantity}</p>
-              <p className="text-sm">Reçu: {item.receivedQty}</p>
+              <p className="text-sm">Commandé : {item.quantity}</p>
+              <p className="text-sm">Reçu : {item.receivedQty}</p>
               <input type="number" min="0" max={item.quantity - item.receivedQty} value={quantities[item.id] ?? 0} onChange={(event) => setQuantities({ ...quantities, [item.id]: Number(event.target.value) })} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
             </div>
           ))}
-          {purchaseOrderId && receivableItems.length === 0 ? <p className="text-sm text-slate-500">Toutes les lignes sont déjà receptionnees.</p> : null}
-          {!purchaseOrderId ? <p className="text-sm text-slate-500">Sélectionnéz un bon de commande commande ou partiellement recu.</p> : null}
+          {purchaseOrderId && receivableItems.length === 0 ? <p className="text-sm text-slate-500">Toutes les lignes sont déjà réceptionnées.</p> : null}
+          {!purchaseOrderId ? <p className="text-sm text-slate-500">Sélectionnez un bon de commande non reçu ou partiellement reçu.</p> : null}
         </div>
         <div className="mt-5 flex justify-end">
-          <button disabled={!canSubmit} className="rounded-md bg-brand-600 px-5 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{isSaving ? "Enregistrement..." : "Enregistrer la reception"}</button>
+          <button disabled={!canSubmit} className="rounded-md bg-brand-600 px-5 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{isSaving ? "Enregistrement..." : "Enregistrer la réception"}</button>
         </div>
       </div>
     </form>

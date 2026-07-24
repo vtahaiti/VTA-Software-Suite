@@ -110,7 +110,7 @@ export default function PurchasesPage() {
     ["Achats du jour", purchasesToday],
     ["Achats du mois", purchasesMonth],
     ["Fournisseurs actifs", dashboard?.activeSuppliers ?? 0],
-    ["Bons en attente de reception", dashboard?.pendingReceiptOrders ?? dashboard?.pendingOrders ?? 0],
+    ["Bons en attente de réception", dashboard?.pendingReceiptOrders ?? dashboard?.pendingOrders ?? 0],
     ["Montants a payer fournisseur", formatMoney(Number(dashboard?.supplierBalanceDue ?? 0))],
     ["Factures impayées", dashboard?.unpaidInvoices ?? 0]
   ];

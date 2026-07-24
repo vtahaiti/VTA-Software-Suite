@@ -57,7 +57,7 @@ export default function InvoicingSettingsPage() {
     const defaultTaxRate = Number(form.defaultTaxRate);
     const maxDiscountRate = Number(form.maxDiscountRate);
     if (defaultTaxRate < 0 || defaultTaxRate > 100 || maxDiscountRate < 0 || maxDiscountRate > 100) {
-      setMsg("La taxe et la remise doivent etre comprises entre 0 % et 100 %.");
+      setMsg("La taxe et la remise doivent être comprises entre 0 % et 100 %.");
       return;
     }
     setSaving(true);
@@ -69,13 +69,13 @@ export default function InvoicingSettingsPage() {
         body: JSON.stringify(payload)
       });
       if (!response.ok) {
-        setMsg("Sauvegarde impossible. Verifiez les champs puis reessayez.");
+        setMsg("Sauvegarde impossible. Vérifiez les champs puis réessayez.");
         return;
       }
       setForm(toInvoicingForm(await response.json()));
-      setMsg("Parametres enregistres.");
+      setMsg("Paramètres enregistrés.");
     } catch {
-      setMsg("Sauvegarde impossible. Verifiez votre connexion puis reessayez.");
+      setMsg("Sauvegarde impossible. Vérifiez votre connexion puis réessayez.");
     } finally {
       setSaving(false);
     }
@@ -89,14 +89,14 @@ export default function InvoicingSettingsPage() {
           <input type="checkbox" checked={form.taxEnabled} onChange={(event) => updateBoolean("taxEnabled", event.target.checked)} className="mt-1" />
           <span>
             <span className="block font-semibold">Activer la taxe</span>
-            <span className="block text-xs font-normal text-slate-500">Si cette option est desactivee, le POS applique toujours 0 % meme si un taux est renseigne.</span>
+            <span className="block text-xs font-normal text-slate-500">Si cette option est désactivée, le POS applique toujours 0 % même si un taux est renseigné.</span>
           </span>
         </label>
-        <Input type="number" min="0" max="100" step="0.01" label="Taxe par defaut (%)" help="Contrat : l'interface et l'API utilisent 10 pour 10 %. La base conserve 0,10 pour les calculs. La taxe ne s'applique que si elle est activee." value={form.defaultTaxRate} onChange={(value) => update("defaultTaxRate", value)} />
-        <Input type="number" min="0" max="100" step="0.01" label="Remise maximale autorisee (%)" value={form.maxDiscountRate} onChange={(value) => update("maxDiscountRate", value)} />
-        <Input label="Numerotation factures" value={form.invoicePrefix} onChange={(value) => update("invoicePrefix", value)} />
-        <Input label="Numerotation devis" value={form.quotePrefix} onChange={(value) => update("quotePrefix", value)} />
-        <Input label="Numerotation recus" value={form.receiptPrefix} onChange={(value) => update("receiptPrefix", value)} />
+        <Input type="number" min="0" max="100" step="0.01" label="Taxe par défaut (%)" help="Contrat : l'interface et l'API utilisent 10 pour 10 %. La base conserve 0,10 pour les calculs. La taxe ne s'applique que si elle est activée." value={form.defaultTaxRate} onChange={(value) => update("defaultTaxRate", value)} />
+        <Input type="number" min="0" max="100" step="0.01" label="Remise maximale autorisée (%)" value={form.maxDiscountRate} onChange={(value) => update("maxDiscountRate", value)} />
+        <Input label="Numérotation factures" value={form.invoicePrefix} onChange={(value) => update("invoicePrefix", value)} />
+        <Input label="Numérotation devis" value={form.quotePrefix} onChange={(value) => update("quotePrefix", value)} />
+        <Input label="Numérotation reçus" value={form.receiptPrefix} onChange={(value) => update("receiptPrefix", value)} />
         <label className="grid gap-1 text-sm font-medium">
           {"Type d'impression ticket"}
           <select value={form.posReceiptFormat} onChange={(event) => update("posReceiptFormat", event.target.value)} className="rounded-md border px-3 py-2 dark:bg-slate-950">
@@ -157,11 +157,11 @@ function normalizeReceiptFormat(value: unknown): ReceiptFormat {
 function Header() {
   return (
     <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-      <p className="text-sm font-medium text-brand-600">Parametres</p>
-      <h1 className="text-2xl font-bold">Parametres de facturation</h1>
+      <p className="text-sm font-medium text-brand-600">Paramètres</p>
+      <h1 className="text-2xl font-bold">Paramètres de facturation</h1>
       <div className="mt-4 flex flex-wrap gap-2">
         <Link href="/dashboard/settings/company" className="rounded-md border px-3 py-2 text-sm">Entreprise</Link>
-        <Link href="/dashboard/settings/pos" className="rounded-md border px-3 py-2 text-sm">POS</Link>
+        <Link href="/dashboard/settings/pos" className="rounded-md border px-3 py-2 text-sm">Impression</Link>
         <Link href="/dashboard/settings/invoicing" className="rounded-md bg-brand-600 px-3 py-2 text-sm text-white">Facturation</Link>
         <Link href="/dashboard/settings/subscription" className="rounded-md border px-3 py-2 text-sm">Abonnement</Link>
         <Link href="/dashboard/settings/emails" className="rounded-md border px-3 py-2 text-sm">Emails</Link>
