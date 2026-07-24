@@ -383,6 +383,7 @@ model CompanyProfile {
   country String?
   taxNumber String?
   businessLicenseNumber String?
+  bankName String?
   bankAccountNumber String?
   currency String @default("HTG")
   language String @default("fr")

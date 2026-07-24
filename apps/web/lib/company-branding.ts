@@ -13,6 +13,7 @@ export type CompanyBranding = {
   country: string;
   taxNumber: string;
   businessLicenseNumber: string;
+  bankName: string;
   bankAccountNumber: string;
   userName: string;
   userInitials: string;
@@ -40,6 +41,7 @@ export async function getCompanyBranding(token: string): Promise<CompanyBranding
     country: profile?.country ?? "",
     taxNumber: profile?.taxNumber ?? "",
     businessLicenseNumber: profile?.businessLicenseNumber ?? "",
+    bankName: profile?.bankName ?? "",
     bankAccountNumber: profile?.bankAccountNumber ?? "",
     userName: data.name ?? "Utilisateur",
     userInitials: initials(data.name, "U"),

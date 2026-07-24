@@ -18,11 +18,21 @@ const colors = [
 ];
 const maxLogoBytes = 2 * 1024 * 1024;
 const allowedLogoTypes = ["image/png", "image/jpeg", "image/webp"];
+const haitianBanks = [
+  "Sogebank",
+  "Unibank",
+  "Banque Nationale de Crédit (BNC)",
+  "Capital Bank",
+  "Banque de l'Union Haïtienne (BUH)",
+  "Citibank N.A."
+];
+const otherBankOption = "Autre";
 
-type CompanyForm = { name: string; companyName?: string; logoUrl?: string; primaryColor?: string; phone?: string; whatsapp?: string; email?: string; address?: string; city?: string; country?: string; taxNumber?: string; businessLicenseNumber?: string; bankAccountNumber?: string; currency?: string; language?: string; timezone?: string };
+type CompanyForm = { name: string; companyName?: string; logoUrl?: string; primaryColor?: string; phone?: string; whatsapp?: string; email?: string; address?: string; city?: string; country?: string; taxNumber?: string; businessLicenseNumber?: string; bankName?: string; bankAccountNumber?: string; currency?: string; language?: string; timezone?: string };
 
 export default function CompanySettingsPage() {
-  const [form, setForm] = useState<CompanyForm>({ name: "", companyName: "", logoUrl: "", primaryColor: "#2563eb", phone: "", whatsapp: "", email: "", address: "", city: "", country: "", taxNumber: "", businessLicenseNumber: "", bankAccountNumber: "", currency: "HTG", language: "fr", timezone: "America/Port-au-Prince" });
+  const [form, setForm] = useState<CompanyForm>({ name: "", companyName: "", logoUrl: "", primaryColor: "#2563eb", phone: "", whatsapp: "", email: "", address: "", city: "", country: "", taxNumber: "", businessLicenseNumber: "", bankName: "", bankAccountNumber: "", currency: "HTG", language: "fr", timezone: "America/Port-au-Prince" });
+  const [customBank, setCustomBank] = useState(false);
   const [msg, setMsg] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -35,7 +45,12 @@ export default function CompanySettingsPage() {
   useEffect(() => {
     fetchWithAuth(`${apiUrl}/settings/company`)
       .then((response) => response.ok ? response.json() : null)
-      .then((data) => data && setForm(toCompanyForm(data)))
+      .then((data) => {
+        if (!data) return;
+        const loaded = toCompanyForm(data);
+        setForm(loaded);
+        setCustomBank(Boolean(loaded.bankName) && !haitianBanks.includes(loaded.bankName!));
+      })
       .catch(() => undefined);
   }, []);
 
@@ -144,6 +159,25 @@ export default function CompanySettingsPage() {
       <Input label="WhatsApp" value={form.whatsapp} onChange={(value) => update("whatsapp", value)} />
       <Input label="Numéro fiscal" value={form.taxNumber} onChange={(value) => update("taxNumber", value)} />
       <Input label="Patente (facultatif)" value={form.businessLicenseNumber} onChange={(value) => update("businessLicenseNumber", value)} />
+      <label className="grid gap-1">
+        <span className="text-sm font-medium">Banque (facultatif)</span>
+        <select
+          value={customBank ? otherBankOption : (form.bankName ?? "")}
+          onChange={(event) => {
+            const value = event.target.value;
+            if (value === otherBankOption) { setCustomBank(true); update("bankName", ""); }
+            else { setCustomBank(false); update("bankName", value); }
+          }}
+          className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950"
+        >
+          <option value="">Sélectionner une banque</option>
+          {haitianBanks.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+          <option value={otherBankOption}>Autre</option>
+        </select>
+      </label>
+      {customBank ? (
+        <Input label="Nom de la banque" value={form.bankName} onChange={(value) => update("bankName", value)} />
+      ) : null}
       <Input label="N° compte bancaire (facultatif)" value={form.bankAccountNumber} onChange={(value) => update("bankAccountNumber", value)} />
       <div className="md:col-span-2">
         <p className="mb-2 text-sm font-semibold">Couleur principale</p>
@@ -200,6 +234,7 @@ function toCompanyForm(data: Partial<CompanyForm>): CompanyForm {
     country: data.country ?? "",
     taxNumber: data.taxNumber ?? "",
     businessLicenseNumber: data.businessLicenseNumber ?? "",
+    bankName: data.bankName ?? "",
     bankAccountNumber: data.bankAccountNumber ?? "",
     currency: data.currency ?? "HTG",
     language: data.language ?? "fr",
@@ -222,6 +257,7 @@ function toCompanyPayload(form: CompanyForm) {
     country: form.country ?? "",
     taxNumber: form.taxNumber ?? "",
     businessLicenseNumber: form.businessLicenseNumber ?? "",
+    bankName: form.bankName ?? "",
     bankAccountNumber: form.bankAccountNumber ?? "",
     currency: form.currency ?? "HTG",
     language: form.language ?? "fr",
