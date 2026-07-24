@@ -1,9 +1,12 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../prisma/prisma.module";
-import { StoreWarehousesController } from "./store-warehouses.controller";
-import { StoreTransfersController } from "./store-transfers.controller";
 import { StoresController } from "./stores.controller";
 import { StoresService } from "./stores.service";
 
-@Module({ imports: [PrismaModule], controllers: [StoresController, StoreWarehousesController, StoreTransfersController], providers: [StoresService], exports: [StoresService] })
+// StoreWarehousesController (/store-warehouses) et StoreTransfersController (/store-transfers) ont
+// ete retires du module : systeme d'entrepots/transferts duplique, remplace par /inventory/warehouses
+// et /inventory/transfers, sans aucune reference cote frontend. Deja correctement proteges (tenant +
+// permissions), donc ce n'etait pas une faille - juste une surface d'API morte. Fichiers conserves,
+// simplement plus enregistres/routes.
+@Module({ imports: [PrismaModule], controllers: [StoresController], providers: [StoresService], exports: [StoresService] })
 export class StoresModule {}
