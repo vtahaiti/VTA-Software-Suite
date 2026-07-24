@@ -45,10 +45,30 @@ export class InventoryService {
 
   async createTransfer(tenantId: string, dto: CreateTransferDto) {
     if (dto.fromWarehouseId === dto.toWarehouseId) throw new BadRequestException("Les depots doivent etre differents");
-    const transfer = await this.prisma.transfer.create({ data: { tenantId, fromWarehouseId: dto.fromWarehouseId, toWarehouseId: dto.toWarehouseId, note: dto.note, status: TransferStatus.SENT, items: { create: dto.items } } });
+    // Verifie la disponibilite de TOUTES les lignes avant de deplacer quoi que ce soit, pour eviter
+    // qu'un transfert multi-articles echoue a mi-chemin (stock insuffisant sur l'article 2) en
+    // laissant l'article 1 deja sorti du depot source.
     for (const item of dto.items) {
-      await this.stock.stockOut(tenantId, { productId: item.productId, warehouseId: dto.fromWarehouseId, quantity: item.quantity, reference: transfer.id, reason: "CORRECTION_INVENTAIRE", note: "Transfert sortant" });
-      await this.stock.stockIn(tenantId, { productId: item.productId, warehouseId: dto.toWarehouseId, quantity: item.quantity, reference: transfer.id, note: "Transfert entrant" });
+      const stock = await this.stock.getOrCreateStock(tenantId, item.productId, dto.fromWarehouseId);
+      if (stock.quantity < item.quantity) throw new BadRequestException("Stock insuffisant pour le transfert");
+    }
+    const transfer = await this.prisma.transfer.create({ data: { tenantId, fromWarehouseId: dto.fromWarehouseId, toWarehouseId: dto.toWarehouseId, note: dto.note, status: TransferStatus.SENT, items: { create: dto.items } } });
+    const applied: typeof dto.items = [];
+    try {
+      for (const item of dto.items) {
+        await this.stock.stockOut(tenantId, { productId: item.productId, warehouseId: dto.fromWarehouseId, quantity: item.quantity, reference: transfer.id, reason: "CORRECTION_INVENTAIRE", note: "Transfert sortant" });
+        await this.stock.stockIn(tenantId, { productId: item.productId, warehouseId: dto.toWarehouseId, quantity: item.quantity, reference: transfer.id, note: "Transfert entrant" });
+        applied.push(item);
+      }
+    } catch (error) {
+      // Compensation : si un article echoue malgre le pre-check (produit/depot modifie entre-temps),
+      // on desfait les mouvements deja appliques pour ne pas perdre de stock, puis on annule le transfert.
+      for (const item of applied) {
+        await this.stock.stockOut(tenantId, { productId: item.productId, warehouseId: dto.toWarehouseId, quantity: item.quantity, reference: transfer.id, reason: "CORRECTION_INVENTAIRE", note: "Annulation transfert" }).catch(() => undefined);
+        await this.stock.stockIn(tenantId, { productId: item.productId, warehouseId: dto.fromWarehouseId, quantity: item.quantity, reference: transfer.id, note: "Annulation transfert" }).catch(() => undefined);
+      }
+      await this.prisma.transfer.update({ where: { id: transfer.id }, data: { status: TransferStatus.CANCELLED } }).catch(() => undefined);
+      throw error;
     }
     return this.prisma.transfer.update({ where: { id: transfer.id }, data: { status: TransferStatus.RECEIVED }, include: { fromWarehouse: true, toWarehouse: true, items: { include: { product: true } } } });
   }

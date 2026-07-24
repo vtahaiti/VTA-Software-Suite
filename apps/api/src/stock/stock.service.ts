@@ -110,10 +110,19 @@ export class StockService {
 
   async applyMovement(tenantId: string, dto: StockOperationDto, type: InventoryMovementType, delta: number) {
     const stock = await this.getOrCreateStock(tenantId, dto.productId, dto.warehouseId);
-    const afterQty = stock.quantity + delta;
-    if (afterQty < 0) throw new BadRequestException("Stock insuffisant");
     return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.stock.update({ where: { id: stock.id }, data: { quantity: afterQty } });
+      // Decrement/increment atomique : quand delta < 0, le UPDATE est garde par quantity >= -delta
+      // dans la meme requete, ce qui prend un verrou de ligne Postgres et empeche deux mouvements
+      // concurrents sur le meme stock (ex. deux transferts, ou un transfert + une vente) de lire la
+      // meme valeur "avant" et de faire passer le stock sous zero (l'ancien code lisait quantity,
+      // calculait afterQty en JS, puis ecrivait - non protege contre la concurrence).
+      if (delta < 0) {
+        const updateResult = await tx.stock.updateMany({ where: { id: stock.id, quantity: { gte: -delta } }, data: { quantity: { increment: delta } } });
+        if (updateResult.count === 0) throw new BadRequestException("Stock insuffisant");
+      } else if (delta > 0) {
+        await tx.stock.update({ where: { id: stock.id }, data: { quantity: { increment: delta } } });
+      }
+      const updated = await tx.stock.findUniqueOrThrow({ where: { id: stock.id } });
       await tx.inventoryMovement.create({
         data: {
           tenantId,
@@ -121,8 +130,8 @@ export class StockService {
           warehouseId: dto.warehouseId,
           type,
           quantity: dto.quantity,
-          beforeQty: stock.quantity,
-          afterQty,
+          beforeQty: updated.quantity - delta,
+          afterQty: updated.quantity,
           reference: dto.reference,
           note: dto.note,
           reason: dto.reason ?? dto.note,
