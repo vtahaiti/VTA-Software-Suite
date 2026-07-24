@@ -113,19 +113,22 @@ export class ProformasService {
       if (Number(proforma.balance) <= 0) throw new BadRequestException("Commande déjà soldée");
       if (dto.amount > Number(proforma.balance)) throw new BadRequestException("Paiement supérieur à la balance");
 
-      const paidAmount = Number(proforma.paidAmount) + dto.amount;
-      const balance = Number(proforma.total) - paidAmount;
-      const isComplete = balance <= 0;
-      const paymentStatus = isComplete ? SalesDocumentPaymentStatus.PAID : SalesDocumentPaymentStatus.PARTIALLY_PAID;
+      // Decrement atomique gardee par balance >= montant : Postgres verrouille la ligne le temps de
+      // la transaction, donc deux paiements concurrents (ex. double-clic sur le dernier versement)
+      // se serialisent - le second relit le solde deja mis a jour par le premier et echoue proprement
+      // au lieu de completer la commande deux fois et generer deux factures.
+      const updateResult = await tx.proforma.updateMany({
+        where: { id, tenantId, balance: { gte: dto.amount } },
+        data: { paidAmount: { increment: dto.amount }, balance: { decrement: dto.amount } }
+      });
+      if (updateResult.count === 0) throw new BadRequestException("Paiement supérieur à la balance");
       await tx.payment.create({ data: { proformaId: id, method: dto.method, amount: dto.amount, reference: dto.reference, notes: dto.notes, createdById: userId } });
+      const refreshedProforma = await tx.proforma.findUniqueOrThrow({ where: { id } });
+      const isComplete = Number(refreshedProforma.balance) <= 0;
+      const paymentStatus = isComplete ? SalesDocumentPaymentStatus.PAID : SalesDocumentPaymentStatus.PARTIALLY_PAID;
       await tx.proforma.update({
         where: { id },
-        data: {
-          paidAmount,
-          balance,
-          paymentStatus,
-          ...(isComplete ? { status: SalesDocumentStatus.COMPLETED, completedAt: new Date() } : {})
-        }
+        data: { paymentStatus, ...(isComplete ? { status: SalesDocumentStatus.COMPLETED, completedAt: new Date() } : {}) }
       });
       if (isComplete) await this.generateInvoice(tx, tenantId, id, userId);
       const refreshed = await tx.proforma.findUniqueOrThrow({ where: { id }, include: documentInclude });
