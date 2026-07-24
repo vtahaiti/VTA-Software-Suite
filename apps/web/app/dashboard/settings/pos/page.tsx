@@ -19,7 +19,6 @@ import {
 
 
 type PosForm = {
-  allowNegativeStock: boolean;
   allowDiscount: boolean;
   requireCustomer: boolean;
   autoPrintReceipt: boolean;
@@ -29,7 +28,7 @@ type PosForm = {
 type ReceiptPreviewWidth = "58" | "72" | "80";
 
 export default function PosSettingsPage() {
-  const [form, setForm] = useState<PosForm>({ allowNegativeStock: false, allowDiscount: true, requireCustomer: false, autoPrintReceipt: false, openCashDrawer: false });
+  const [form, setForm] = useState<PosForm>({ allowDiscount: true, requireCustomer: false, autoPrintReceipt: false, openCashDrawer: false });
   const [receiptWidth, setReceiptWidth] = useState<ReceiptPreviewWidth>("80");
   const [msg, setMsg] = useState("");
   const [saving, setSaving] = useState(false);
@@ -136,7 +135,6 @@ export default function PosSettingsPage() {
     <div className="space-y-5">
       <Header />
       <form onSubmit={submit} className="space-y-3 rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-        <Toggle label="Autoriser vente sans stock" checked={form.allowNegativeStock} onChange={(value) => update("allowNegativeStock", value)} />
         <Toggle label="Autoriser remise" checked={form.allowDiscount} onChange={(value) => update("allowDiscount", value)} />
         <Toggle label="Client obligatoire" checked={form.requireCustomer} onChange={(value) => update("requireCustomer", value)} />
         <Toggle label="Imprimer automatiquement après vente" checked={form.autoPrintReceipt} onChange={(value) => update("autoPrintReceipt", value)} />
@@ -208,7 +206,6 @@ function buildBluetoothTestTicketHtml(contentWidthMm: number) {
 
 function toPosForm(data: Partial<PosForm>): PosForm {
   return {
-    allowNegativeStock: Boolean(data.allowNegativeStock),
     allowDiscount: data.allowDiscount !== false,
     requireCustomer: Boolean(data.requireCustomer),
     autoPrintReceipt: Boolean(data.autoPrintReceipt),

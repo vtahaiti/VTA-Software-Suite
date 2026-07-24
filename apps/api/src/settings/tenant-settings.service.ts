@@ -17,7 +17,6 @@ export class TenantSettingsService {
     const settings = await this.prisma.tenantSettings.update({
       where: { tenantId },
       data: {
-        allowNegativeStock: dto.allowNegativeStock,
         allowDiscount: dto.allowDiscount,
         requireCustomer: dto.requireCustomer,
         autoPrintReceipt: dto.autoPrintReceipt,

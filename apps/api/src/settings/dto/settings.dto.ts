@@ -32,7 +32,6 @@ export class UpdateInvoicingSettingsDto {
 }
 
 export class UpdatePosSettingsDto {
-  @IsOptional() @IsBoolean() allowNegativeStock?: boolean;
   @IsOptional() @IsBoolean() allowDiscount?: boolean;
   @IsOptional() @IsBoolean() requireCustomer?: boolean;
   @IsOptional() @IsBoolean() autoPrintReceipt?: boolean;

@@ -183,7 +183,6 @@ export class OnboardingService {
           taxEnabled: false, defaultTaxRate: 0,
           invoiceFormat: "LETTER",
           posReceiptFormat: "80",
-          allowNegativeStock: false,
           autoPrintReceipt: false,
           businessCategory: dto.businessCategory,
           primaryActivity: dto.primaryActivity,
