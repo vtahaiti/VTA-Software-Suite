@@ -223,12 +223,19 @@ export class SalesService {
 
       for (const item of saleItems) {
         if (!item.productId || !item.product) continue;
-        const stock = await tx.stock.findUnique({ where: { tenantId_productId_warehouseId: { tenantId, productId: item.productId, warehouseId: dto.warehouseId } } });
         if (!this.isStockTrackedProduct(item.product)) continue;
-        if (!stock) throw new BadRequestException(`Stock insuffisant pour ${item.product.name}`);
-        const afterQty = stock.quantity - item.quantity;
-        if (afterQty < 0) throw new BadRequestException(`Stock insuffisant pour ${item.product.name}`);
-        await tx.stock.update({ where: { id: stock.id }, data: { quantity: afterQty } });
+        // Decrement atomique gardee par la condition quantity >= X dans le meme UPDATE : sous
+        // Postgres, ceci prend un verrou de ligne, donc deux ventes concurrentes sur le dernier
+        // article ne peuvent plus toutes les deux reussir (l'ancien code lisait quantity, calculait
+        // en JS, puis ecrivait - deux transactions pouvaient lire la meme valeur "avant" et
+        // survendre le meme article).
+        const updateResult = await tx.stock.updateMany({
+          where: { tenantId, productId: item.productId, warehouseId: dto.warehouseId, quantity: { gte: item.quantity } },
+          data: { quantity: { decrement: item.quantity } }
+        });
+        if (updateResult.count === 0) throw new BadRequestException(`Stock insuffisant pour ${item.product.name}`);
+        const stockAfter = await tx.stock.findUnique({ where: { tenantId_productId_warehouseId: { tenantId, productId: item.productId, warehouseId: dto.warehouseId } } });
+        const afterQty = stockAfter?.quantity ?? 0;
         await tx.inventoryMovement.create({
           data: {
             tenantId,
@@ -238,7 +245,7 @@ export class SalesService {
             userId,
             storeId: dto.storeId,
             quantity: item.quantity,
-            beforeQty: stock.quantity,
+            beforeQty: afterQty + item.quantity,
             afterQty,
             reference: sale.id,
             note: "Vente POS"

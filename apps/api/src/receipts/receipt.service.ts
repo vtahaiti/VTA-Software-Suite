@@ -5,9 +5,9 @@ import { PrismaService } from "../prisma/prisma.service";
 export class ReceiptService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createForSale(saleId: string) {
-    const sale = await this.prisma.sale.findUnique({
-      where: { id: saleId },
+  async createForSale(tenantId: string, saleId: string) {
+    const sale = await this.prisma.sale.findFirst({
+      where: { id: saleId, tenantId },
       include: { tenant: { include: { companyProfile: true, logo: true } }, items: { include: { product: true } }, payments: true }
     });
     if (!sale) throw new NotFoundException("Vente introuvable");
@@ -21,6 +21,11 @@ export class ReceiptService {
     return this.prisma.receipt.create({ data: { saleId, number, content } });
   }
 
-  findBySale(saleId: string) { return this.prisma.receipt.findUnique({ where: { saleId } }); }
-  async markPrinted(id: string) { return this.prisma.receipt.update({ where: { id }, data: { printedAt: new Date() } }); }
+  findBySale(tenantId: string, saleId: string) { return this.prisma.receipt.findFirst({ where: { saleId, sale: { tenantId } } }); }
+
+  async markPrinted(tenantId: string, id: string) {
+    const receipt = await this.prisma.receipt.findFirst({ where: { id, sale: { tenantId } } });
+    if (!receipt) throw new NotFoundException("Recu introuvable");
+    return this.prisma.receipt.update({ where: { id }, data: { printedAt: new Date() } });
+  }
 }
