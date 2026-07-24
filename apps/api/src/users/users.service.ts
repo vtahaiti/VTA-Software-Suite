@@ -114,8 +114,13 @@ export class UsersService {
 
   async roles(tenantId: string) {
     await this.ensureTenantRolePresets(tenantId);
+    // "Administrator"/"Manager"/"Cashier"/"Inventory"/"Accountant" delibarement exclus : ce sont des
+    // roles heritages crees sans aucune permission attachee (voir roles.service.ts) - les proposer ici
+    // ferait choisir a un admin un role qui bloque completement l'utilisateur assigne. "Owner" reste
+    // inclus car, contrairement aux autres, il recoit bien toutes les permissions et des utilisateurs
+    // existants y sont deja reellement rattaches.
     return this.prisma.role.findMany({
-      where: { tenantId, name: { in: [...tenantRoleNames, "Owner", "Administrator", "Manager", "Cashier", "Inventory", "Accountant"] } },
+      where: { tenantId, name: { in: [...tenantRoleNames, "Owner"] } },
       orderBy: { name: "asc" },
       select: { id: true, name: true, description: true, isSystem: true }
     });

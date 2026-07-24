@@ -1,15 +1,24 @@
 ﻿import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
-import { PermissionsService } from "../permissions/permissions.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { defaultRoles } from "../rbac/default-roles";
+import { UsersService } from "../users/users.service";
 import { CreateRoleDto } from "./dto/create-role.dto";
 import { UpdateRoleDto } from "./dto/update-role.dto";
 const roleInclude = { permissions: { include: { permission: true } } };
+// Rôles par défaut historiques (Administrator, Manager, Cashier, Sales, Inventory, HR, Accountant,
+// Technician, Viewer) crees sans aucune permission attachee - un utilisateur assigne a l'un d'eux se
+// retrouvait sans aucun droit. Ils polluaient aussi l'affichage avec des doublons du vrai systeme de
+// roles (tenant-role-presets.ts, utilise par la page Utilisateurs). "Owner" est exclu de ce filtre :
+// contrairement aux autres, il recevait bien toutes les permissions et reste reellement assigne a des
+// utilisateurs existants - le masquer casserait leur acces visible.
+const BROKEN_LEGACY_ROLE_NAMES = ["Administrator", "Manager", "Cashier", "Sales", "Inventory", "HR", "Accountant", "Technician", "Viewer"];
 @Injectable()
 export class RolesService {
-  constructor(private readonly prisma: PrismaService, private readonly permissionsService: PermissionsService) {}
-  async findAll(tenantId: string) { await this.ensureDefaultRoles(tenantId); return this.prisma.role.findMany({ where: { tenantId }, include: roleInclude, orderBy: { name: "asc" } }); }
+  constructor(private readonly prisma: PrismaService, private readonly usersService: UsersService) {}
+  async findAll(tenantId: string) {
+    await this.usersService.ensureTenantRolePresets(tenantId);
+    return this.prisma.role.findMany({ where: { tenantId, name: { notIn: BROKEN_LEGACY_ROLE_NAMES } }, include: roleInclude, orderBy: { name: "asc" } });
+  }
   async create(tenantId: string, dto: CreateRoleDto) {
     try { return await this.prisma.role.create({ data: { tenantId, name: dto.name, description: dto.description, permissions: this.permissionCreate(dto.permissionIds) }, include: roleInclude }); }
     catch (error) { if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException("Rôle déjà existant"); throw error; }
@@ -27,20 +36,7 @@ export class RolesService {
     await this.prisma.role.delete({ where: { id } });
     return { success: true };
   }
-  async ensureDefaultRoles(tenantId: string) {
-    await this.ensureTenant(tenantId);
-    await this.permissionsService.ensureDefaultPermissions();
-    const permissions = await this.prisma.permission.findMany();
-    await this.prisma.$transaction(defaultRoles.map((roleName) => this.prisma.role.upsert({
-      where: { tenantId_name: { tenantId, name: roleName } },
-      update: { isSystem: true },
-      create: { tenantId, name: roleName, description: `Rôle par défaut ${roleName}`, isSystem: true, permissions: roleName === "Owner" ? this.permissionCreate(permissions.map((permission) => permission.id)) : undefined }
-    })));
-  }
   private async findOneOrFail(tenantId: string, id: string) { const role = await this.prisma.role.findFirst({ where: { id, tenantId } }); if (!role) throw new NotFoundException("Rôle introuvable"); return role; }
   private permissionCreate(permissionIds?: string[]) { return permissionIds?.length ? { create: permissionIds.map((permissionId) => ({ permissionId })) } : undefined; }
-  private async ensureTenant(tenantId: string) {
-    await this.prisma.tenant.upsert({ where: { id: tenantId }, update: {}, create: { id: tenantId, name: "VTA Commerce", slug: "vta-commerce", status: "ACTIVE", settings: { create: {} }, logo: { create: { alt: "VTA Commerce" } }, subscription: { create: { plan: "FREE", status: "TRIALING" } } } });
-  }
 }
 
