@@ -1,5 +1,7 @@
-﻿import { Injectable, NotFoundException } from "@nestjs/common";
+﻿import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { comparePassword, hashPassword } from "../auth/password-hashing";
 import { PrismaService } from "../prisma/prisma.service";
+import { ChangePasswordDto } from "./dto/change-password.dto";
 
 @Injectable()
 export class ProfileService {
@@ -43,5 +45,14 @@ export class ProfileService {
   async updatePhoto(userId: string, photoUrl: string) {
     await this.prisma.userProfile.upsert({ where: { userId }, update: { photoUrl }, create: { userId, photoUrl } });
     return this.me(userId);
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, password: true } });
+    if (!user) throw new NotFoundException("Profil introuvable");
+    const currentPasswordValid = await comparePassword(dto.currentPassword, user.password);
+    if (!currentPasswordValid) throw new BadRequestException("Mot de passe actuel incorrect.");
+    await this.prisma.user.update({ where: { id: userId }, data: { password: await hashPassword(dto.newPassword) } });
+    return { success: true };
   }
 }
