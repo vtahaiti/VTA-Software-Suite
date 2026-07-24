@@ -12,7 +12,7 @@ const sections = [
     description: "Adapter les menus visibles au secteur de l'entreprise."
   },
   {
-    title: "POS",
+    title: "Impression",
     href: "/dashboard/settings/pos",
     description: "Paramètres caisse, ticket et impression."
   },

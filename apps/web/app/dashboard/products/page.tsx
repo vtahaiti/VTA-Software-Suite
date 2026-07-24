@@ -121,7 +121,7 @@ export default function ProductsPage() {
   }
 
   async function deleteProduct(product: Product) {
-    const confirmed = window.confirm("Supprimer ce produit ? Cette action ne doit pas supprimer les anciennes ventes.");
+    const confirmed = window.confirm(`Supprimer definitivement "${product.name}" ? Cette action est irreversible et ne doit pas supprimer les anciennes ventes.`);
     if (!confirmed) return;
     setMessage("");
     const response = await fetchWithAuth(`${apiUrl}/products/${product.id}`, { method: "DELETE" }).catch(() => null);
@@ -165,10 +165,7 @@ export default function ProductsPage() {
             <InfoBox label="Quantité"><QuantityDisplay product={product} /></InfoBox>
             <InfoBox label="Catégorie"><p className="truncate font-semibold">{product.category?.name ?? "--"}</p></InfoBox>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <Link className="block rounded-md bg-brand-600 px-3 py-3 text-center text-sm font-bold text-white" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link>
-            <button type="button" onClick={() => void deleteProduct(product)} className="rounded-md border border-red-200 px-3 py-3 text-sm font-bold text-red-600 dark:border-red-900">Supprimer</button>
-          </div>
+          <ProductRowActions product={product} onDelete={deleteProduct} variant="card" />
         </article>)}
       </div>
 
@@ -182,7 +179,7 @@ export default function ProductsPage() {
             <td className="p-3">{product.category?.name ?? "--"}</td>
             <td className="p-3 font-semibold">{formatMoney(product.salePrice)}</td>
             <td className="p-3"><QuantityDisplay product={product} /></td>
-            <td className="p-3"><div className="flex flex-wrap gap-3"><Link className="font-semibold text-brand-600" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link><button type="button" onClick={() => void deleteProduct(product)} className="font-semibold text-red-600">Supprimer</button></div></td>
+            <td className="p-3"><ProductRowActions product={product} onDelete={deleteProduct} variant="table" /></td>
           </tr>)}</tbody>
         </table>
         {!isLoading && !message && items.length === 0 ? <p className="p-5 text-sm text-slate-500">Aucun produit trouvé.</p> : null}
@@ -241,6 +238,24 @@ function ImagePicker({ selected, onChange }: { selected: boolean; onChange: (val
     <input type="file" accept="image/*" onChange={(event) => void loadImage(event.target.files?.[0], onChange)} className="sr-only" />
     {selected ? <span className="text-xs font-normal text-green-600">Image sélectionnée</span> : <span className="text-xs font-normal text-slate-400">Choisir une image</span>}
   </label>;
+}
+
+function ProductRowActions({ product, onDelete, variant }: { product: Product; onDelete: (product: Product) => void; variant: "card" | "table" }) {
+  const [open, setOpen] = useState(false);
+  if (variant === "card") {
+    return <div className="mt-4 space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        <Link className="block rounded-md bg-brand-600 px-3 py-3 text-center text-sm font-bold text-white" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link>
+        <button type="button" onClick={() => setOpen((value) => !value)} className="rounded-md border px-3 py-3 text-sm font-semibold text-slate-500 dark:border-slate-700">Plus d&apos;options</button>
+      </div>
+      {open ? <button type="button" onClick={() => onDelete(product)} className="w-full rounded-md border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 dark:border-red-900">Supprimer le produit</button> : null}
+    </div>;
+  }
+  return <div className="flex flex-wrap items-center gap-3">
+    <Link className="font-semibold text-brand-600" href={`/dashboard/products/${product.id}/edit`}>Modifier</Link>
+    <button type="button" onClick={() => setOpen((value) => !value)} className="font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">Plus d&apos;options</button>
+    {open ? <button type="button" onClick={() => onDelete(product)} className="font-semibold text-red-600">Supprimer</button> : null}
+  </div>;
 }
 
 function InfoBox({ label, children }: { label: string; children: React.ReactNode }) {
