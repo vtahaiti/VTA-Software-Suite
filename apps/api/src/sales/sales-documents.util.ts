@@ -32,8 +32,13 @@ export async function deductStockForItems(
     if (!isStockTrackedProduct(product)) continue;
     const stock = product.stocks[0];
     if (!stock) throw new ConflictException(`Aucun stock disponible pour ${product.name}`);
-    if (stock.quantity < quantity) throw new ConflictException(`Stock insuffisant pour ${product.name}: ${stock.quantity} disponible.`);
-    const updated = await tx.stock.update({ where: { id: stock.id }, data: { quantity: { decrement: quantity } } });
+    // Decrement atomique garde par quantity >= X dans le meme UPDATE (meme pattern que le
+    // decrement de vente POS) : l'ancien code lisait stock.quantity puis ecrivait separement,
+    // donc deux commandes concurrentes sur le meme produit pouvaient toutes les deux passer le
+    // controle et survendre le stock reserve.
+    const updateResult = await tx.stock.updateMany({ where: { id: stock.id, quantity: { gte: quantity } }, data: { quantity: { decrement: quantity } } });
+    if (updateResult.count === 0) throw new ConflictException(`Stock insuffisant pour ${product.name}: ${stock.quantity} disponible.`);
+    const refreshed = await tx.stock.findUniqueOrThrow({ where: { id: stock.id } });
     await tx.inventoryMovement.create({
       data: {
         tenantId,
@@ -42,8 +47,8 @@ export async function deductStockForItems(
         type: InventoryMovementType.ORDER_DELIVERY,
         userId,
         quantity,
-        beforeQty: stock.quantity,
-        afterQty: updated.quantity,
+        beforeQty: refreshed.quantity + quantity,
+        afterQty: refreshed.quantity,
         reference: documentId,
         reason: "Sortie commande",
         note: documentNumber
@@ -65,6 +70,9 @@ export async function restockForItems(
     const quantity = Number(item.quantity);
     const stock = await tx.stock.findFirst({ where: { tenantId, productId: item.productId } });
     if (!stock) continue;
+    // increment est deja atomique au niveau SQL (pas de lost update possible sur la quantite),
+    // mais on relit beforeQty/afterQty apres coup pour que le journal reste exact meme si un autre
+    // mouvement concurrent a modifie ce stock entre la lecture initiale et cette ecriture.
     const updated = await tx.stock.update({ where: { id: stock.id }, data: { quantity: { increment: quantity } } });
     await tx.inventoryMovement.create({
       data: {
@@ -74,7 +82,7 @@ export async function restockForItems(
         type: InventoryMovementType.ADJUSTMENT,
         userId,
         quantity,
-        beforeQty: stock.quantity,
+        beforeQty: updated.quantity - quantity,
         afterQty: updated.quantity,
         reference: documentId,
         reason: "Annulation commande",
