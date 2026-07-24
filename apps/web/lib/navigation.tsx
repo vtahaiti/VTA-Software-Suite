@@ -10,8 +10,10 @@ import {
   CircleUserRound,
   Clock3,
   CreditCard,
+  FileClock,
   History,
   Home,
+  Layers,
   LogOut,
   Mail,
   Package,
@@ -19,6 +21,7 @@ import {
   PlusCircle,
   Printer,
   Settings,
+  ShieldAlert,
   ShieldCheck,
   ShoppingBag,
   ShoppingCart,
@@ -26,6 +29,7 @@ import {
   Truck,
   UserCog,
   Users,
+  Warehouse,
   type LucideIcon
 } from "lucide-react";
 
@@ -51,10 +55,15 @@ export const navigationIcons = {
   NouvelleVente: PlusCircle,
   VentesAttente: Clock3,
   Historique: History,
+  Paiements: CreditCard,
   Catalogue: Package,
   Produits: PackageOpen,
   Categories: Tags,
+  Stock: Boxes,
   Inventaire: Boxes,
+  Entrepots: Warehouse,
+  Transferts: Truck,
+  Mouvements: FileClock,
   Clients: Users,
   Fournisseurs: Truck,
   Achats: ShoppingBag,
@@ -63,10 +72,13 @@ export const navigationIcons = {
   RolesPermissions: ShieldCheck,
   Parametres: Settings,
   Entreprise: Building2,
+  Modules: Layers,
   Emails: Mail,
   PosSettings: Printer,
   Facturation: CreditCard,
   Abonnement: CreditCard,
+  Securite: ShieldAlert,
+  Audit: FileClock,
   Profil: CircleUserRound,
   Notifications: Bell,
   Deconnexion: LogOut,
@@ -78,7 +90,12 @@ const routeOrder: NavigationSection[] = [
     title: "Principal",
     items: [
       { id: "home", label: "Accueil", href: "/dashboard", icon: navigationIcons.Accueil },
-      { id: "notifications", label: "Notifications", href: "/dashboard/notifications", icon: navigationIcons.Notifications },
+      { id: "notifications", label: "Notifications", href: "/dashboard/notifications", icon: navigationIcons.Notifications }
+    ]
+  },
+  {
+    title: "Ventes",
+    items: [
       {
         id: "sales",
         label: "Ventes",
@@ -87,14 +104,15 @@ const routeOrder: NavigationSection[] = [
         children: [
           { id: "new-sale", label: "Nouvelle vente", href: "/dashboard/pos", icon: navigationIcons.NouvelleVente },
           { id: "quotes-orders", label: "Devis & Commandes", href: "/dashboard/sales", icon: navigationIcons.Facturation },
-          { id: "pending-sales", label: "Ventes en attente", href: "/dashboard/sales/in-progress", icon: navigationIcons.VentesAttente },
-          { id: "sales-history", label: "Historique des ventes", href: "/dashboard/sales/completed", icon: navigationIcons.Historique }
+          { id: "pending-sales", label: "Ventes en attente / Commandes ouvertes", href: "/dashboard/sales/in-progress", icon: navigationIcons.VentesAttente },
+          { id: "sales-history", label: "Historique", href: "/dashboard/sales/completed", icon: navigationIcons.Historique },
+          { id: "payments", label: "Paiements", href: "/dashboard/payments", icon: navigationIcons.Paiements }
         ]
       }
     ]
   },
   {
-    title: "Commerce",
+    title: "Catalogue",
     items: [
       {
         id: "catalog",
@@ -105,9 +123,24 @@ const routeOrder: NavigationSection[] = [
           { id: "products", label: "Produits", href: "/dashboard/products", icon: navigationIcons.Produits },
           { id: "categories", label: "Catégories", href: "/dashboard/products/categories", icon: navigationIcons.Categories }
         ]
+      }
+    ]
+  },
+  {
+    title: "Stock",
+    items: [
+      {
+        id: "stock",
+        label: "Stock",
+        href: "/dashboard/inventory",
+        icon: navigationIcons.Stock,
+        children: [
+          { id: "inventory", label: "Inventaire", href: "/dashboard/inventory", icon: navigationIcons.Inventaire },
+          { id: "warehouses", label: "Entrepôts", href: "/dashboard/inventory/warehouses", icon: navigationIcons.Entrepots },
+          { id: "transfers", label: "Transferts", href: "/dashboard/inventory/transfers", icon: navigationIcons.Transferts },
+          { id: "movements", label: "Journal des mouvements", href: "/dashboard/inventory/movements", icon: navigationIcons.Mouvements }
+        ]
       },
-      { id: "inventory", label: "Inventaire", href: "/dashboard/inventory", icon: navigationIcons.Inventaire },
-      { id: "customers", label: "Clients", href: "/dashboard/customers", icon: navigationIcons.Clients },
       {
         id: "purchases",
         label: "Achats",
@@ -124,6 +157,7 @@ const routeOrder: NavigationSection[] = [
   {
     title: "Administration",
     items: [
+      { id: "customers", label: "Clients", href: "/dashboard/customers", icon: navigationIcons.Clients },
       { id: "users", label: "Rôles & Utilisateurs", href: "/dashboard/users", icon: navigationIcons.Utilisateurs },
       {
         id: "settings",
@@ -132,8 +166,11 @@ const routeOrder: NavigationSection[] = [
         icon: navigationIcons.Parametres,
         children: [
           { id: "company-settings", label: "Entreprise", href: "/dashboard/settings/company", icon: navigationIcons.Entreprise },
-          { id: "pos-settings", label: "POS", href: "/dashboard/settings/pos", icon: navigationIcons.PosSettings },
+          { id: "business-modules-settings", label: "Activité / modules", href: "/dashboard/settings/business-modules", icon: navigationIcons.Modules },
           { id: "invoicing-settings", label: "Facturation", href: "/dashboard/settings/invoicing", icon: navigationIcons.Facturation },
+          { id: "pos-settings", label: "Impression", href: "/dashboard/settings/pos", icon: navigationIcons.PosSettings },
+          { id: "security", label: "Sécurité", href: "/dashboard/security", icon: navigationIcons.Securite },
+          { id: "audit", label: "Journal d'audit", href: "/dashboard/audit", icon: navigationIcons.Audit },
           { id: "subscription-settings", label: "Abonnement", href: "/dashboard/settings/subscription", icon: navigationIcons.Abonnement },
           { id: "email-settings", label: "Emails", href: "/dashboard/settings/emails", icon: navigationIcons.Emails }
         ]
@@ -180,6 +217,13 @@ function isKnownOrSource(href: string, sourceHrefs: Set<string>, allowBySource: 
   if (href === "/dashboard/settings/pos" && sourceHrefs.has("/dashboard/settings/company")) return true;
   if (href === "/dashboard/settings/invoicing" && sourceHrefs.has("/dashboard/settings/company")) return true;
   if (href === "/dashboard/settings/subscription" && sourceHrefs.has("/dashboard/settings/company")) return true;
+  if (href === "/dashboard/settings/business-modules" && sourceHrefs.has("/dashboard/settings/company")) return true;
+  if (href === "/dashboard/security" && sourceHrefs.has("/dashboard/settings/company")) return true;
+  if (href === "/dashboard/audit" && sourceHrefs.has("/dashboard/settings/company")) return true;
+  if (href === "/dashboard/inventory/warehouses" && sourceHrefs.has("/dashboard/inventory")) return true;
+  if (href === "/dashboard/inventory/transfers" && sourceHrefs.has("/dashboard/inventory")) return true;
+  if (href === "/dashboard/inventory/movements" && sourceHrefs.has("/dashboard/inventory")) return true;
+  if (href === "/dashboard/payments" && sourceHrefs.has("/dashboard/pos")) return true;
   return false;
 }
 

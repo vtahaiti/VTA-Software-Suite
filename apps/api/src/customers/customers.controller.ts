@@ -7,6 +7,7 @@ import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
 import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { CreateCustomerDto } from "./dto/create-customer.dto";
 import { CustomerQueryDto } from "./dto/customer-query.dto";
+import { CustomerStatementQueryDto } from "./dto/customer-statement-query.dto";
 import { UpdateCustomerDto } from "./dto/update-customer.dto";
 import { CustomersService } from "./customers.service";
 
@@ -41,6 +42,12 @@ export class CustomersController {
   @Permissions("customer.read")
   findOne(@Req() request: AuthenticatedRequest, @Param("id") id: string) {
     return this.customersService.findOne(request.user.tenantId, id);
+  }
+
+  @Get(":id/statement")
+  @Permissions("customer.read")
+  statement(@Req() request: AuthenticatedRequest, @Param("id") id: string, @Query() query: CustomerStatementQueryDto) {
+    return this.customersService.statement(request.user.tenantId, id, query);
   }
 
   @Post()

@@ -21,7 +21,11 @@ const routePermissions: Array<{ prefix: string; permissions: string[]; roles?: s
   { prefix: "/dashboard/purchases", permissions: ["purchases.view"] },
   { prefix: "/dashboard/reports", permissions: ["reports.view", "reports.read"] },
   { prefix: "/dashboard/settings", permissions: ["settings.view", "settings.read"] },
-  { prefix: "/dashboard/users", permissions: ["users.view", "roles.view"], roles: ["OWNER", "Owner", "ADMIN", "Admin", "Administrator"] }
+  { prefix: "/dashboard/users", permissions: ["users.view", "roles.view"], roles: ["OWNER", "Owner", "ADMIN", "Admin", "Administrator"] },
+  { prefix: "/dashboard/payments", permissions: ["payment.read", "payment.create"] },
+  { prefix: "/dashboard/security", permissions: ["security.read", "settings.security.manage"] },
+  { prefix: "/dashboard/audit", permissions: ["audit.read", "audit.export", "settings.audit.view"] },
+  { prefix: "/dashboard/backups", permissions: ["backup.read", "backup.create"] }
 ];
 
 export function isTenantAdmin(user: AuthUser | null) {

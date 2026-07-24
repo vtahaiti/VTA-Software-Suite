@@ -1,9 +1,11 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { CustomerStatus, Prisma } from "@prisma/client";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
+import { businessDayRangeForDateKey } from "../common/business-timezone";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateCustomerDto } from "./dto/create-customer.dto";
 import { CustomerQueryDto } from "./dto/customer-query.dto";
+import { CustomerStatementQueryDto } from "./dto/customer-statement-query.dto";
 import { UpdateCustomerDto } from "./dto/update-customer.dto";
 
 @Injectable()
@@ -72,6 +74,87 @@ export class CustomersService {
         returns: customer.salesReturns.length
       }
     });
+  }
+
+  /**
+   * Releve client V1 : lecture seule, montants derives des ventes/commandes reelles
+   * (pas de nouvelle table de grand livre). Volontairement simple : pas de reprise de
+   * solde d'ouverture ni de rapprochement comptable avance.
+   */
+  async statement(tenantId: string, id: string, query: CustomerStatementQueryDto) {
+    const customer = await this.prisma.customer.findFirst({ where: { id, tenantId } });
+    if (!customer) throw new NotFoundException("Client introuvable");
+
+    const createdAt = this.dateRange(query);
+    const dateFilter = createdAt ? { createdAt } : {};
+
+    const [sales, proformas, quotes] = await this.prisma.$transaction([
+      this.prisma.sale.findMany({
+        where: { tenantId, customerId: id, ...dateFilter },
+        include: { items: true, payments: true, receipt: true },
+        orderBy: { createdAt: "desc" }
+      }),
+      this.prisma.proforma.findMany({
+        where: { tenantId, customerId: id, ...dateFilter },
+        orderBy: { createdAt: "desc" }
+      }),
+      this.prisma.quote.findMany({
+        where: { tenantId, customerId: id, ...dateFilter },
+        orderBy: { createdAt: "desc" }
+      })
+    ]);
+
+    const userIds = [...new Set(sales.map((sale) => sale.createdById).filter((value): value is string => Boolean(value)))];
+    const users = userIds.length ? await this.prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } }) : [];
+    const userNames = new Map(users.map((user) => [user.id, user.name]));
+
+    const movements = sales
+      .map((sale) => {
+        const paid = sale.payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+        return {
+          type: "VENTE" as const,
+          id: sale.id,
+          number: sale.receipt?.number ?? sale.id.slice(-8).toUpperCase(),
+          date: sale.createdAt,
+          status: sale.status,
+          itemsCount: sale.items.length,
+          total: Number(sale.total),
+          paid,
+          balance: Number(sale.total) - paid,
+          cashier: sale.createdById ? userNames.get(sale.createdById) ?? null : null
+        };
+      })
+      .sort((a, b) => b.date.getTime() - a.date.getTime());
+
+    const totalSales = movements.reduce((sum, movement) => sum + movement.total, 0);
+    const totalPaid = movements.reduce((sum, movement) => sum + movement.paid, 0);
+
+    return {
+      customer: this.withCompatibilityAliases(customer),
+      summary: {
+        totalSales,
+        totalPaid,
+        balance: totalSales - totalPaid,
+        salesCount: sales.length
+      },
+      movements,
+      orders: proformas.map((proforma) => ({
+        id: proforma.id,
+        number: proforma.documentNumber,
+        status: proforma.status,
+        total: Number(proforma.total),
+        paid: Number(proforma.paidAmount),
+        balance: Number(proforma.balance),
+        createdAt: proforma.createdAt
+      })),
+      quotes: quotes.map((quote) => ({
+        id: quote.id,
+        number: quote.documentNumber,
+        status: quote.status,
+        total: Number(quote.total),
+        createdAt: quote.createdAt
+      }))
+    };
   }
 
   async create(tenantId: string, dto: CreateCustomerDto) {
@@ -169,5 +252,12 @@ export class CustomersService {
 
   private generateCode() {
     return `CUST-${Date.now().toString(36).toUpperCase()}`;
+  }
+
+  private dateRange(query: CustomerStatementQueryDto): { gte?: Date; lt?: Date } | undefined {
+    const range: { gte?: Date; lt?: Date } = {};
+    if (query.dateFrom) range.gte = businessDayRangeForDateKey(query.dateFrom).start;
+    if (query.dateTo) range.lt = businessDayRangeForDateKey(query.dateTo).end;
+    return Object.keys(range).length ? range : undefined;
   }
 }
