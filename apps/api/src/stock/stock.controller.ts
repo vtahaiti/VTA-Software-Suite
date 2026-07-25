@@ -2,6 +2,7 @@ import { Body, Controller, Get, Post, Query, Req, UseGuards } from "@nestjs/comm
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
+import { ProductionDto } from "./dto/production.dto";
 import { StockAdjustDto, StockOperationDto } from "./dto/stock-operation.dto";
 import { StockQueryDto } from "./dto/stock-query.dto";
 import { StockService } from "./stock.service";
@@ -13,4 +14,5 @@ export class StockController { constructor(private readonly stockService:StockSe
   @Post("in") @Permissions("inventory.adjust") stockIn(@Req() req:AuthenticatedRequest,@Body() dto:StockOperationDto){return this.stockService.stockIn(req.user.tenantId,{...dto,userId:req.user.id})}
   @Post("out") @Permissions("inventory.adjust") stockOut(@Req() req:AuthenticatedRequest,@Body() dto:StockOperationDto){return this.stockService.stockOut(req.user.tenantId,{...dto,userId:req.user.id})}
   @Post("adjust") @Permissions("inventory.adjust") adjust(@Req() req:AuthenticatedRequest,@Body() dto:StockAdjustDto){return this.stockService.adjustTo(req.user.tenantId,dto.productId,dto.warehouseId,dto.quantity,dto.reference,dto.note,req.user.id,dto.storeId)}
+  @Post("produce") @Permissions("inventory.adjust") produce(@Req() req:AuthenticatedRequest,@Body() dto:ProductionDto){return this.stockService.produce(req.user.tenantId,dto,req.user.id,undefined)}
 }

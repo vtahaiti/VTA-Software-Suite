@@ -12,6 +12,7 @@ import {
   Stethoscope,
   Clock3,
   CreditCard,
+  Factory,
   FileClock,
   History,
   Home,
@@ -70,6 +71,7 @@ export const navigationIcons = {
   Mouvements: FileClock,
   Expirations: PillBottle,
   Patients: Stethoscope,
+  Production: Factory,
   Clients: Users,
   Fournisseurs: Truck,
   Achats: ShoppingBag,
@@ -146,7 +148,8 @@ const routeOrder: NavigationSection[] = [
           { id: "warehouses", label: "Entrepôts", href: "/dashboard/inventory/warehouses", icon: navigationIcons.Entrepots },
           { id: "transfers", label: "Transferts", href: "/dashboard/inventory/transfers", icon: navigationIcons.Transferts },
           { id: "movements", label: "Journal des mouvements", href: "/dashboard/inventory/movements", icon: navigationIcons.Mouvements },
-          { id: "pharmacy-expirations", label: "Lots et expirations", href: "/dashboard/pharmacy/expirations", icon: navigationIcons.Expirations }
+          { id: "pharmacy-expirations", label: "Lots et expirations", href: "/dashboard/pharmacy/expirations", icon: navigationIcons.Expirations },
+          { id: "manufacturing-production", label: "Production", href: "/dashboard/manufacturing/production", icon: navigationIcons.Production }
         ]
       },
       {

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InventoryMovementType, Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { ProductionDto } from "./dto/production.dto";
 import { STOCK_OUT_REASONS, StockOperationDto } from "./dto/stock-operation.dto";
 import { StockQueryDto } from "./dto/stock-query.dto";
 
@@ -140,6 +141,45 @@ export class StockService {
         }
       });
       return updated;
+    });
+  }
+
+  async produce(tenantId: string, dto: ProductionDto, userId?: string, storeId?: string) {
+    const warehouse = await this.prisma.warehouse.findFirst({ where: { id: dto.warehouseId, tenantId } });
+    if (!warehouse) throw new NotFoundException("Entrepôt introuvable");
+
+    const productIds = [...new Set([...dto.inputs, ...dto.outputs].map((item) => item.productId))];
+    const products = await this.prisma.product.findMany({ where: { id: { in: productIds }, tenantId } });
+    if (products.length !== productIds.length) throw new NotFoundException("Produit introuvable");
+
+    const stocksByProduct = new Map<string, { id: string }>();
+    for (const productId of productIds) {
+      stocksByProduct.set(productId, await this.getOrCreateStock(tenantId, productId, dto.warehouseId));
+    }
+
+    // Meme garde de concurrence que applyMovement : la sortie des matieres premieres est faite avec un
+    // updateMany protege par quantity >= consommation, dans la meme transaction Postgres que l'entree
+    // des produits finis, pour qu'une production ne puisse jamais laisser un stock negatif ni ne
+    // s'appliquer qu'a moitie (matiere consommee sans produit fini credite, ou l'inverse).
+    return this.prisma.$transaction(async (tx) => {
+      const movements: Prisma.InventoryMovementCreateManyInput[] = [];
+      for (const input of dto.inputs) {
+        const stockId = stocksByProduct.get(input.productId)!.id;
+        const updateResult = await tx.stock.updateMany({ where: { id: stockId, quantity: { gte: input.quantity } }, data: { quantity: { decrement: input.quantity } } });
+        if (updateResult.count === 0) {
+          const product = products.find((p) => p.id === input.productId);
+          throw new BadRequestException(`Stock insuffisant pour ${product?.name ?? input.productId}`);
+        }
+        const updated = await tx.stock.findUniqueOrThrow({ where: { id: stockId } });
+        movements.push({ tenantId, productId: input.productId, warehouseId: dto.warehouseId, type: InventoryMovementType.ADJUSTMENT, quantity: input.quantity, beforeQty: updated.quantity + input.quantity, afterQty: updated.quantity, reference: dto.reference, note: dto.note, reason: "Production - matiere premiere", userId, storeId });
+      }
+      for (const output of dto.outputs) {
+        const stockId = stocksByProduct.get(output.productId)!.id;
+        const updated = await tx.stock.update({ where: { id: stockId }, data: { quantity: { increment: output.quantity } } });
+        movements.push({ tenantId, productId: output.productId, warehouseId: dto.warehouseId, type: InventoryMovementType.ADJUSTMENT, quantity: output.quantity, beforeQty: updated.quantity - output.quantity, afterQty: updated.quantity, reference: dto.reference, note: dto.note, reason: "Production - produit fini", userId, storeId });
+      }
+      await tx.inventoryMovement.createMany({ data: movements });
+      return { success: true, movementCount: movements.length };
     });
   }
 
