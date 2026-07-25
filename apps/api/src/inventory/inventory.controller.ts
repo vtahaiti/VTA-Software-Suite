@@ -29,6 +29,10 @@ export class InventoryController {
   @Permissions("inventory.low_stock.view")
   alerts(@Req() req: AuthenticatedRequest) { return this.service.alerts(req.user.tenantId); }
 
+  @Get("expirations")
+  @Permissions("inventory.view")
+  expirations(@Req() req: AuthenticatedRequest) { return this.service.expirations(req.user.tenantId); }
+
   @Post("adjustments/manual")
   @Permissions("inventory.adjust")
   adjustment(@Req() req: AuthenticatedRequest, @Body() dto: Parameters<InventoryService["createAdjustment"]>[1]) { return this.service.createAdjustment(req.user.tenantId, dto); }

@@ -16,6 +16,7 @@ const routePermissions: Array<{ prefix: string; permissions: string[]; roles?: s
   { prefix: "/dashboard/sales", permissions: ["quote.read", "proforma.read", "invoice.read", "return.read"], exact: true },
   { prefix: "/dashboard/products", permissions: ["products.view"] },
   { prefix: "/dashboard/inventory", permissions: ["inventory.view"] },
+  { prefix: "/dashboard/pharmacy", permissions: ["inventory.view"] },
   { prefix: "/dashboard/customers", permissions: ["customer.read", "customers.view"] },
   { prefix: "/dashboard/suppliers", permissions: ["suppliers.view"] },
   { prefix: "/dashboard/purchases", permissions: ["purchases.view"] },

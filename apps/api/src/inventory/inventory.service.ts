@@ -32,6 +32,35 @@ export class InventoryService {
     return { totalStockValue, stockValueUnknownCosts, productsCount, stockLines: stocks.length, outOfStock, belowMinimum, expiringSoon, expired, alerts, movements, chart: stocks.slice(0, 10).map((stock) => ({ name: stock.product.name, quantity: availableStock(stock), minimum: stock.minimumStock })) };
   }
 
+  /** Lecture seule : vue pharmacie sur les lots/expirations, basee sur Product.expirationDate deja
+   * existant. Aucune ecriture, aucun nouveau modele - regroupe simplement ce qui est deja suivi par
+   * urgence (expire, bientot expire, ok) pour donner une vraie page dediee plutot qu'un renvoi vers
+   * l'inventaire generique. */
+  async expirations(tenantId: string) {
+    const now = new Date();
+    const soonThreshold = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const products = await this.prisma.product.findMany({
+      where: { tenantId, isActive: true, expirationDate: { not: null } },
+      include: { stocks: { include: { warehouse: true } }, category: true },
+      orderBy: { expirationDate: "asc" }
+    });
+    const rows = products
+      .map((product) => ({
+        id: product.id,
+        name: product.name,
+        sku: product.sku,
+        category: product.category?.name ?? null,
+        expirationDate: product.expirationDate,
+        availableStock: product.stocks.reduce((sum, stock) => sum + availableStock(stock), 0),
+        warehouses: product.stocks.filter((stock) => availableStock(stock) > 0).map((stock) => ({ warehouse: stock.warehouse.name, quantity: availableStock(stock) }))
+      }))
+      .filter((row) => row.availableStock > 0);
+    const expired = rows.filter((row) => row.expirationDate! < now);
+    const expiringSoon = rows.filter((row) => row.expirationDate! >= now && row.expirationDate! <= soonThreshold);
+    const ok = rows.filter((row) => row.expirationDate! > soonThreshold);
+    return { expired, expiringSoon, ok, summary: { expiredCount: expired.length, expiringSoonCount: expiringSoon.length, okCount: ok.length, totalTracked: rows.length } };
+  }
+
   async movements(tenantId: string, query: InventoryQuery = {}) {
     const page = Number(query.page ?? 1); const limit = Math.min(Number(query.limit ?? 50), 200);
     const where: Prisma.InventoryMovementWhereInput = { tenantId, warehouseId: query.warehouseId, storeId: query.storeId, createdAt: this.dateFilter(query.dateFrom, query.dateTo), product: query.q ? { OR: [{ name: { contains: query.q, mode: "insensitive" } }, { sku: { contains: query.q, mode: "insensitive" } }, { barcodes: { some: { value: { contains: query.q } } } }] } : undefined };

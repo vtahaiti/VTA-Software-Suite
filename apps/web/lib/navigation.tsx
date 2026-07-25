@@ -8,6 +8,7 @@ import {
   Building2,
   ChevronDown,
   CircleUserRound,
+  PillBottle,
   Clock3,
   CreditCard,
   FileClock,
@@ -66,6 +67,7 @@ export const navigationIcons = {
   Entrepots: Warehouse,
   Transferts: Truck,
   Mouvements: FileClock,
+  Expirations: PillBottle,
   Clients: Users,
   Fournisseurs: Truck,
   Achats: ShoppingBag,
@@ -141,7 +143,8 @@ const routeOrder: NavigationSection[] = [
           { id: "inventory", label: "Inventaire", href: "/dashboard/inventory", icon: navigationIcons.Inventaire },
           { id: "warehouses", label: "Entrepôts", href: "/dashboard/inventory/warehouses", icon: navigationIcons.Entrepots },
           { id: "transfers", label: "Transferts", href: "/dashboard/inventory/transfers", icon: navigationIcons.Transferts },
-          { id: "movements", label: "Journal des mouvements", href: "/dashboard/inventory/movements", icon: navigationIcons.Mouvements }
+          { id: "movements", label: "Journal des mouvements", href: "/dashboard/inventory/movements", icon: navigationIcons.Mouvements },
+          { id: "pharmacy-expirations", label: "Lots et expirations", href: "/dashboard/pharmacy/expirations", icon: navigationIcons.Expirations }
         ]
       },
       {
