@@ -9,6 +9,7 @@ import {
   ChevronDown,
   CircleUserRound,
   PillBottle,
+  Stethoscope,
   Clock3,
   CreditCard,
   FileClock,
@@ -68,6 +69,7 @@ export const navigationIcons = {
   Transferts: Truck,
   Mouvements: FileClock,
   Expirations: PillBottle,
+  Patients: Stethoscope,
   Clients: Users,
   Fournisseurs: Truck,
   Achats: ShoppingBag,
@@ -164,6 +166,7 @@ const routeOrder: NavigationSection[] = [
     title: "Administration",
     items: [
       { id: "customers", label: "Clients", href: "/dashboard/customers", icon: navigationIcons.Clients },
+      { id: "clinic-patients", label: "Patients", href: "/dashboard/clinic/patients", icon: navigationIcons.Patients },
       { id: "users", label: "Rôles & Utilisateurs", href: "/dashboard/users", icon: navigationIcons.Utilisateurs },
       {
         id: "settings",
