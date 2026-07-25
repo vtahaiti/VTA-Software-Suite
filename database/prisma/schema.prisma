@@ -360,6 +360,7 @@ model Tenant {
   subscription TenantSubscription?
   subscriptionEvents SubscriptionEvent[]
   subscriptionPayments SubscriptionPayment[]
+  assetReservations AssetReservation[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -736,6 +737,7 @@ model Product {
   stockReservations StockReservation[]
   stockAlerts StockAlert[]
   adjustmentItems InventoryAdjustmentItem[]
+  assetReservations AssetReservation[]
   transferItems  TransferItem[]
   saleItems      SaleItem[]
   quoteItems     QuoteItem[]
@@ -918,6 +920,47 @@ model InventoryMovement {
   @@index([type])
   @@index([userId])
   @@index([storeId])
+}
+
+enum AssetReservationType {
+  VEHICLE
+  ROOM
+}
+
+enum AssetReservationStatus {
+  ACTIVE
+  RETURNED
+  CANCELLED
+}
+
+// Reservation generique pour un actif "unitaire non-stockable" (vehicule de location, chambre d'hotel) :
+// un Product represente l'actif (SKU = plaque / numero de chambre), et cette table suit qui l'occupe et
+// jusqu'a quand. Un index unique partiel (voir migration SQL) garantit qu'un meme actif ne peut jamais
+// avoir 2 reservations ACTIVE en meme temps, meme sous concurrence.
+model AssetReservation {
+  id              String                  @id @default(cuid())
+  tenantId        String
+  tenant          Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product                 @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customerId      String
+  customer        Customer                @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assetType       AssetReservationType
+  status          AssetReservationStatus  @default(ACTIVE)
+  startDate       DateTime                @default(now())
+  expectedEndDate DateTime
+  actualEndDate   DateTime?
+  rate            Decimal                 @default(0) @db.Decimal(12, 2)
+  deposit         Decimal                 @default(0) @db.Decimal(12, 2)
+  note            String?
+  userId          String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  @@index([tenantId])
+  @@index([productId])
+  @@index([customerId])
+  @@index([tenantId, assetType, status])
 }
 
 model PhysicalInventory {
@@ -1268,6 +1311,7 @@ model Customer {
   invoices       Invoice[]
   salesReturns   SalesReturn[]
   heldSales      HeldSale[]
+  assetReservations AssetReservation[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 

@@ -6,6 +6,8 @@ import {
   Bell,
   Boxes,
   Building2,
+  Bed,
+  Car,
   ChevronDown,
   CircleUserRound,
   PillBottle,
@@ -72,6 +74,8 @@ export const navigationIcons = {
   Expirations: PillBottle,
   Patients: Stethoscope,
   Production: Factory,
+  Rooms: Bed,
+  Vehicles: Car,
   Clients: Users,
   Fournisseurs: Truck,
   Achats: ShoppingBag,
@@ -170,6 +174,8 @@ const routeOrder: NavigationSection[] = [
     items: [
       { id: "customers", label: "Clients", href: "/dashboard/customers", icon: navigationIcons.Clients },
       { id: "clinic-patients", label: "Patients", href: "/dashboard/clinic/patients", icon: navigationIcons.Patients },
+      { id: "hotel-rooms", label: "Réservations & Chambres", href: "/dashboard/hotel/rooms", icon: navigationIcons.Rooms },
+      { id: "rental-vehicles", label: "Location de véhicules", href: "/dashboard/rental/vehicles", icon: navigationIcons.Vehicles },
       { id: "users", label: "Rôles & Utilisateurs", href: "/dashboard/users", icon: navigationIcons.Utilisateurs },
       {
         id: "settings",

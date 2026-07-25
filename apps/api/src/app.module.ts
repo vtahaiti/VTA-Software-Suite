@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { AdjustmentModule } from "./adjustments/adjustment.module";
+import { AssetReservationsModule } from "./asset-reservations/asset-reservations.module";
 import { AuditLogsModule } from "./audit-logs/audit-logs.module";
 import { AuditModule } from "./audit/audit.module";
 import { AuthModule } from "./auth/auth.module";
@@ -81,6 +82,7 @@ import { WarehouseModule } from "./warehouses/warehouse.module";
     CashRegisterModule,
     PosModule,
     CustomersModule,
+    AssetReservationsModule,
     DashboardModule,
     EmailModule,
     ReportsModule,
