@@ -9,8 +9,9 @@ const nav = [
   { href: "/admin/dashboard", label: "Dashboard" },
   { href: "/admin/companies", label: "Entreprises" },
   { href: "/admin/subscriptions", label: "Abonnements" },
+  { href: "/admin/modules", label: "Modules métier" },
   { href: "/admin/notifications", label: "Notifications" },
-  { href: "/admin/system", label: "Systeme" }
+  { href: "/admin/system", label: "Sécurité & Logs" }
 ];
 
 export function AdminShell({ children }: { children: ReactNode }) {
