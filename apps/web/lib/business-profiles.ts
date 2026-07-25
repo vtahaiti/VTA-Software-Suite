@@ -23,6 +23,7 @@ export type TenantBusinessConfiguration = {
   secondaryActivities?: string[];
   businessProfileType?: string;
   enabledBusinessModules?: string[];
+  excludedModules?: string[];
   offline?: { prepared: boolean; message: string };
 };
 

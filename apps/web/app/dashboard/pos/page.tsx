@@ -27,7 +27,7 @@ type PaymentLine = { method: string; amount: string; reference: string };
 type PaymentSummary = { paidAmount: number; changeDue: number; method: string };
 type CustomerForm = { name: string; phone: string; address: string; email: string; notes: string };
 type CustomItemForm = { name: string; price: string; quantity: string; discount: string; note: string; type: CustomItemType };
-type PosDraft = { heldSaleId?: string; heldSaleFinalizeKey?: string; cart: Cart; customerId: string; payments: PaymentLine[]; orderDiscount: string; taxRate: string; storeId: string; warehouseId: string; cashSessionId: string; updatedAt: string };
+type PosDraft = { heldSaleId?: string; heldSaleFinalizeKey?: string; cart: Cart; customerId: string; payments: PaymentLine[]; orderDiscount: string; taxRate: string; storeId: string; warehouseId: string; cashSessionId: string; updatedAt: string; note?: string };
 
 const emptyCart: Cart = { items: [], subtotal: 0, itemDiscount: 0, discount: 0, tax: 0, total: 0, taxRate: 0, canCheckout: false };
 const emptyCustomerForm: CustomerForm = { name: "", phone: "", address: "", email: "", notes: "" };
@@ -57,6 +57,9 @@ export default function PosPage() {
   const [payments, setPayments] = useState<PaymentLine[]>([{ method: "CASH", amount: "", reference: "" }]);
   const [orderDiscount, setOrderDiscount] = useState("0");
   const [taxRate, setTaxRate] = useState("0");
+  const [orderContextType, setOrderContextType] = useState<"" | "table" | "counter" | "takeaway">("");
+  const [tableNumber, setTableNumber] = useState("");
+  const [heldSaleNote, setHeldSaleNote] = useState("");
   const [showExpertOptions, setShowExpertOptions] = useState(false);
   const [showMoreActions, setShowMoreActions] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -205,6 +208,7 @@ export default function PosPage() {
     setStoreId((current) => current || draft.storeId);
     setWarehouseId((current) => current || draft.warehouseId);
     setCashSessionId((current) => current || draft.cashSessionId);
+    setHeldSaleNote(draft.note ?? "");
     setMessage("Vente en cours restaurée.");
     }
     void restoreDraft();
@@ -357,7 +361,8 @@ export default function PosPage() {
       taxRate: parseMoney(taxRate),
       discount: parseMoney(orderDiscount),
       items: cart.items.map(cartLineToPayload),
-      payments: paymentPayload
+      payments: paymentPayload,
+      note: orderContextLabel || heldSaleNote || undefined
     };
     if (!isOnline) {
       await saveLocalSale(payload, paidAmount);
@@ -400,6 +405,9 @@ export default function PosPage() {
     setPayments([{ method: "CASH", amount: "", reference: "" }]);
     setOrderDiscount("0");
     setCustomerId("");
+    setOrderContextType("");
+    setTableNumber("");
+    setHeldSaleNote("");
     await Promise.all([loadProducts(), loadRefs()]);
   }
 
@@ -412,7 +420,7 @@ export default function PosPage() {
       setError("Panier vide");
       return;
     }
-    const draft: PosDraft = { heldSaleId, heldSaleFinalizeKey, cart, customerId, payments, orderDiscount, taxRate, storeId, warehouseId, cashSessionId, updatedAt: new Date().toISOString() };
+    const draft: PosDraft = { heldSaleId, heldSaleFinalizeKey, cart, customerId, payments, orderDiscount, taxRate, storeId, warehouseId, cashSessionId, updatedAt: new Date().toISOString(), note: orderContextLabel || heldSaleNote || undefined };
     savePosDraft(draft);
     if (!isOnline) {
       setMessage("Vente mise en attente sur cet appareil. Elle sera disponible ici à la reprise.");
@@ -432,7 +440,8 @@ export default function PosPage() {
         storeId: storeId || undefined,
         warehouseId: warehouseId || undefined,
         cashSessionId: cashSessionId || undefined,
-        total: cart.total
+        total: cart.total,
+        note: orderContextLabel || heldSaleNote || undefined
       })
     }).catch(() => null);
     setIsHoldingSale(false);
@@ -625,6 +634,8 @@ export default function PosPage() {
   const changeDue = useMemo(() => roundMoney(Math.max(0, paidAmount - cart.total)), [cart.total, paidAmount]);
   const balanceDue = useMemo(() => roundMoney(Math.max(0, cart.total - paidAmount)), [cart.total, paidAmount]);
   const posTemplate = getPosTemplate(business?.businessProfileType, business?.primaryActivity);
+  const isRestaurantContextProfile = business?.businessProfileType === "restaurant" || business?.businessProfileType === "hotel-restaurant";
+  const orderContextLabel = orderContextType === "table" ? (tableNumber.trim() ? `Table ${tableNumber.trim()}` : "Table") : orderContextType === "counter" ? "Comptoir" : orderContextType === "takeaway" ? "Emporter" : "";
   const categories = useMemo(() => Array.from(new Set(products.map((product) => product.category).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)), [products]);
   const visibleProducts = useMemo(() => categoryFilter ? products.filter((product) => product.category === categoryFilter) : products, [categoryFilter, products]);
   const hasMoreProducts = products.length < productTotal;
@@ -739,6 +750,12 @@ export default function PosPage() {
             cashierName={cashierName}
             receiptFormat={receiptFormat}
             printSale={(sale) => void printSaleReceipt(sale)}
+            isRestaurantContextProfile={isRestaurantContextProfile}
+            orderContextType={orderContextType}
+            setOrderContextType={setOrderContextType}
+            tableNumber={tableNumber}
+            setTableNumber={setTableNumber}
+            heldSaleNote={heldSaleNote}
             orderDiscount={orderDiscount}
             setOrderDiscount={setOrderDiscount}
             syncCart={() => void syncCart("calculate")}
@@ -800,6 +817,12 @@ export default function PosPage() {
               cashierName={cashierName}
               receiptFormat={receiptFormat}
               printSale={(sale) => void printSaleReceipt(sale)}
+              isRestaurantContextProfile={isRestaurantContextProfile}
+              orderContextType={orderContextType}
+              setOrderContextType={setOrderContextType}
+              tableNumber={tableNumber}
+              setTableNumber={setTableNumber}
+              heldSaleNote={heldSaleNote}
               orderDiscount={orderDiscount}
               setOrderDiscount={setOrderDiscount}
               syncCart={() => void syncCart("calculate")}
@@ -1073,6 +1096,12 @@ type CartPanelProps = {
   removeProduct: (productId: string) => void;
   receiptFormat: "58" | "72" | "80";
   printSale: (sale: SaleResponse) => void;
+  isRestaurantContextProfile: boolean;
+  orderContextType: "" | "table" | "counter" | "takeaway";
+  setOrderContextType: (value: "" | "table" | "counter" | "takeaway") => void;
+  tableNumber: string;
+  setTableNumber: (value: string) => void;
+  heldSaleNote: string;
 };
 
 function CartPanel(props: CartPanelProps) {
@@ -1086,6 +1115,32 @@ function CartPanel(props: CartPanelProps) {
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{props.selectedCustomerLabel}</span>
         </div>
+        {props.isRestaurantContextProfile ? (
+          <div className="mt-3">
+            <p className="text-xs font-semibold text-slate-500">Table / Comptoir / Emporter</p>
+            {!props.orderContextType && props.heldSaleNote ? <p className="mt-1 text-xs text-slate-500">Actuellement : {props.heldSaleNote}</p> : null}
+            <div className="mt-1 flex flex-wrap gap-2">
+              {(["table", "counter", "takeaway"] as const).map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => props.setOrderContextType(props.orderContextType === type ? "" : type)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${props.orderContextType === type ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-300 text-slate-600"}`}
+                >
+                  {type === "table" ? "Table" : type === "counter" ? "Comptoir" : "Emporter"}
+                </button>
+              ))}
+              {props.orderContextType === "table" ? (
+                <input
+                  value={props.tableNumber}
+                  onChange={(event) => props.setTableNumber(event.target.value)}
+                  placeholder="N° table"
+                  className="w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+                />
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="flex-1 space-y-3 overflow-auto p-4">

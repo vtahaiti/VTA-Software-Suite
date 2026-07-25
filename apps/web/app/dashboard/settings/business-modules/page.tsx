@@ -28,6 +28,8 @@ export default function BusinessModulesPage() {
 
   const selectedCategory = categories.find((category) => category.key === businessCategory) ?? categories[0];
   const activeModuleKeys = useMemo(() => new Set(configuration?.modules.map((module) => module.key) ?? []), [configuration]);
+  const excludedModuleKeys = useMemo(() => new Set(configuration?.excludedModules ?? []), [configuration]);
+  const visibleCatalogModules = useMemo(() => catalogModules.filter((module) => !excludedModuleKeys.has(module.key)), [catalogModules, excludedModuleKeys]);
 
   function changeCategory(value: string) {
     const category = categories.find((item) => item.key === value) ?? categories[0];
@@ -113,7 +115,7 @@ export default function BusinessModulesPage() {
         <h2 className="text-lg font-bold text-slate-950 dark:text-white">Modules visibles</h2>
         <p className="text-sm text-slate-500">Ces modules suivent la matrice métier actuelle. Les données existantes restent conservées même si un module n&apos;est plus affiché par défaut.</p>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {catalogModules.map((module) => (
+          {visibleCatalogModules.map((module) => (
             <label key={module.key} className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
               <input type="checkbox" checked={activeModuleKeys.has(module.key)} onChange={(event) => toggleModule(module.key, event.target.checked)} className="mt-1 h-4 w-4 rounded border-slate-300" />
               <span>

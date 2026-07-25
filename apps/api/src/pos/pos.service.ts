@@ -269,7 +269,12 @@ export class PosService {
       orderBy: { updatedAt: "desc" },
       take: 50
     });
-    return { items: items.map((item) => this.heldSaleForApi(item, userId, sessionId)) };
+    // HeldSale.userId n'a pas de relation Prisma declaree (pas de FK typee), donc pas d'include possible :
+    // on resout les noms via une deuxieme requete groupee plutot qu'une migration de schema.
+    const creatorIds = [...new Set(items.map((item) => item.userId).filter((id): id is string => Boolean(id)))];
+    const creators = creatorIds.length ? await this.prisma.user.findMany({ where: { id: { in: creatorIds }, tenantId }, select: { id: true, name: true } }) : [];
+    const creatorNames = new Map(creators.map((creator) => [creator.id, creator.name]));
+    return { items: items.map((item) => this.heldSaleForApi(item, userId, sessionId, creatorNames)) };
   }
 
   async saveHeldSale(tenantId: string, userId: string | undefined, sessionId: string | undefined, dto: {
@@ -504,7 +509,7 @@ export class PosService {
   }
 
 
-  private heldSaleForApi(item: Prisma.HeldSaleGetPayload<Record<string, never>>, userId: string, sessionId: string) {
+  private heldSaleForApi(item: Prisma.HeldSaleGetPayload<Record<string, never>>, userId: string, sessionId: string, creatorNames?: Map<string, string>) {
     const now = new Date();
     const isExpired = item.status === "CLAIMED" && Boolean(item.claimExpiresAt && item.claimExpiresAt <= now);
     const isClaimedByCurrentSession = item.claimedBySessionId === sessionId;
@@ -519,6 +524,8 @@ export class PosService {
       warehouseId: item.warehouseId,
       cashSessionId: item.cashSessionId,
       total: Number(item.total ?? 0),
+      note: item.note ?? null,
+      createdByName: item.userId ? creatorNames?.get(item.userId) ?? null : null,
       status: isExpired ? "AVAILABLE" : item.status,
       lockState: item.status === "FINALIZING" ? "FINALIZING" : isExpired ? "EXPIRED" : isClaimedByCurrentSession ? "CLAIMED_BY_YOU" : item.status === "CLAIMED" ? "CLAIMED_BY_OTHER" : "AVAILABLE",
       claimedByUserId: item.claimedByUserId,

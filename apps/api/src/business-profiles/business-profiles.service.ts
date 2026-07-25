@@ -1,6 +1,6 @@
 ﻿import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
-import { businessActivityTemplates, businessCategories, businessModules, businessProfiles, businessSectors, resolveBusinessModuleKeys, resolveBusinessProfileSlug } from "./business-catalog";
+import { businessActivityTemplates, businessCategories, businessModules, businessProfiles, businessSectors, resolveBusinessModuleKeys, resolveBusinessProfile, resolveBusinessProfileSlug } from "./business-catalog";
 
 @Injectable()
 export class BusinessProfilesService {
@@ -27,8 +27,15 @@ export class BusinessProfilesService {
     ]);
 
     const matrixModuleKeys = resolveBusinessModuleKeys(tenant?.businessProfileType ?? undefined, tenant?.businessCategory ?? undefined, tenant?.primaryActivity ?? undefined);
+    const resolvedProfile = resolveBusinessProfile(tenant?.businessProfileType ?? undefined, tenant?.businessCategory ?? undefined, tenant?.primaryActivity ?? undefined);
+    const excludedModuleKeys = new Set(resolvedProfile.excludedModules ?? []);
+    // Certains modules restent actives cote tenant (ex: bascule manuelle historique sur
+    // /dashboard/settings/business-modules) alors que le metier du profil actuel ne les supporte pas
+    // (ex: Devis & Commandes pour un restaurant). Plutot que de corriger les lignes TenantBusinessModule
+    // en base (interdit ici : donnees de production), on les filtre a la lecture, a chaque appel.
     const activeModules = modules
       .filter((assignment) => matrixModuleKeys.has(assignment.businessModule.key) || assignment.source === "manual")
+      .filter((assignment) => !excludedModuleKeys.has(assignment.businessModule.key))
       .map((assignment) => this.serializeModule(assignment.businessModule));
     const simpleMenuSections = this.buildSimpleMenuSections(activeModules, tenant?.businessProfileType ?? "commerce", tenant?.primaryActivity);
     const expertMenuSections = this.buildExpertMenuSections(activeModules, tenant?.businessProfileType ?? "commerce", tenant?.primaryActivity);
@@ -54,6 +61,7 @@ export class BusinessProfilesService {
       secondaryActivities: tenant?.secondaryActivities ?? [],
       businessProfileType: tenant?.businessProfileType ?? "commerce",
       enabledBusinessModules: activeModules.map((module) => module.key),
+      excludedModules: resolvedProfile.excludedModules ?? [],
       sectors: businessSectors,
       categories: businessCategories,
       offline: { prepared: true, message: "Mode hors ligne prepare pour synchronisation future." }

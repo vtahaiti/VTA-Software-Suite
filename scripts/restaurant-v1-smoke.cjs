@@ -16,11 +16,15 @@ const onboardingSource = read("apps/api/src/onboarding/onboarding.service.ts");
 const failures = [];
 
 const restaurantProfile = catalogSource.match(/\{\s*slug:\s*"restaurant"[\s\S]*?\}/)?.[0] ?? "";
+const restaurantProfileModules = restaurantProfile.match(/modules:\s*\[[^\]]*\]/)?.[0] ?? "";
 for (const moduleKey of ["dashboard", "pos", "products", "inventory", "customers", "reports", "settings", "restaurant"]) {
-  if (!restaurantProfile.includes(`"${moduleKey}"`)) failures.push(`Profil Restaurant V1: module absent ${moduleKey}`);
+  if (!restaurantProfileModules.includes(`"${moduleKey}"`)) failures.push(`Profil Restaurant V1: module absent ${moduleKey}`);
 }
-if (restaurantProfile.includes('"suppliers"')) failures.push("Profil Restaurant V1: Achats/Fournisseurs ne doit pas être actif par défaut.");
-if (restaurantProfile.includes('"sales"')) failures.push("Profil Restaurant V1: Devis & Commandes ne doit pas être actif par défaut.");
+if (restaurantProfileModules.includes('"suppliers"')) failures.push("Profil Restaurant V1: Achats/Fournisseurs ne doit pas être actif par défaut.");
+if (restaurantProfileModules.includes('"sales"')) failures.push("Profil Restaurant V1: Devis & Commandes ne doit pas être actif par défaut.");
+if (!(restaurantProfile.match(/excludedModules:\s*\[[^\]]*\]/)?.[0] ?? "").includes('"sales"')) {
+  failures.push("Profil Restaurant V1: sales doit être explicitement exclu du menu effectif (excludedModules).");
+}
 
 const restaurantModule = catalogSource.match(/\{\s*key:\s*"restaurant"[\s\S]*?\},\r?\n\s*\{\s*key:\s*"hotel"/)?.[0] ?? "";
 for (const expected of ["POS / Nouvelle commande", "Produits / menus", "Commandes ouvertes", "Historique ventes", "Stock ingrédients / Inventaire", "Notifications"]) {

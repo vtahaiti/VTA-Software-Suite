@@ -2,7 +2,7 @@
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchWithAuth } from "@/lib/api-client";
+import { fetchWithAuth, isTenantAccessBlockedResponse } from "@/lib/api-client";
 import { clearSession, getCurrentUser } from "@/lib/auth";
 import { getReceiptPrintSettings, openPrintPreview } from "@/lib/print";
 import { summarizePayments } from "@/lib/payment-summary";
@@ -42,6 +42,8 @@ type Draft = {
   claimExpiresAt?: string | null;
   version?: number;
   updatedAt?: string;
+  note?: string | null;
+  createdByName?: string | null;
 };
 
 export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | "cancelled" }) {
@@ -70,7 +72,7 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
       setIsLoading(true);
       const response = await fetchWithAuth(`${apiUrl}/pos/held-sales`).catch(() => null);
       setIsLoading(false);
-      if (response?.status === 403) {
+      if (await isTenantAccessBlockedResponse(response)) {
         setAccessBlocked(true);
         setDrafts([]);
         return;
@@ -103,7 +105,7 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
         setIsLoading(true);
         const response = await fetchWithAuth(`${apiUrl}/sales?${params.toString()}`).catch(() => null);
         setIsLoading(false);
-        if (response?.status === 403) {
+        if (await isTenantAccessBlockedResponse(response)) {
           setAccessBlocked(true);
           setSales([]);
           return;
@@ -209,7 +211,11 @@ function DraftList({ drafts, isLoading, onReload }: { drafts: Draft[]; isLoading
             <div>
               <p className="font-semibold">Vente en cours</p>
               <p className="text-sm text-slate-500">{draft.cart?.items.length ?? 0} article(s) - Mise à jour {formatBusinessDateTime(draft.updatedAt)}</p>
-              <p className="mt-1 text-xs font-semibold text-slate-500">{heldSaleStatusLabel(draft)}</p>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <p className="text-xs font-semibold text-slate-500">{heldSaleStatusLabel(draft)}</p>
+                {draft.createdByName ? <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">Créé par {draft.createdByName}</span> : null}
+                {draft.note ? <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700 dark:bg-brand-950 dark:text-brand-200">{draft.note}</span> : null}
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <p className="mr-2 text-xl font-bold text-brand-600">{formatMoney(draft.cart?.total ?? 0)}</p>
@@ -229,6 +235,7 @@ function DraftList({ drafts, isLoading, onReload }: { drafts: Draft[]; isLoading
             <div>
               <h3 className="text-xl font-bold">Détail de la vente en cours</h3>
               <p className="text-sm text-slate-500">Cette vente sera restaurée dans le POS avec le panier, le client et les paiements.</p>
+              {selectedDraft.createdByName ? <p className="mt-1 text-xs text-slate-500">Créé par {selectedDraft.createdByName}{selectedDraft.note ? ` · ${selectedDraft.note}` : ""}</p> : null}
             </div>
             <button onClick={() => setSelectedDraft(null)} className="rounded-md border border-slate-200 px-3 py-1 text-sm font-semibold dark:border-slate-700">Fermer</button>
           </div>
@@ -415,7 +422,9 @@ function normalizeDraft(draft: Draft): Draft {
     canCancel: draft.canCancel,
     claimExpiresAt: draft.claimExpiresAt,
     version: draft.version,
-    updatedAt: draft.updatedAt
+    updatedAt: draft.updatedAt,
+    note: draft.note,
+    createdByName: draft.createdByName
   };
 }
 
@@ -451,7 +460,8 @@ function saveDraftForPos(draft: Draft) {
     storeId: (draft as Draft & { storeId?: string }).storeId ?? "",
     warehouseId: (draft as Draft & { warehouseId?: string }).warehouseId ?? "",
     cashSessionId: (draft as Draft & { cashSessionId?: string }).cashSessionId ?? "",
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
+    note: draft.note ?? ""
   }));
 }
 

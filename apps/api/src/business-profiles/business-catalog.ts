@@ -19,6 +19,7 @@ export type BusinessProfileDefinition = {
   category: string;
   icon: string;
   modules: string[];
+  excludedModules?: string[];
 };
 
 export type BusinessActivity = {
@@ -166,11 +167,15 @@ export function resolveBusinessProfileSlug(categoryKey?: string, activityName?: 
   return activity.profileType || "commerce";
 }
 
-export function resolveBusinessModuleKeys(profileSlug?: string, categoryKey?: string, activityName?: string) {
+export function resolveBusinessProfile(profileSlug?: string, categoryKey?: string, activityName?: string) {
   const resolvedSlug = profileSlug || resolveBusinessProfileSlug(categoryKey, activityName);
-  const profile = businessProfiles.find((item) => item.slug === resolvedSlug)
+  return businessProfiles.find((item) => item.slug === resolvedSlug)
     ?? businessProfiles.find((item) => item.slug === resolveBusinessProfileSlug(categoryKey, activityName))
     ?? businessProfiles[0];
+}
+
+export function resolveBusinessModuleKeys(profileSlug?: string, categoryKey?: string, activityName?: string) {
+  const profile = resolveBusinessProfile(profileSlug, categoryKey, activityName);
   return new Set(profile.modules);
 }
 
@@ -202,9 +207,9 @@ export const businessModules: BusinessModuleDefinition[] = [
 export const businessProfiles: BusinessProfileDefinition[] = [
   { slug: "commerce", name: "Commerce", description: "Modèle simple pour boutiques, markets et grossistes.", category: "Commerce", icon: "store", modules: ["dashboard", "pos", "products", "inventory", "customers", "suppliers", "reports", "settings"] },
   { slug: "fashion", name: "Mode & Beauté", description: "Commerce avec tailles, couleurs et collections.", category: "Mode & Beauté", icon: "shirt", modules: ["dashboard", "pos", "products", "inventory", "customers", "suppliers", "reports", "settings", "fashion"] },
-  { slug: "restaurant", name: "Restaurant", description: "POS, menu, commandes ouvertes, stock ingrédients, historique et tickets.", category: "Restaurant & Alimentation", icon: "utensils", modules: ["dashboard", "pos", "products", "inventory", "customers", "reports", "settings", "restaurant"] },
+  { slug: "restaurant", name: "Restaurant", description: "POS, menu, commandes ouvertes, stock ingrédients, historique et tickets.", category: "Restaurant & Alimentation", icon: "utensils", modules: ["dashboard", "pos", "products", "inventory", "customers", "reports", "settings", "restaurant"], excludedModules: ["sales"] },
   { slug: "hotel", name: "Hôtel", description: "Hébergement, clients, facturation et services.", category: "Hôtel & Hébergement", icon: "hotel", modules: ["dashboard", "pos", "customers", "reports", "settings", "hotel"] },
-  { slug: "hotel-restaurant", name: "Hotel avec restaurant", description: "Hebergement avec POS restaurant, produits/menu, stock simple et facturation.", category: "Hotel / Hebergement", icon: "hotel", modules: ["dashboard", "pos", "products", "inventory", "customers", "suppliers", "reports", "settings", "hotel", "restaurant"] },
+  { slug: "hotel-restaurant", name: "Hotel avec restaurant", description: "Hebergement avec POS restaurant, produits/menu, stock simple et facturation.", category: "Hotel / Hebergement", icon: "hotel", modules: ["dashboard", "pos", "products", "inventory", "customers", "suppliers", "reports", "settings", "hotel", "restaurant"], excludedModules: ["sales"] },
   { slug: "pharmacy", name: "Pharmacie", description: "Commerce avec lots et expirations.", category: "Santé", icon: "pill", modules: ["dashboard", "pos", "products", "inventory", "customers", "suppliers", "reports", "settings", "pharmacy"] },
   { slug: "clinic", name: "Clinique", description: "Patients, consultations simples, paiements et rapports.", category: "Santé", icon: "clinic", modules: ["dashboard", "pos", "customers", "reports", "settings", "clinic"] },
   { slug: "school", name: "Éducation", description: "Élèves, paiements et facturation.", category: "Éducation", icon: "school", modules: ["dashboard", "pos", "customers", "sales", "reports", "settings", "school"] },
