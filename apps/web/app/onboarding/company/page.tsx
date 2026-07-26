@@ -30,6 +30,10 @@ const colorOptions = [
   { label: "Gris", value: "#475569", className: "bg-slate-600" }
 ];
 
+// Reflet du catalogue central (apps/api/src/business-profiles/business-catalog.ts, businessSectors).
+// N'est utilise que si /business-profiles/catalog echoue ou renvoie une liste vide (etat degrade a
+// l'inscription) - doit rester synchronise avec le catalogue central pour ne jamais montrer un choix
+// de secteurs incomplet a un nouveau client, meme dans ce cas de repli.
 const fallbackSectors: BusinessSector[] = [
   { key: "commerce", name: "Commerce / Market", description: "Boutiques, markets et vente générale.", specialties: [
     { name: "Épicerie / Market", profileType: "commerce", categories: ["Boissons", "Alimentation", "Snacks"] },
@@ -43,13 +47,44 @@ const fallbackSectors: BusinessSector[] = [
     { name: "Bar", profileType: "restaurant", categories: ["Boissons", "Snacks"] },
     { name: "Fast-food", profileType: "restaurant", categories: ["Menus", "Plats", "Boissons"] }
   ] },
-  { key: "construction", name: "Construction / Quincaillerie", description: "Matériaux et quincaillerie.", specialties: [
-    { name: "Matériaux de construction", profileType: "construction-materials", categories: ["Ciment", "Fer", "Bois"] },
-    { name: "Quincaillerie", profileType: "hardware", categories: ["Ciment", "Fer", "Peinture"] },
-    { name: "Fabrication fenêtres/portes", profileType: "windows-aluminium", categories: ["Fenêtres", "Portes", "Aluminium"] }
+  { key: "hotel", name: "Hôtel / Hébergement", description: "Hôtels, guest houses, résidences et hébergement avec restaurant.", specialties: [
+    { name: "Hôtel", profileType: "hotel", categories: ["Chambres", "Services", "Restaurant"] },
+    { name: "Guest house", profileType: "hotel", categories: ["Chambres", "Services"] },
+    { name: "Hôtel avec restaurant", profileType: "hotel-restaurant", categories: ["Chambres", "Restaurant", "Boissons"] },
+    { name: "Autre hébergement", profileType: "hotel", categories: ["Chambres", "Services"] }
   ] },
   { key: "multi-activities", name: "Services / Multi-activité", description: "Services et multi-activité.", specialties: [
     { name: "Multi-activité / Commerce & Services", profileType: "multi-activities", categories: ["Accessoires / Cadeaux", "Informatique", "Services"] }
+  ] },
+  { key: "manufacturing", name: "Fabrication / Atelier", description: "Fenêtres, portes, menuiserie, ferronnerie, couture et atelier.", specialties: [
+    { name: "Fabrication fenêtres/portes", profileType: "windows-aluminium", categories: ["Fenêtres", "Portes", "Aluminium"] },
+    { name: "Menuiserie", profileType: "manufacturing", categories: ["Bois", "Produits finis"] },
+    { name: "Atelier de production", profileType: "manufacturing", categories: ["Matières premières", "Produits finis"] }
+  ] },
+  { key: "construction", name: "Construction / Quincaillerie", description: "Matériaux et quincaillerie.", specialties: [
+    { name: "Matériaux de construction", profileType: "construction-materials", categories: ["Ciment", "Fer", "Bois"] },
+    { name: "Quincaillerie", profileType: "hardware", categories: ["Ciment", "Fer", "Peinture"] }
+  ] },
+  { key: "health", name: "Santé / Clinique / Pharmacie", description: "Pharmacies, cliniques, cabinets et centres de soins.", specialties: [
+    { name: "Pharmacie", profileType: "pharmacy", categories: ["Médicaments", "Vitamines", "Hygiène"] },
+    { name: "Clinique", profileType: "clinic", categories: ["Consultations", "Examens", "Soins"] },
+    { name: "Cabinet médical", profileType: "clinic", categories: ["Consultations", "Soins"] }
+  ] },
+  { key: "electronics", name: "Téléphone / Électronique", description: "Vente et réparation téléphones, informatique et électronique.", specialties: [
+    { name: "Vente téléphones", profileType: "commerce", categories: ["Téléphones", "Accessoires"] },
+    { name: "Réparation téléphones", profileType: "it-services", categories: ["Réparations", "Diagnostics"] },
+    { name: "Vente & Réparation téléphones", profileType: "phone-sales-repair", categories: ["Téléphones", "Réparations"] },
+    { name: "Informatique", profileType: "it-services", categories: ["Services IT", "Ordinateurs"] }
+  ] },
+  { key: "fashion-beauty", name: "Beauté / Salon", description: "Salon, barber shop, spa et cosmétique.", specialties: [
+    { name: "Salon de beauté", profileType: "services", categories: ["Coiffure", "Soins"] },
+    { name: "Barber shop", profileType: "services", categories: ["Coupe", "Barbe"] },
+    { name: "Spa", profileType: "services", categories: ["Massages", "Soins"] }
+  ] },
+  { key: "transport-distribution", name: "Transport / Location", description: "Transport, location véhicules, livraison et logistique.", specialties: [
+    { name: "Transport", profileType: "services", categories: ["Transport", "Services"] },
+    { name: "Location véhicules", profileType: "vehicle-rental", categories: ["Véhicules", "Location"] },
+    { name: "Livraison", profileType: "services", categories: ["Livraisons", "Services"] }
   ] },
   { key: "other", name: "Autre activité", description: "Activité non listée.", specialties: [
     { name: "Autre activité", profileType: "commerce", categories: ["Général"] }

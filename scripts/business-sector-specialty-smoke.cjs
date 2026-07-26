@@ -50,7 +50,8 @@ for (const slug of ["commerce", "restaurant", "hotel", "hotel-restaurant", "serv
 }
 
 const profileBlock = (slug) => catalog.match(new RegExp(`\\{\\s*slug:\\s*"${slug}"[\\s\\S]*?\\}`))?.[0] ?? "";
-const profileHasModule = (slug, moduleKey) => profileBlock(slug).includes(`"${moduleKey}"`);
+const profileModulesBlock = (slug) => profileBlock(slug).match(/modules:\s*\[[^\]]*\]/)?.[0] ?? "";
+const profileHasModule = (slug, moduleKey) => profileModulesBlock(slug).includes(`"${moduleKey}"`);
 
 for (const slug of ["commerce", "restaurant", "hotel", "hotel-restaurant", "pharmacy", "clinic", "fashion"]) {
   expect(!profileHasModule(slug, "sales"), `Devis & Commandes ne doit pas etre actif par défaut pour ${slug}`);
