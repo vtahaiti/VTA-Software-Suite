@@ -456,6 +456,10 @@ export default function PosPage() {
   async function createPosDocument(endpoint: "orders" | "quotes", label: string) {
     setError("");
     setMessage("");
+    if (!canCreateQuotesOrders) {
+      setError("Devis & Commandes n'est pas disponible pour cette activité.");
+      return;
+    }
     if (!cart.items.length) {
       setError("Panier vide");
       return;
@@ -635,6 +639,7 @@ export default function PosPage() {
   const balanceDue = useMemo(() => roundMoney(Math.max(0, cart.total - paidAmount)), [cart.total, paidAmount]);
   const posTemplate = getPosTemplate(business?.businessProfileType, business?.primaryActivity);
   const isRestaurantContextProfile = business?.businessProfileType === "restaurant" || business?.businessProfileType === "hotel-restaurant";
+  const canCreateQuotesOrders = !(business?.excludedModules ?? []).includes("sales");
   const orderContextLabel = orderContextType === "table" ? (tableNumber.trim() ? `Table ${tableNumber.trim()}` : "Table") : orderContextType === "counter" ? "Comptoir" : orderContextType === "takeaway" ? "Emporter" : "";
   const categories = useMemo(() => Array.from(new Set(products.map((product) => product.category).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)), [products]);
   const visibleProducts = useMemo(() => categoryFilter ? products.filter((product) => product.category === categoryFilter) : products, [categoryFilter, products]);
@@ -789,6 +794,7 @@ export default function PosPage() {
             holdSale={() => void holdCurrentSale()}
             createQuote={() => void createPosDocument("quotes", "Devis POS")}
             createOrder={() => void createPosDocument("orders", "Commande POS")}
+            canCreateQuotesOrders={canCreateQuotesOrders}
             updateQuantity={(productId, quantity) => void updateQuantity(productId, quantity)}
             removeProduct={(productId) => void removeProduct(productId)}
           />
@@ -856,6 +862,7 @@ export default function PosPage() {
               holdSale={() => void holdCurrentSale()}
               createQuote={() => void createPosDocument("quotes", "Devis POS")}
               createOrder={() => void createPosDocument("orders", "Commande POS")}
+              canCreateQuotesOrders={canCreateQuotesOrders}
               updateQuantity={(productId, quantity) => void updateQuantity(productId, quantity)}
               removeProduct={(productId) => void removeProduct(productId)}
             />
@@ -1092,6 +1099,7 @@ type CartPanelProps = {
   holdSale: () => void;
   createQuote: () => void;
   createOrder: () => void;
+  canCreateQuotesOrders: boolean;
   updateQuantity: (productId: string, quantity: number) => void;
   removeProduct: (productId: string) => void;
   receiptFormat: "58" | "72" | "80";
@@ -1226,8 +1234,12 @@ function CartTotalsPanel(props: CartPanelProps) {
           </summary>
           <div className="absolute bottom-full right-0 z-20 mb-2 grid w-56 gap-1 rounded-lg border border-slate-200 bg-white p-2 text-sm shadow-xl">
             <button type="button" onClick={() => props.setShowExpertOptions(true)} className="rounded-md px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50">Options avancées</button>
-            <button onClick={props.createQuote} disabled={!props.cart.items.length} className="rounded-md px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Créer devis</button>
-            <button onClick={props.createOrder} disabled={!props.cart.items.length} className="rounded-md px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Créer commande</button>
+            {props.canCreateQuotesOrders ? (
+              <>
+                <button onClick={props.createQuote} disabled={!props.cart.items.length} className="rounded-md px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Créer devis</button>
+                <button onClick={props.createOrder} disabled={!props.cart.items.length} className="rounded-md px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Créer commande</button>
+              </>
+            ) : null}
           </div>
         </details>
       </div>
@@ -1406,10 +1418,12 @@ function ExpertOptions(props: CartPanelProps) {
           </div>
         );
       })}
-      <div className="grid grid-cols-2 gap-2">
-        <button onClick={props.createQuote} disabled={!props.cart.items.length} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold disabled:opacity-50 dark:border-slate-700">Créer devis</button>
-        <button onClick={props.createOrder} disabled={!props.cart.items.length} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold disabled:opacity-50 dark:border-slate-700">Créer commande</button>
-      </div>
+      {props.canCreateQuotesOrders ? (
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={props.createQuote} disabled={!props.cart.items.length} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold disabled:opacity-50 dark:border-slate-700">Créer devis</button>
+          <button onClick={props.createOrder} disabled={!props.cart.items.length} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold disabled:opacity-50 dark:border-slate-700">Créer commande</button>
+        </div>
+      ) : null}
     </div>
   );
 }

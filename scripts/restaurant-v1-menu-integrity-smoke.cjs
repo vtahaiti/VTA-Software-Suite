@@ -64,6 +64,36 @@ async function main() {
     assert(hrefs(commerceConfig).includes("/dashboard/sales"), "fabrication: Devis & Commandes doit rester present (aucune regression sur les autres profils)");
     assert((commerceConfig.excludedModules ?? []).length === 0, "fabrication: excludedModules doit rester vide (le filtre ne doit s'appliquer qu'aux profils qui l'ont explicitement)");
     console.log("scenario 2 OK : tenant fabrication non affecte, Devis & Commandes toujours present");
+
+    // Demande explicite : Multi-activite, Quincaillerie et Services doivent garder Devis & Commandes.
+    for (const slug of ["multi-activities", "hardware", "services"]) {
+      const tenant = await prisma.tenant.create({ data: { name: `Keep-sales ${slug}`, slug: `keep-sales-${slug}-${suffix}`, status: "TRIAL" } });
+      try {
+        await businessProfiles.assignInitialProfile(tenant.id, slug);
+        const config = await businessProfiles.tenantConfiguration(tenant.id);
+        assert(hrefs(config).includes("/dashboard/sales"), `${slug}: Devis & Commandes doit rester present`);
+        assert((config.excludedModules ?? []).length === 0, `${slug}: excludedModules doit rester vide`);
+      } finally {
+        await prisma.tenantBusinessModule.deleteMany({ where: { tenantId: tenant.id } });
+        await prisma.tenantBusinessProfile.deleteMany({ where: { tenantId: tenant.id } });
+        await prisma.tenant.delete({ where: { id: tenant.id } }).catch(() => {});
+      }
+    }
+    console.log("scenario 2b OK : multi-activities, hardware, services gardent Devis & Commandes");
+
+    // Restaurant ne peut pas non plus creer un devis/commande depuis le POS (canCreateQuotesOrders).
+    const hotelRestaurantTenant = await prisma.tenant.create({ data: { name: "Hotel Restaurant Menu Smoke", slug: `hotel-restaurant-menu-smoke-${suffix}`, status: "TRIAL" } });
+    try {
+      await businessProfiles.assignInitialProfile(hotelRestaurantTenant.id, "hotel-restaurant");
+      const hotelRestaurantConfig = await businessProfiles.tenantConfiguration(hotelRestaurantTenant.id);
+      assert(!hrefs(hotelRestaurantConfig).includes("/dashboard/sales"), "hotel-restaurant: Devis & Commandes ne doit pas apparaitre");
+      assert(hotelRestaurantConfig.excludedModules.includes("sales"), "hotel-restaurant: excludedModules doit inclure sales");
+    } finally {
+      await prisma.tenantBusinessModule.deleteMany({ where: { tenantId: hotelRestaurantTenant.id } });
+      await prisma.tenantBusinessProfile.deleteMany({ where: { tenantId: hotelRestaurantTenant.id } });
+      await prisma.tenant.delete({ where: { id: hotelRestaurantTenant.id } }).catch(() => {});
+    }
+    console.log("scenario 2c OK : hotel-restaurant aussi exclu de Devis & Commandes");
   } finally {
     await prisma.tenantBusinessModule.deleteMany({ where: { tenantId: { in: [restaurantTenant.id, commerceTenant.id] } } });
     await prisma.tenantBusinessProfile.deleteMany({ where: { tenantId: { in: [restaurantTenant.id, commerceTenant.id] } } });

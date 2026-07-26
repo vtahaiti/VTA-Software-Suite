@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ExcludedModuleGuard } from "@/components/excluded-module-guard";
 
 const flowSteps = ["1. Devis (aucun impact stock)", "2. Commande (stock sorti)", "3. Balance à 0 = vente terminée"];
 
@@ -10,6 +11,7 @@ const dashboardCards = [
 
 export default function SalesPage() {
   return (
+    <ExcludedModuleGuard moduleKey="sales" redirectTo="/dashboard/sales/in-progress">
     <div className="space-y-5">
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <p className="text-sm font-medium text-brand-600">Devis & Commandes</p>
@@ -51,5 +53,6 @@ export default function SalesPage() {
         <p className="mt-1">Ventes en attente = panier POS suspendu. Devis & Commandes = client qui demande un prix, confirme une commande, verse une avance, puis règle la balance.</p>
       </section>
     </div>
+    </ExcludedModuleGuard>
   );
 }
