@@ -43,7 +43,10 @@ assert(stockController.includes('@Post("in")') && stockController.includes('@Per
 assert(stockController.includes('@Post("out")') && stockController.includes('@Permissions("inventory.adjust")'), "Sortie stock protégée par inventory.adjust.");
 assert(stockService.includes("InventoryMovementType.IN") && stockService.includes("dto.quantity"), "Entrée augmente le stock.");
 assert(stockService.includes("InventoryMovementType.OUT") && stockService.includes("-dto.quantity"), "Sortie diminue le stock.");
-assert(stockService.includes("afterQty < 0") && stockService.includes("Stock insuffisant"), "Sortie bloque le stock négatif.");
+assert(
+  stockService.includes("quantity: { gte: -delta }") && stockService.includes("Stock insuffisant"),
+  "Sortie bloque atomiquement le stock négatif."
+);
 
 assert(inventoryPage.includes("/inventory/transfers"), "Transfert stock utilise l'endpoint transfers.");
 assert(inventoryService.includes("Transfert sortant") && inventoryService.includes("Transfert entrant"), "Transfert crée les mouvements source/destination.");
@@ -55,7 +58,7 @@ const stockBlock = roles.match(/STOCK:[\s\S]*?COMPTABLE:/)?.[0] ?? "";
 assert(!cashierBlock.includes("inventory.view") && !cashierBlock.includes("inventory.adjust"), "CAISSIER sans accès inventaire.");
 assert(stockBlock.includes('"inventory."'), "Rôle STOCK garde les permissions inventaire.");
 
-for (const location of ["Dépôt principal", "Réfrigérateur", "Cuisine", "Bar"]) {
+for (const location of ["Dépôt", "Frigo", "Cuisine", "Bar", "Fournitures"]) {
   assert(inventoryPage.includes(location), `emplacement restaurant prévu: ${location}`);
 }
 

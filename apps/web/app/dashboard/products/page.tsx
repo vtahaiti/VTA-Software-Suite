@@ -16,11 +16,13 @@ type Product = {
   stockCurrent?: number;
   minimumStock?: number;
   stockTracked?: boolean;
+  stocks?: Array<{ warehouse?: { id: string; name: string } | null }>;
   category?: { name: string } | null;
   images?: Array<{ url?: string | null; alt?: string | null }>;
 };
 
 type Category = { id: string; name: string };
+type Warehouse = { id: string; name: string };
 type ProductForm = {
   name: string;
   purchasePrice: string;
@@ -28,6 +30,7 @@ type ProductForm = {
   categoryId: string;
   stockInitial: string;
   minimumStock: string;
+  warehouseId: string;
   description: string;
   imageUrl: string;
   trackStock: boolean;
@@ -41,6 +44,7 @@ const emptyForm: ProductForm = {
   categoryId: "",
   stockInitial: "",
   minimumStock: "0",
+  warehouseId: "",
   description: "",
   imageUrl: "",
   trackStock: true,
@@ -50,6 +54,7 @@ const emptyForm: ProductForm = {
 export default function ProductsPage() {
   const [items, setItems] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -61,8 +66,15 @@ export default function ProductsPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   async function loadCategories() {
-    const response = await fetchWithAuth(`${apiUrl}/products/categories`);
-    if (response.ok) setCategories(await response.json());
+    const [categoriesResponse, warehousesResponse] = await Promise.all([
+      fetchWithAuth(`${apiUrl}/products/categories`),
+      fetchWithAuth(`${apiUrl}/warehouses`)
+    ]);
+    if (categoriesResponse.ok) setCategories(await categoriesResponse.json());
+    if (warehousesResponse.ok) {
+      const data = await warehousesResponse.json();
+      setWarehouses(Array.isArray(data) ? data : data.items ?? []);
+    }
   }
 
   const loadProducts = useCallback(async () => {
@@ -105,6 +117,7 @@ export default function ProductsPage() {
         trackStock: form.trackStock,
         stockInitial: form.trackStock ? Number(form.stockInitial || 0) : 0,
         minimumStock: form.trackStock ? Number(form.minimumStock || 0) : 0,
+        warehouseId: form.trackStock && form.warehouseId ? form.warehouseId : undefined,
         description: form.description.trim() || undefined,
         images: form.imageUrl ? [{ url: form.imageUrl, alt: form.name, sortOrder: 0 }] : undefined,
         isActive: form.isActive
@@ -121,7 +134,7 @@ export default function ProductsPage() {
   }
 
   async function deleteProduct(product: Product) {
-    const confirmed = window.confirm(`Supprimer definitivement "${product.name}" ? Cette action est irreversible et ne doit pas supprimer les anciennes ventes.`);
+    const confirmed = window.confirm(`Supprimer ce produit ? Cette action ne doit pas supprimer les anciennes ventes.\n\nProduit : ${product.name}`);
     if (!confirmed) return;
     setMessage("");
     const response = await fetchWithAuth(`${apiUrl}/products/${product.id}`, { method: "DELETE" }).catch(() => null);
@@ -200,6 +213,10 @@ export default function ProductsPage() {
               <>
                 <Input type="number" value={form.stockInitial} onChange={(value) => setForm((current) => ({ ...current, stockInitial: value }))} placeholder="Quantité initiale" />
                 <Input type="number" value={form.minimumStock} onChange={(value) => setForm((current) => ({ ...current, minimumStock: value }))} placeholder="Quantité minimale pour stock faible" helper="Alerte quand le stock arrive à ce niveau." />
+                <select value={form.warehouseId} onChange={(event) => setForm((current) => ({ ...current, warehouseId: event.target.value }))} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+                  <option value="">Emplacement du stock</option>
+                  {warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>)}
+                </select>
               </>
             ) : <p className="rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:bg-slate-950 dark:text-slate-300">Non suivi en stock : vendable dans le POS, masqué de l&apos;inventaire par défaut.</p>}
             <ImagePicker selected={Boolean(form.imageUrl)} onChange={(value) => setForm((current) => ({ ...current, imageUrl: value }))} />
@@ -273,10 +290,13 @@ function QuantityDisplay({ product }: { product: Product }) {
   const quantity = Number(product.stockCurrent ?? 0);
   const minimum = Number(product.minimumStock ?? 0);
   const tracked = product.stockTracked ?? (quantity > 0 || minimum > 0);
-  return <div className="flex flex-wrap items-center gap-2">
-    <span className="font-semibold">{tracked ? quantity : "Non suivi en stock"}</span>
-    {tracked && quantity <= 0 ? <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-bold text-red-700">Rupture</span> : null}
-    {tracked && quantity > 0 && quantity <= minimum ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700">Stock faible</span> : null}
+  return <div>
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="font-semibold">{tracked ? quantity : "Non suivi en stock"}</span>
+      {tracked && quantity <= 0 ? <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-bold text-red-700">Rupture</span> : null}
+      {tracked && quantity > 0 && quantity <= minimum ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700">Stock faible</span> : null}
+    </div>
+    {tracked && product.stocks?.[0]?.warehouse?.name ? <p className="mt-1 text-xs text-slate-500">{product.stocks[0].warehouse.name}</p> : null}
   </div>;
 }
 

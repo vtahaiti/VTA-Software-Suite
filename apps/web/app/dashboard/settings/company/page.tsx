@@ -28,7 +28,7 @@ const haitianBanks = [
 ];
 const otherBankOption = "Autre";
 
-type CompanyForm = { name: string; companyName?: string; logoUrl?: string; primaryColor?: string; phone?: string; whatsapp?: string; email?: string; address?: string; city?: string; country?: string; taxNumber?: string; businessLicenseNumber?: string; bankName?: string; bankAccountNumber?: string; currency?: string; language?: string; timezone?: string };
+type CompanyForm = { name: string; companyName?: string; logoUrl?: string; primaryColor?: string; phone?: string; whatsapp?: string; email?: string; address?: string; city?: string; country?: string; taxNumber?: string; businessLicenseNumber?: string; bankName?: string; bankAccountNumber?: string; currency?: string; language?: string; timezone?: string; businessProfileType?: string; primaryActivity?: string };
 
 export default function CompanySettingsPage() {
   const [form, setForm] = useState<CompanyForm>({ name: "", companyName: "", logoUrl: "", primaryColor: "#2563eb", phone: "", whatsapp: "", email: "", address: "", city: "", country: "", taxNumber: "", businessLicenseNumber: "", bankName: "", bankAccountNumber: "", currency: "HTG", language: "fr", timezone: "America/Port-au-Prince" });
@@ -36,6 +36,7 @@ export default function CompanySettingsPage() {
   const [msg, setMsg] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [installingRestaurant, setInstallingRestaurant] = useState(false);
   const [localLogoPreview, setLocalLogoPreview] = useState<string | null>(null);
   const [logoFailed, setLogoFailed] = useState(false);
   const companyName = form.companyName || form.name || "Mon entreprise";
@@ -136,6 +137,29 @@ export default function CompanySettingsPage() {
     }
   }
 
+  async function installRestaurantStarter() {
+    const confirmed = window.confirm("Installer les emplacements, catégories et articles modèles Restaurant manquants ?\n\nLes produits, prix et stocks existants ne seront pas modifiés.");
+    if (!confirmed) return;
+    setMsg("");
+    setInstallingRestaurant(true);
+    try {
+      const response = await fetchWithAuth(`${apiUrl}/settings/company/install-restaurant-starter`, { method: "POST" });
+      if (!response.ok) {
+        setMsg(await readSettingsError(response));
+        return;
+      }
+      const result = await response.json() as { message?: string; created?: { categories?: number; warehouses?: number; trackedProducts?: number; nonStockProducts?: number } };
+      const created = result.created;
+      setMsg(created
+        ? `${result.message ?? "Base Restaurant installée"} Catégories : ${created.categories ?? 0}, emplacements : ${created.warehouses ?? 0}, articles suivis : ${created.trackedProducts ?? 0}, plats non suivis : ${created.nonStockProducts ?? 0}.`
+        : result.message ?? "Base Restaurant installée.");
+    } catch {
+      setMsg("Installation impossible. Vérifiez votre connexion puis réessayez.");
+    } finally {
+      setInstallingRestaurant(false);
+    }
+  }
+
   return <div className="space-y-5"><Header active="Entreprise" />
     <form onSubmit={submit} className="grid gap-4 rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2">
       <div className="md:col-span-2 flex flex-col gap-4 rounded-lg border border-dashed p-4 dark:border-slate-700 sm:flex-row sm:items-center">
@@ -187,6 +211,15 @@ export default function CompanySettingsPage() {
       </div>
       <div className="md:col-span-2 flex flex-wrap items-center gap-3"><button disabled={saving || uploadingLogo} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement..." : "Sauvegarder"}</button>{msg && <p className="text-sm text-slate-500" role="status">{msg}</p>}</div>
     </form>
+    {isRestaurantCompany(form) ? (
+      <section className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <h2 className="text-lg font-bold">Base Restaurant</h2>
+        <p className="mt-1 text-sm text-slate-500">Ajoute uniquement les catégories, emplacements et articles modèles manquants. Vos produits et stocks existants restent inchangés.</p>
+        <button type="button" onClick={() => void installRestaurantStarter()} disabled={installingRestaurant} className="mt-4 rounded-md border border-brand-600 px-4 py-2 text-sm font-semibold text-brand-700 disabled:opacity-60 dark:text-brand-300">
+          {installingRestaurant ? "Installation..." : "Installer les modèles Restaurant"}
+        </button>
+      </section>
+    ) : null}
   </div>;
 }
 
@@ -239,7 +272,15 @@ function toCompanyForm(data: Partial<CompanyForm>): CompanyForm {
     currency: data.currency ?? "HTG",
     language: data.language ?? "fr",
     timezone: data.timezone ?? "America/Port-au-Prince"
+    ,businessProfileType: data.businessProfileType ?? ""
+    ,primaryActivity: data.primaryActivity ?? ""
   };
+}
+
+function isRestaurantCompany(form: CompanyForm) {
+  const profile = String(form.businessProfileType ?? "").toLowerCase();
+  const activity = String(form.primaryActivity ?? "").toLowerCase();
+  return profile === "restaurant" || activity.includes("restaurant") || activity === "bar" || activity.includes("fast-food");
 }
 
 function toCompanyPayload(form: CompanyForm) {

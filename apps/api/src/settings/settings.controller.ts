@@ -1,15 +1,16 @@
-import { Body, Controller, Get, Patch, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
 import { CompanyProfileService } from "./company-profile.service";
 import { UpdateCompanyProfileDto, UpdateInvoicingSettingsDto, UpdatePosSettingsDto } from "./dto/settings.dto";
 import { TenantSettingsService } from "./tenant-settings.service";
+import { RestaurantStarterService } from "./restaurant-starter.service";
 
 @UseGuards(JwtAuthGuard)
 @Controller("settings")
 export class SettingsController {
-  constructor(private readonly company: CompanyProfileService, private readonly settings: TenantSettingsService) {}
+  constructor(private readonly company: CompanyProfileService, private readonly settings: TenantSettingsService, private readonly restaurantStarter: RestaurantStarterService) {}
 
   @Get()
   @Permissions("settings.read")
@@ -25,6 +26,10 @@ export class SettingsController {
   @Patch("company")
   @Permissions("settings.update", "settings.company")
   updateCompany(@Req() req: AuthenticatedRequest, @Body() dto: UpdateCompanyProfileDto) { return this.company.update(req.user.tenantId, dto); }
+
+  @Post("company/install-restaurant-starter")
+  @Permissions("settings.update", "settings.company")
+  installRestaurantStarter(@Req() req: AuthenticatedRequest) { return this.restaurantStarter.install(req.user.tenantId); }
 
   @Get("pos")
   @Permissions("settings.pos")

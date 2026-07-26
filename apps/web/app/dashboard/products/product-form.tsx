@@ -324,6 +324,7 @@ export function ProductForm({ productId }: { productId?: string }) {
         <>
           <Input value={form.stockInitial} onChange={(value) => update("stockInitial", value)} placeholder={productId ? "Quantité initiale / stock actuel" : "Quantité initiale"} type="number" />
           <Input value={form.minimumStock} onChange={(value) => update("minimumStock", value)} placeholder="Quantité minimale pour stock faible" type="number" helper="Alerte quand le stock arrive à ce niveau." />
+          <Select value={form.warehouseId} onChange={(value) => update("warehouseId", value)} placeholder="Emplacement du stock" items={refs.warehouses} />
         </>
       ) : <p className="rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:bg-slate-950 dark:text-slate-300">Non suivi en stock : le produit reste vendable dans le POS et ne s&apos;affiche pas dans l&apos;inventaire par défaut.</p>}
       <ImagePicker label="Image produit" selected={Boolean(form.imageUrl)} onChange={(value) => update("imageUrl", value)} />
@@ -369,7 +370,6 @@ export function ProductForm({ productId }: { productId?: string }) {
           <Input value={form.maximumStock} onChange={(value) => update("maximumStock", value)} placeholder="Stock maximum" type="number" />
           <Input value={form.location} onChange={(value) => update("location", value)} placeholder="Emplacement" />
           <Select value={form.storeId} onChange={(value) => update("storeId", value)} placeholder="Magasin" items={refs.stores} />
-          <Select value={form.warehouseId} onChange={(value) => update("warehouseId", value)} placeholder="Dépôt" items={refs.warehouses} />
         </Section>
 
         <Section title="Variantes et détails">
