@@ -2,7 +2,7 @@
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchWithAuth, isTenantAccessBlockedResponse } from "@/lib/api-client";
+import { fetchWithAuth } from "@/lib/api-client";
 import { clearSession, getCurrentUser } from "@/lib/auth";
 import { getReceiptPrintSettings, openPrintPreview } from "@/lib/print";
 import { summarizePayments } from "@/lib/payment-summary";
@@ -72,7 +72,7 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
       setIsLoading(true);
       const response = await fetchWithAuth(`${apiUrl}/pos/held-sales`).catch(() => null);
       setIsLoading(false);
-      if (await isTenantAccessBlockedResponse(response)) {
+      if (response?.status === 403) {
         setAccessBlocked(true);
         setDrafts([]);
         return;
@@ -105,7 +105,7 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
         setIsLoading(true);
         const response = await fetchWithAuth(`${apiUrl}/sales?${params.toString()}`).catch(() => null);
         setIsLoading(false);
-        if (await isTenantAccessBlockedResponse(response)) {
+        if (response?.status === 403) {
           setAccessBlocked(true);
           setSales([]);
           return;
