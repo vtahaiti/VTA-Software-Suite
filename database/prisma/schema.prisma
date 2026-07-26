@@ -1506,6 +1506,7 @@ model Quote {
   customerId     String?
   customer       Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
   documentNumber String              @map("number")
+  title          String?
   status         SalesDocumentStatus @default(DRAFT)
   subtotal       Decimal             @default(0) @db.Decimal(12, 2)
   discount       Decimal             @default(0) @db.Decimal(12, 2)
@@ -1514,6 +1515,7 @@ model Quote {
   paidAmount     Decimal             @default(0) @db.Decimal(12, 2)
   balance        Decimal             @default(0) @db.Decimal(12, 2)
   notes          String?
+  expectedDate    DateTime?
   createdById    String?
   items          QuoteItem[]
   proformas      Proforma[]
@@ -1565,6 +1567,7 @@ model Proforma {
   warehouseId    String?
   warehouse      Warehouse?          @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
   documentNumber String              @map("number")
+  title          String?
   status         SalesDocumentStatus @default(DRAFT)
   paymentStatus  SalesDocumentPaymentStatus @default(UNPAID)
   subtotal       Decimal             @default(0) @db.Decimal(12, 2)
@@ -1574,6 +1577,7 @@ model Proforma {
   paidAmount     Decimal             @default(0) @db.Decimal(12, 2)
   balance        Decimal             @default(0) @db.Decimal(12, 2)
   notes          String?
+  expectedDate    DateTime?
   createdById    String?
   items          ProformaItem[]
   invoices       Invoice[]

@@ -68,11 +68,23 @@ assert(salesDocumentPage.includes("/products?${query.toString()}"), "La recherch
 assert(salesDocumentPage.includes("setProducts((current)"), "Les résultats produits recherchés doivent être fusionnés pour garder la sélection.");
 assert(!salesDocumentPage.includes("product.sku} - {product.name}"), "La liste produit ne doit pas afficher SKU complet + nom + prix.");
 assert(detailPage.includes("Annuler la commande"), "L'annulation doit rester visible dans le détail commande.");
-assert(!detailPage.includes("Marquer livrée"), "Le pipeline de livraison en plusieurs étapes doit être retiré.");
+// Reintroduit deliberement pour la V1 Fabrication (2026-07-26) : le pipeline CONFIRMED -> IN_PROGRESS ->
+// READY -> DELIVERED est maintenant demande explicitement (statuts "en fabrication"/"prete"/"livree"),
+// avec des libelles adaptes au profil metier. COMPLETED reste exclusivement pilote par le paiement complet
+// (voir fabrication-quote-order-smoke.cjs), donc la garantie "pas de statut manuel = vente terminee" tient
+// toujours - seule l'absence totale d'etapes intermediaires a change.
+assert(detailPage.includes("Marquer livrée") || detailPage.includes("fabricationLabel"), "Le pipeline de livraison en plusieurs etapes doit exister (V1 Fabrication).");
 assert(detailPage.includes("Vente terminée"), "Une commande soldée doit afficher Vente terminée.");
 assert(detailPage.includes("signature") || detailPage.includes("Signature"), "Le devis imprimable doit prévoir une zone de signature.");
 assert(detailPage.includes("N° client"), "Le document imprimé doit afficher le numéro du client.");
 assert(detailPage.includes("Avance / balance enregistrée."), "Le détail commande doit enregistrer avance/balance.");
+
+for (const label of ["documentTitle", "expectedDate", "showFabricationFields", "composeFabricationNote", "Détails fabrication"]) {
+  assert(salesDocumentPage.includes(label), `Champ Fabrication V1 attendu dans le formulaire: ${label}`);
+}
+for (const label of ["doc.title", "doc.expectedDate", "Imprimer le reçu", "receiptPayment"]) {
+  assert(detailPage.includes(label), `Rendu impression Fabrication V1 attendu: ${label}`);
+}
 
 assert(schema.includes("paymentStatus  SalesDocumentPaymentStatus"), "Le statut financier doit être séparé du statut opérationnel.");
 assert(schema.includes("ORDER_DELIVERY"), "La sortie de stock à la commande doit avoir un mouvement inventaire distinct.");

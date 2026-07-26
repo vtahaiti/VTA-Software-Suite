@@ -2,15 +2,23 @@
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
 import { getCompanyBranding, type CompanyBranding } from "@/lib/company-branding";
+import { getTenantBusinessConfiguration, type TenantBusinessConfiguration } from "@/lib/business-profiles";
+
+const FABRICATION_WORK_TYPES = ["Fenêtre", "Porte", "Cadre", "Vitrine", "Moustiquaire", "Autre"];
+const FABRICATION_MATERIALS = ["Aluminium", "Bois", "PVC", "Métal", "Verre", "Autre"];
+
+function isFabricationProfile(business: TenantBusinessConfiguration | null) {
+  return business?.businessProfileType === "windows-aluminium";
+}
 
 type DocType = "quotes" | "proformas" | "invoices";
 type Customer = { id: string; name?: string; displayName?: string };
 type Product = { id: string; sku?: string | null; name: string; salePrice?: string | number | null; stockCurrent?: number | null; unit?: string | { name?: string | null; symbol?: string | null } | null };
 type Payment = { id: string; amount: string | number; method: string; createdAt: string };
-type DocumentItem = { id: string; quantity: number; unitPrice: string | number; discount: string | number; tax: string | number; total: string | number; customName?: string | null; product?: Product | null };
+type DocumentItem = { id: string; quantity: number; unitPrice: string | number; discount: string | number; tax: string | number; total: string | number; customName?: string | null; customNote?: string | null; product?: Product | null };
 type SalesDocument = {
   id: string;
   number?: string;
@@ -29,12 +37,32 @@ type SalesDocument = {
 type Line = {
   productId?: string;
   customName?: string;
+  customNote?: string;
   label: string;
   quantity: number;
   unitPrice: number;
   discount: number;
   tax: number;
+  showFabDetails?: boolean;
+  fabWorkType?: string;
+  fabMaterial?: string;
+  fabWidth?: string;
+  fabHeight?: string;
+  fabLength?: string;
+  fabColor?: string;
+  fabGlass?: string;
 };
+
+function composeFabricationNote(line: Line) {
+  const parts = [
+    line.fabWorkType,
+    line.fabMaterial,
+    [line.fabWidth, line.fabHeight, line.fabLength].filter(Boolean).length ? `${line.fabWidth || "?"}x${line.fabHeight || "?"}${line.fabLength ? `x${line.fabLength}` : ""}cm` : "",
+    line.fabColor,
+    line.fabGlass ? `Verre ${line.fabGlass}` : ""
+  ].filter((part) => part && part.trim());
+  return parts.length ? parts.join(" · ") : undefined;
+}
 
 type Props = {
   type: DocType;
@@ -53,12 +81,26 @@ const statusLabels: Record<string, string> = {
   EXPIRED: "Expiré",
   CONVERTED: "Converti en commande",
   CONFIRMED: "Commande en cours",
+  IN_PROGRESS: "En préparation",
+  READY: "Prête",
+  DELIVERED: "Livrée",
   COMPLETED: "Vente terminée",
   CANCELLED: "Annulée",
   UNPAID: "Non payée",
   PARTIALLY_PAID: "Avance reçue",
   PAID: "Payée"
 };
+
+const fabricationStatusLabels: Record<string, string> = {
+  IN_PROGRESS: "En cours / En fabrication",
+  READY: "Prête pour livraison/installation",
+  DELIVERED: "Livrée/installée"
+};
+
+function statusLabel(status: string, showFabricationFields?: boolean) {
+  if (showFabricationFields && fabricationStatusLabels[status]) return fabricationStatusLabels[status];
+  return statusLabels[status] ?? status;
+}
 
 function money(value: string | number | null | undefined) {
   return Number(value ?? 0).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -95,6 +137,8 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [customerId, setCustomerId] = useState("");
+  const [documentTitle, setDocumentTitle] = useState("");
+  const [expectedDate, setExpectedDate] = useState("");
   const [notes, setNotes] = useState("");
   const [globalDiscount, setGlobalDiscount] = useState(0);
   const [lines, setLines] = useState<Line[]>([emptyLine()]);
@@ -103,6 +147,8 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
   const [loading, setLoading] = useState(false);
   const [fromQuoteId, setFromQuoteId] = useState<string | null>(null);
   const [branding, setBranding] = useState<CompanyBranding | null>(null);
+  const [business, setBusiness] = useState<TenantBusinessConfiguration | null>(null);
+  const showFabricationFields = isFabricationProfile(business);
 
   const apiFetch = useCallback((path: string, init?: RequestInit) => {
     return fetch(`${apiUrl}${path}`, {
@@ -143,6 +189,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
   useEffect(() => {
     const token = getAccessToken();
     if (token) void getCompanyBranding(token).then(setBranding).catch(() => setBranding(null));
+    void getTenantBusinessConfiguration().then(setBusiness).catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -155,11 +202,14 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
       if (!response.ok) return;
       const quote = await response.json();
       setCustomerId(quote.customerId ?? "");
+      setDocumentTitle(quote.title ?? "");
+      setExpectedDate(quote.expectedDate ? String(quote.expectedDate).slice(0, 10) : "");
       setNotes(quote.notes ?? "");
       setGlobalDiscount(0);
       const quoteLines: Line[] = (quote.items ?? []).map((item: DocumentItem) => ({
         productId: item.product?.id,
         customName: item.customName ?? undefined,
+        customNote: item.customNote ?? undefined,
         label: item.product?.name ?? item.customName ?? "",
         quantity: Number(item.quantity),
         unitPrice: Number(item.unitPrice),
@@ -225,21 +275,24 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
       productId: line.productId,
       customName: line.productId ? undefined : line.label.trim(),
       customType: line.productId ? undefined : "SERVICE",
+      customNote: (showFabricationFields ? composeFabricationNote(line) : undefined) ?? line.customNote,
       quantity: line.quantity,
       unitPrice: line.unitPrice,
       discount: line.discount,
       tax: line.tax
     }));
     const response = fromQuoteId
-      ? await apiFetch(`/quotes/${fromQuoteId}/to-proforma`, { method: "POST", body: JSON.stringify({ items }) })
+      ? await apiFetch(`/quotes/${fromQuoteId}/to-proforma`, { method: "POST", body: JSON.stringify({ items, title: documentTitle || undefined, expectedDate: expectedDate || undefined }) })
       : await apiFetch(`/${type}`, {
           method: "POST",
-          body: JSON.stringify({ customerId: customerId || undefined, notes, discount: globalDiscount, items })
+          body: JSON.stringify({ customerId: customerId || undefined, title: documentTitle || undefined, expectedDate: expectedDate || undefined, notes, discount: globalDiscount, items })
         });
     setLoading(false);
     if (response.ok) {
       setLines([emptyLine()]);
       setNotes("");
+      setDocumentTitle("");
+      setExpectedDate("");
       setGlobalDiscount(0);
       setMessage(fromQuoteId ? "Commande créée depuis le devis, stock sorti." : `${createLabel} enregistré.`);
       setFromQuoteId(null);
@@ -284,6 +337,19 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
           </select>
         </div>
 
+        <div className="grid gap-3 border-b border-slate-100 p-5 dark:border-slate-800 sm:grid-cols-2">
+          <label className="grid gap-1 text-xs font-semibold text-slate-500">
+            Titre {showFabricationFields ? "(ex: Fenêtres salon + porte cuisine)" : "(facultatif)"}
+            <input value={documentTitle} onChange={(event) => setDocumentTitle(event.target.value)} placeholder="Titre du projet" className="rounded-md border px-3 py-2 text-sm font-normal text-slate-950 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+          </label>
+          {showFabricationFields ? (
+            <label className="grid gap-1 text-xs font-semibold text-slate-500">
+              Date de livraison/installation prévue
+              <input type="date" value={expectedDate} onChange={(event) => setExpectedDate(event.target.value)} className="rounded-md border px-3 py-2 text-sm font-normal text-slate-950 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+            </label>
+          ) : null}
+        </div>
+
         <div className="overflow-x-auto p-5 pb-0">
           <table className="w-full min-w-[640px] text-left text-sm">
             <thead className="text-xs uppercase text-slate-500">
@@ -300,7 +366,8 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
               {lines.map((line, index) => {
                 const suggestions = openRowIndex === index ? matchingProducts(products, line.label) : [];
                 return (
-                  <tr key={index} className="border-t border-slate-100 align-top dark:border-slate-800">
+                  <Fragment key={index}>
+                  <tr className="border-t border-slate-100 align-top dark:border-slate-800">
                     <td className="relative p-2">
                       <input
                         value={line.label}
@@ -334,6 +401,36 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
                       <button type="button" onClick={() => removeRow(index)} title="Retirer la ligne" className="text-slate-400 hover:text-red-600">×</button>
                     </td>
                   </tr>
+                  {showFabricationFields ? (
+                    <tr className="border-t border-dashed border-slate-100 dark:border-slate-800">
+                      <td colSpan={6} className="p-2">
+                        <button type="button" onClick={() => updateLine(index, { ...line, showFabDetails: !line.showFabDetails })} className="text-xs font-semibold text-brand-600 hover:underline">
+                          {line.showFabDetails ? "− Masquer les détails fabrication" : "+ Détails fabrication (type, matériau, mesures, couleur)"}
+                        </button>
+                        {line.showFabDetails ? (
+                          <div className="mt-2">
+                          <p className="mb-1 text-xs font-semibold text-slate-500">Notes de mesure</p>
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
+                            <select value={line.fabWorkType ?? ""} onChange={(event) => updateLine(index, { ...line, fabWorkType: event.target.value })} className="rounded-md border px-2 py-2 text-xs dark:border-slate-700 dark:bg-slate-950">
+                              <option value="">Type de travail</option>
+                              {FABRICATION_WORK_TYPES.map((option) => <option key={option} value={option}>{option}</option>)}
+                            </select>
+                            <select value={line.fabMaterial ?? ""} onChange={(event) => updateLine(index, { ...line, fabMaterial: event.target.value })} className="rounded-md border px-2 py-2 text-xs dark:border-slate-700 dark:bg-slate-950">
+                              <option value="">Matériau</option>
+                              {FABRICATION_MATERIALS.map((option) => <option key={option} value={option}>{option}</option>)}
+                            </select>
+                            <input value={line.fabWidth ?? ""} onChange={(event) => updateLine(index, { ...line, fabWidth: event.target.value })} placeholder="Largeur (cm)" className="rounded-md border px-2 py-2 text-xs dark:border-slate-700 dark:bg-slate-950" />
+                            <input value={line.fabHeight ?? ""} onChange={(event) => updateLine(index, { ...line, fabHeight: event.target.value })} placeholder="Hauteur (cm)" className="rounded-md border px-2 py-2 text-xs dark:border-slate-700 dark:bg-slate-950" />
+                            <input value={line.fabLength ?? ""} onChange={(event) => updateLine(index, { ...line, fabLength: event.target.value })} placeholder="Longueur (cm)" className="rounded-md border px-2 py-2 text-xs dark:border-slate-700 dark:bg-slate-950" />
+                            <input value={line.fabColor ?? ""} onChange={(event) => updateLine(index, { ...line, fabColor: event.target.value })} placeholder="Couleur" className="rounded-md border px-2 py-2 text-xs dark:border-slate-700 dark:bg-slate-950" />
+                            <input value={line.fabGlass ?? ""} onChange={(event) => updateLine(index, { ...line, fabGlass: event.target.value })} placeholder="Épaisseur / verre (ex: 6mm)" className="col-span-2 rounded-md border px-2 py-2 text-xs dark:border-slate-700 dark:bg-slate-950" />
+                          </div>
+                          </div>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ) : null}
+                  </Fragment>
                 );
               })}
             </tbody>
@@ -342,7 +439,10 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
         </div>
 
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
-          <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Notes" className="min-h-20 w-full rounded-md border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 sm:max-w-sm" />
+          <label className="grid w-full gap-1 text-xs font-semibold text-slate-500 sm:max-w-sm">
+            {showFabricationFields ? "Livraison / installation" : "Notes"}
+            <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder={showFabricationFields ? "Instructions de livraison, accès, contact sur place..." : "Notes"} className="min-h-20 w-full rounded-md border px-3 py-2 text-sm font-normal text-slate-950 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+          </label>
           <div className="grid w-full gap-2 sm:w-64">
             <NumberInput label="Remise globale" value={globalDiscount} onChange={setGlobalDiscount} />
             <SummaryBox label="Total" value={money(totalPreview)} />
@@ -378,7 +478,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
 
         <div className="grid gap-3 md:hidden">
           {documents.map((document) => (
-            <DocumentCard key={document.id} document={document} type={type} transformLabel={transformLabel} showTransform={Boolean(transformAction)} />
+            <DocumentCard key={document.id} document={document} type={type} transformLabel={transformLabel} showTransform={Boolean(transformAction)} showFabricationFields={showFabricationFields} />
           ))}
         </div>
 
@@ -403,7 +503,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
                   <td className="p-3">{money(document.total)}</td>
                   {type !== "quotes" ? <td className="p-3">{money(document.paidAmount)}</td> : null}
                   {type !== "quotes" ? <td className="p-3">{money(document.balance)}</td> : null}
-                  <td className="p-3"><StatusBadge status={document.status} paymentStatus={document.paymentStatus} /></td>
+                  <td className="p-3"><StatusBadge status={document.status} paymentStatus={document.paymentStatus} showFabricationFields={showFabricationFields} /></td>
                   <td className="p-3"><DocumentActions document={document} type={type} transformLabel={transformLabel} showTransform={Boolean(transformAction)} /></td>
                 </tr>
               ))}
@@ -432,8 +532,8 @@ function SummaryBox({ label, value }: { label: string; value: string }) {
   return <div className="rounded-md bg-slate-50 p-3 dark:bg-slate-950"><p className="text-xs text-slate-500">{label}</p><p className="font-bold">{value}</p></div>;
 }
 
-function DocumentCard(props: { document: SalesDocument; type: DocType; transformLabel?: string; showTransform: boolean }) {
-  const { document, type } = props;
+function DocumentCard(props: { document: SalesDocument; type: DocType; transformLabel?: string; showTransform: boolean; showFabricationFields?: boolean }) {
+  const { document, type, showFabricationFields } = props;
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="flex items-start justify-between gap-3">
@@ -441,7 +541,7 @@ function DocumentCard(props: { document: SalesDocument; type: DocType; transform
           <p className="font-mono text-xs text-slate-500">{document.documentNumber ?? document.number}</p>
           <h3 className="font-semibold text-slate-950 dark:text-white">{document.customer?.displayName ?? document.customer?.name ?? "Client non défini"}</h3>
         </div>
-        <StatusBadge status={document.status} paymentStatus={document.paymentStatus} />
+        <StatusBadge status={document.status} paymentStatus={document.paymentStatus} showFabricationFields={showFabricationFields} />
       </div>
       <div className={`mt-3 grid gap-2 text-sm ${type === "quotes" ? "grid-cols-1" : "grid-cols-3"}`}>
         <SummaryBox label="Total" value={money(document.total)} />
@@ -465,7 +565,7 @@ function DocumentActions({ document, type, transformLabel, showTransform }: { do
   );
 }
 
-function StatusBadge({ status, paymentStatus }: { status: string; paymentStatus?: string | null }) {
-  const label = paymentStatus && paymentStatus !== "UNPAID" ? `${statusLabels[status] ?? status} · ${statusLabels[paymentStatus] ?? paymentStatus}` : statusLabels[status] ?? status;
+function StatusBadge({ status, paymentStatus, showFabricationFields }: { status: string; paymentStatus?: string | null; showFabricationFields?: boolean }) {
+  const label = paymentStatus && paymentStatus !== "UNPAID" ? `${statusLabel(status, showFabricationFields)} · ${statusLabel(paymentStatus, showFabricationFields)}` : statusLabel(status, showFabricationFields);
   return <span className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">{label}</span>;
 }

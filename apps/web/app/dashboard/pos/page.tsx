@@ -701,6 +701,13 @@ export default function PosPage() {
 
           <StatusMessages error={error} message={message} syncMessage={syncMessage} />
 
+          {business?.businessProfileType === "windows-aluminium" ? (
+            <a href="/dashboard/sales/quotes/create" className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-700 shadow-sm transition hover:bg-brand-100 dark:border-brand-900 dark:bg-brand-950 dark:text-brand-200">
+              <span>Pour un projet fenêtres/portes, commencez par un devis avec mesures →</span>
+              <span className="whitespace-nowrap rounded-lg bg-brand-600 px-3 py-1.5 text-white">Créer un devis</span>
+            </a>
+          ) : null}
+
           <section className="mb-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>

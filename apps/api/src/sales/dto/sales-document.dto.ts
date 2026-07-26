@@ -44,6 +44,14 @@ export class CreateSalesDocumentDto {
   customerId?: string;
 
   @IsOptional()
+  @IsString()
+  title?: string;
+
+  @IsOptional()
+  @IsDateString()
+  expectedDate?: string;
+
+  @IsOptional()
   @IsNumber()
   @Min(0)
   discount?: number;
@@ -132,4 +140,12 @@ export class ConvertQuoteDto {
   @IsOptional()
   @IsString()
   warehouseId?: string;
+
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @IsOptional()
+  @IsDateString()
+  expectedDate?: string;
 }

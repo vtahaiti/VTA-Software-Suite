@@ -73,6 +73,8 @@ export class ProformasService {
           documentNumber,
           status: SalesDocumentStatus.CONFIRMED,
           paymentStatus: SalesDocumentPaymentStatus.UNPAID,
+          title: dto.title,
+          expectedDate: dto.expectedDate ? new Date(dto.expectedDate) : undefined,
           notes: dto.notes,
           customerSnapshot: dto.customerId ? await this.customerSnapshot(tx, tenantId, dto.customerId) : undefined,
           companySnapshot: await this.companySnapshot(tx, tenantId),
@@ -93,15 +95,36 @@ export class ProformasService {
     throw new BadRequestException("Une commande ne peut plus être modifiée après sa création. Annulez-la et recréez-la si besoin.");
   }
 
+  // Echelle de statuts "suivi de fabrication" : CONFIRMED -> IN_PROGRESS -> READY -> DELIVERED, en avant
+  // seulement (pas de retour en arriere), et CANCELLED depuis n'importe quel statut non terminal.
+  // COMPLETED reste exclusivement pilote par registerPayment() (solde a 0) - volontairement absent de
+  // cette carte pour ne pas dupliquer/contredire cette logique deja testee. Aucune de ces transitions
+  // ne touche le stock (deja deduit a la creation) : seule CANCELLED restocke, comme avant.
+  private static readonly FORWARD_TRANSITIONS: Partial<Record<SalesDocumentStatus, SalesDocumentStatus[]>> = {
+    [SalesDocumentStatus.CONFIRMED]: [SalesDocumentStatus.IN_PROGRESS, SalesDocumentStatus.READY, SalesDocumentStatus.DELIVERED],
+    [SalesDocumentStatus.IN_PROGRESS]: [SalesDocumentStatus.READY, SalesDocumentStatus.DELIVERED],
+    [SalesDocumentStatus.READY]: [SalesDocumentStatus.DELIVERED]
+  };
+  private static readonly CANCELLABLE_FROM: SalesDocumentStatus[] = [SalesDocumentStatus.CONFIRMED, SalesDocumentStatus.IN_PROGRESS, SalesDocumentStatus.READY, SalesDocumentStatus.DELIVERED];
+
   async updateStatus(tenantId: string, id: string, status: SalesDocumentStatus, userId?: string) {
-    if (status !== SalesDocumentStatus.CANCELLED) throw new BadRequestException("Seule l'annulation est disponible sur une commande.");
     return this.prisma.$transaction(async (tx) => {
       const proforma = await this.findOneInTransaction(tx, tenantId, id);
-      if (([SalesDocumentStatus.CANCELLED, SalesDocumentStatus.COMPLETED] as SalesDocumentStatus[]).includes(proforma.status)) {
-        throw new BadRequestException("Cette commande ne peut plus être annulée.");
+      if (status === SalesDocumentStatus.CANCELLED) {
+        if (!ProformasService.CANCELLABLE_FROM.includes(proforma.status)) {
+          throw new BadRequestException("Cette commande ne peut plus être annulée.");
+        }
+        await restockForItems(tx, tenantId, proforma.items, proforma.id, proforma.documentNumber, userId);
+        const updated = await tx.proforma.update({ where: { id }, data: { status: SalesDocumentStatus.CANCELLED, cancelledAt: new Date() }, include: documentInclude });
+        return withDocumentNumber(updated);
       }
-      await restockForItems(tx, tenantId, proforma.items, proforma.id, proforma.documentNumber, userId);
-      const updated = await tx.proforma.update({ where: { id }, data: { status: SalesDocumentStatus.CANCELLED, cancelledAt: new Date() }, include: documentInclude });
+      const allowedNext = ProformasService.FORWARD_TRANSITIONS[proforma.status] ?? [];
+      if (!allowedNext.includes(status)) {
+        throw new BadRequestException("Cette transition de statut n'est pas autorisée.");
+      }
+      const data: Prisma.ProformaUpdateInput = { status };
+      if (status === SalesDocumentStatus.DELIVERED) data.deliveredAt = new Date();
+      const updated = await tx.proforma.update({ where: { id }, data, include: documentInclude });
       return withDocumentNumber(updated);
     });
   }
