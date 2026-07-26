@@ -9,7 +9,7 @@ import { ProductQueryDto } from "./dto/product-query.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { UpdateReferenceDto } from "./dto/update-reference.dto";
 
-const productInclude = { category: true, brand: true, unit: true, supplier: true, barcodes: true, images: true, variants: true, stocks: true };
+const productInclude = { category: true, brand: true, unit: true, supplier: true, barcodes: true, images: true, variants: true, stocks: { include: { warehouse: true } } };
 const productListSelect = {
   id: true,
   sku: true,

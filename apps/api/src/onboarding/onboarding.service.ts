@@ -12,6 +12,7 @@ import { SubscriptionEntitlementsService } from "../subscriptions/subscription-e
 import { UploadsService } from "../uploads/uploads.service";
 import { CreateCompanyDto } from "./dto/create-company.dto";
 import { RegisterUserDto } from "./dto/register-user.dto";
+import { createRestaurantStarterCatalog } from "./restaurant-starter-catalog";
 
 @Injectable()
 export class OnboardingService {
@@ -195,18 +196,12 @@ export class OnboardingService {
       await tx.userProfile.create({ data: { userId: user.id, photoUrl: userPhotoUrl, phone: pending.phone, language: dto.language ?? "fr", jobTitle: "Propriétaire" } });
 
       const store = await tx.store.create({ data: { tenantId: tenant.id, code: "MAIN", name: "Magasin principal", phone: dto.phone, email: dto.email, country: dto.country, city: dto.city, address: dto.address } });
-      const warehouse = await tx.warehouse.create({ data: { tenantId: tenant.id, storeId: store.id, code: "DEPOT-PRINCIPAL", name: "Dépôt principal", description: "Dépôt créé automatiquement pendant l onboarding" } });
-      if (selectedBusinessProfile.slug === "restaurant") {
-        await tx.warehouse.createMany({
-          data: [
-            { tenantId: tenant.id, storeId: store.id, code: "REFRIGERATEUR", name: "Réfrigérateur", description: "Stock restaurant V1" },
-            { tenantId: tenant.id, storeId: store.id, code: "CONGELATEUR", name: "Congélateur", description: "Stock restaurant V1" },
-            { tenantId: tenant.id, storeId: store.id, code: "CUISINE", name: "Cuisine", description: "Stock restaurant V1" },
-            { tenantId: tenant.id, storeId: store.id, code: "BAR", name: "Bar", description: "Stock restaurant V1" }
-          ],
-          skipDuplicates: true
-        });
-      }
+      const restaurantStarter = selectedBusinessProfile.slug === "restaurant"
+        ? await createRestaurantStarterCatalog(tx, tenant.id, store.id)
+        : null;
+      const warehouse = restaurantStarter?.warehouse
+        ? { id: restaurantStarter.warehouse.id }
+        : await tx.warehouse.create({ data: { tenantId: tenant.id, storeId: store.id, code: "DEPOT-PRINCIPAL", name: "Dépôt principal", description: "Dépôt créé automatiquement pendant l onboarding" } });
       await tx.cashRegister.create({ data: { tenantId: tenant.id, storeId: store.id, code: "CAISSE-01", name: "Caisse principale" } });
       await this.subscriptions.createTrialSubscription(tx, tenant.id, user.id);
 

@@ -45,6 +45,7 @@ export default function InventoryPage() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [query, setQuery] = useState("");
   const [showNonStock, setShowNonStock] = useState(false);
+  const [warehouseId, setWarehouseId] = useState("");
   const [showAdvancedCorrection, setShowAdvancedCorrection] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -76,6 +77,7 @@ export default function InventoryPage() {
     setIsLoading(true);
     const params = new URLSearchParams({ limit: "100", includeNonStock: showNonStock ? "true" : "false" });
     if (query.trim()) params.set("search", query.trim());
+    if (warehouseId) params.set("warehouseId", warehouseId);
     const [stockResponse, warehouseResponse] = await Promise.all([
       fetch(`${apiUrl}/stock?${params.toString()}`, { headers: authHeaders() }).catch(() => null),
       fetch(`${apiUrl}/warehouses`, { headers: authHeaders() }).catch(() => null)
@@ -89,7 +91,7 @@ export default function InventoryPage() {
     setStocks(data.items ?? []);
     if (warehouseResponse?.ok) setWarehouses(await warehouseResponse.json());
     setError("");
-  }, [query, showNonStock]);
+  }, [query, showNonStock, warehouseId]);
 
   useEffect(() => {
     const timer = setTimeout(() => void loadStocks(), 200);
@@ -199,12 +201,23 @@ export default function InventoryPage() {
             <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Mouvements et contrôle stock</h1>
             <p className="mt-1 text-sm text-slate-500">Les produits se gèrent dans le catalogue. Ici, suivez les entrées, sorties, transferts et historiques de stock.</p>
             {isRestaurantInventoryProfile(business) ? (
-              <p className="mt-1 text-xs text-slate-500">Emplacements Restaurant : Dépôt principal, Réfrigérateur, Cuisine, Bar.</p>
+              <p className="mt-1 text-xs text-slate-500">Emplacements Restaurant : Dépôt, Frigo, Bar, Cuisine et Fournitures.</p>
             ) : null}
           </div>
           <Link href="/dashboard/products" className="rounded-md border border-slate-300 px-4 py-3 text-center text-sm font-bold dark:border-slate-700">Ouvrir le catalogue</Link>
         </div>
       </section>
+
+      {isRestaurantInventoryProfile(business) ? (
+        <section className="flex flex-wrap gap-2" aria-label="Filtrer l'inventaire par emplacement">
+          <button type="button" onClick={() => setWarehouseId("")} className={warehouseFilterClass(!warehouseId)}>Tous</button>
+          {warehouses.map((warehouse) => (
+            <button key={warehouse.id} type="button" onClick={() => setWarehouseId(warehouse.id)} className={warehouseFilterClass(warehouseId === warehouse.id)}>
+              {shortWarehouseName(warehouse.name)}
+            </button>
+          ))}
+        </section>
+      ) : null}
 
       <section className="grid gap-3 md:grid-cols-4">
         <SummaryCard label="Produits suivis" value={summary.tracked} />
@@ -390,6 +403,17 @@ function isRestaurantInventoryProfile(business: TenantBusinessConfiguration | nu
   const profile = String(business?.businessProfileType ?? "").toLowerCase();
   const activity = String(business?.primaryActivity ?? "").toLowerCase();
   return profile === "restaurant" || profile === "hotel-restaurant" || activity.includes("restaurant") || activity.includes("bar");
+}
+
+function shortWarehouseName(name: string) {
+  if (name.startsWith("Frigo")) return "Frigo";
+  if (name.startsWith("Bar")) return "Bar";
+  if (name.startsWith("Cuisine")) return "Cuisine";
+  return name;
+}
+
+function warehouseFilterClass(active: boolean) {
+  return `rounded-full border px-4 py-2 text-sm font-semibold ${active ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"}`;
 }
 
 function authHeaders() {
