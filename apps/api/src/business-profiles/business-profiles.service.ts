@@ -321,6 +321,7 @@ export class BusinessProfilesService {
         { label: "Produits / menus", href: "/dashboard/products", module: "products" },
         { label: "Catégories", href: "/dashboard/products/categories", module: "products" },
         { label: "Stock ingrédients / Inventaire", href: "/dashboard/inventory", module: "inventory" },
+        { label: "Stock Restaurant", href: "/dashboard/restaurant/stock", module: "inventory" },
         { label: "Clients", href: "/dashboard/customers", module: "customers" },
         { label: "Rapports", href: "/dashboard/reports", module: "reports" },
         { label: "Notifications", href: "/dashboard/notifications", module: "dashboard" },

@@ -48,7 +48,8 @@ async function main() {
 
     const restaurantBefore = await businessProfiles.tenantConfiguration(restaurantTenant.id);
     assert(!hrefs(restaurantBefore).includes("/dashboard/sales"), "restaurant: Devis & Commandes ne doit pas apparaitre par defaut");
-    console.log("scenario 1a OK : tenant restaurant fraichement cree, pas de Devis & Commandes");
+    assert(hrefs(restaurantBefore).includes("/dashboard/restaurant/stock"), "restaurant: le menu doit inclure la nouvelle entree Stock Restaurant");
+    console.log("scenario 1a OK : tenant restaurant fraichement cree, pas de Devis & Commandes, avec Stock Restaurant");
 
     // Simule le bug reel : un admin restaurant bascule manuellement "Ventes" sur la page des modules.
     await businessProfiles.setModuleState(restaurantTenant.id, "sales", true);
@@ -63,7 +64,8 @@ async function main() {
     const commerceConfig = await businessProfiles.tenantConfiguration(commerceTenant.id);
     assert(hrefs(commerceConfig).includes("/dashboard/sales"), "fabrication: Devis & Commandes doit rester present (aucune regression sur les autres profils)");
     assert((commerceConfig.excludedModules ?? []).length === 0, "fabrication: excludedModules doit rester vide (le filtre ne doit s'appliquer qu'aux profils qui l'ont explicitement)");
-    console.log("scenario 2 OK : tenant fabrication non affecte, Devis & Commandes toujours present");
+    assert(!hrefs(commerceConfig).includes("/dashboard/restaurant/stock"), "fabrication: Stock Restaurant ne doit pas apparaitre, c'est une entree reservee au profil Restaurant");
+    console.log("scenario 2 OK : tenant fabrication non affecte, Devis & Commandes toujours present, pas de Stock Restaurant");
 
     // Demande explicite : Multi-activite, Quincaillerie et Services doivent garder Devis & Commandes.
     for (const slug of ["multi-activities", "hardware", "services"]) {

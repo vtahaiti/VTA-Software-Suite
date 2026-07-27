@@ -7,6 +7,8 @@ import { fetchWithAuth } from "@/lib/api-client";
 import { clearSession, getAccessToken, getCurrentUser } from "@/lib/auth";
 import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
 import { businessDateKey, formatBusinessDateTime } from "@/lib/business-timezone";
+import { getTenantBusinessConfiguration, type TenantBusinessConfiguration } from "@/lib/business-profiles";
+import { RestaurantDashboard } from "./restaurant-dashboard";
 
 
 type Kpis = {
@@ -140,6 +142,11 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [accessBlocked, setAccessBlocked] = useState(false);
+  const [business, setBusiness] = useState<TenantBusinessConfiguration | null>(null);
+
+  useEffect(() => {
+    void getTenantBusinessConfiguration().then(setBusiness).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     const currentUser = getCurrentUser();
@@ -202,6 +209,7 @@ export default function DashboardPage() {
   ], [summary]);
 
   if (accessBlocked) return <DashboardAccessBlocked />;
+  if (business?.businessProfileType === "restaurant") return <RestaurantDashboard />;
 
   return (
     <div className="space-y-4 pb-6 lg:space-y-8 lg:pb-8">

@@ -12,6 +12,12 @@ const salesStatusSource = read("apps/web/app/dashboard/sales/sales-status-page.t
 const inventoryPageSource = read("apps/web/app/dashboard/inventory/page.tsx");
 const dashboardSource = read("apps/web/app/dashboard/adaptive-dashboard.tsx");
 const onboardingSource = read("apps/api/src/onboarding/onboarding.service.ts");
+const restaurantStarterSource = read("apps/api/src/onboarding/restaurant-starter-catalog.ts");
+const dashboardPageSource = read("apps/web/app/dashboard/page.tsx");
+const restaurantDashboardSource = read("apps/web/app/dashboard/restaurant-dashboard.tsx");
+const restaurantStockPageSource = read("apps/web/app/dashboard/restaurant/stock/page.tsx");
+const productsPageSource = read("apps/web/app/dashboard/products/page.tsx");
+const navigationSource = read("apps/web/lib/navigation.tsx");
 
 const failures = [];
 
@@ -37,8 +43,8 @@ if (restaurantModule.includes("Tables") || restaurantModule.includes("Envoyer en
   failures.push("Module Restaurant V1: ne doit pas promettre tables/cuisine.");
 }
 
-const simpleRestaurantMenu = serviceSource.match(/if \(normalizedProfile === "restaurant"\) \{[\s\S]*?return \[[\s\S]*?\];\n\s*\}/)?.[0] ?? "";
-for (const expected of ["POS / Nouvelle commande", "Commandes ouvertes", "Historique ventes", "Produits / menus", "Catégories", "Stock ingrédients / Inventaire", "Clients", "Rapports", "Notifications", "Paramètres"]) {
+const simpleRestaurantMenu = serviceSource.match(/if \(normalizedProfile === "restaurant"\) \{[\s\S]*?return \[[\s\S]*?\];\r?\n\s*\}/)?.[0] ?? "";
+for (const expected of ["POS / Nouvelle commande", "Commandes ouvertes", "Historique ventes", "Produits / menus", "Catégories", "Stock ingrédients / Inventaire", "Stock Restaurant", "Clients", "Rapports", "Notifications", "Paramètres"]) {
   if (!simpleRestaurantMenu.includes(expected)) failures.push(`Menu simple Restaurant V1: entrée absente ${expected}`);
 }
 if (simpleRestaurantMenu.includes("Devis & Commandes")) failures.push("Menu simple Restaurant V1: Devis & Commandes ne doit pas apparaître par défaut.");
@@ -57,7 +63,7 @@ if (productFormSource.includes("Suggestions Restaurant V1")) {
   failures.push("Formulaire produit: ne doit pas ramener une section Restaurant V1 visible.");
 }
 
-for (const expected of ["Emplacements Restaurant", "Dépôt principal", "Réfrigérateur", "Cuisine", "Bar"]) {
+for (const expected of ["Emplacements Restaurant", "Dépôt principal", "Frigo", "Cuisine", "Bar"]) {
   if (!inventoryPageSource.includes(expected)) failures.push(`Inventaire Restaurant V1: emplacement/texte absent ${expected}`);
 }
 if (!inventoryPageSource.includes("isRestaurantInventoryProfile")) {
@@ -83,6 +89,34 @@ for (const expected of ["Produits / menu", "Ventes en attente", "Ventes du jour"
 
 if (!onboardingSource.includes("businessProfileType") || !onboardingSource.includes("primaryActivity")) {
   failures.push("Onboarding doit conserver le profil Restaurant sélectionné.");
+}
+
+if (
+  !onboardingSource.includes("createRestaurantStarterCatalog") ||
+  !restaurantStarterSource.includes('code: "FOURNITURES"') ||
+  !restaurantStarterSource.includes('name: "Fournitures"')
+) {
+  failures.push("Onboarding Restaurant V1: l'entrepôt Fournitures doit être créé pour les nouveaux tenants Restaurant.");
+}
+
+if (!dashboardPageSource.includes("RestaurantDashboard") || !dashboardPageSource.includes('businessProfileType === "restaurant"')) {
+  failures.push("Dashboard V1: le profil Restaurant doit afficher RestaurantDashboard au lieu du dashboard générique.");
+}
+
+for (const expected of ["Nouvelle commande", "Commandes en cours", "Historique des ventes", "Sessions de caisse", "Produits / menu", "Catégories", "Stock Restaurant", "Frigo / Congélateur", "Bar / Boissons", "Cuisine / Ingrédients", "Dépôt", "Fournitures"]) {
+  if (!restaurantDashboardSource.includes(expected)) failures.push(`RestaurantDashboard V1: section/texte absent ${expected}`);
+}
+
+for (const expected of ["Frigo", "Bar", "Cuisine", "Dépôt", "Fournitures"]) {
+  if (!restaurantStockPageSource.includes(expected)) failures.push(`Stock Restaurant V1: zone absente ${expected}`);
+}
+
+if (!productsPageSource.includes('<Modal title="Nouveau produit"') || !productsPageSource.includes('<Modal title="Ajouter plat ou boisson"')) {
+  failures.push("Produits V1: les deux libellés de modale (générique et Restaurant) doivent coexister sans casser le générique.");
+}
+
+if (!navigationSource.includes('href: "/dashboard/restaurant/stock"')) {
+  failures.push("Sidebar V1: l'entrée Stock Restaurant doit être présente dans la navigation statique.");
 }
 
 if (failures.length) {

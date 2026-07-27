@@ -21,6 +21,7 @@ const routePermissions: Array<{ prefix: string; permissions: string[]; roles?: s
   { prefix: "/dashboard/manufacturing", permissions: ["inventory.adjust"] },
   { prefix: "/dashboard/hotel", permissions: ["sales.read"] },
   { prefix: "/dashboard/rental", permissions: ["sales.read"] },
+  { prefix: "/dashboard/restaurant", permissions: ["inventory.view"] },
   { prefix: "/dashboard/customers", permissions: ["customer.read", "customers.view"] },
   { prefix: "/dashboard/suppliers", permissions: ["suppliers.view"] },
   { prefix: "/dashboard/purchases", permissions: ["purchases.view"] },
