@@ -1,0 +1,1 @@
+ALTER TABLE "Product" ADD COLUMN "sellable" BOOLEAN NOT NULL DEFAULT true;
