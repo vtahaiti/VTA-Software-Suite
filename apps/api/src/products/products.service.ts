@@ -20,6 +20,7 @@ const productListSelect = {
   promotionalPrice: true,
   minimumStock: true,
   isActive: true,
+  sellable: true,
   createdAt: true,
   updatedAt: true,
   category: { select: { id: true, name: true } },
