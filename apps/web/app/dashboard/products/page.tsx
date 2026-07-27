@@ -5,6 +5,7 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
 import { resolveAssetUrl } from "@/lib/company-branding";
+import { getTenantBusinessConfiguration, type TenantBusinessConfiguration } from "@/lib/business-profiles";
 
 const PAGE_SIZE = 25;
 
@@ -59,6 +60,10 @@ export default function ProductsPage() {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [business, setBusiness] = useState<TenantBusinessConfiguration | null>(null);
+  const isRestaurant = business?.businessProfileType === "restaurant";
+
+  useEffect(() => { void getTenantBusinessConfiguration().then(setBusiness).catch(() => undefined); }, []);
 
   async function loadCategories() {
     const response = await fetchWithAuth(`${apiUrl}/products/categories`);
@@ -139,8 +144,8 @@ export default function ProductsPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:flex-row md:items-center">
-        <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Produits</h1>
-        <button onClick={() => setIsModalOpen(true)} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Nouveau produit</button>
+        <h1 className="text-2xl font-bold text-slate-950 dark:text-white">{isRestaurant ? "Produits / menu" : "Produits"}</h1>
+        <button onClick={() => setIsModalOpen(true)} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">{isRestaurant ? "Ajouter plat ou boisson" : "Nouveau produit"}</button>
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -188,7 +193,30 @@ export default function ProductsPage() {
 
       <Pagination page={page} pages={pages} total={displayTotal} displayed={items.length} label="produits" onPrev={() => setPage(page - 1)} onNext={() => setPage(page + 1)} />
 
-      {isModalOpen ? (
+      {isModalOpen && isRestaurant ? (
+        <Modal title="Ajouter plat ou boisson" onClose={() => setIsModalOpen(false)}>
+          <form onSubmit={createProduct} className="space-y-3">
+            <Input required value={form.name} onChange={(value) => setForm((current) => ({ ...current, name: value }))} placeholder="Nom du produit *" />
+            <select value={form.categoryId} onChange={(event) => setForm((current) => ({ ...current, categoryId: event.target.value }))} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option value="">Catégorie</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
+            <Input type="number" value={form.purchasePrice} onChange={(value) => setForm((current) => ({ ...current, purchasePrice: value }))} placeholder="Prix d'achat / coût - facultatif" />
+            <Input required type="number" value={form.salePrice} onChange={(value) => setForm((current) => ({ ...current, salePrice: value }))} placeholder="Prix de vente *" />
+            <StockTrackingChoice tracked={form.trackStock} onChange={(trackStock) => setForm((current) => ({ ...current, trackStock }))} />
+            {form.trackStock ? (
+              <>
+                <Input type="number" value={form.stockInitial} onChange={(value) => setForm((current) => ({ ...current, stockInitial: value }))} placeholder="Quantité initiale" />
+                <Input type="number" value={form.minimumStock} onChange={(value) => setForm((current) => ({ ...current, minimumStock: value }))} placeholder="Quantité minimale pour stock faible" helper="Alerte quand le stock arrive à ce niveau." />
+              </>
+            ) : <p className="rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:bg-slate-950 dark:text-slate-300">Non suivi en stock : vendable dans le POS, masqué de l&apos;inventaire par défaut.</p>}
+            <ImagePicker selected={Boolean(form.imageUrl)} onChange={(value) => setForm((current) => ({ ...current, imageUrl: value }))} />
+            <textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Description courte facultative" rows={3} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+            <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={form.isActive} onChange={(event) => setForm((current) => ({ ...current, isActive: event.target.checked }))} /> Produit actif</label>
+            {message ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{message}</p> : null}
+            <button disabled={isSaving} className="w-full rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{isSaving ? "Enregistrement..." : "Enregistrer"}</button>
+          </form>
+        </Modal>
+      ) : null}
+
+      {isModalOpen && !isRestaurant ? (
         <Modal title="Nouveau produit" onClose={() => setIsModalOpen(false)}>
           <form onSubmit={createProduct} className="space-y-3">
             <Input required value={form.name} onChange={(value) => setForm((current) => ({ ...current, name: value }))} placeholder="Nom du produit *" />

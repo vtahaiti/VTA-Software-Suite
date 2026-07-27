@@ -19,6 +19,7 @@ import {
   History,
   Home,
   Layers,
+  LayoutGrid,
   LogOut,
   Mail,
   Package,
@@ -74,6 +75,7 @@ export const navigationIcons = {
   Expirations: PillBottle,
   Patients: Stethoscope,
   Production: Factory,
+  RestaurantStock: LayoutGrid,
   Rooms: Bed,
   Vehicles: Car,
   Clients: Users,
@@ -153,7 +155,8 @@ const routeOrder: NavigationSection[] = [
           { id: "transfers", label: "Transferts", href: "/dashboard/inventory/transfers", icon: navigationIcons.Transferts },
           { id: "movements", label: "Journal des mouvements", href: "/dashboard/inventory/movements", icon: navigationIcons.Mouvements },
           { id: "pharmacy-expirations", label: "Lots et expirations", href: "/dashboard/pharmacy/expirations", icon: navigationIcons.Expirations },
-          { id: "manufacturing-production", label: "Production", href: "/dashboard/manufacturing/production", icon: navigationIcons.Production }
+          { id: "manufacturing-production", label: "Production", href: "/dashboard/manufacturing/production", icon: navigationIcons.Production },
+          { id: "restaurant-stock", label: "Stock Restaurant", href: "/dashboard/restaurant/stock", icon: navigationIcons.RestaurantStock }
         ]
       },
       {

@@ -202,7 +202,8 @@ export class OnboardingService {
             { tenantId: tenant.id, storeId: store.id, code: "REFRIGERATEUR", name: "Réfrigérateur", description: "Stock restaurant V1" },
             { tenantId: tenant.id, storeId: store.id, code: "CONGELATEUR", name: "Congélateur", description: "Stock restaurant V1" },
             { tenantId: tenant.id, storeId: store.id, code: "CUISINE", name: "Cuisine", description: "Stock restaurant V1" },
-            { tenantId: tenant.id, storeId: store.id, code: "BAR", name: "Bar", description: "Stock restaurant V1" }
+            { tenantId: tenant.id, storeId: store.id, code: "BAR", name: "Bar", description: "Stock restaurant V1" },
+            { tenantId: tenant.id, storeId: store.id, code: "FOURNITURES", name: "Fournitures", description: "Stock restaurant V1" }
           ],
           skipDuplicates: true
         });
