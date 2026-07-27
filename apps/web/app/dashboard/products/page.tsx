@@ -18,6 +18,7 @@ type Product = {
   minimumStock?: number;
   stockTracked?: boolean;
   stocks?: Array<{ warehouse?: { id: string; name: string } | null }>;
+  sellable?: boolean;
   category?: { name: string } | null;
   images?: Array<{ url?: string | null; alt?: string | null }>;
 };
@@ -35,6 +36,7 @@ type ProductForm = {
   description: string;
   imageUrl: string;
   trackStock: boolean;
+  sellable: boolean;
   isActive: boolean;
 };
 
@@ -49,6 +51,7 @@ const emptyForm: ProductForm = {
   description: "",
   imageUrl: "",
   trackStock: true,
+  sellable: true,
   isActive: true
 };
 
@@ -120,6 +123,7 @@ export default function ProductsPage() {
         salePrice: Number(form.salePrice || 0),
         categoryId: form.categoryId || undefined,
         trackStock: form.trackStock,
+        sellable: form.sellable,
         stockInitial: form.trackStock ? Number(form.stockInitial || 0) : 0,
         minimumStock: form.trackStock ? Number(form.minimumStock || 0) : 0,
         warehouseId: form.trackStock && form.warehouseId ? form.warehouseId : undefined,
@@ -174,6 +178,7 @@ export default function ProductsPage() {
             <ProductThumb product={product} />
             <div className="min-w-0 flex-1">
               <h2 className="truncate font-semibold text-slate-950 dark:text-white">{product.name}</h2>
+              {isRestaurant ? <SellableBadge product={product} /> : null}
               <MissingCostHint product={product} />
               <p className="text-sm text-slate-500">{product.category?.name ?? "Sans catégorie"}</p>
             </div>
@@ -193,7 +198,7 @@ export default function ProductsPage() {
             <tr><th className="p-3">Produit</th><th className="p-3">Catégorie</th><th className="p-3">Prix</th><th className="p-3">Quantité</th><th className="p-3">Actions</th></tr>
           </thead>
           <tbody>{items.map((product) => <tr key={product.id} className="border-t border-slate-100 dark:border-slate-800">
-            <td className="p-3"><div className="flex items-center gap-3"><ProductThumb product={product} /><div><p className="font-semibold">{product.name}</p><MissingCostHint product={product} /></div></div></td>
+            <td className="p-3"><div className="flex items-center gap-3"><ProductThumb product={product} /><div><p className="font-semibold">{product.name}</p>{isRestaurant ? <SellableBadge product={product} /> : null}<MissingCostHint product={product} /></div></div></td>
             <td className="p-3">{product.category?.name ?? "--"}</td>
             <td className="p-3 font-semibold">{formatMoney(product.salePrice)}</td>
             <td className="p-3"><QuantityDisplay product={product} /></td>
@@ -213,6 +218,7 @@ export default function ProductsPage() {
             <select value={form.categoryId} onChange={(event) => setForm((current) => ({ ...current, categoryId: event.target.value }))} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option value="">Catégorie</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
             <Input type="number" value={form.purchasePrice} onChange={(value) => setForm((current) => ({ ...current, purchasePrice: value }))} placeholder="Prix d'achat / coût - facultatif" />
             <Input required type="number" value={form.salePrice} onChange={(value) => setForm((current) => ({ ...current, salePrice: value }))} placeholder="Prix de vente *" />
+            <SellableChoice sellable={form.sellable} onChange={(sellable) => setForm((current) => ({ ...current, sellable }))} />
             <StockTrackingChoice tracked={form.trackStock} onChange={(trackStock) => setForm((current) => ({ ...current, trackStock }))} />
             {form.trackStock ? (
               <>
@@ -260,11 +266,22 @@ export default function ProductsPage() {
 }
 
 function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"><div className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl dark:bg-slate-900"><div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-bold">{title}</h2><button type="button" onClick={onClose} className="rounded-md border px-3 py-1 text-sm dark:border-slate-700">Fermer</button></div>{children}</div></div>;
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"><div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-5 shadow-xl dark:bg-slate-900"><div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-bold">{title}</h2><button type="button" onClick={onClose} className="rounded-md border px-3 py-1 text-sm dark:border-slate-700">Fermer</button></div>{children}</div></div>;
 }
 
 function Input({ value, onChange, placeholder, helper, required = false, type = "text" }: { value: string; placeholder: string; helper?: string; required?: boolean; type?: string; onChange: (value: string) => void }) {
   return <label className="grid gap-1"><input type={type} required={required} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />{helper ? <span className="text-xs text-slate-500">{helper}</span> : null}</label>;
+}
+
+function SellableChoice({ sellable, onChange }: { sellable: boolean; onChange: (sellable: boolean) => void }) {
+  return <fieldset className="rounded-md border border-slate-200 p-3 dark:border-slate-800">
+    <legend className="px-1 text-sm font-semibold text-slate-700 dark:text-slate-200">Vendable au client (POS) ?</legend>
+    <p className="mb-2 px-1 text-xs text-slate-500 dark:text-slate-400">Non = usage interne uniquement (ex: ail, farine, détergent) — reste visible en stock, jamais dans la caisse.</p>
+    <div className="grid grid-cols-2 gap-2">
+      <button type="button" onClick={() => onChange(true)} className={`rounded-md border px-3 py-2 text-sm font-bold ${sellable ? "border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-950" : "border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"}`}>Oui</button>
+      <button type="button" onClick={() => onChange(false)} className={`rounded-md border px-3 py-2 text-sm font-bold ${!sellable ? "border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-950" : "border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"}`}>Non</button>
+    </div>
+  </fieldset>;
 }
 
 function StockTrackingChoice({ tracked, onChange }: { tracked: boolean; onChange: (tracked: boolean) => void }) {
@@ -335,6 +352,11 @@ function isCostMissing(product: Product) {
 function MissingCostHint({ product }: { product: Product }) {
   if (!isCostMissing(product)) return null;
   return <p className="mt-0.5 text-[11px] font-normal leading-tight text-amber-600/75">Coût à compléter</p>;
+}
+
+function SellableBadge({ product }: { product: Product }) {
+  if (product.sellable === false) return <p className="mt-0.5 text-[11px] font-semibold leading-tight text-slate-500">Stock seulement (pas en caisse)</p>;
+  return <p className="mt-0.5 text-[11px] font-normal leading-tight text-emerald-600/75">Vendable au client</p>;
 }
 
 function Pagination({ page, pages, total, displayed, label, onPrev, onNext }: { page: number; pages: number; total: number; displayed: number; label: string; onPrev: () => void; onNext: () => void }) {

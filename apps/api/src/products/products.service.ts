@@ -20,6 +20,7 @@ const productListSelect = {
   promotionalPrice: true,
   minimumStock: true,
   isActive: true,
+  sellable: true,
   createdAt: true,
   updatedAt: true,
   category: { select: { id: true, name: true } },
@@ -232,7 +233,7 @@ export class ProductsService {
 
   private productCreateData(tenantId: string, sku: string, dto: CreateProductDto): Prisma.ProductCreateInput {
     return {
-      tenant: { connect: { id: tenantId } }, sku, name: dto.name, description: dto.description, isActive: dto.isActive ?? true,
+      tenant: { connect: { id: tenantId } }, sku, name: dto.name, description: dto.description, isActive: dto.isActive ?? true, sellable: dto.sellable ?? true,
       category: dto.categoryId ? { connect: { id: dto.categoryId } } : undefined,
       brand: dto.brandId ? { connect: { id: dto.brandId } } : undefined,
       unit: dto.unitId ? { connect: { id: dto.unitId } } : undefined,
@@ -248,7 +249,7 @@ export class ProductsService {
 
   private productUpdateData(dto: UpdateProductDto): Prisma.ProductUpdateInput {
     return {
-      sku: dto.sku, name: dto.name, description: dto.description, isActive: dto.isActive,
+      sku: dto.sku, name: dto.name, description: dto.description, isActive: dto.isActive, sellable: dto.sellable,
       category: dto.categoryId ? { connect: { id: dto.categoryId } } : undefined,
       brand: dto.brandId ? { connect: { id: dto.brandId } } : undefined,
       unit: dto.unitId ? { connect: { id: dto.unitId } } : undefined,

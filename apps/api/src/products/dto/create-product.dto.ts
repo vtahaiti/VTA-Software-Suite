@@ -51,6 +51,7 @@ export class CreateProductDto {
   @IsString() @MaxLength(160) name!: string;
   @IsOptional() @IsString() description?: string;
   @IsOptional() @IsBoolean() isActive?: boolean;
+  @IsOptional() @IsBoolean() sellable?: boolean;
   @IsOptional() @IsNumber() @Min(0) purchasePrice?: number;
   @IsOptional() @IsNumber() @Min(0) salePrice?: number;
   @IsOptional() @IsNumber() @Min(0) promotionalPrice?: number;

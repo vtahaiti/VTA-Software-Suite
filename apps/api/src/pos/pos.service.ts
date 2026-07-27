@@ -95,9 +95,11 @@ export class PosService {
   async searchProducts(tenantId: string, query: ProductQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 24;
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { businessProfileType: true } });
     const where: Prisma.ProductWhereInput = {
       tenantId,
       isActive: true,
+      sellable: tenant?.businessProfileType === "restaurant" ? true : undefined,
       OR: query.search
         ? [
             { name: { contains: query.search, mode: "insensitive" } },
@@ -137,8 +139,9 @@ export class PosService {
 
   async scanProduct(tenantId: string, barcode: string) {
     if (!barcode?.trim()) throw new BadRequestException("Code-barres requis");
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { businessProfileType: true } });
     const product = await this.prisma.product.findFirst({
-      where: { tenantId, isActive: true, barcodes: { some: { value: barcode.trim() } } },
+      where: { tenantId, isActive: true, sellable: tenant?.businessProfileType === "restaurant" ? true : undefined, barcodes: { some: { value: barcode.trim() } } },
       include: { barcodes: true, images: true, stocks: true, category: true, brand: true, unit: true, variants: true }
     });
     if (!product) throw new NotFoundException("Produit introuvable pour ce code-barres");
