@@ -40,15 +40,41 @@ export default function HotelRoomsPage() {
 
   async function load() {
     setIsLoading(true);
-    const [p, c, r] = await Promise.all([
-      fetchWithAuth(`${apiUrl}/products?limit=500`).catch(() => null),
-      fetchWithAuth(`${apiUrl}/customers?limit=500`).catch(() => null),
-      fetchWithAuth(`${apiUrl}/asset-reservations?assetType=ROOM`).catch(() => null)
-    ]);
-    if (p?.ok) setRooms((await p.json()).items ?? []);
-    if (c?.ok) setCustomers((await c.json()).items ?? []);
-    if (r?.ok) setReservations(await r.json());
-    setIsLoading(false);
+    setError("");
+    try {
+      const [productsResponse, customersResponse, reservationsResponse] = await Promise.all([
+        fetchWithAuth(`${apiUrl}/products?limit=100`).catch(() => null),
+        fetchWithAuth(`${apiUrl}/customers?limit=100`).catch(() => null),
+        fetchWithAuth(`${apiUrl}/asset-reservations?assetType=ROOM`).catch(() => null)
+      ]);
+
+      const failures: string[] = [];
+      if (productsResponse?.ok) setRooms((await productsResponse.json()).items ?? []);
+      else {
+        setRooms([]);
+        failures.push("les chambres");
+      }
+      if (customersResponse?.ok) setCustomers((await customersResponse.json()).items ?? []);
+      else {
+        setCustomers([]);
+        failures.push("les clients");
+      }
+      if (reservationsResponse?.ok) setReservations(await reservationsResponse.json());
+      else {
+        setReservations([]);
+        failures.push("les réservations");
+      }
+      if (failures.length) {
+        setError(`Impossible de charger ${failures.join(", ")}. Vérifiez votre connexion puis réessayez.`);
+      }
+    } catch {
+      setRooms([]);
+      setCustomers([]);
+      setReservations([]);
+      setError("Connexion au serveur impossible. Vérifiez votre connexion puis réessayez.");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   const occupiedRoomIds = useMemo(() => new Set(reservations.filter((r) => r.status === "ACTIVE").map((r) => r.product.id)), [reservations]);

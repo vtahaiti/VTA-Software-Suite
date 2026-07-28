@@ -40,6 +40,7 @@
     "test:restaurant-v1": "node scripts/restaurant-v1-smoke.cjs",
     "test:restaurant-stock-templates": "node scripts/restaurant-stock-templates-smoke.cjs",
     "test:restaurant-product-separation": "node scripts/restaurant-product-separation-smoke.cjs",
+    "test:hotel-restaurant": "node scripts/hotel-restaurant-smoke.cjs",
     "test:products-restaurant-separation": "npm run test:restaurant-product-separation",
     "test:inventory-stock-status": "node scripts/inventory-stock-status-smoke.cjs",
     "test:inventory-v1": "node scripts/inventory-v1-smoke.cjs",

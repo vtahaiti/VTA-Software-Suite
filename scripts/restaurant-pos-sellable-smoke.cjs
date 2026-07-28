@@ -3,7 +3,8 @@
 //    internes (Ail, Gobelets, Detergent, Farine) restent hors POS, meme s'ils ont du stock.
 // 2) l'Inventaire/Produits (GET /products) continue de lister TOUS les produits, vendables ou non.
 // 3) le scan code-barres en POS Restaurant respecte le meme filtre.
-// 4) un tenant non-Restaurant (Commerce) n'est pas affecte : son POS montre tout, comme avant.
+// 4) Hôtel-restaurant applique le même filtre que Restaurant.
+// 5) les tenants Commerce et Fashion ne sont pas affectés : leur POS montre tout, comme avant.
 
 if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = "postgresql://vta:vta_password@localhost:5432/vta_commerce?schema=public";
@@ -40,12 +41,18 @@ async function main() {
   const restaurantTenant = await prisma.tenant.create({
     data: { name: "Restaurant POS Sellable Smoke", slug: `restaurant-pos-sellable-smoke-${suffix}`, status: "TRIAL", businessProfileType: "restaurant" }
   });
+  const hotelRestaurantTenant = await prisma.tenant.create({
+    data: { name: "Hotel Restaurant POS Sellable Smoke", slug: `hotel-restaurant-pos-sellable-smoke-${suffix}`, status: "TRIAL", businessProfileType: "hotel-restaurant" }
+  });
   const commerceTenant = await prisma.tenant.create({
     data: { name: "Commerce POS Sellable Smoke", slug: `commerce-pos-sellable-smoke-${suffix}`, status: "TRIAL", businessProfileType: "commerce" }
   });
+  const fashionTenant = await prisma.tenant.create({
+    data: { name: "Fashion POS Sellable Smoke", slug: `fashion-pos-sellable-smoke-${suffix}`, status: "TRIAL", businessProfileType: "fashion" }
+  });
 
   try {
-    for (const tenant of [restaurantTenant, commerceTenant]) {
+    for (const tenant of [restaurantTenant, hotelRestaurantTenant, commerceTenant, fashionTenant]) {
       for (const name of stockOnly) {
         await products.create(tenant.id, { name: `${name} ${suffix}`, salePrice: 0, sellable: false, barcodes: [{ value: `${name}-${tenant.id}`, type: "CUSTOM", isPrimary: true }] });
       }
@@ -85,17 +92,30 @@ async function main() {
     assert(scannedBeer && scannedBeer.name.startsWith("Bière"), "Le scan code-barres en POS Restaurant doit accepter un article vendable (Bière)");
     console.log("scenario 3 OK : le scan code-barres POS respecte le meme filtre sellable");
 
-    // --- Scenario 4 : Commerce non affecte, POS montre tout comme avant ---
-    const commercePos = await pos.searchProducts(commerceTenant.id, { page: 1, limit: 100 });
-    const commercePosNames = names(commercePos.items);
-    for (const name of [...stockOnly, ...sellableItems]) {
-      assert(commercePosNames.some((item) => item.startsWith(name)), `Commerce: le POS doit rester inchangé et afficher ${name} malgré sellable=false`);
+    // --- Scenario 4 : Hôtel-restaurant exclut les chambres/services non vendables ---
+    const hotelPos = await pos.searchProducts(hotelRestaurantTenant.id, { page: 1, limit: 100 });
+    const hotelPosNames = names(hotelPos.items);
+    for (const name of stockOnly) {
+      assert(!hotelPosNames.some((item) => item.startsWith(name)), `POS Hôtel-restaurant ne doit pas afficher l'article non vendable: ${name}`);
     }
-    const commerceScan = await pos.scanProduct(commerceTenant.id, `Ail-${commerceTenant.id}`);
-    assert(commerceScan && commerceScan.name.startsWith("Ail"), "Commerce: le scan code-barres doit rester inchangé et accepter un article sellable=false");
-    console.log("scenario 4 OK : tenant Commerce non affecté, POS et scan montrent tout comme avant");
+    for (const name of sellableItems) {
+      assert(hotelPosNames.some((item) => item.startsWith(name)), `POS Hôtel-restaurant doit garder l'article vendable: ${name}`);
+    }
+    console.log("scenario 4 OK : Hôtel-restaurant exclut les chambres/services non vendables et garde repas/boissons vendables");
+
+    // --- Scenario 5 : Commerce et Fashion non affectés ---
+    for (const tenant of [commerceTenant, fashionTenant]) {
+      const tenantPos = await pos.searchProducts(tenant.id, { page: 1, limit: 100 });
+      const tenantPosNames = names(tenantPos.items);
+      for (const name of [...stockOnly, ...sellableItems]) {
+        assert(tenantPosNames.some((item) => item.startsWith(name)), `${tenant.businessProfileType}: le POS doit rester inchangé et afficher ${name} malgré sellable=false`);
+      }
+      const scanned = await pos.scanProduct(tenant.id, `Ail-${tenant.id}`);
+      assert(scanned && scanned.name.startsWith("Ail"), `${tenant.businessProfileType}: le scan doit rester inchangé et accepter un article sellable=false`);
+    }
+    console.log("scenario 5 OK : tenants Commerce et Fashion non affectés");
   } finally {
-    for (const tenant of [restaurantTenant, commerceTenant]) {
+    for (const tenant of [restaurantTenant, hotelRestaurantTenant, commerceTenant, fashionTenant]) {
       await prisma.priceHistory.deleteMany({ where: { product: { tenantId: tenant.id } } }).catch(() => {});
       await prisma.barcode.deleteMany({ where: { product: { tenantId: tenant.id } } }).catch(() => {});
       await prisma.stock.deleteMany({ where: { tenantId: tenant.id } }).catch(() => {});

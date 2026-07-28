@@ -388,8 +388,7 @@ export class BusinessProfilesService {
       ],
       hotel: [
         { label: "Accueil", href: "/dashboard", module: "dashboard" },
-        { label: "Réservations", href: "/dashboard/sales/quotes", module: "sales" },
-        { label: "Chambres", href: "/dashboard/stores", module: "hotel" },
+        { label: "Réservations & Chambres", href: "/dashboard/hotel/rooms", module: "hotel" },
         { label: "Clients", href: "/dashboard/customers", module: "customers" },
         { label: "Paiements", href: "/dashboard/payments", module: "sales" },
         { label: "Rapports", href: "/dashboard/reports", module: "reports" },

@@ -46,6 +46,12 @@ if (!serviceSource.includes("enabledBusinessModules: activeModules.map((module) 
 if (!navigationSource.includes("const allowBySource = false")) {
   failures.push("Navigation Web: une configuration absente ne doit pas ouvrir tout le menu statique.");
 }
+if (!serviceSource.includes('{ label: "Réservations & Chambres", href: "/dashboard/hotel/rooms", module: "hotel" }')) {
+  failures.push("Navigation Hôtel: Réservations & Chambres doit utiliser la route réelle du module Hôtel.");
+}
+if (!navigationSource.includes('href: "/dashboard/hotel/rooms"')) {
+  failures.push("Navigation Web: la route Réservations & Chambres doit être déclarée.");
+}
 
 for (const [href, moduleKey] of commonRoutes) {
   if (!serviceSource.includes(`href: "${href}", module: "${moduleKey}"`)) {

@@ -96,10 +96,11 @@ export class PosService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 24;
     const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { businessProfileType: true } });
+    const sellableOnly = this.requiresSellableProducts(tenant?.businessProfileType);
     const where: Prisma.ProductWhereInput = {
       tenantId,
       isActive: true,
-      sellable: tenant?.businessProfileType === "restaurant" ? true : undefined,
+      sellable: sellableOnly ? true : undefined,
       OR: query.search
         ? [
             { name: { contains: query.search, mode: "insensitive" } },
@@ -140,8 +141,9 @@ export class PosService {
   async scanProduct(tenantId: string, barcode: string) {
     if (!barcode?.trim()) throw new BadRequestException("Code-barres requis");
     const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { businessProfileType: true } });
+    const sellableOnly = this.requiresSellableProducts(tenant?.businessProfileType);
     const product = await this.prisma.product.findFirst({
-      where: { tenantId, isActive: true, sellable: tenant?.businessProfileType === "restaurant" ? true : undefined, barcodes: { some: { value: barcode.trim() } } },
+      where: { tenantId, isActive: true, sellable: sellableOnly ? true : undefined, barcodes: { some: { value: barcode.trim() } } },
       include: { barcodes: true, images: true, stocks: true, category: true, brand: true, unit: true, variants: true }
     });
     if (!product) throw new NotFoundException("Produit introuvable pour ce code-barres");
@@ -589,6 +591,10 @@ export class PosService {
   private isExplicitlyNonStock(product: { variants?: Array<{ name?: string | null; model?: string | null }> }) {
     const variantText = (product.variants ?? []).map((variant) => `${variant.name ?? ""} ${variant.model ?? ""}`).join(" ").toLowerCase();
     return /non stock|non-stock|sans suivi|service non stock|produit non stock|plat \/ service/.test(variantText);
+  }
+
+  private requiresSellableProducts(profileType?: string | null) {
+    return profileType === "restaurant" || profileType === "hotel-restaurant";
   }
 
   private availableStock(stocks: Array<{ warehouseId: string; quantity: number; reserved: number }>, warehouseId?: string) {
