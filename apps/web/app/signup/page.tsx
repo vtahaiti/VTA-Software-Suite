@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { publicApiErrorMessage } from "@/lib/api-url";
 import { registerUser } from "@/lib/auth";
 import { PasswordVisibilityInput } from "@/components/password-visibility-input";
+import { VtaBusinessMark } from "@/components/vta-business-mark";
 import { isPasswordStrong, passwordPolicyMessage } from "@/lib/password-policy";
 
 export default function SignupPage() {
@@ -48,7 +49,7 @@ export default function SignupPage() {
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-12 dark:bg-slate-950">
       <section className="mx-auto w-full max-w-2xl rounded-lg border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <Link href="/" className="text-sm font-semibold uppercase tracking-wide text-brand-600">VTA Commerce</Link>
+        <VtaBusinessMark />
         <h1 className="mt-4 text-3xl font-bold text-slate-950 dark:text-white">Créer votre compte</h1>
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Démarrez votre espace SaaS en quelques minutes.</p>
         <form method="post" onSubmit={submit} className="mt-8 grid gap-4 sm:grid-cols-2">

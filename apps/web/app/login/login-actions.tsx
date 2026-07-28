@@ -34,7 +34,7 @@ export function LoginActions() {
       <p className="text-sm font-semibold uppercase tracking-wide text-orange-500">Bienvenue !</p>
       <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950 dark:text-white">Que souhaitez-vous faire ?</h2>
       <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-        Choisissez votre parcours. Vous pouvez vous connecter à une entreprise existante ou créer gratuitement votre espace VTA Commerce.
+        Choisissez votre parcours. Vous pouvez vous connecter à une entreprise existante ou créer gratuitement votre espace VTA Business.
       </p>
 
       <div className="mt-8 grid gap-4">
@@ -44,7 +44,7 @@ export function LoginActions() {
           className="group rounded-2xl border border-blue-100 bg-blue-600 p-5 text-left text-white shadow-lg shadow-blue-600/20 transition duration-200 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/25"
         >
           <span className="text-lg font-bold">J&apos;ai déjà un compte</span>
-          <span className="mt-1 block text-sm text-blue-50">Me connecter à mon tableau de bord VTA Commerce.</span>
+          <span className="mt-1 block text-sm text-blue-50">Me connecter à mon tableau de bord VTA Business.</span>
         </button>
 
         <Link

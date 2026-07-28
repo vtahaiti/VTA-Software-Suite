@@ -7,6 +7,7 @@ import { publicApiErrorMessage } from "@/lib/api-url";
 import { resetPassword } from "@/lib/auth";
 import { PasswordVisibilityInput } from "@/components/password-visibility-input";
 import { isPasswordStrong, passwordPolicyMessage } from "@/lib/password-policy";
+import { VtaBusinessMark } from "@/components/vta-business-mark";
 
 export default function ResetPasswordPage() {
   return (
@@ -84,7 +85,7 @@ function ResetPasswordShell({ children }: { children: React.ReactNode }) {
     <main className="min-h-screen bg-gradient-to-br from-blue-700 via-blue-900 to-slate-950 px-6 py-10 text-white">
       <section className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-xl flex-col items-center justify-center">
         <div className="w-full rounded-[2rem] border border-white/15 bg-white p-8 text-slate-950 shadow-2xl shadow-slate-950/30 dark:bg-slate-900 dark:text-white">
-          <Link href="/" className="text-sm font-semibold uppercase tracking-wide text-brand-600">VTA Commerce</Link>
+          <VtaBusinessMark />
           <h1 className="mt-4 text-3xl font-bold">Réinitialiser le mot de passe</h1>
           <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{passwordPolicyMessage}</p>
           {children}

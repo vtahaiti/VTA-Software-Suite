@@ -54,7 +54,7 @@ includes(controller, 'assertCanManageEmails', 'email settings endpoints must be 
 includes(schema, 'model EmailLog', 'EmailLog model must exist');
 includes(schema, 'recipientHash String?', 'EmailLog must store recipient hash, not raw email');
 includes(templates, 'Réinitialiser mon mot de passe', 'password reset template must be in French');
-includes(templates, 'Votre mot de passe VTA Commerce a été modifié', 'password changed template must exist');
+includes(templates, 'Votre mot de passe VTA Business a été modifié', 'password changed template must exist');
 assert(!/SMTP_PASSWORD.*logger|RESEND_API_KEY.*logger|password.*logger|token.*logger/i.test(email + auth), 'logs must not include secrets or raw tokens');
 includes(env, 'RESEND_API_KEY', 'RESEND_API_KEY must be documented');
 includes(env, 'MAIL_FROM', 'MAIL_FROM must be documented');

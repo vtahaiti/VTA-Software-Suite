@@ -23,7 +23,7 @@ for (const file of [
 
 const templates = read("apps/api/src/email/email.templates.ts");
 assert(templates.includes("companyWelcomeTemplate"), "Le template email de bienvenue entreprise doit exister.");
-assert(templates.includes("Se connecter a VTA Commerce"), "Le template de bienvenue doit contenir un lien de connexion clair.");
+assert(templates.includes("Se connecter à VTA Business"), "Le template de bienvenue doit contenir un lien de connexion clair.");
 assert(templates.includes("ne vous demandera jamais votre mot de passe par email"), "Le template de bienvenue ne doit jamais inclure ni demander le mot de passe.");
 
 const emailService = read("apps/api/src/email/email.service.ts");

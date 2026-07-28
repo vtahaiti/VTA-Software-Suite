@@ -33,6 +33,7 @@
     "test:text-quality": "node scripts/text-quality-smoke.cjs",
     "test:password-reset": "node scripts/password-reset-smoke.cjs",
     "test:auth-onboarding-trust": "node scripts/auth-onboarding-trust-smoke.cjs",
+    "test:auth-branding": "node scripts/auth-branding-smoke.cjs",
     "test:navigation": "node scripts/navigation-smoke.cjs",
     "test:business-profile-navigation": "node scripts/business-profile-navigation-smoke.cjs",
     "test:business-sector-specialty": "node scripts/business-sector-specialty-smoke.cjs",

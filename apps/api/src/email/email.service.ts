@@ -115,9 +115,9 @@ export class EmailService {
       to: input.to,
       type: "EMAIL_TEST",
       template: {
-        subject: "Test email VTA Commerce",
-        text: "Bonjour,\n\nCeci est un email de test VTA Commerce.\n\nVTA Commerce",
-        html: "<!doctype html><html><head><meta charset=\"utf-8\"></head><body style=\"font-family:Arial,sans-serif\"><h1>VTA Commerce</h1><p>Ceci est un email de test.</p></body></html>"
+        subject: "Test email VTA Business",
+        text: "Bonjour,\n\nCeci est un email de test VTA Business.\n\nVTA Business, une solution de VTA Enterprise",
+        html: "<!doctype html><html><head><meta charset=\"utf-8\"></head><body style=\"font-family:Arial,sans-serif\"><h1>VTA Business</h1><p>Une solution de VTA Enterprise</p><p>Ceci est un email de test.</p></body></html>"
       }
     });
   }
@@ -256,7 +256,7 @@ export class EmailService {
   }
 
   private fromAddress() {
-    return (process.env.MAIL_FROM ?? process.env.SMTP_FROM ?? "VTA Commerce <noreply@vtaerp.com>").trim();
+    return (process.env.MAIL_FROM ?? process.env.SMTP_FROM ?? "VTA Business <noreply@vtaerp.com>").trim();
   }
 
   private publicUrl() {
