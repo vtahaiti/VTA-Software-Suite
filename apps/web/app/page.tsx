@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { LoginActions } from "./login/login-actions";
 import Image from "next/image";
 
@@ -18,6 +19,14 @@ export default function HomePage() {
         <div className="mt-10 w-full max-w-md rounded-[2rem] border border-white/15 bg-white p-8 text-slate-950 shadow-2xl shadow-slate-950/30 dark:bg-slate-900 dark:text-white">
           <LoginActions />
         </div>
+
+        <nav className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm font-semibold text-blue-100" aria-label="Liens utiles">
+          <Link href="/demarrer" className="transition hover:text-white">Comment démarrer</Link>
+          <Link href="/faq" className="transition hover:text-white">Questions fréquentes</Link>
+          <Link href="/support" className="transition hover:text-white">Assistance</Link>
+          <Link href="/terms" className="transition hover:text-white">Conditions d&apos;utilisation</Link>
+          <Link href="/privacy" className="transition hover:text-white">Confidentialité</Link>
+        </nav>
       </section>
     </main>
   );
