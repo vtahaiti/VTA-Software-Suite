@@ -3,6 +3,7 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const page = fs.readFileSync(path.join(root, "apps/web/app/page.tsx"), "utf8");
+const ogImage = path.join(root, "apps/web/public/og-vta-business.png");
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
 };
@@ -48,5 +49,17 @@ for (const forbiddenPromise of ["module complet", "gestion médicale complète",
 }
 assert(page.includes('href="/login"'), "Le lien de connexion doit rester présent.");
 assert(page.includes('href="/signup"'), "Le lien d'inscription doit rester présent.");
+assert(fs.existsSync(ogImage), "L'image Open Graph VTA Business doit exister.");
+assert(fs.statSync(ogImage).size > 50_000, "L'image Open Graph semble vide ou invalide.");
+for (const metadata of [
+  'title: "VTA Business - Caisse, stock et gestion"',
+  'description: "Gérez ventes, produits, stock, clients, paiements et rapports depuis un seul espace."',
+  'url: "https://vtaerp.com"',
+  'siteName: "VTA Business"',
+  'url: "https://vtaerp.com/og-vta-business.png"',
+  'card: "summary_large_image"'
+]) {
+  assert(page.includes(metadata), `Metadata sociale manquante: ${metadata}`);
+}
 
 console.log("landing page smoke OK");

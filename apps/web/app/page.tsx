@@ -29,7 +29,32 @@ import {
 
 export const metadata: Metadata = {
   title: "VTA Business - Caisse, stock et gestion",
-  description: "Une plateforme flexible pour gérer ventes, produits, services, stock, clients, paiements, utilisateurs et rapports."
+  description: "Gérez ventes, produits, stock, clients, paiements et rapports depuis un seul espace.",
+  alternates: {
+    canonical: "https://vtaerp.com"
+  },
+  openGraph: {
+    title: "VTA Business - Caisse, stock et gestion",
+    description: "Gérez ventes, produits, stock, clients, paiements et rapports depuis un seul espace.",
+    url: "https://vtaerp.com",
+    siteName: "VTA Business",
+    images: [
+      {
+        url: "https://vtaerp.com/og-vta-business.png",
+        width: 1200,
+        height: 630,
+        alt: "VTA Business - Caisse, stock, clients et rapports"
+      }
+    ],
+    locale: "fr_HT",
+    type: "website"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "VTA Business - Caisse, stock et gestion",
+    description: "Gérez ventes, produits, stock, clients, paiements et rapports depuis un seul espace.",
+    images: ["https://vtaerp.com/og-vta-business.png"]
+  }
 };
 
 const whatsappHref = "https://wa.me/?text=Bonjour%20VTA%20Enterprise%2C%20je%20souhaite%20une%20d%C3%A9monstration%20de%20VTA%20Business.";
