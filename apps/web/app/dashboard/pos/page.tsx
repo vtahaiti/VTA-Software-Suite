@@ -641,7 +641,11 @@ export default function PosPage() {
   const isRestaurantContextProfile = business?.businessProfileType === "restaurant" || business?.businessProfileType === "hotel-restaurant";
   const canCreateQuotesOrders = !(business?.excludedModules ?? []).includes("sales");
   const orderContextLabel = orderContextType === "table" ? (tableNumber.trim() ? `Table ${tableNumber.trim()}` : "Table") : orderContextType === "counter" ? "Comptoir" : orderContextType === "takeaway" ? "Emporter" : "";
-  const categories = useMemo(() => Array.from(new Set(products.map((product) => product.category).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)), [products]);
+  const categories = useMemo(() => {
+    const values = Array.from(new Set(products.map((product) => product.category).filter(Boolean) as string[]));
+    const restaurantValues = values.filter((category) => /plat|menu|boisson|extra/i.test(category));
+    return (isRestaurantContextProfile ? restaurantValues : values).sort((a, b) => a.localeCompare(b));
+  }, [isRestaurantContextProfile, products]);
   const visibleProducts = useMemo(() => categoryFilter ? products.filter((product) => product.category === categoryFilter) : products, [categoryFilter, products]);
   const hasMoreProducts = products.length < productTotal;
   const productCountLabel = categoryFilter
@@ -656,7 +660,7 @@ export default function PosPage() {
             <div className="flex min-h-14 items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Vente</h1>
+                  <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{isRestaurantContextProfile ? "Nouvelle commande" : "Vente"}</h1>
                   <span className={`h-2.5 w-2.5 rounded-full ${isOnline ? "bg-emerald-500" : "bg-orange-500"}`} aria-label={isOnline ? "En ligne" : "Hors ligne"} />
                   {pendingOfflineSales > 0 ? <span className="rounded-full bg-orange-50 px-2 py-1 text-xs font-semibold text-orange-700">{pendingOfflineSales} en attente</span> : null}
                 </div>

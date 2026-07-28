@@ -155,6 +155,16 @@ export default function ProductsPage() {
     setTotal((current) => Math.max(0, current - 1));
   }
 
+  function openRestaurantProduct(kind: "sellable" | "internal") {
+    setForm({
+      ...emptyForm,
+      sellable: kind === "sellable",
+      trackStock: kind === "internal",
+      warehouseId: kind === "internal" ? warehouses[0]?.id ?? "" : ""
+    });
+    setIsModalOpen(true);
+  }
+
   const displayTotal = Math.max(total, items.length);
   const pages = useMemo(() => Math.max(1, Math.ceil(displayTotal / PAGE_SIZE)), [displayTotal]);
 
@@ -162,7 +172,10 @@ export default function ProductsPage() {
     <div className="space-y-5">
       <div className="flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:flex-row md:items-center">
         <h1 className="text-2xl font-bold text-slate-950 dark:text-white">{isRestaurant ? "Produits / menu" : "Produits"}</h1>
-        <button onClick={() => setIsModalOpen(true)} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">{isRestaurant ? "Ajouter plat ou boisson" : "Nouveau produit"}</button>
+        {isRestaurant ? <div className="flex flex-wrap gap-2">
+          <button onClick={() => openRestaurantProduct("sellable")} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Ajouter plat / boisson</button>
+          <button onClick={() => openRestaurantProduct("internal")} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">Ajouter ingrédient / fourniture</button>
+        </div> : <button onClick={() => setIsModalOpen(true)} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Nouveau produit</button>}
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -195,11 +208,11 @@ export default function ProductsPage() {
       <div className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 md:block">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950">
-            <tr><th className="p-3">Produit</th><th className="p-3">Catégorie</th><th className="p-3">Prix</th><th className="p-3">Quantité</th><th className="p-3">Actions</th></tr>
+            <tr><th className="p-3">Produit</th><th className="p-3">{isRestaurant ? "Type" : "Catégorie"}</th><th className="p-3">Prix</th><th className="p-3">Stock</th><th className="p-3">Actions</th></tr>
           </thead>
           <tbody>{items.map((product) => <tr key={product.id} className="border-t border-slate-100 dark:border-slate-800">
-            <td className="p-3"><div className="flex items-center gap-3"><ProductThumb product={product} /><div><p className="font-semibold">{product.name}</p>{isRestaurant ? <SellableBadge product={product} /> : null}<MissingCostHint product={product} /></div></div></td>
-            <td className="p-3">{product.category?.name ?? "--"}</td>
+            <td className="p-3"><div className="flex items-center gap-3"><ProductThumb product={product} /><div><p className="font-semibold">{product.name}</p><MissingCostHint product={product} /></div></div></td>
+            <td className="p-3">{isRestaurant ? <RestaurantProductType product={product} /> : product.category?.name ?? "--"}</td>
             <td className="p-3 font-semibold">{formatMoney(product.salePrice)}</td>
             <td className="p-3"><QuantityDisplay product={product} /></td>
             <td className="p-3"><ProductRowActions product={product} onDelete={deleteProduct} variant="table" /></td>
@@ -212,18 +225,22 @@ export default function ProductsPage() {
       <Pagination page={page} pages={pages} total={displayTotal} displayed={items.length} label="produits" onPrev={() => setPage(page - 1)} onNext={() => setPage(page + 1)} />
 
       {isModalOpen && isRestaurant ? (
-        <Modal title="Ajouter plat ou boisson" onClose={() => setIsModalOpen(false)}>
+        <Modal title={form.sellable ? "Ajouter plat / boisson" : "Ajouter ingrédient / fourniture"} onClose={() => setIsModalOpen(false)}>
           <form onSubmit={createProduct} className="space-y-3">
             <Input required value={form.name} onChange={(value) => setForm((current) => ({ ...current, name: value }))} placeholder="Nom du produit *" />
             <select value={form.categoryId} onChange={(event) => setForm((current) => ({ ...current, categoryId: event.target.value }))} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option value="">Catégorie</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
             <Input type="number" value={form.purchasePrice} onChange={(value) => setForm((current) => ({ ...current, purchasePrice: value }))} placeholder="Prix d'achat / coût - facultatif" />
             <Input required type="number" value={form.salePrice} onChange={(value) => setForm((current) => ({ ...current, salePrice: value }))} placeholder="Prix de vente *" />
-            <SellableChoice sellable={form.sellable} onChange={(sellable) => setForm((current) => ({ ...current, sellable }))} />
+            <RestaurantProductKindChoice sellable={form.sellable} onChange={(sellable) => setForm((current) => ({ ...current, sellable, trackStock: sellable ? current.trackStock : true }))} />
             <StockTrackingChoice tracked={form.trackStock} onChange={(trackStock) => setForm((current) => ({ ...current, trackStock }))} />
             {form.trackStock ? (
               <>
                 <Input type="number" value={form.stockInitial} onChange={(value) => setForm((current) => ({ ...current, stockInitial: value }))} placeholder="Quantité initiale" />
                 <Input type="number" value={form.minimumStock} onChange={(value) => setForm((current) => ({ ...current, minimumStock: value }))} placeholder="Quantité minimale pour stock faible" helper="Alerte quand le stock arrive à ce niveau." />
+                <select value={form.warehouseId} onChange={(event) => setForm((current) => ({ ...current, warehouseId: event.target.value }))} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+                  <option value="">Zone de stock</option>
+                  {warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>)}
+                </select>
               </>
             ) : <p className="rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:bg-slate-950 dark:text-slate-300">Non suivi en stock : vendable dans le POS, masqué de l&apos;inventaire par défaut.</p>}
             <ImagePicker selected={Boolean(form.imageUrl)} onChange={(value) => setForm((current) => ({ ...current, imageUrl: value }))} />
@@ -294,6 +311,16 @@ function StockTrackingChoice({ tracked, onChange }: { tracked: boolean; onChange
   </fieldset>;
 }
 
+function RestaurantProductKindChoice({ sellable, onChange }: { sellable: boolean; onChange: (sellable: boolean) => void }) {
+  return <fieldset className="rounded-md border border-slate-200 p-3 dark:border-slate-800">
+    <legend className="px-1 text-sm font-semibold text-slate-700 dark:text-slate-200">Type d&apos;article</legend>
+    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+      <button type="button" onClick={() => onChange(true)} className={`rounded-md border px-3 py-3 text-sm font-bold ${sellable ? "border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-950" : "border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"}`}>Plat / boisson à vendre</button>
+      <button type="button" onClick={() => onChange(false)} className={`rounded-md border px-3 py-3 text-sm font-bold ${!sellable ? "border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-950" : "border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"}`}>Article de stock interne</button>
+    </div>
+  </fieldset>;
+}
+
 function ImagePicker({ selected, onChange }: { selected: boolean; onChange: (value: string) => void }) {
   return <label className="grid gap-2 rounded-md border border-dashed border-slate-300 px-3 py-3 text-sm font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">
     Image produit
@@ -355,8 +382,18 @@ function MissingCostHint({ product }: { product: Product }) {
 }
 
 function SellableBadge({ product }: { product: Product }) {
-  if (product.sellable === false) return <p className="mt-0.5 text-[11px] font-semibold leading-tight text-slate-500">Stock seulement (pas en caisse)</p>;
-  return <p className="mt-0.5 text-[11px] font-normal leading-tight text-emerald-600/75">Vendable au client</p>;
+  return <div className="mt-1"><RestaurantProductType product={product} /></div>;
+}
+
+function RestaurantProductType({ product }: { product: Product }) {
+  const category = product.category?.name.toLowerCase() ?? "";
+  const label = product.sellable === false
+    ? category.includes("fourniture") ? "Fourniture stock" : category.includes("réserve") || category.includes("reserve") ? "Réserve stock" : "Ingrédient stock"
+    : category.includes("boisson") ? "Boisson vendable" : "Plat vendable";
+  const className = product.sellable === false
+    ? "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+    : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200";
+  return <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${className}`}>{label}</span>;
 }
 
 function Pagination({ page, pages, total, displayed, label, onPrev, onNext }: { page: number; pages: number; total: number; displayed: number; label: string; onPrev: () => void; onNext: () => void }) {

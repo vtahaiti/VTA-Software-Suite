@@ -50,10 +50,11 @@ export async function createRestaurantStarterCatalog(tx: StarterTransaction, ten
   for (const [index, template] of trackedProducts.entries()) {
     const warehouse = savedWarehouses.get(template.warehouseCode);
     if (!warehouse) continue;
+    const sellable = template.category === "Boissons";
     const sku = `VTA-REST-STOCK-${String(index + 1).padStart(3, "0")}`;
     const product = await tx.product.upsert({
       where: { tenantId_sku: { tenantId, sku } },
-      update: {},
+      update: { sellable },
       create: {
         tenantId,
         categoryId: savedCategories.get(template.category),
@@ -62,7 +63,8 @@ export async function createRestaurantStarterCatalog(tx: StarterTransaction, ten
         name: template.name,
         purchasePrice: 0,
         salePrice: 0,
-        minimumStock: 0
+        minimumStock: 0,
+        sellable
       }
     });
     await tx.stock.upsert({
@@ -76,7 +78,7 @@ export async function createRestaurantStarterCatalog(tx: StarterTransaction, ten
     const sku = `VTA-REST-MENU-${String(index + 1).padStart(3, "0")}`;
     await tx.product.upsert({
       where: { tenantId_sku: { tenantId, sku } },
-      update: {},
+      update: { sellable: true },
       create: {
         tenantId,
         categoryId: savedCategories.get("Plats"),
@@ -85,6 +87,7 @@ export async function createRestaurantStarterCatalog(tx: StarterTransaction, ten
         purchasePrice: 0,
         salePrice: 0,
         minimumStock: 0,
+        sellable: true,
         variants: { create: [{ name, model: "Produit sans suivi de stock", stock: 0 }] }
       }
     });

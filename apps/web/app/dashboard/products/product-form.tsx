@@ -4,6 +4,7 @@ import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchWithAuth } from "@/lib/api-client";
+import { getTenantBusinessConfiguration } from "@/lib/business-profiles";
 
 type Ref = { id: string; name: string; symbol?: string };
 type Supplier = { id: string; name: string };
@@ -54,6 +55,7 @@ const emptyForm = {
   variantBarcode: "",
   variantStock: "0",
   noStockTracking: false,
+  sellable: true,
   isActive: true
 };
 
@@ -75,9 +77,15 @@ export function ProductForm({ productId }: { productId?: string }) {
   const [categoryForm, setCategoryForm] = useState<CategoryForm>(emptyCategoryForm);
   const [isSaving, setIsSaving] = useState(false);
   const [initialStockTracked, setInitialStockTracked] = useState(false);
+  const [isRestaurant, setIsRestaurant] = useState(false);
 
   useEffect(() => {
     void loadRefs();
+    void getTenantBusinessConfiguration().then((business) => {
+      const restaurant = business?.businessProfileType === "restaurant";
+      setIsRestaurant(restaurant);
+      if (restaurant && !productId) setForm((current) => ({ ...current, sellable: true, noStockTracking: true }));
+    }).catch(() => undefined);
     if (productId) void loadProduct();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId]);
@@ -161,6 +169,7 @@ export function ProductForm({ productId }: { productId?: string }) {
       variantBarcode: variant.barcode ?? "",
       variantStock: String(variant.stock ?? 0),
       noStockTracking,
+      sellable: product.sellable !== false,
       isActive: product.isActive
     });
   }
@@ -198,6 +207,7 @@ export function ProductForm({ productId }: { productId?: string }) {
       averageCost: Number(form.averageCost || 0),
       taxRate: Number(form.taxRate || 0),
       trackStock: !noStock,
+      sellable: form.sellable,
       stockInitial: noStock ? 0 : Number(form.stockInitial || 0),
       minimumStock: noStock ? 0 : Number(form.minimumStock || 0),
       maximumStock: Number(form.maximumStock || 0),
@@ -312,6 +322,7 @@ export function ProductForm({ productId }: { productId?: string }) {
   return <form onSubmit={submit} className="space-y-5 pb-4">
     {error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
     <Section title="Produit">
+      {isRestaurant ? <RestaurantProductKindChoice sellable={form.sellable} onChange={(sellable) => setForm((current) => ({ ...current, sellable, noStockTracking: sellable }))} /> : null}
       <Input value={form.name} onChange={(value) => update("name", value)} placeholder="Nom du produit *" required />
       <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
         <Select value={form.categoryId} onChange={(value) => update("categoryId", value)} placeholder="Catégorie" items={refs.categories} />
@@ -449,6 +460,16 @@ function Select({ value, onChange, placeholder, items }: { value: string; placeh
     <option value="">{placeholder}</option>
     {items.map((item) => <option key={`${item.id}-${item.name}`} value={item.id}>{item.name}</option>)}
   </select>;
+}
+
+function RestaurantProductKindChoice({ sellable, onChange }: { sellable: boolean; onChange: (sellable: boolean) => void }) {
+  return <fieldset className="rounded-md border border-slate-200 p-3 md:col-span-2 dark:border-slate-800">
+    <legend className="px-1 text-sm font-semibold">Type d&apos;article Restaurant</legend>
+    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+      <button type="button" onClick={() => onChange(true)} className={`rounded-md border px-3 py-3 text-sm font-bold ${sellable ? "border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-950" : "border-slate-200 dark:border-slate-700"}`}>Plat / boisson à vendre</button>
+      <button type="button" onClick={() => onChange(false)} className={`rounded-md border px-3 py-3 text-sm font-bold ${!sellable ? "border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-950" : "border-slate-200 dark:border-slate-700"}`}>Article de stock interne</button>
+    </div>
+  </fieldset>;
 }
 
 function StockTrackingChoice({ tracked, onChange }: { tracked: boolean; onChange: (tracked: boolean) => void }) {

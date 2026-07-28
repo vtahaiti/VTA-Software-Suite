@@ -111,7 +111,7 @@ for (const expected of ["Frigo", "Bar", "Cuisine", "Dépôt", "Fournitures"]) {
   if (!restaurantStockPageSource.includes(expected)) failures.push(`Stock Restaurant V1: zone absente ${expected}`);
 }
 
-if (!productsPageSource.includes('<Modal title="Nouveau produit"') || !productsPageSource.includes('<Modal title="Ajouter plat ou boisson"')) {
+if (!productsPageSource.includes('<Modal title="Nouveau produit"') || !productsPageSource.includes('form.sellable ? "Ajouter plat / boisson"')) {
   failures.push("Produits V1: les deux libellés de modale (générique et Restaurant) doivent coexister sans casser le générique.");
 }
 

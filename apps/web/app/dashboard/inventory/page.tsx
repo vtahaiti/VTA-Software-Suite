@@ -3,6 +3,7 @@ import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { getAccessToken } from "@/lib/auth";
 import { getTenantBusinessConfiguration, type TenantBusinessConfiguration } from "@/lib/business-profiles";
 
@@ -41,6 +42,7 @@ const stockOutReasons: Array<{ value: StockOutReason; label: string }> = [
 ];
 
 export default function InventoryPage() {
+  const searchParams = useSearchParams();
   const [stocks, setStocks] = useState<StockLine[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [query, setQuery] = useState("");
@@ -56,6 +58,7 @@ export default function InventoryPage() {
   const [isTransferOpen, setIsTransferOpen] = useState(false);
   const [transferForm, setTransferForm] = useState<TransferForm>(emptyTransferForm);
   const [business, setBusiness] = useState<TenantBusinessConfiguration | null>(null);
+  const [handledRequestedAction, setHandledRequestedAction] = useState(false);
 
   const summary = useMemo(() => {
     const tracked = stocks.filter((stock) => isStockTracked(stock));
@@ -100,6 +103,16 @@ export default function InventoryPage() {
   useEffect(() => {
     void getTenantBusinessConfiguration().then(setBusiness).catch(() => undefined);
   }, []);
+  useEffect(() => {
+    if (handledRequestedAction || stocks.length === 0) return;
+    const productId = searchParams.get("productId");
+    const action = searchParams.get("action");
+    if (!productId || (action !== "in" && action !== "out")) return;
+    const stock = stocks.find((item) => item.productId === productId);
+    if (!stock) return;
+    openStockModal(stock, action);
+    setHandledRequestedAction(true);
+  }, [handledRequestedAction, searchParams, stocks]);
 
   function openStockModal(stock: StockLine, action: StockAction) {
     if (!isStockTracked(stock)) {
