@@ -70,7 +70,7 @@ export default function AdminNotificationsPage() {
       setError("Le lien doit être un chemin interne commençant par /dashboard.");
       return;
     }
-    if (!window.confirm(`Confirmer l'envoi a ${selectedCount} entreprise${selectedCount > 1 ? "s" : ""} ? Cette action cree une notification interne.`)) return;
+    if (!window.confirm(`Confirmer l'envoi à ${selectedCount} entreprise${selectedCount > 1 ? "s" : ""} ? Cette action crée une notification interne.`)) return;
     try {
       const result = await platformFetch<{ tenantCount: number; delivered: number }>("/platform/notifications", {
         method: "POST",

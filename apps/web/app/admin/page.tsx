@@ -60,7 +60,7 @@ export default function AdminPage() {
       </section>
 
       <section className="mt-6 grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-        <Panel title="Revenus VTA Commerce" subtitle="Abonnements payés à la plateforme, séparés par devise. Aucun chiffre d'affaires client n'est agrégé ici.">
+        <Panel title="Revenus VTA Business" subtitle="Abonnements payés à la plateforme, séparés par devise. Aucun chiffre d'affaires client n'est agrégé ici.">
           <div className="grid gap-3 md:grid-cols-2">
             {(stats?.monthlyRevenue?.length ? stats.monthlyRevenue : [{ currency: "HTG", amount: 0 }]).map((item) => (
               <div key={item.currency} className="rounded-xl border border-white/10 bg-slate-950/40 p-4">

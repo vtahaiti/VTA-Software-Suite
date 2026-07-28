@@ -34,7 +34,7 @@ export default function AdminLoginPage() {
     <section className="w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.05] p-6 shadow-2xl shadow-black/30">
       <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">VTA ERP</p>
       <h1 className="mt-2 text-3xl font-black text-white">Control Center</h1>
-      <p className="mt-2 text-sm text-slate-400">Connexion reservee au SUPER_ADMIN VTA.</p>
+      <p className="mt-2 text-sm text-slate-400">Connexion réservée au SUPER_ADMIN VTA.</p>
       <form onSubmit={submit} className="mt-6 space-y-4">
         <label className="grid gap-2 text-sm font-semibold">Email
           <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-cyan-300" />

@@ -40,7 +40,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   }
 
   if (!allowed) {
-    return <main className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-300">Verification de l&apos;acces plateforme...</main>;
+    return <main className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-300">Vérification de l&apos;accès plateforme...</main>;
   }
 
   return (
@@ -67,7 +67,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <div className="mt-2 flex flex-col justify-between gap-3 md:flex-row md:items-end">
             <div>
               <h2 className="text-3xl font-black text-white">VTA ERP Control Center</h2>
-              <p className="mt-1 text-sm text-slate-400">Administration globale des entreprises, abonnements, modules et signaux securite.</p>
+              <p className="mt-1 text-sm text-slate-400">Administration globale des entreprises, abonnements, modules et signaux sécurité.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Link href="/admin/companies" className="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-bold text-slate-950 shadow-lg shadow-cyan-400/20">Gérer les entreprises</Link>
