@@ -13,6 +13,7 @@ const inventoryPageSource = read("apps/web/app/dashboard/inventory/page.tsx");
 const dashboardSource = read("apps/web/app/dashboard/adaptive-dashboard.tsx");
 const onboardingSource = read("apps/api/src/onboarding/onboarding.service.ts");
 const restaurantStarterSource = read("apps/api/src/onboarding/restaurant-starter-catalog.ts");
+const restaurantWarehousePolicySource = read("apps/api/src/business-profiles/restaurant-warehouse-policy.ts");
 const dashboardPageSource = read("apps/web/app/dashboard/page.tsx");
 const restaurantDashboardSource = read("apps/web/app/dashboard/restaurant-dashboard.tsx");
 const restaurantStockPageSource = read("apps/web/app/dashboard/restaurant/stock/page.tsx");
@@ -93,7 +94,7 @@ if (!onboardingSource.includes("businessProfileType") || !onboardingSource.inclu
 
 if (
   !onboardingSource.includes("createRestaurantStarterCatalog") ||
-  !restaurantStarterSource.includes('code: "FOURNITURES"') ||
+  !restaurantWarehousePolicySource.includes('"FOURNITURES"') ||
   !restaurantStarterSource.includes('name: "Fournitures"')
 ) {
   failures.push("Onboarding Restaurant V1: l'entrepôt Fournitures doit être créé pour les nouveaux tenants Restaurant.");

@@ -39,6 +39,7 @@
     "test:business-profile-resolution": "node scripts/business-profile-resolution-runtime-smoke.cjs",
     "test:restaurant-v1": "node scripts/restaurant-v1-smoke.cjs",
     "test:restaurant-stock-templates": "node scripts/restaurant-stock-templates-smoke.cjs",
+    "test:restaurant-warehouse-quota": "node scripts/restaurant-warehouse-quota-smoke.cjs",
     "test:restaurant-product-separation": "node scripts/restaurant-product-separation-smoke.cjs",
     "test:hotel-restaurant": "node scripts/hotel-restaurant-smoke.cjs",
     "test:products-restaurant-separation": "npm run test:restaurant-product-separation",

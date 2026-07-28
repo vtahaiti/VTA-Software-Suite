@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, OnModuleInit } from "@nestjs/common";
 import { Prisma, SubscriptionPlan, SubscriptionStatus, TenantStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { hasRestaurantStockZones, RESTAURANT_SYSTEM_WAREHOUSE_CODES } from "../business-profiles/restaurant-warehouse-policy";
 import { defaultFeatures, defaultPlans, planFeatureMatrix, planLimitMatrix, type SubscriptionFeatureKey, type SubscriptionLimitKey } from "./subscription-features";
 
 const inactiveStatuses = new Set<SubscriptionStatus>([
@@ -306,10 +307,17 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
   }
 
   private async getUsage(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { businessProfileType: true, primaryActivity: true, businessCategory: true }
+    });
+    const warehouseWhere = hasRestaurantStockZones(tenant?.businessProfileType, tenant?.primaryActivity, tenant?.businessCategory)
+      ? { tenantId, isActive: true, code: { notIn: [...RESTAURANT_SYSTEM_WAREHOUSE_CODES] } }
+      : { tenantId, isActive: true };
     const [users, stores, warehouses, cashRegisters] = await Promise.all([
       this.prisma.user.count({ where: { tenantId, isActive: true } }),
       this.prisma.store.count({ where: { tenantId, status: "ACTIVE" } }),
-      this.prisma.warehouse.count({ where: { tenantId, isActive: true } }),
+      this.prisma.warehouse.count({ where: warehouseWhere }),
       this.prisma.cashRegister.count({ where: { tenantId, isActive: true } })
     ]);
     return { users, stores, warehouses, cashRegisters };

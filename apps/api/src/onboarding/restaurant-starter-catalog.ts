@@ -1,12 +1,13 @@
 import { Prisma } from "@prisma/client";
+import { RESTAURANT_SYSTEM_WAREHOUSE_CODES } from "../business-profiles/restaurant-warehouse-policy";
 
 const categories = ["Plats", "Boissons", "Ingrédients", "Viandes & Poissons", "Fournitures", "Réserves"] as const;
 const warehouses = [
-  { code: "DEPOT-PRINCIPAL", name: "Dépôt", description: "Réserves générales et grandes quantités." },
-  { code: "FRIGO", name: "Frigo / Congélateur", description: "Produits périssables à surveiller." },
-  { code: "BAR", name: "Bar / Boissons", description: "Boissons vendues directement au client." },
-  { code: "CUISINE", name: "Cuisine / Ingrédients", description: "Ingrédients utilisés pour préparer les plats." },
-  { code: "FOURNITURES", name: "Fournitures", description: "Matériel non alimentaire utilisé au service." }
+  { code: RESTAURANT_SYSTEM_WAREHOUSE_CODES[0], name: "Dépôt", description: "Réserves générales et grandes quantités." },
+  { code: RESTAURANT_SYSTEM_WAREHOUSE_CODES[1], name: "Frigo / Congélateur", description: "Produits périssables à surveiller." },
+  { code: RESTAURANT_SYSTEM_WAREHOUSE_CODES[2], name: "Bar / Boissons", description: "Boissons vendues directement au client." },
+  { code: RESTAURANT_SYSTEM_WAREHOUSE_CODES[3], name: "Cuisine / Ingrédients", description: "Ingrédients utilisés pour préparer les plats." },
+  { code: RESTAURANT_SYSTEM_WAREHOUSE_CODES[4], name: "Fournitures", description: "Matériel non alimentaire utilisé au service." }
 ] as const;
 const trackedProducts = [
   ...["Viande", "Poisson", "Poulet", "Cabrit"].map((name) => ({ name, warehouseCode: "FRIGO", category: "Viandes & Poissons" })),

@@ -21,6 +21,12 @@ assert(
   navigation.includes('{ id: "hotel-rooms", label: "Réservations & Chambres", href: "/dashboard/hotel/rooms"'),
   "La navigation Web doit connaître la route Réservations & Chambres."
 );
+const hotelRestaurantMenu = profileService.match(/"hotel-restaurant":\s*\[[\s\S]*?\n\s*\],/)?.[0] ?? "";
+assert(hotelRestaurantMenu.includes("/dashboard/hotel/rooms"), "Hotel avec restaurant doit afficher Reservations & Chambres.");
+assert(hotelRestaurantMenu.includes("/dashboard/restaurant/stock"), "Hotel avec restaurant doit afficher Stock Restaurant.");
+const hotelMenu = profileService.match(/hotel:\s*\[[\s\S]*?\n\s*\],/)?.[0] ?? "";
+assert(!hotelMenu.includes("/dashboard/restaurant/stock"), "Hotel simple ne doit pas afficher Stock Restaurant.");
+
 const hotelRestaurantProfile = catalog.match(/\{\s*slug:\s*"hotel-restaurant"[\s\S]*?\}/)?.[0] ?? "";
 for (const moduleKey of ["pos", "products", "inventory", "customers", "reports", "settings", "hotel", "restaurant"]) {
   assert(hotelRestaurantProfile.includes(`"${moduleKey}"`), `Hôtel-restaurant doit conserver le module ${moduleKey}.`);

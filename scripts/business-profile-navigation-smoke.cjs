@@ -53,6 +53,15 @@ if (!navigationSource.includes('href: "/dashboard/hotel/rooms"')) {
   failures.push("Navigation Web: la route Réservations & Chambres doit être déclarée.");
 }
 
+const hotelRestaurantMenu = serviceSource.match(/"hotel-restaurant":\s*\[[\s\S]*?\n\s*\],/)?.[0] ?? "";
+if (!hotelRestaurantMenu.includes("/dashboard/hotel/rooms") || !hotelRestaurantMenu.includes("/dashboard/restaurant/stock")) {
+  failures.push("Hotel avec restaurant doit exposer Reservations & Chambres et Stock Restaurant.");
+}
+const hotelMenu = serviceSource.match(/hotel:\s*\[[\s\S]*?\n\s*\],/)?.[0] ?? "";
+if (hotelMenu.includes("/dashboard/restaurant/stock")) {
+  failures.push("Hotel simple ne doit pas exposer Stock Restaurant.");
+}
+
 for (const [href, moduleKey] of commonRoutes) {
   if (!serviceSource.includes(`href: "${href}", module: "${moduleKey}"`)) {
     failures.push(`Socle commun absent: ${href} via module ${moduleKey}`);

@@ -322,7 +322,7 @@ export class BusinessProfilesService {
 
   private resolveSimpleMenu(profileType = "commerce", primaryActivity?: string | null) {
     const activity = (primaryActivity ?? "").toLowerCase();
-    const normalizedProfile = profileType === "windows-aluminium" || profileType === "manufacturing" || activity.includes("aluminium") || activity.includes("fabrication") ? "production" : profileType === "hotel-restaurant" ? "hotel" : profileType;
+    const normalizedProfile = profileType === "windows-aluminium" || profileType === "manufacturing" || activity.includes("aluminium") || activity.includes("fabrication") ? "production" : profileType;
     if (normalizedProfile === "restaurant") {
       return [
         { label: "Accueil", href: "/dashboard", module: "dashboard" },
@@ -391,6 +391,19 @@ export class BusinessProfilesService {
         { label: "Réservations & Chambres", href: "/dashboard/hotel/rooms", module: "hotel" },
         { label: "Clients", href: "/dashboard/customers", module: "customers" },
         { label: "Paiements", href: "/dashboard/payments", module: "sales" },
+        { label: "Rapports", href: "/dashboard/reports", module: "reports" },
+        { label: "Paramètres", href: "/dashboard/settings/company", module: "settings" }
+      ],
+      "hotel-restaurant": [
+        { label: "Accueil", href: "/dashboard", module: "dashboard" },
+        { label: "Réservations & Chambres", href: "/dashboard/hotel/rooms", module: "hotel" },
+        { label: "POS / Nouvelle commande", href: "/dashboard/pos", module: "pos" },
+        { label: "Commandes ouvertes", href: "/dashboard/sales/in-progress", module: "pos" },
+        { label: "Historique ventes", href: "/dashboard/sales/completed", module: "pos" },
+        { label: "Produits / menus", href: "/dashboard/products", module: "products" },
+        { label: "Stock Restaurant", href: "/dashboard/restaurant/stock", module: "restaurant" },
+        { label: "Inventaire", href: "/dashboard/inventory", module: "inventory" },
+        { label: "Clients", href: "/dashboard/customers", module: "customers" },
         { label: "Rapports", href: "/dashboard/reports", module: "reports" },
         { label: "Paramètres", href: "/dashboard/settings/company", module: "settings" }
       ],
