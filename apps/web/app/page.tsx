@@ -218,6 +218,14 @@ export default function HomePage() {
           </div>
           <ProductPreview />
         </div>
+
+        <nav className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm font-semibold text-blue-100" aria-label="Liens utiles">
+          <Link href="/demarrer" className="transition hover:text-white">Comment démarrer</Link>
+          <Link href="/faq" className="transition hover:text-white">Questions fréquentes</Link>
+          <Link href="/support" className="transition hover:text-white">Assistance</Link>
+          <Link href="/terms" className="transition hover:text-white">Conditions d&apos;utilisation</Link>
+          <Link href="/privacy" className="transition hover:text-white">Confidentialité</Link>
+        </nav>
       </section>
 
       <section id="fonctionnalites" className="scroll-mt-20 px-4 py-20 sm:px-6 lg:px-8">
