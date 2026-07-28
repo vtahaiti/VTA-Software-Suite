@@ -57,6 +57,8 @@
     "test:product-edit-persistence": "node scripts/product-edit-persistence-smoke.cjs",
     "test:product-stock-tracking": "node scripts/product-stock-tracking-smoke.cjs",
     "test:tenant-session-cache": "node scripts/tenant-session-cache-smoke.cjs",
+    "test:tenant-page-title": "node scripts/tenant-page-title-smoke.cjs",
+    "test:landing-page": "node scripts/landing-page-smoke.cjs",
     "test:inventory-non-stock-actions": "node scripts/inventory-non-stock-actions-smoke.cjs",
     "test:purchases-flow": "node scripts/purchases-flow-smoke.cjs",
     "test:stock-out-adjustment": "node scripts/stock-out-adjustment-smoke.cjs",

@@ -6,10 +6,15 @@ import { useRouter } from "next/navigation";
 import { Bell, LogOut, Menu } from "lucide-react";
 import { fetchApi } from "@/lib/api-url";
 import { AuthUser, getAccessToken, logout } from "@/lib/auth";
-import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
+import { CompanyBranding } from "@/lib/company-branding";
 import { formatRole } from "@/lib/format";
 
-type HeaderProps = { user: AuthUser | null; onMenuClick?: () => void };
+type HeaderProps = {
+  user: AuthUser | null;
+  branding: CompanyBranding | null;
+  businessActivity?: string;
+  onMenuClick?: () => void;
+};
 type Notification = { id: string; title: string; message: string; type: string; status: string; module?: string; createdAt: string };
 type NotificationsResponse = Notification[] | { items?: Notification[]; data?: Notification[]; notifications?: Notification[] };
 
@@ -21,30 +26,20 @@ function extractNotificationItems(payload: NotificationsResponse): Notification[
   return [];
 }
 
-export function Header({ user, onMenuClick }: HeaderProps) {
+export function Header({ user, branding, businessActivity, onMenuClick }: HeaderProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [count, setCount] = useState(0);
   const [items, setItems] = useState<Notification[]>([]);
-  const [branding, setBranding] = useState<CompanyBranding | null>(null);
   const [logoFailed, setLogoFailed] = useState(false);
 
   useEffect(() => {
     void loadNotifications();
-    void loadBranding();
-    window.addEventListener("vta:branding-updated", loadBranding);
-    return () => window.removeEventListener("vta:branding-updated", loadBranding);
   }, []);
 
   useEffect(() => {
     setLogoFailed(false);
   }, [branding?.logoUrl]);
-
-  async function loadBranding() {
-    const token = getAccessToken();
-    if (!token) return;
-    setBranding(await getCompanyBranding(token).catch(() => null));
-  }
 
   async function loadNotifications() {
     const token = getAccessToken();
@@ -90,13 +85,14 @@ export function Header({ user, onMenuClick }: HeaderProps) {
             <Menu aria-hidden="true" className="h-5 w-5" />
           </button>
           {branding?.logoUrl && !logoFailed ? (
+            // eslint-disable-next-line @next/next/no-img-element -- tenant logos are runtime URLs outside the static Next image allowlist
             <img src={branding.logoUrl} alt={`Logo ${companyName}`} onError={() => setLogoFailed(true)} className="h-8 w-8 rounded-md object-contain shadow-sm sm:h-10 sm:w-10" />
           ) : (
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-xs font-bold text-white shadow-sm sm:h-10 sm:w-10 sm:text-sm" style={{ backgroundColor: primaryColor }}>{companyInitials}</div>
           )}
           <div className="min-w-0">
-            <p className="truncate text-[10px] font-semibold uppercase tracking-wide sm:text-xs" style={{ color: primaryColor }}>{companyName}</p>
-            <h2 className="truncate text-sm font-semibold text-slate-950 dark:text-white sm:text-lg">Bonjour {userName.split(" ")[0]}</h2>
+            <h2 className="truncate text-sm font-bold text-slate-950 dark:text-white sm:text-lg">{companyName}</h2>
+            <p className="truncate text-[10px] font-semibold sm:text-xs" style={{ color: primaryColor }}>{businessActivity || "Espace entreprise"}</p>
           </div>
         </div>
 
@@ -113,7 +109,10 @@ export function Header({ user, onMenuClick }: HeaderProps) {
             </div> : null}
           </div>
           <Link href="/dashboard/profile" className="hidden items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:flex">
-            {branding?.userPhotoUrl ? <img src={branding.userPhotoUrl} alt="Photo utilisateur" className="h-8 w-8 rounded-full object-cover" /> : <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700">{userInitials}</div>}
+            {branding?.userPhotoUrl ? <>
+              {/* eslint-disable-next-line @next/next/no-img-element -- user photos are runtime URLs outside the static Next image allowlist */}
+              <img src={branding.userPhotoUrl} alt="Photo utilisateur" className="h-8 w-8 rounded-full object-cover" />
+            </> : <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700">{userInitials}</div>}
             <div className="leading-tight"><p className="text-sm font-semibold text-slate-950 dark:text-white">{userName}</p><p className="text-xs text-slate-500 dark:text-slate-400">{formatRole(branding?.role ?? user?.role)}</p></div>
           </Link>
           <button onClick={handleLogout} className="inline-flex items-center gap-2 rounded-md bg-slate-950 px-2.5 py-2 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 sm:px-3 sm:text-sm">

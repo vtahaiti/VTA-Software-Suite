@@ -4,25 +4,32 @@ import {
   ArrowRight,
   BarChart3,
   Boxes,
+  BriefcaseBusiness,
   Building2,
+  Camera,
   Check,
   ChefHat,
   Factory,
+  Hammer,
   HardHat,
   Hotel,
   Layers3,
   PackageCheck,
+  Phone,
+  PillBottle,
   Printer,
   ScanLine,
   ShieldCheck,
   Smartphone,
+  Stethoscope,
   Store,
   UsersRound,
-  WalletCards
+  WalletCards,
+  Wrench
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "VTA Business | Gestion d'entreprise simple et moderne",
+  title: "VTA Business - Caisse, stock et gestion",
   description: "Caisse, stock, clients, employés et rapports pour les entreprises en Haïti. Une solution de VTA Enterprise."
 };
 
@@ -39,12 +46,19 @@ const features = [
 ];
 
 const activities = [
-  { icon: Store, title: "Boutique / Market", text: "Ventes rapides, produits, inventaire et clients au même endroit." },
-  { icon: HardHat, title: "Quincaillerie / Matériaux", text: "Gérez unités, coûts, fournisseurs, achats et niveaux de stock." },
-  { icon: ChefHat, title: "Restaurant", text: "Prenez les commandes, gardez-les ouvertes et organisez plats et boissons." },
-  { icon: Factory, title: "Fabrication / Services", text: "Préparez des devis, suivez commandes, avances et balances." },
-  { icon: Hotel, title: "Hôtel avec restaurant", text: "Une expérience adaptée à l'hébergement et à la restauration arrive bientôt." },
-  { icon: Layers3, title: "Multi-activité", text: "Réunissez vente de produits et prestations de services dans un seul espace." }
+  { icon: Store, title: "Boutique / Market", text: "Encaissez vite, suivez vos produits et vos clients." },
+  { icon: Wrench, title: "Quincaillerie", text: "Gérez articles, unités, stock faible et ventes." },
+  { icon: HardHat, title: "Matériaux de construction", text: "Suivez sacs, tonnes, mètres, feuilles et inventaire." },
+  { icon: ChefHat, title: "Restaurant / Bar / Fast-food", text: "Prenez les commandes, encaissez et suivez le stock restaurant." },
+  { icon: Hotel, title: "Hôtel avec restaurant", text: "Gérez clients, paiements, restaurant et suivi d'activité." },
+  { icon: Factory, title: "Fabrication fenêtres / portes", text: "Créez devis, commandes, avances et soldes." },
+  { icon: Camera, title: "Imprimerie / studio", text: "Gérez services, commandes personnalisées et paiements." },
+  { icon: Hammer, title: "Réparation téléphones", text: "Suivez services, clients, avances et soldes." },
+  { icon: Phone, title: "Vente téléphones", text: "Vendez appareils et accessoires, puis suivez le stock." },
+  { icon: PillBottle, title: "Pharmacie", text: "Suivez produits, stock et ventes de comptoir." },
+  { icon: Stethoscope, title: "Clinique", text: "Gérez services, clients ou patients et paiements." },
+  { icon: BriefcaseBusiness, title: "Services généraux", text: "Facturez vos services et suivez vos clients." },
+  { icon: Layers3, title: "Multi-activité", text: "Regroupez plusieurs activités dans un même espace." }
 ];
 
 const benefits = [
@@ -65,13 +79,19 @@ const plans = [
 function BrandMark({ inverted = false }: { inverted?: boolean }) {
   return (
     <div className="flex items-center gap-3">
-      <span className={`grid h-10 w-10 grid-cols-2 overflow-hidden rounded-lg border ${inverted ? "border-white/30 bg-white" : "border-slate-200 bg-white"} shadow-sm`}>
-        <span className="bg-emerald-600" />
-        <span className="bg-orange-500" />
-        <span className="col-span-2 bg-blue-600" />
+      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border ${inverted ? "border-white/30 bg-white" : "border-slate-200 bg-white"} shadow-sm`}>
+        <svg viewBox="0 0 44 44" className="h-9 w-9" role="img" aria-label="Croissance VTA Business">
+          <rect x="4" y="4" width="36" height="36" rx="9" fill="#F8FAFC" />
+          <rect x="10" y="23" width="6" height="10" rx="2" fill="#059669" />
+          <rect x="19" y="17" width="6" height="16" rx="2" fill="#F97316" />
+          <rect x="28" y="11" width="6" height="22" rx="2" fill="#2563EB" />
+          <path d="M10 35.5H35" stroke="#0F172A" strokeWidth="2" strokeLinecap="round" />
+          <path d="M11 18L20 12.5L27 15L35 8" fill="none" stroke="#059669" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M31.5 8H35V11.5" fill="none" stroke="#059669" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </span>
       <span>
-        <span className={`block text-lg font-black leading-none ${inverted ? "text-white" : "text-slate-950"}`}>VTA Business</span>
+        <span className={`block whitespace-nowrap text-lg font-black leading-none ${inverted ? "text-white" : "text-slate-950"}`}>VTA Business</span>
         <span className={`mt-1 block text-[11px] font-semibold ${inverted ? "text-blue-100" : "text-slate-500"}`}>une solution de VTA Enterprise</span>
       </span>
     </div>
