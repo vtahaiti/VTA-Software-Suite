@@ -8,28 +8,44 @@ const assert = (condition, message) => {
 };
 
 for (const activity of [
-  "Boutique / Market",
+  "Market / Boutique",
+  "Fashion / Parfumerie",
   "Quincaillerie",
-  "Matériaux de construction",
+  "Matériaux construction",
   "Restaurant / Bar / Fast-food",
   "Hôtel avec restaurant",
   "Fabrication fenêtres / portes",
-  "Imprimerie / studio",
-  "Réparation téléphones",
-  "Vente téléphones",
-  "Pharmacie",
-  "Clinique",
-  "Services généraux",
-  "Multi-activité"
+  "Téléphones & électronique",
+  "Services & réparation",
+  "Beauté / Salon",
+  "Transport / Location",
+  "Pharmacie / Clinique",
+  "Multi-activité",
+  "Autre activité"
 ]) {
   assert(page.includes(activity), `Activité publique manquante: ${activity}`);
 }
+
+for (const capability of ["Caisse / POS", "Produits & services", "Stock", "Clients", "Paiements", "Utilisateurs", "Rapports"]) {
+  assert(page.includes(capability), `Capacité principale manquante: ${capability}`);
+}
+assert(
+  page.includes("Une plateforme flexible pour gérer votre entreprise, adaptée à votre activité."),
+  "La promesse officielle doit être visible."
+);
+assert(
+  page.includes("VTA Business vous accompagne dans la configuration selon votre fonctionnement réel."),
+  "Le message d’accompagnement des métiers spécialisés doit être visible."
+);
 
 assert(page.includes("<svg") && page.includes('aria-label="Croissance VTA Business"'), "Le logo public doit être vectoriel et accessible.");
 for (const color of ["#059669", "#F97316", "#2563EB"]) {
   assert(page.includes(color), `Couleur VTA manquante dans le logo: ${color}`);
 }
 assert(!page.toLowerCase().includes("bientôt"), 'La landing page ne doit pas afficher "bientôt".');
+for (const forbiddenPromise of ["module complet", "gestion médicale complète", "gestion flotte complète", "hôtel complet", "conformité officielle"]) {
+  assert(!page.toLowerCase().includes(forbiddenPromise), `Promesse publique excessive détectée: ${forbiddenPromise}`);
+}
 assert(page.includes('href="/login"'), "Le lien de connexion doit rester présent.");
 assert(page.includes('href="/signup"'), "Le lien d'inscription doit rester présent.");
 

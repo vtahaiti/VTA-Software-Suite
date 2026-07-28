@@ -21,7 +21,6 @@ import {
   ScanLine,
   ShieldCheck,
   Smartphone,
-  Stethoscope,
   Store,
   UsersRound,
   WalletCards,
@@ -30,35 +29,37 @@ import {
 
 export const metadata: Metadata = {
   title: "VTA Business - Caisse, stock et gestion",
-  description: "Caisse, stock, clients, employés et rapports pour les entreprises en Haïti. Une solution de VTA Enterprise."
+  description: "Une plateforme flexible pour gérer ventes, produits, services, stock, clients, paiements, utilisateurs et rapports."
 };
 
 const whatsappHref = "https://wa.me/?text=Bonjour%20VTA%20Enterprise%2C%20je%20souhaite%20une%20d%C3%A9monstration%20de%20VTA%20Business.";
 
 const features = [
-  { icon: ScanLine, title: "Encaisser rapidement", text: "Un point de vente clair pour servir vos clients sans perdre de temps." },
-  { icon: Boxes, title: "Suivre le stock", text: "Visualisez les quantités, les ruptures et les alertes de stock faible." },
-  { icon: PackageCheck, title: "Garder une vente en attente", text: "Suspendez un panier et reprenez-le au bon moment, sans doublon." },
-  { icon: UsersRound, title: "Gérer les clients", text: "Retrouvez les achats, les coordonnées et le relevé de chaque client." },
-  { icon: ShieldCheck, title: "Donner accès aux employés", text: "Propriétaire, admin, caissier ou stock : chacun voit ce qui le concerne." },
-  { icon: Printer, title: "Imprimer les tickets", text: "Imprimez des reçus professionnels depuis votre ordinateur ou appareil compatible." },
-  { icon: BarChart3, title: "Voir les rapports", text: "Suivez les ventes, les produits et les résultats utiles à vos décisions." }
+  { icon: ScanLine, title: "Caisse / POS", text: "Encaissez rapidement et gardez une vente en attente lorsque nécessaire." },
+  { icon: PackageCheck, title: "Produits & services", text: "Organisez ce que vous vendez, qu’il s’agisse d’articles ou de services." },
+  { icon: Boxes, title: "Stock", text: "Suivez les quantités, les mouvements et les alertes de stock faible." },
+  { icon: UsersRound, title: "Clients", text: "Centralisez les coordonnées et le suivi utile de chaque client." },
+  { icon: WalletCards, title: "Paiements", text: "Gardez une vue claire sur les montants reçus et ceux qui restent à régler." },
+  { icon: ShieldCheck, title: "Utilisateurs", text: "Donnez à chaque employé un accès adapté à son rôle." },
+  { icon: BarChart3, title: "Rapports", text: "Consultez les informations essentielles pour suivre votre activité." },
+  { icon: Printer, title: "Impression", text: "Imprimez des tickets et documents professionnels depuis vos appareils compatibles." }
 ];
 
 const activities = [
-  { icon: Store, title: "Boutique / Market", text: "Encaissez vite, suivez vos produits et vos clients." },
+  { icon: Store, title: "Market / Boutique", text: "Vendez, suivez vos produits et fidélisez vos clients." },
+  { icon: Camera, title: "Fashion / Parfumerie", text: "Gérez articles, variantes simples, stock et ventes." },
   { icon: Wrench, title: "Quincaillerie", text: "Gérez articles, unités, stock faible et ventes." },
-  { icon: HardHat, title: "Matériaux de construction", text: "Suivez sacs, tonnes, mètres, feuilles et inventaire." },
-  { icon: ChefHat, title: "Restaurant / Bar / Fast-food", text: "Prenez les commandes, encaissez et suivez le stock restaurant." },
-  { icon: Hotel, title: "Hôtel avec restaurant", text: "Gérez clients, paiements, restaurant et suivi d'activité." },
-  { icon: Factory, title: "Fabrication fenêtres / portes", text: "Créez devis, commandes, avances et soldes." },
-  { icon: Camera, title: "Imprimerie / studio", text: "Gérez services, commandes personnalisées et paiements." },
-  { icon: Hammer, title: "Réparation téléphones", text: "Suivez services, clients, avances et soldes." },
-  { icon: Phone, title: "Vente téléphones", text: "Vendez appareils et accessoires, puis suivez le stock." },
-  { icon: PillBottle, title: "Pharmacie", text: "Suivez produits, stock et ventes de comptoir." },
-  { icon: Stethoscope, title: "Clinique", text: "Gérez services, clients ou patients et paiements." },
-  { icon: BriefcaseBusiness, title: "Services généraux", text: "Facturez vos services et suivez vos clients." },
-  { icon: Layers3, title: "Multi-activité", text: "Regroupez plusieurs activités dans un même espace." }
+  { icon: HardHat, title: "Matériaux construction", text: "Suivez sacs, tonnes, mètres, feuilles et inventaire." },
+  { icon: ChefHat, title: "Restaurant / Bar / Fast-food", text: "Prenez les commandes, encaissez et suivez votre activité." },
+  { icon: Hotel, title: "Hôtel avec restaurant", text: "Suivez clients, paiements, restaurant et activité." },
+  { icon: Factory, title: "Fabrication fenêtres / portes", text: "Préparez devis, commandes, avances et balances." },
+  { icon: Phone, title: "Téléphones & électronique", text: "Vendez appareils et accessoires, et suivez les services associés." },
+  { icon: Hammer, title: "Services & réparation", text: "Suivez les travaux, les clients, les paiements et les balances." },
+  { icon: BriefcaseBusiness, title: "Beauté / Salon", text: "Organisez services, clients, produits et paiements." },
+  { icon: Building2, title: "Transport / Location", text: "Suivez clients, services, paiements et réservations simples." },
+  { icon: PillBottle, title: "Pharmacie / Clinique", text: "Gérez produits ou services, clients et paiements avec prudence." },
+  { icon: Layers3, title: "Multi-activité", text: "Regroupez plusieurs branches dans un même espace." },
+  { icon: BriefcaseBusiness, title: "Autre activité", text: "Configurez les outils essentiels selon votre fonctionnement." }
 ];
 
 const benefits = [
@@ -196,10 +197,10 @@ export default function HomePage() {
             <Smartphone className="h-4 w-4" /> Conçu pour travailler partout, simplement
           </div>
           <h1 className="mx-auto max-w-5xl text-4xl font-black leading-tight sm:text-5xl lg:text-6xl">
-            VTA Business <span className="text-orange-400">—</span> Caisse, stock et gestion pour entreprises
+            Une plateforme flexible pour gérer votre entreprise, adaptée à votre activité.
           </h1>
           <p className="mx-auto mt-6 max-w-3xl text-base leading-7 text-blue-100 sm:text-xl sm:leading-8">
-            Vendez, gérez vos produits, suivez vos clients, vos utilisateurs et vos rapports depuis téléphone, tablette ou ordinateur.
+            VTA Business vous aide à gérer ventes, produits, services, stock, clients, paiements, utilisateurs et rapports depuis téléphone, tablette ou ordinateur.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Link href="/signup" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-orange-500 px-6 py-3 font-black text-white shadow-lg hover:bg-orange-600">
@@ -223,8 +224,8 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl">
           <div className="mx-auto max-w-2xl text-center">
             <p className="text-sm font-black uppercase text-emerald-700">Tout au même endroit</p>
-            <h2 className="mt-3 text-3xl font-black sm:text-4xl">Un seul outil pour gérer votre activité</h2>
-            <p className="mt-4 text-slate-600">Moins de cahiers dispersés, plus de visibilité sur ce qui se passe réellement dans votre entreprise.</p>
+            <h2 className="mt-3 text-3xl font-black sm:text-4xl">Les outils essentiels réunis simplement</h2>
+            <p className="mt-4 text-slate-600">Une vue claire de votre activité, sans multiplier les applications ni les cahiers.</p>
           </div>
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {features.map(({ icon: Icon, title, text }, index) => (
@@ -247,7 +248,7 @@ export default function HomePage() {
               <p className="text-sm font-black uppercase text-blue-700">Votre métier, vos besoins</p>
               <h2 className="mt-3 text-3xl font-black sm:text-4xl">Adapté à votre activité</h2>
             </div>
-            <p className="max-w-md text-sm leading-6 text-slate-600">Choisissez votre secteur lors de l’inscription. VTA Business adapte ensuite les menus et outils visibles.</p>
+            <p className="max-w-md text-sm leading-6 text-slate-600">VTA Business adapte les outils visibles à votre activité, avec une configuration simple et accompagnée.</p>
           </div>
           <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {activities.map(({ icon: Icon, title, text }) => (
@@ -256,6 +257,9 @@ export default function HomePage() {
                 <div><h3 className="font-black">{title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{text}</p></div>
               </article>
             ))}
+          </div>
+          <div className="mt-8 rounded-lg border border-blue-200 bg-blue-50 px-5 py-4 text-sm leading-6 text-blue-950">
+            Pour les métiers plus spécialisés comme hôtel, restaurant, fabrication, transport, santé ou garage, VTA Business vous accompagne dans la configuration selon votre fonctionnement réel.
           </div>
         </div>
       </section>
