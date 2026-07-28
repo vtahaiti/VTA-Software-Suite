@@ -72,7 +72,7 @@ const benefits = [
 ];
 
 const plans = [
-  { name: "Essentiel", text: "Pour démarrer avec la caisse et les outils essentiels.", accent: "border-emerald-600" },
+  { name: "Essentiel", text: "Pour démarrer avec la caisse et les outils essentiels.", accent: "border-blue-600" },
   { name: "Professionnel", text: "Pour une équipe qui veut mieux suivre ses opérations.", accent: "border-orange-500", popular: true },
   { name: "Expert", text: "Pour les entreprises qui veulent une gestion plus complète.", accent: "border-blue-600" }
 ];
@@ -82,11 +82,11 @@ function BrandMark({ inverted = false }: { inverted?: boolean }) {
     <div className="flex items-center gap-3">
       <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border ${inverted ? "border-white/30 bg-white" : "border-slate-200 bg-white"} shadow-sm`}>
         <svg viewBox="0 0 44 44" className="h-9 w-9" role="img" aria-label="Croissance VTA Business">
-          <rect x="4" y="4" width="36" height="36" rx="9" fill="#F8FAFC" />
-          <rect x="10" y="23" width="6" height="10" rx="2" fill="#059669" />
+          <rect x="4" y="4" width="36" height="36" rx="9" fill="#EFF6FF" />
+          <rect x="10" y="23" width="6" height="10" rx="2" fill="#2563EB" />
           <rect x="19" y="17" width="6" height="16" rx="2" fill="#F97316" />
-          <rect x="28" y="11" width="6" height="22" rx="2" fill="#2563EB" />
-          <path d="M10 35.5H35" stroke="#0F172A" strokeWidth="2" strokeLinecap="round" />
+          <rect x="28" y="11" width="6" height="22" rx="2" fill="#1D4ED8" />
+          <path d="M10 35.5H35" stroke="#1E3A8A" strokeWidth="2" strokeLinecap="round" />
           <path d="M11 18L20 12.5L27 15L35 8" fill="none" stroke="#059669" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
           <path d="M31.5 8H35V11.5" fill="none" stroke="#059669" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
@@ -118,13 +118,13 @@ function ProductPreview() {
           <aside className="hidden border-r border-slate-200 bg-slate-950 p-4 text-white md:block">
             <div className="mb-6 flex items-center gap-2 text-sm font-black"><Building2 className="h-4 w-4 text-emerald-400" /> Entreprise Démo</div>
             {["Accueil", "Nouvelle vente", "Produits", "Inventaire", "Clients", "Rapports"].map((item, index) => (
-              <div key={item} className={`mb-1 rounded-md px-3 py-2 text-xs font-semibold ${index === 0 ? "bg-emerald-600 text-white" : "text-slate-300"}`}>{item}</div>
+              <div key={item} className={`mb-1 rounded-md px-3 py-2 text-xs font-semibold ${index === 0 ? "bg-blue-600 text-white" : "text-slate-300"}`}>{item}</div>
             ))}
           </aside>
           <div className="bg-slate-50 p-4 sm:p-6">
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <p className="text-xs font-bold uppercase text-emerald-700">Vue d&apos;ensemble</p>
+                <p className="text-xs font-bold uppercase text-blue-700">Vue d&apos;ensemble</p>
                 <p className="mt-1 text-xl font-black">Bonjour, votre activité avance.</p>
               </div>
               <div className="rounded-lg bg-blue-600 p-2 text-white"><BarChart3 className="h-5 w-5" /></div>
@@ -178,22 +178,22 @@ export default function HomePage() {
         <div className="mx-auto flex h-18 max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <Link href="/" aria-label="Accueil VTA Business"><BrandMark /></Link>
           <nav className="hidden items-center gap-6 text-sm font-bold text-slate-600 lg:flex" aria-label="Navigation principale">
-            <a href="#fonctionnalites" className="hover:text-emerald-700">Fonctionnalités</a>
-            <a href="#activites" className="hover:text-emerald-700">Activités</a>
-            <a href="#tarifs" className="hover:text-emerald-700">Tarifs</a>
-            <Link href="/support" className="hover:text-emerald-700">Support</Link>
+            <a href="#fonctionnalites" className="hover:text-blue-700">Fonctionnalités</a>
+            <a href="#activites" className="hover:text-blue-700">Activités</a>
+            <a href="#tarifs" className="hover:text-blue-700">Tarifs</a>
+            <Link href="/support" className="hover:text-blue-700">Support</Link>
           </nav>
           <div className="hidden items-center gap-2 sm:flex">
             <Link href="/login" className="rounded-lg px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100">Se connecter</Link>
-            <Link href="/signup" className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-emerald-700">Créer un compte gratuit</Link>
+            <Link href="/signup" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-blue-700">Créer un compte gratuit</Link>
           </div>
-          <Link href="/signup" className="rounded-lg bg-emerald-600 p-2.5 text-white sm:hidden" aria-label="Créer un compte gratuit"><ArrowRight className="h-5 w-5" /></Link>
+          <Link href="/signup" className="rounded-lg bg-blue-600 p-2.5 text-white sm:hidden" aria-label="Créer un compte gratuit"><ArrowRight className="h-5 w-5" /></Link>
         </div>
       </header>
 
-      <section className="overflow-hidden bg-[#073b4c] px-4 pb-16 pt-16 text-white sm:px-6 sm:pt-20 lg:px-8 lg:pb-24">
+      <section className="overflow-hidden bg-gradient-to-br from-blue-950 via-blue-900 to-slate-950 px-4 pb-16 pt-16 text-white sm:px-6 sm:pt-20 lg:px-8 lg:pb-24">
         <div className="mx-auto max-w-7xl text-center">
-          <div className="mx-auto mb-7 flex w-fit items-center gap-2 rounded-full border border-emerald-300/30 bg-emerald-400/10 px-4 py-2 text-xs font-bold text-emerald-100">
+          <div className="mx-auto mb-7 flex w-fit items-center gap-2 rounded-full border border-blue-300/40 bg-blue-400/15 px-4 py-2 text-xs font-bold text-blue-100">
             <Smartphone className="h-4 w-4" /> Conçu pour travailler partout, simplement
           </div>
           <h1 className="mx-auto max-w-5xl text-4xl font-black leading-tight sm:text-5xl lg:text-6xl">
@@ -203,10 +203,10 @@ export default function HomePage() {
             VTA Business vous aide à gérer ventes, produits, services, stock, clients, paiements, utilisateurs et rapports depuis téléphone, tablette ou ordinateur.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link href="/signup" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-orange-500 px-6 py-3 font-black text-white shadow-lg hover:bg-orange-600">
+            <Link href="/signup" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-3 font-black text-white shadow-lg shadow-blue-950/30 hover:bg-blue-500">
               Créer un compte gratuit <ArrowRight className="h-4 w-4" />
             </Link>
-            <a href={whatsappHref} target="_blank" rel="noreferrer" className="inline-flex min-h-12 items-center justify-center rounded-lg border border-emerald-300 bg-emerald-600 px-6 py-3 font-black text-white hover:bg-emerald-700">
+            <a href={whatsappHref} target="_blank" rel="noreferrer" className="inline-flex min-h-12 items-center justify-center rounded-lg border border-orange-300 bg-orange-500 px-6 py-3 font-black text-white hover:bg-orange-600">
               Demander une démo WhatsApp
             </a>
             <Link href="/login" className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/40 px-6 py-3 font-black text-white hover:bg-white/10">Se connecter</Link>
@@ -231,14 +231,14 @@ export default function HomePage() {
       <section id="fonctionnalites" className="scroll-mt-20 px-4 py-20 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="text-sm font-black uppercase text-emerald-700">Tout au même endroit</p>
+            <p className="text-sm font-black uppercase text-blue-700">Tout au même endroit</p>
             <h2 className="mt-3 text-3xl font-black sm:text-4xl">Les outils essentiels réunis simplement</h2>
             <p className="mt-4 text-slate-600">Une vue claire de votre activité, sans multiplier les applications ni les cahiers.</p>
           </div>
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {features.map(({ icon: Icon, title, text }, index) => (
-              <article key={title} className={`rounded-lg border p-5 ${index === 0 ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white"}`}>
-                <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-lg ${index % 3 === 0 ? "bg-emerald-600" : index % 3 === 1 ? "bg-orange-500" : "bg-blue-600"} text-white`}>
+              <article key={title} className={`rounded-lg border p-5 ${index === 0 ? "border-blue-300 bg-blue-50" : "border-slate-200 bg-white"}`}>
+                <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-lg ${index % 3 === 1 ? "bg-orange-500" : index % 4 === 3 ? "bg-emerald-600" : "bg-blue-600"} text-white`}>
                   <Icon className="h-5 w-5" />
                 </div>
                 <h3 className="font-black">{title}</h3>
@@ -311,7 +311,7 @@ export default function HomePage() {
       <section id="tarifs" className="scroll-mt-20 bg-[#f4f8f7] px-4 py-20 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl">
           <div className="text-center">
-            <p className="text-sm font-black uppercase text-emerald-700">Des plans qui évoluent avec vous</p>
+            <p className="text-sm font-black uppercase text-blue-700">Des plans qui évoluent avec vous</p>
             <h2 className="mt-3 text-3xl font-black sm:text-4xl">Commencez simplement</h2>
             <p className="mt-4 text-slate-600">Choisissez les fonctions adaptées à votre entreprise. Vous pourrez évoluer plus tard.</p>
           </div>
@@ -329,12 +329,12 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="bg-orange-500 px-4 py-16 text-slate-950 sm:px-6 lg:px-8">
+      <section className="bg-blue-700 px-4 py-16 text-white sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-7 text-center lg:flex-row lg:text-left">
-          <div><h2 className="text-3xl font-black sm:text-4xl">Prêt à mieux gérer votre entreprise ?</h2><p className="mt-3 font-semibold text-orange-950">Créez votre espace gratuitement ou échangez avec notre équipe.</p></div>
+          <div><h2 className="text-3xl font-black sm:text-4xl">Prêt à mieux gérer votre entreprise ?</h2><p className="mt-3 font-semibold text-blue-100">Créez votre espace gratuitement ou échangez avec notre équipe.</p></div>
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-            <Link href="/signup" className="inline-flex min-h-12 items-center justify-center rounded-lg bg-slate-950 px-6 py-3 font-black text-white">Créer un compte gratuit</Link>
-            <a href={whatsappHref} target="_blank" rel="noreferrer" className="inline-flex min-h-12 items-center justify-center rounded-lg border-2 border-slate-950 px-6 py-3 font-black">Demander une démo WhatsApp</a>
+            <Link href="/signup" className="inline-flex min-h-12 items-center justify-center rounded-lg bg-white px-6 py-3 font-black text-blue-800 hover:bg-blue-50">Créer un compte gratuit</Link>
+            <a href={whatsappHref} target="_blank" rel="noreferrer" className="inline-flex min-h-12 items-center justify-center rounded-lg border-2 border-orange-300 bg-orange-500 px-6 py-3 font-black text-white hover:bg-orange-600">Demander une démo WhatsApp</a>
           </div>
         </div>
       </section>

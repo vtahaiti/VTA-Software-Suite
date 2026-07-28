@@ -57,7 +57,7 @@ export function LoginForm() {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           autoComplete="email"
-          className="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-50"
+          className="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-50"
         />
       </div>
 
@@ -70,11 +70,11 @@ export function LoginForm() {
             name="rememberMe"
             checked={rememberMe}
             onChange={(event) => setRememberMe(event.target.checked)}
-            className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-600"
+            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
           />
           Se souvenir de moi
         </label>
-        <Link href="/forgot-password" className="text-sm font-medium text-brand-600 hover:text-brand-700">
+        <Link href="/forgot-password" className="text-sm font-medium text-blue-600 hover:text-blue-700">
           Mot de passe oublié ?
         </Link>
       </div>
@@ -88,12 +88,12 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70"
+        className="w-full rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
       >
         {isLoading ? "Connexion..." : "Se connecter"}
       </button>
       <div className="text-center text-sm text-slate-600 dark:text-slate-300">
-        Pas encore de compte ? <Link href="/signup" className="font-semibold text-brand-600">Créer un compte</Link>
+        Pas encore de compte ? <Link href="/signup" className="font-semibold text-blue-600">Créer un compte</Link>
       </div>
     </form>
   );

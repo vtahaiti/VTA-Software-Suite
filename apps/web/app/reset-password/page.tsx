@@ -71,7 +71,7 @@ function ResetPasswordForm() {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70"
+          className="w-full rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isLoading ? "Réinitialisation..." : "Réinitialiser"}
         </button>

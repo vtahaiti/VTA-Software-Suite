@@ -67,17 +67,17 @@ export default function SignupPage() {
               required
               checked={form.acceptedTerms}
               onChange={(event) => setForm({ ...form, acceptedTerms: event.target.checked })}
-              className="mt-1 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-600"
+              className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
             />
             <span>
-              J’accepte les <Link href="/terms" className="font-semibold text-brand-600">conditions d’utilisation</Link> et la{" "}
-              <Link href="/privacy" className="font-semibold text-brand-600">politique de confidentialité</Link>.
+              J’accepte les <Link href="/terms" className="font-semibold text-blue-600">conditions d’utilisation</Link> et la{" "}
+              <Link href="/privacy" className="font-semibold text-blue-600">politique de confidentialité</Link>.
             </span>
           </label>
           {error ? <div role="alert" aria-live="polite" className="sm:col-span-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
-          <button disabled={isLoading} className="sm:col-span-2 rounded-md bg-brand-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60">{isLoading ? "Création..." : "Continuer"}</button>
+          <button disabled={isLoading} className="sm:col-span-2 rounded-md bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">{isLoading ? "Création..." : "Continuer"}</button>
         </form>
-        <p className="mt-5 text-center text-sm text-slate-600 dark:text-slate-300">Vous avez déjà un compte ? <Link href="/login" className="font-semibold text-brand-600">Se connecter</Link></p>
+        <p className="mt-5 text-center text-sm text-slate-600 dark:text-slate-300">Vous avez déjà un compte ? <Link href="/login" className="font-semibold text-blue-600">Se connecter</Link></p>
       </section>
     </main>
   );
