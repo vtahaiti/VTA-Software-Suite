@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { clearSession, getAccessToken, getCurrentUser } from "@/lib/auth";
@@ -168,6 +169,18 @@ export default function PosPage() {
       })
       .catch(() => undefined); }, []);
   useEffect(() => {
+    const isRestaurant = business?.businessProfileType === "restaurant" || business?.businessProfileType === "hotel-restaurant";
+    if (!isRestaurant) return;
+    const barWarehouse = warehouses.find((warehouse) => /bar|boisson/i.test(warehouse.name));
+    if (barWarehouse && warehouseId !== barWarehouse.id) setWarehouseId(barWarehouse.id);
+  }, [business?.businessProfileType, warehouseId, warehouses]);
+  useEffect(() => {
+    if (!warehouseId || cart.items.length === 0) return;
+    void syncCart("calculate");
+    // Recalculate only when the selected stock zone changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [warehouseId]);
+  useEffect(() => {
     let cancelled = false;
     async function restoreDraft() {
     const draft = loadPosDraft();
@@ -231,7 +244,11 @@ export default function PosPage() {
     return () => clearTimeout(timer);
   }, [loadProducts]);
   useEffect(() => { void refreshPendingCount(); }, []);
-  useEffect(() => { if (isOnline) void synchronizeOfflineSales(false); }, [isOnline]);
+  useEffect(() => {
+    if (isOnline) void synchronizeOfflineSales(false);
+    // Synchronize once when connectivity returns; the function reads current state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline]);
 
   async function syncCart(endpoint: "add" | "update" | "remove" | "calculate", extra: Record<string, unknown> = {}) {
     setError("");
@@ -1025,7 +1042,7 @@ function ProductCard({ product, onAdd }: { product: Product; onAdd: () => void }
     <button onClick={onAdd} disabled={isOut} className="group flex h-full min-h-[214px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm transition hover:border-brand-500 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-brand-100 disabled:cursor-not-allowed disabled:opacity-55">
       <div className="aspect-[4/3] bg-slate-100">
         {product.image ? (
-          <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
+          <Image unoptimized src={product.image} alt={product.name} width={320} height={240} className="h-full w-full object-cover" />
         ) : (
           <ProductPlaceholder name={product.name} />
         )}

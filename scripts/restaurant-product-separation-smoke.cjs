@@ -15,6 +15,8 @@ assert(starter.includes("update: { sellable }"), "les anciens articles modèles 
 assert(starter.includes("update: { sellable: true }"), "les plats modèles doivent rester vendables");
 assert(pos.includes("/plat|menu|boisson|extra/i"), "le POS Restaurant doit limiter ses catégories visibles");
 assert(pos.includes('isRestaurantContextProfile ? "Nouvelle commande" : "Vente"'), "le titre POS Restaurant doit être Nouvelle commande");
+assert(pos.includes('/bar|boisson/i.test(warehouse.name)'), "le POS Restaurant doit sélectionner la zone Bar / Boissons par défaut");
+assert(pos.includes('void syncCart("calculate")'), "le panier doit être recalculé quand la zone stock change");
 for (const text of ["Ajouter plat / boisson", "Ajouter ingrédient / fourniture", "Plat vendable", "Boisson vendable", "Ingrédient stock", "Fourniture stock", "Réserve stock"]) {
   assert(products.includes(text), `texte/type Produit Restaurant manquant: ${text}`);
 }
