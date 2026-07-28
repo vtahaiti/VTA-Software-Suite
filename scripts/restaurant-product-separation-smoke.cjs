@@ -9,6 +9,7 @@ const pos = read("apps/web/app/dashboard/pos/page.tsx");
 const products = read("apps/web/app/dashboard/products/page.tsx");
 const form = read("apps/web/app/dashboard/products/product-form.tsx");
 const stock = read("apps/web/app/dashboard/restaurant/stock/page.tsx");
+const businessProfiles = read("apps/web/lib/business-profiles.ts");
 
 assert(starter.includes('const sellable = template.category === "Boissons"'), "seules les boissons du stock modèle doivent être vendables");
 assert(starter.includes("update: { sellable }"), "les anciens articles modèles doivent recevoir leur classification Restaurant");
@@ -27,5 +28,9 @@ for (const text of ["Frigo / Congélateur", "Bar / Boissons", "Cuisine / Ingréd
   assert(stock.includes(text), `zone/action Stock Restaurant manquante: ${text}`);
 }
 assert(stock.includes("Array.isArray(data) ? data : data.items ?? []"), "la page Stock doit accepter les deux formes de réponse API");
+assert(businessProfiles.includes('profile === "hotel-restaurant"'), "Hôtel avec restaurant doit partager le contexte Restaurant");
+assert(products.includes("isRestaurantBusiness("), "La liste Produits doit utiliser le contexte Restaurant centralisé");
+assert(form.includes("isRestaurantBusiness("), "Le formulaire Produit doit utiliser le contexte Restaurant centralisé");
+assert(pos.includes("isRestaurantBusiness("), "Le POS doit utiliser le contexte Restaurant centralisé");
 
 console.log("Restaurant product separation smoke OK");

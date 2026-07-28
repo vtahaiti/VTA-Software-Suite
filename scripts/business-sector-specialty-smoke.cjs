@@ -6,6 +6,7 @@ const catalog = fs.readFileSync(path.join(root, "apps/api/src/business-profiles/
 const service = fs.readFileSync(path.join(root, "apps/api/src/business-profiles/business-profiles.service.ts"), "utf8");
 const onboarding = fs.readFileSync(path.join(root, "apps/web/app/onboarding/company/page.tsx"), "utf8");
 const webLib = fs.readFileSync(path.join(root, "apps/web/lib/business-profiles.ts"), "utf8");
+const onboardingService = fs.readFileSync(path.join(root, "apps/api/src/onboarding/onboarding.service.ts"), "utf8");
 
 const failures = [];
 const expect = (condition, message) => { if (!condition) failures.push(message); };
@@ -45,6 +46,11 @@ for (const specialty of [
   expect(catalog.includes(`name: "${specialty}"`), `spécialité manquante: ${specialty}`);
 }
 
+for (const specialty of ["Parfumerie", "Boutique mode", "Chaussures"]) {
+  expect(catalog.includes(`name: "${specialty}", profileType: "fashion"`), `specialite commerce mode mal mappee: ${specialty}`);
+  expect(onboarding.includes(`name: "${specialty}", profileType: "fashion"`), `fallback onboarding incomplet: ${specialty}`);
+}
+
 for (const slug of ["commerce", "restaurant", "hotel", "hotel-restaurant", "services", "it-services", "phone-sales-repair", "printing", "manufacturing", "windows-aluminium", "construction-materials", "hardware", "pharmacy", "clinic", "school", "fashion", "multi-activities"]) {
   expect(catalog.includes(`profileType: "${slug}"`) || catalog.includes(`slug: "${slug}"`), `profil cible inconnu: ${slug}`);
 }
@@ -67,8 +73,11 @@ expect(!profileHasModule("clinic", "pharmacy"), "Clinique ne doit pas embarquer 
 expect(service.includes("businessModuleAssignment.deleteMany"), "Le catalogue doit retirer les associations de modules obsoletes.");
 expect(catalog.includes("export function resolveBusinessModuleKeys"), "La matrice centrale des modules visibles doit etre exportee.");
 expect(service.includes("resolveBusinessModuleKeys"), "La configuration tenant doit utiliser la matrice centrale des modules.");
-expect(service.includes("matrixModuleKeys.has(assignment.businessModule.key) || assignment.source === \"manual\""), "Les modules hérités doivent etre filtres, sauf override manuel explicite.");
+expect(service.includes("matrixModuleKeys.has(assignment.businessModule.key) || assignment.source === \"platform\""), "Les modules herites doivent etre filtres, sauf override Super Admin explicite.");
+expect(!service.includes("matrixModuleKeys.has(assignment.businessModule.key) || assignment.source === \"manual\""), "Un ancien override manuel ne doit pas contourner la matrice.");
+expect(service.includes("Ce module n'est pas disponible pour l'activité actuelle."), "L'activation tenant d'un module hors matrice doit etre bloquee.");
 expect(service.includes("enabledBusinessModules: activeModules.map((module) => module.key)"), "L'API ne doit pas renvoyer une ancienne liste enabledBusinessModules non filtrée.");
+expect(service.includes("allowedModuleKeys"), "L'API doit exposer les modules autorises pour la configuration.");
 expect(catalog.includes("export const businessSectors"), "source de vérité BusinessSector absente");
 expect(catalog.includes("businessActivityTemplates: BusinessActivityTemplate[] = businessSectors.flatMap"), "compatibilite templates derivee des secteurs");
 expect(catalog.includes("businessCategories: BusinessCategoryDefinition[] = businessSectors.map"), "compatibilite categories derivee des secteurs");
@@ -79,6 +88,7 @@ expect(onboarding.includes('label="Spécialité"'), "Onboarding affiche le selec
 expect(onboarding.includes("businessCategory: form.businessSector"), "Onboarding sauvegarde le secteur dans businessCategory");
 expect(onboarding.includes("primaryActivity: form.businessSpecialty"), "Onboarding sauvegarde la spécialité dans primaryActivity");
 expect(onboarding.includes("businessProfileSlug: form.businessProfileSlug"), "Onboarding transmet le profil mappe");
+expect(onboardingService.includes("template.categoryKey === dto.businessCategory"), "Onboarding API doit replier une specialite inconnue sur son secteur, pas sur Commerce.");
 
 if (failures.length) {
   console.error("Business sector/specialty smoke failed:");

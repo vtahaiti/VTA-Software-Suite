@@ -28,8 +28,12 @@ export default function BusinessModulesPage() {
 
   const selectedCategory = categories.find((category) => category.key === businessCategory) ?? categories[0];
   const activeModuleKeys = useMemo(() => new Set(configuration?.modules.map((module) => module.key) ?? []), [configuration]);
+  const allowedModuleKeys = useMemo(() => new Set(configuration?.allowedModuleKeys ?? []), [configuration]);
   const excludedModuleKeys = useMemo(() => new Set(configuration?.excludedModules ?? []), [configuration]);
-  const visibleCatalogModules = useMemo(() => catalogModules.filter((module) => !excludedModuleKeys.has(module.key)), [catalogModules, excludedModuleKeys]);
+  const visibleCatalogModules = useMemo(
+    () => catalogModules.filter((module) => allowedModuleKeys.has(module.key) && !excludedModuleKeys.has(module.key)),
+    [allowedModuleKeys, catalogModules, excludedModuleKeys]
+  );
 
   function changeCategory(value: string) {
     const category = categories.find((item) => item.key === value) ?? categories[0];
@@ -72,7 +76,7 @@ export default function BusinessModulesPage() {
       <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <p className="text-sm font-medium text-brand-600">Paramètres</p>
         <h1 className="mt-1 text-2xl font-bold text-slate-950 dark:text-white">Activité et modules</h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">Choisissez le secteur et l&apos;activité principale de l&apos;entreprise. VTA recalcule les menus visibles selon ce profil, le rôle utilisateur et l&apos;abonnement.</p>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">Choisissez le secteur et l&apos;activité principale de l&apos;entreprise. VTA recalcule les menus visibles selon ce profil et le rôle utilisateur.</p>
         {message ? <p className="mt-3 rounded-md bg-brand-50 px-3 py-2 text-sm text-brand-700 dark:bg-slate-800 dark:text-brand-200">{message}</p> : null}
       </div>
 

@@ -79,7 +79,11 @@ const fallbackSectors: BusinessSector[] = [
   { key: "fashion-beauty", name: "Beauté / Salon", description: "Salon, barber shop, spa et cosmétique.", specialties: [
     { name: "Salon de beauté", profileType: "services", categories: ["Coiffure", "Soins"] },
     { name: "Barber shop", profileType: "services", categories: ["Coupe", "Barbe"] },
-    { name: "Spa", profileType: "services", categories: ["Massages", "Soins"] }
+    { name: "Spa", profileType: "services", categories: ["Massages", "Soins"] },
+    { name: "Cosmétique", profileType: "fashion", categories: ["Maquillage", "Soins", "Parfums"] },
+    { name: "Parfumerie", profileType: "fashion", categories: ["Parfums", "Soins", "Accessoires"] },
+    { name: "Boutique mode", profileType: "fashion", categories: ["Vêtements", "Chaussures", "Accessoires"] },
+    { name: "Chaussures", profileType: "fashion", categories: ["Chaussures", "Sandales", "Accessoires"] }
   ] },
   { key: "transport-distribution", name: "Transport / Location", description: "Transport, location véhicules, livraison et logistique.", specialties: [
     { name: "Transport", profileType: "services", categories: ["Transport", "Services"] },

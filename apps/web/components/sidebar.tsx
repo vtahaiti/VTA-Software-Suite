@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { MouseEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { fallbackMenuSections, getTenantBusinessConfiguration, type BusinessMenuSection } from "@/lib/business-profiles";
+import { getTenantBusinessConfiguration, type BusinessMenuSection } from "@/lib/business-profiles";
 import { CompanyBranding, getCompanyBranding, initials } from "@/lib/company-branding";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { buildNavigation, isNavigationItemActive, navigationIcons, type NavigationItem } from "@/lib/navigation";
@@ -20,8 +20,8 @@ type SidebarProps = {
 export function Sidebar({ className = "", forceExpanded = false, onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const [mode, setMode] = useState<MenuMode>("simple");
-  const [simpleSections, setSimpleSections] = useState<BusinessMenuSection[]>(fallbackMenuSections);
-  const [expertSections, setExpertSections] = useState<BusinessMenuSection[]>(fallbackMenuSections);
+  const [simpleSections, setSimpleSections] = useState<BusinessMenuSection[]>([]);
+  const [expertSections, setExpertSections] = useState<BusinessMenuSection[]>([]);
   const [activity, setActivity] = useState("");
   const [branding, setBranding] = useState<CompanyBranding | null>(null);
   const [logoFailed, setLogoFailed] = useState(false);
@@ -39,10 +39,13 @@ export function Sidebar({ className = "", forceExpanded = false, onNavigate }: S
       }
     }
     async function loadBusinessConfiguration() {
+      setSimpleSections([]);
+      setExpertSections([]);
+      setActivity("");
       const configuration = await getTenantBusinessConfiguration().catch(() => null);
       if (!mounted || !configuration) return;
-      setSimpleSections(configuration.simpleMenuSections?.length ? configuration.simpleMenuSections : fallbackMenuSections);
-      setExpertSections(configuration.expertMenuSections?.length ? configuration.expertMenuSections : configuration.menuSections.length ? configuration.menuSections : fallbackMenuSections);
+      setSimpleSections(configuration.simpleMenuSections ?? []);
+      setExpertSections(configuration.expertMenuSections?.length ? configuration.expertMenuSections : configuration.menuSections ?? []);
       setActivity(configuration.primaryActivity ?? "");
     }
     void loadBusinessConfiguration();

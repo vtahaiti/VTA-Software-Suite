@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { getAccessToken } from "@/lib/auth";
-import { getTenantBusinessConfiguration, type TenantBusinessConfiguration } from "@/lib/business-profiles";
+import { getTenantBusinessConfiguration, isRestaurantBusiness, type TenantBusinessConfiguration } from "@/lib/business-profiles";
 
 type StockLine = {
   id: string;
@@ -413,9 +413,7 @@ function formatMoney(value: number) {
 }
 
 function isRestaurantInventoryProfile(business: TenantBusinessConfiguration | null) {
-  const profile = String(business?.businessProfileType ?? "").toLowerCase();
-  const activity = String(business?.primaryActivity ?? "").toLowerCase();
-  return profile === "restaurant" || profile === "hotel-restaurant" || activity.includes("restaurant") || activity.includes("bar");
+  return isRestaurantBusiness(business?.businessProfileType, business?.primaryActivity);
 }
 
 function shortWarehouseName(name: string) {

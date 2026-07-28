@@ -4,7 +4,7 @@ import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchWithAuth } from "@/lib/api-client";
-import { getTenantBusinessConfiguration } from "@/lib/business-profiles";
+import { getTenantBusinessConfiguration, isRestaurantBusiness } from "@/lib/business-profiles";
 
 type Ref = { id: string; name: string; symbol?: string };
 type Supplier = { id: string; name: string };
@@ -82,7 +82,7 @@ export function ProductForm({ productId }: { productId?: string }) {
   useEffect(() => {
     void loadRefs();
     void getTenantBusinessConfiguration().then((business) => {
-      const restaurant = business?.businessProfileType === "restaurant";
+      const restaurant = isRestaurantBusiness(business?.businessProfileType, business?.primaryActivity);
       setIsRestaurant(restaurant);
       if (restaurant && !productId) setForm((current) => ({ ...current, sellable: true, noStockTracking: true }));
     }).catch(() => undefined);

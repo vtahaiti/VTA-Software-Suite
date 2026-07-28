@@ -34,11 +34,17 @@ const commonRoutes = [
 if (!serviceSource.includes("withCommonCapabilities")) {
   failures.push("BusinessProfilesService doit fusionner les raccourcis specialises avec le socle commun.");
 }
-if (!serviceSource.includes("resolveBusinessModuleKeys") || !serviceSource.includes("assignment.source === \"manual\"")) {
-  failures.push("Navigation API: les anciens modules actifs doivent etre filtres par matrice, avec override manuel explicite seulement.");
+if (!serviceSource.includes("resolveBusinessModuleKeys") || !serviceSource.includes("assignment.source === \"platform\"")) {
+  failures.push("Navigation API: les anciens modules actifs doivent etre filtres par matrice, avec override Super Admin explicite seulement.");
+}
+if (serviceSource.includes("matrixModuleKeys.has(assignment.businessModule.key) || assignment.source === \"manual\"")) {
+  failures.push("Navigation API: un override manuel historique ne doit pas contourner la matrice.");
 }
 if (!serviceSource.includes("enabledBusinessModules: activeModules.map((module) => module.key)")) {
   failures.push("Navigation API: enabledBusinessModules doit refleter les modules effectifs filtres.");
+}
+if (!navigationSource.includes("const allowBySource = false")) {
+  failures.push("Navigation Web: une configuration absente ne doit pas ouvrir tout le menu statique.");
 }
 
 for (const [href, moduleKey] of commonRoutes) {

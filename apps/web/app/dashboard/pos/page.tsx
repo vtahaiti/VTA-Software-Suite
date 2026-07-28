@@ -8,7 +8,7 @@ import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
 import { getOfflinePosContext, getOfflineProducts, getPendingOfflineSales, saveOfflinePosContext, saveOfflineProducts, saveOfflineSale, updateOfflineProductStock } from "@/lib/offline-db";
 import { syncOfflineSalesNow } from "@/lib/offline-sync";
 import { useNetworkStatus } from "@/lib/network-status";
-import { getTenantBusinessConfiguration, type TenantBusinessConfiguration } from "@/lib/business-profiles";
+import { getTenantBusinessConfiguration, isRestaurantBusiness, type TenantBusinessConfiguration } from "@/lib/business-profiles";
 import { getReceiptPrintSettings, openPrintPreview } from "@/lib/print";
 import { Info, MoreHorizontal, Plus, Search, Trash2, X } from "lucide-react";
 
@@ -169,11 +169,11 @@ export default function PosPage() {
       })
       .catch(() => undefined); }, []);
   useEffect(() => {
-    const isRestaurant = business?.businessProfileType === "restaurant" || business?.businessProfileType === "hotel-restaurant";
+    const isRestaurant = isRestaurantBusiness(business?.businessProfileType, business?.primaryActivity);
     if (!isRestaurant) return;
     const barWarehouse = warehouses.find((warehouse) => /bar|boisson/i.test(warehouse.name));
     if (barWarehouse && warehouseId !== barWarehouse.id) setWarehouseId(barWarehouse.id);
-  }, [business?.businessProfileType, warehouseId, warehouses]);
+  }, [business?.businessProfileType, business?.primaryActivity, warehouseId, warehouses]);
   useEffect(() => {
     if (!warehouseId || cart.items.length === 0) return;
     void syncCart("calculate");
@@ -655,7 +655,7 @@ export default function PosPage() {
   const changeDue = useMemo(() => roundMoney(Math.max(0, paidAmount - cart.total)), [cart.total, paidAmount]);
   const balanceDue = useMemo(() => roundMoney(Math.max(0, cart.total - paidAmount)), [cart.total, paidAmount]);
   const posTemplate = getPosTemplate(business?.businessProfileType, business?.primaryActivity);
-  const isRestaurantContextProfile = business?.businessProfileType === "restaurant" || business?.businessProfileType === "hotel-restaurant";
+  const isRestaurantContextProfile = isRestaurantBusiness(business?.businessProfileType, business?.primaryActivity);
   const canCreateQuotesOrders = !(business?.excludedModules ?? []).includes("sales");
   const orderContextLabel = orderContextType === "table" ? (tableNumber.trim() ? `Table ${tableNumber.trim()}` : "Table") : orderContextType === "counter" ? "Comptoir" : orderContextType === "takeaway" ? "Emporter" : "";
   const categories = useMemo(() => {
@@ -1562,7 +1562,7 @@ function escapeHtml(value: string) {
 
 function getPosTemplate(profileType?: string, primaryActivity?: string | null) {
   const activity = (primaryActivity ?? "").toLowerCase();
-  if (profileType === "restaurant" || activity.includes("restaurant") || activity.includes("bar") || activity.includes("cafe")) {
+  if (isRestaurantBusiness(profileType, primaryActivity)) {
     return {
       eyebrow: "POS Restaurant",
       title: "Commande restaurant",

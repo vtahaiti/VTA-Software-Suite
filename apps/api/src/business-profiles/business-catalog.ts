@@ -121,6 +121,9 @@ export const businessSectors: BusinessSectorDefinition[] = [
     { name: "Barber shop", profileType: "services", categories: ["Coupe", "Barbe", "Services", "Produits"] },
     { name: "Spa", profileType: "services", categories: ["Massages", "Soins", "Forfaits", "Produits"] },
     { name: "Cosmetique", profileType: "fashion", categories: ["Maquillage", "Soins visage", "Soins cheveux", "Parfums", "Accessoires"] },
+    { name: "Parfumerie", profileType: "fashion", categories: ["Parfums", "Soins", "Cosmetiques", "Accessoires"] },
+    { name: "Boutique mode", profileType: "fashion", categories: ["Vetements", "Chaussures", "Sacs", "Accessoires"] },
+    { name: "Chaussures", profileType: "fashion", categories: ["Chaussures", "Sandales", "Accessoires"] },
     { name: "Autre beaute", profileType: "services", categories: ["Services", "Produits", "Forfaits"] }
   ] },
   { key: "transport-distribution", name: "Transport / Location", description: "Transport, location vehicules, livraison et logistique.", specialties: [
@@ -147,9 +150,19 @@ export function activityLabelWithoutIcon(label: string) {
   return label.replace(/^[^\p{L}\p{N}]+/u, "").trim();
 }
 
+export function normalizeBusinessLabel(label?: string) {
+  return activityLabelWithoutIcon(label ?? "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLocaleLowerCase("fr")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function findActivityTemplate(activityName?: string) {
-  const normalized = activityName?.trim();
-  return businessActivityTemplates.find((template) => template.label === normalized || activityLabelWithoutIcon(template.label) === normalized) ?? businessActivityTemplates[0];
+  const normalized = normalizeBusinessLabel(activityName);
+  if (!normalized) return undefined;
+  return businessActivityTemplates.find((template) => normalizeBusinessLabel(template.label) === normalized);
 }
 
 export const businessCategories: BusinessCategoryDefinition[] = businessSectors.map((sector) => ({
@@ -163,7 +176,8 @@ export function resolveBusinessProfileSlug(categoryKey?: string, activityName?: 
   const template = findActivityTemplate(activityName);
   if (template) return template.profileType;
   const category = businessCategories.find((item) => item.key === categoryKey) ?? businessCategories[0];
-  const activity = category.activities.find((item) => item.name === activityName) ?? category.activities[0];
+  const normalizedActivity = normalizeBusinessLabel(activityName);
+  const activity = category.activities.find((item) => normalizeBusinessLabel(item.name) === normalizedActivity) ?? category.activities[0];
   return activity.profileType || "commerce";
 }
 

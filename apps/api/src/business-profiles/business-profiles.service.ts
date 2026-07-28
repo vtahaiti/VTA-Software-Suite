@@ -29,12 +29,11 @@ export class BusinessProfilesService {
     const matrixModuleKeys = resolveBusinessModuleKeys(tenant?.businessProfileType ?? undefined, tenant?.businessCategory ?? undefined, tenant?.primaryActivity ?? undefined);
     const resolvedProfile = resolveBusinessProfile(tenant?.businessProfileType ?? undefined, tenant?.businessCategory ?? undefined, tenant?.primaryActivity ?? undefined);
     const excludedModuleKeys = new Set(resolvedProfile.excludedModules ?? []);
-    // Certains modules restent actives cote tenant (ex: bascule manuelle historique sur
-    // /dashboard/settings/business-modules) alors que le metier du profil actuel ne les supporte pas
-    // (ex: Devis & Commandes pour un restaurant). Plutot que de corriger les lignes TenantBusinessModule
-    // en base (interdit ici : donnees de production), on les filtre a la lecture, a chaque appel.
+    const allowedModuleKeys = Array.from(matrixModuleKeys).filter((key) => !excludedModuleKeys.has(key));
+    // Les anciens réglages manuels ne doivent pas contourner la matrice après un changement
+    // d'activité. Seul un override explicite de la plateforme reste autorisé.
     const activeModules = modules
-      .filter((assignment) => matrixModuleKeys.has(assignment.businessModule.key) || assignment.source === "manual")
+      .filter((assignment) => matrixModuleKeys.has(assignment.businessModule.key) || assignment.source === "platform")
       .filter((assignment) => !excludedModuleKeys.has(assignment.businessModule.key))
       .map((assignment) => this.serializeModule(assignment.businessModule));
     const simpleMenuSections = this.buildSimpleMenuSections(activeModules, tenant?.businessProfileType ?? "commerce", tenant?.primaryActivity);
@@ -61,6 +60,7 @@ export class BusinessProfilesService {
       secondaryActivities: tenant?.secondaryActivities ?? [],
       businessProfileType: tenant?.businessProfileType ?? "commerce",
       enabledBusinessModules: activeModules.map((module) => module.key),
+      allowedModuleKeys,
       excludedModules: resolvedProfile.excludedModules ?? [],
       sectors: businessSectors,
       categories: businessCategories,
@@ -120,8 +120,19 @@ export class BusinessProfilesService {
 
   async setModuleState(tenantId: string, key: string, isActive: boolean) {
     await this.syncCatalog();
-    const module = await this.prisma.businessModule.findUnique({ where: { key } });
+    const [module, tenant] = await Promise.all([
+      this.prisma.businessModule.findUnique({ where: { key } }),
+      this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { businessProfileType: true, businessCategory: true, primaryActivity: true }
+      })
+    ]);
     if (!module) throw new NotFoundException("Module métier introuvable.");
+    const profile = resolveBusinessProfile(tenant?.businessProfileType ?? undefined, tenant?.businessCategory ?? undefined, tenant?.primaryActivity ?? undefined);
+    const matrixModuleKeys = resolveBusinessModuleKeys(tenant?.businessProfileType ?? undefined, tenant?.businessCategory ?? undefined, tenant?.primaryActivity ?? undefined);
+    if (isActive && (!matrixModuleKeys.has(key) || profile.excludedModules?.includes(key))) {
+      throw new BadRequestException("Ce module n'est pas disponible pour l'activité actuelle.");
+    }
     await this.prisma.tenantBusinessModule.upsert({
       where: { tenantId_businessModuleId: { tenantId, businessModuleId: module.id } },
       update: { isActive, source: "manual", disabledAt: isActive ? null : new Date() },

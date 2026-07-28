@@ -5,7 +5,7 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
 import { resolveAssetUrl } from "@/lib/company-branding";
-import { getTenantBusinessConfiguration, type TenantBusinessConfiguration } from "@/lib/business-profiles";
+import { getTenantBusinessConfiguration, isRestaurantBusiness, type TenantBusinessConfiguration } from "@/lib/business-profiles";
 
 const PAGE_SIZE = 25;
 
@@ -69,7 +69,7 @@ export default function ProductsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [business, setBusiness] = useState<TenantBusinessConfiguration | null>(null);
-  const isRestaurant = business?.businessProfileType === "restaurant";
+  const isRestaurant = isRestaurantBusiness(business?.businessProfileType, business?.primaryActivity);
 
   useEffect(() => { void getTenantBusinessConfiguration().then(setBusiness).catch(() => undefined); }, []);
 
@@ -354,6 +354,7 @@ function InfoBox({ label, children }: { label: string; children: React.ReactNode
 function ProductThumb({ product }: { product: Product }) {
   const image = resolveAssetUrl(product.images?.[0]?.url);
   return <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-100 text-sm font-bold text-slate-500 dark:bg-slate-800">
+    {/* eslint-disable-next-line @next/next/no-img-element -- tenant product images use runtime upload URLs */}
     {image ? <img src={image} alt={product.images?.[0]?.alt ?? product.name} className="h-full w-full object-cover" /> : productInitials(product.name)}
   </div>;
 }

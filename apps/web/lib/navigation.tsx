@@ -203,7 +203,7 @@ const routeOrder: NavigationSection[] = [
 export function buildNavigation(user: AuthUser | null, sourceSections: BusinessMenuSection[] = []): NavigationSection[] {
   const sourceHrefs = new Set(sourceSections.flatMap((section) => section.items.map((item) => item.href)));
   const sourceLabels = new Map(sourceSections.flatMap((section) => section.items.map((item) => [item.href, item.label] as const)));
-  const allowBySource = sourceHrefs.size === 0;
+  const allowBySource = false;
 
   return routeOrder
     .map((section) => ({

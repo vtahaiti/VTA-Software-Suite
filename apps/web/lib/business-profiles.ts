@@ -23,6 +23,7 @@ export type TenantBusinessConfiguration = {
   secondaryActivities?: string[];
   businessProfileType?: string;
   enabledBusinessModules?: string[];
+  allowedModuleKeys?: string[];
   excludedModules?: string[];
   offline?: { prepared: boolean; message: string };
 };
@@ -42,6 +43,17 @@ export const simpleMenuSections: BusinessMenuSection[] = [
 ];
 
 export const fallbackMenuSections = simpleMenuSections;
+
+export function isRestaurantBusiness(profileType?: string | null, primaryActivity?: string | null) {
+  const profile = profileType?.trim().toLowerCase();
+  const activity = primaryActivity?.trim().toLowerCase() ?? "";
+  return profile === "restaurant"
+    || profile === "hotel-restaurant"
+    || activity.includes("restaurant")
+    || activity.includes("bar")
+    || activity.includes("fast-food")
+    || activity.includes("fast food");
+}
 
 export async function getBusinessCatalog() {
   const response = await fetchApi("/business-profiles/catalog", { cache: "no-store" });

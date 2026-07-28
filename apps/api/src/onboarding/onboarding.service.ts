@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, UnauthorizedException } from "@nestjs/
 import { Prisma, TenantStatus } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { defaultPermissions } from "../rbac/default-permissions";
-import { businessModules, businessProfiles, findActivityTemplate, resolveBusinessProfileSlug } from "../business-profiles/business-catalog";
+import { businessActivityTemplates, businessModules, businessProfiles, findActivityTemplate, resolveBusinessProfileSlug } from "../business-profiles/business-catalog";
 import { AuthService } from "../auth/auth.service";
 import { hashPassword } from "../auth/password-hashing";
 import { isPasswordStrong, passwordPolicyMessage } from "../auth/password-policy";
@@ -79,7 +79,9 @@ export class OnboardingService {
 
     const profileSlug = dto.businessProfileSlug ?? resolveBusinessProfileSlug(dto.businessCategory, dto.primaryActivity);
     const selectedBusinessProfile = businessProfiles.find((profile) => profile.slug === profileSlug) ?? businessProfiles[0];
-    const activityTemplate = findActivityTemplate(dto.primaryActivity ?? dto.industry);
+    const activityTemplate = findActivityTemplate(dto.primaryActivity ?? dto.industry)
+      ?? businessActivityTemplates.find((template) => template.categoryKey === dto.businessCategory)
+      ?? businessActivityTemplates[0];
     await this.subscriptions.ensureCatalogOnce();
 
     let result: { userId: string; tenantId: string; warehouseId: string };
