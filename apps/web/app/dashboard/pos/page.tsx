@@ -649,7 +649,12 @@ export default function PosPage() {
   const currentUser = getCurrentUser();
   const companyName = branding?.companyName ?? currentUser?.tenant ?? "Mon entreprise";
   const cashierName = branding?.userName ?? currentUser?.name ?? "Utilisateur";
-  const canCheckout = useMemo(() => cart.items.length > 0 && cart.canCheckout && Boolean(storeId) && Boolean(warehouseId) && Boolean(cashSessionId) && !isLoading, [cart.canCheckout, cart.items.length, cashSessionId, isLoading, storeId, warehouseId]);
+  const canFinalizeSale = useMemo(() => {
+    const roles = new Set([currentUser?.role, ...(currentUser?.roles ?? [])].filter(Boolean).map((role) => String(role).toUpperCase()));
+    if (roles.has("OWNER") || roles.has("ADMIN")) return true;
+    return (currentUser?.permissions ?? []).includes("pos.finalize");
+  }, [currentUser]);
+  const canCheckout = useMemo(() => cart.items.length > 0 && cart.canCheckout && Boolean(storeId) && Boolean(warehouseId) && Boolean(cashSessionId) && !isLoading && canFinalizeSale, [canFinalizeSale, cart.canCheckout, cart.items.length, cashSessionId, isLoading, storeId, warehouseId]);
   const paidAmount = useMemo(() => roundMoney(payments.reduce((sum, payment) => sum + parseMoney(payment.amount), 0)), [payments]);
   const canReceivePayment = useMemo(() => canCheckout && paidAmount >= cart.total && cart.total > 0, [canCheckout, cart.total, paidAmount]);
   const changeDue = useMemo(() => roundMoney(Math.max(0, paidAmount - cart.total)), [cart.total, paidAmount]);

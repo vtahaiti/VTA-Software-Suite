@@ -19,7 +19,13 @@ export class InvoicePrintService {
     });
     if (!sale) throw new NotFoundException("Vente introuvable");
     const tenant = sale.tenant as BrandedTenant;
-    const cashier = sale.createdById ? await this.prisma.user.findFirst({ where: { id: sale.createdById, tenantId }, select: { name: true } }) : null;
+    const cashier = sale.createdById ? await this.prisma.user.findFirst({ where: { id: sale.createdById, tenantId }, select: { name: true, roles: { select: { role: { select: { name: true } } } } } }) : null;
+    // Pas de champ dedie pour "qui a encaisse" distinct de "qui a cree la vente" (voir HeldSale/Sale) :
+    // sans migration, on affiche honnetement le createur sous le bon libelle plutot que de l'etiqueter
+    // "Caissier" a tort quand une commande Restaurant a ete prise par une Serveuse puis encaissee par
+    // quelqu'un d'autre.
+    const cashierIsServeuse = cashier?.roles?.some((entry) => entry.role?.name === "SERVEUSE") ?? false;
+    const cashierLabel = cashierIsServeuse ? "Serveuse" : "Caissier";
     const paymentSummary = summarizePayments(sale.total, sale.payments);
     const paid = paymentSummary.settledAmount;
     const received = paymentSummary.receivedAmount;
@@ -70,7 +76,7 @@ export class InvoicePrintService {
           ${this.companyTax(tenant) ? `<span class="muted">NIF: ${this.escape(this.companyTax(tenant))}</span><br/>` : ""}
         </div>
         <div class="line"></div>
-        <div class="meta"><div class="row"><span class="label">Ticket</span><strong class="amount">#${this.escape(receiptNumber)}</strong></div><div class="row"><span class="label">Date</span><strong class="amount">${this.date(sale.createdAt, timeZone)}</strong></div><div class="row"><span class="label">Caissier</span><strong class="amount">${this.escape(cashier?.name ?? sale.cashSession?.cashRegister?.name ?? "Caisse")}</strong></div><div class="row"><span class="label">Client</span><strong class="amount">${this.escape(sale.customer?.displayName ?? "Client comptoir")}</strong></div>${sale.note ? `<div class="row"><span class="label">Table / Comptoir</span><strong class="amount">${this.escape(sale.note)}</strong></div>` : ""}</div>
+        <div class="meta"><div class="row"><span class="label">Ticket</span><strong class="amount">#${this.escape(receiptNumber)}</strong></div><div class="row"><span class="label">Date</span><strong class="amount">${this.date(sale.createdAt, timeZone)}</strong></div><div class="row"><span class="label">${this.escape(cashierLabel)}</span><strong class="amount">${this.escape(cashier?.name ?? sale.cashSession?.cashRegister?.name ?? "Caisse")}</strong></div><div class="row"><span class="label">Client</span><strong class="amount">${this.escape(sale.customer?.displayName ?? "Client comptoir")}</strong></div>${sale.note ? `<div class="row"><span class="label">Table / Comptoir</span><strong class="amount">${this.escape(sale.note)}</strong></div>` : ""}</div>
         <div class="line"></div>
         <div>${sale.items.map((item) => `<div class="row"><div class="label"><div class="item-name">${this.escape(this.itemName(item))}</div>${item.productId ? "" : `<div class="item-note">${this.escape(this.customItemLabel(item.customType))}</div>`}<div class="item-note">${item.quantity} x ${this.money(item.unitPrice)}${Number(item.discount) > 0 ? ` - remise ${this.money(item.discount)}` : ""}</div></div><strong class="amount">${this.money(item.total)}</strong></div>`).join("")}</div>
         <div class="line"></div>

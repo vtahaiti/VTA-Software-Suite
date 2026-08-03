@@ -20,15 +20,27 @@ export class RolesService {
     return this.prisma.role.findMany({ where: { tenantId, name: { notIn: BROKEN_LEGACY_ROLE_NAMES } }, include: roleInclude, orderBy: { name: "asc" } });
   }
   async create(tenantId: string, dto: CreateRoleDto) {
+    await this.assertNameNotDuplicate(tenantId, dto.name);
     try { return await this.prisma.role.create({ data: { tenantId, name: dto.name, description: dto.description, permissions: this.permissionCreate(dto.permissionIds) }, include: roleInclude }); }
     catch (error) { if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException("Rôle déjà existant"); throw error; }
   }
   async update(tenantId: string, id: string, dto: UpdateRoleDto) {
     await this.findOneOrFail(tenantId, id);
+    if (dto.name) await this.assertNameNotDuplicate(tenantId, dto.name, id);
     return this.prisma.$transaction(async (tx) => {
       if (dto.permissionIds) await tx.rolePermission.deleteMany({ where: { roleId: id } });
       return tx.role.update({ where: { id }, data: { name: dto.name, description: dto.description, permissions: this.permissionCreate(dto.permissionIds) }, include: roleInclude });
     });
+  }
+  // Le nom de role est unique par (tenantId, name) en base, mais cette contrainte est sensible a la
+  // casse : "Serveuse" et "SERVEUSE" passeraient toutes les deux. On rejette ici explicitement tout nom
+  // deja utilise (peu importe la casse) pour eviter les doublons de roles fonctionnellement identiques.
+  private async assertNameNotDuplicate(tenantId: string, name: string, excludeId?: string) {
+    const existing = await this.prisma.role.findMany({ where: { tenantId, id: excludeId ? { not: excludeId } : undefined }, select: { id: true, name: true } });
+    const normalized = name.trim().toLowerCase();
+    if (existing.some((role) => role.name.trim().toLowerCase() === normalized)) {
+      throw new ConflictException("Un rôle avec ce nom existe déjà (la casse n'est pas prise en compte).");
+    }
   }
   async remove(tenantId: string, id: string) {
     const role = await this.findOneOrFail(tenantId, id);

@@ -12,7 +12,11 @@ export const tenantRolePresets: Record<TenantRoleName, { description: string; pe
   },
   CAISSIER: {
     description: "Caisse et ventes simples.",
-    permissions: ["dashboard.view", "notifications.read", "notifications.update", "pos.sell", "pos.open", "pos.close", "sales.view", "invoice.print", "customer.read", "customer.create", "cash.read", "cash.open", "cash.close", "cash.report"]
+    permissions: ["dashboard.view", "notifications.read", "notifications.update", "pos.sell", "pos.finalize", "pos.open", "pos.close", "sales.view", "invoice.print", "customer.read", "customer.create", "cash.read", "cash.open", "cash.close", "cash.report"]
+  },
+  SERVEUSE: {
+    description: "Prise de commande en salle : POS et commandes en attente uniquement, sans encaissement ni acces a la caisse.",
+    permissions: ["dashboard.view", "notifications.read", "notifications.update", "pos.sell", "customer.read", "customer.create"]
   },
   STOCK: {
     description: "Produits, stock, fournisseurs et achats.",
@@ -30,6 +34,7 @@ export const tenantRolePresets: Record<TenantRoleName, { description: string; pe
       "notifications.update",
       ...byPrefix("products.", "inventory.", "suppliers.", "purchases.", "sales.", "quote.", "proforma.", "invoice.", "invoices.", "payment.", "customer.", "customers.", "reports.", "warehouse.", "store.", "transfer.", "cash."),
       "pos.sell",
+      "pos.finalize",
       "pos.open",
       "pos.close"
     ]

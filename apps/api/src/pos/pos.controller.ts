@@ -80,7 +80,7 @@ export class PosController {
   }
 
   @Post("checkout")
-  @Permissions("pos.sell")
+  @Permissions("pos.sell", "pos.finalize")
   checkout(@Req() req: AuthenticatedRequest, @Body() dto: CreateSaleDto) {
     if (!dto.cashSessionId) throw new BadRequestException("Une caisse ouverte est obligatoire avant la vente");
     if (this.paidAmount(dto) <= 0) throw new BadRequestException("Montant recu obligatoire avant l encaissement");
@@ -106,7 +106,8 @@ export class PosController {
   @RequiresFeature("HELD_SALES")
   @Permissions("pos.sell")
   heldSales(@Req() req: AuthenticatedRequest) {
-    return this.pos.listHeldSales(req.user.tenantId, req.user.id, req.user.sessionId, this.canForceHeldSale(req));
+    const canViewAll = this.canForceHeldSale(req) || this.canFinalizeSales(req);
+    return this.pos.listHeldSales(req.user.tenantId, req.user.id, req.user.sessionId, canViewAll);
   }
 
   @Post("held-sales")
@@ -132,7 +133,7 @@ export class PosController {
 
   @Post("held-sales/:id/finalize")
   @RequiresFeature("HELD_SALES")
-  @Permissions("pos.sell")
+  @Permissions("pos.sell", "pos.finalize")
   finalizeHeldSale(@Req() req: AuthenticatedRequest, @Param("id") id: string, @Body() dto: HeldSaleFinalizeRequest) {
     if (!dto?.sale?.cashSessionId) throw new BadRequestException("Une caisse ouverte est obligatoire avant la vente");
     if (this.paidAmount(dto.sale) <= 0) throw new BadRequestException("Montant recu obligatoire avant l encaissement");
@@ -152,7 +153,7 @@ export class PosController {
   }
 
   @Post("sync-offline-sales")
-  @Permissions("pos.sell")
+  @Permissions("pos.sell", "pos.finalize")
   async syncOfflineSales(@Req() req: AuthenticatedRequest, @Body() dto: SyncOfflineSalesDto) {
     const results = [];
     for (const offlineSale of dto.sales) {
@@ -182,6 +183,12 @@ export class PosController {
   private canForceHeldSale(req: AuthenticatedRequest) {
     const roles = new Set([req.user.role, ...(req.user.roles ?? [])].filter(Boolean).map((role) => String(role).toUpperCase()));
     return roles.has("OWNER") || roles.has("ADMIN") || roles.has("MANAGER");
+  }
+
+  private canFinalizeSales(req: AuthenticatedRequest) {
+    const roles = new Set([req.user.role, ...(req.user.roles ?? [])].filter(Boolean).map((role) => String(role).toUpperCase()));
+    if (roles.has("OWNER") || roles.has("ADMIN")) return true;
+    return (req.user.permissions ?? []).includes("pos.finalize");
   }
 
   private paidAmount(dto: Pick<CreateSaleDto, "payments">) {

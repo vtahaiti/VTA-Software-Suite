@@ -11,18 +11,26 @@ type RoleRow = { id: string; name: string; description?: string };
 type StoreRow = { id: string; name: string };
 type PaginatedStores = { items?: StoreRow[] };
 
-const tenantRoleNames = ["OWNER", "ADMIN", "CAISSIER", "STOCK", "COMPTABLE", "MANAGER", "OBSERVATEUR", "BASIC"];
-const roleLabels: Record<string, string> = { OWNER: "Propriétaire", ADMIN: "Administrateur", CAISSIER: "Caissier", STOCK: "Stock", COMPTABLE: "Comptable", MANAGER: "Manager", OBSERVATEUR: "Observateur", BASIC: "Utilisateur basique", Owner: "Propriétaire" };
+const tenantRoleNames = ["OWNER", "ADMIN", "CAISSIER", "SERVEUSE", "STOCK", "COMPTABLE", "MANAGER", "OBSERVATEUR", "BASIC"];
+const roleLabels: Record<string, string> = { OWNER: "Propriétaire", ADMIN: "Administrateur", CAISSIER: "Caissier", SERVEUSE: "Serveuse", STOCK: "Stock", COMPTABLE: "Comptable", MANAGER: "Manager", OBSERVATEUR: "Observateur", BASIC: "Utilisateur basique", Owner: "Propriétaire" };
 const defaultRoles: RoleRow[] = [
   { id: "OWNER", name: "OWNER" },
   { id: "ADMIN", name: "ADMIN" },
   { id: "CAISSIER", name: "CAISSIER" },
+  { id: "SERVEUSE", name: "SERVEUSE" },
   { id: "STOCK", name: "STOCK" },
   { id: "COMPTABLE", name: "COMPTABLE" },
   { id: "MANAGER", name: "MANAGER" },
   { id: "OBSERVATEUR", name: "OBSERVATEUR" },
   { id: "BASIC", name: "BASIC" }
 ];
+
+function generateTemporaryPassword() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  let value = "";
+  for (let i = 0; i < 10; i += 1) value += chars[Math.floor(Math.random() * chars.length)];
+  return value;
+}
 
 export default function UsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -162,7 +170,13 @@ export default function UsersPage() {
             <input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Nom complet" className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
             <input required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="Email" className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
             <input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="Téléphone" className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-            <PasswordVisibilityInput required minLength={8} value={form.temporaryPassword} onChange={(value) => setForm({ ...form, temporaryPassword: value })} placeholder="Mot de passe temporaire" autoComplete="new-password" className="rounded-lg py-2" />
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <PasswordVisibilityInput required minLength={8} value={form.temporaryPassword} onChange={(value) => setForm({ ...form, temporaryPassword: value })} placeholder="Mot de passe temporaire (8 caractères min.)" autoComplete="new-password" className="min-w-0 flex-1 rounded-lg py-2" />
+                <button type="button" onClick={() => setForm({ ...form, temporaryPassword: generateTemporaryPassword() })} className="shrink-0 rounded-lg border border-slate-300 px-3 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">Générer</button>
+              </div>
+              <p className="text-xs text-slate-500">Communiquez ce mot de passe directement à la personne concernée (jamais par email). Elle pourra le modifier depuis son profil après connexion.</p>
+            </div>
             <select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })} className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
               {availableRoles(roles).map((role) => <option key={role.id} value={role.name}>{roleLabels[role.name] ?? role.name}</option>)}
             </select>
@@ -226,6 +240,7 @@ export default function UsersPage() {
           <p className="mt-1 text-sm text-slate-500">Utilisateur : {passwordTarget.name}. Communiquez le mot de passe temporaire directement a la personne concernee.</p>
           <form onSubmit={resetUserPassword} className="mt-4 flex flex-col gap-3 sm:flex-row">
             <PasswordVisibilityInput required minLength={8} maxLength={120} value={temporaryPassword} onChange={setTemporaryPassword} placeholder="Nouveau mot de passe temporaire" autoComplete="new-password" className="min-w-0 flex-1 rounded-lg py-2" />
+            <button type="button" onClick={() => setTemporaryPassword(generateTemporaryPassword())} className="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">Générer</button>
             <button className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700">Enregistrer</button>
             <button type="button" onClick={() => { setPasswordTarget(null); setTemporaryPassword(""); }} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">Annuler</button>
           </form>

@@ -74,6 +74,7 @@ export const defaultPermissions = [
   { key: "cash.report", name: "Cash.report", category: "Cash", description: "Voir les rapports de caisse" },  { key: "pos.open", name: "POS.open", category: "POS", description: "Permission POS.open" },
   { key: "pos.close", name: "POS.close", category: "POS", description: "Permission POS.close" },
   { key: "pos.sell", name: "POS.sell", category: "POS", description: "Permission POS.sell" },
+  { key: "pos.finalize", name: "POS.finalize", category: "POS", description: "Finaliser l'encaissement d'une vente (paiement)" },
   { key: "pos.discount", name: "POS.discount", category: "POS", description: "Permission POS.discount" },
   { key: "pos.refund", name: "POS.refund", category: "POS", description: "Permission POS.refund" },
   { key: "pos.cash_drawer.manage", name: "POS.cash_drawer.manage", category: "POS", description: "Permission POS.cash_drawer.manage" },
