@@ -225,6 +225,32 @@ export class PlatformService {
       },
       select: { id: true, name: true, status: true, deletedAt: true }
     });
+    // Reactiver l'entreprise ici ne suffisait pas a debloquer la connexion : assertTenantStatus()
+    // (auth.service.ts) verifie AUSSI TenantSubscription.status independamment de Tenant.status, et ce
+    // champ restait bloque a EXPIRED/SUSPENDED/... apres une simple reactivation depuis ce bouton (bug
+    // reel constate en production le 2026-08-18 : Tchimanotech et VTA Enterprise reactives ici mais
+    // toujours incapables de se connecter). On les remet en phase en repassant le tenant a ACTIVE, avec
+    // le meme motif que approvePlanChangeRequest ci-dessous (paymentStatus "MANUAL_CONFIRMED", echeances
+    // effacees) - uniquement si l'abonnement etait effectivement dans un etat bloquant, pour ne jamais
+    // ecraser un abonnement deja sain.
+    if (status === TenantStatus.ACTIVE) {
+      const subscription = await this.prisma.tenantSubscription.findUnique({ where: { tenantId: id }, select: { status: true } });
+      const blockingSubscriptionStatuses: SubscriptionStatus[] = [SubscriptionStatus.PAST_DUE, SubscriptionStatus.SUSPENDED, SubscriptionStatus.CANCELLED, SubscriptionStatus.CANCELED, SubscriptionStatus.EXPIRED];
+      if (subscription && blockingSubscriptionStatuses.includes(subscription.status)) {
+        await this.prisma.tenantSubscription.update({
+          where: { tenantId: id },
+          data: {
+            status: SubscriptionStatus.ACTIVE,
+            paymentStatus: "MANUAL_CONFIRMED",
+            currentPeriodStart: new Date(),
+            currentPeriodEnd: null,
+            endsAt: null,
+            suspendedAt: null,
+            canceledAt: null
+          }
+        }).catch(() => undefined);
+      }
+    }
     await this.writePlatformAudit(id, tenant.name, AuditAction.UPDATE, "PLATFORM_TENANT_STATUS", `Statut entreprise: ${tenant.status} -> ${status}`, {
       oldValue: { status: tenant.status },
       newValue: { status },
