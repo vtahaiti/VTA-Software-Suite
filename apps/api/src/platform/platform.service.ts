@@ -237,6 +237,11 @@ export class PlatformService {
       const subscription = await this.prisma.tenantSubscription.findUnique({ where: { tenantId: id }, select: { status: true } });
       const blockingSubscriptionStatuses: SubscriptionStatus[] = [SubscriptionStatus.PAST_DUE, SubscriptionStatus.SUSPENDED, SubscriptionStatus.CANCELLED, SubscriptionStatus.CANCELED, SubscriptionStatus.EXPIRED];
       if (subscription && blockingSubscriptionStatuses.includes(subscription.status)) {
+        // buildEntitlements()/recalculateStatus() derive the real expiry from
+        // currentPeriodEnd ?? trialEndsAt ?? endsAt (see subscription-entitlements.service.ts) - clearing
+        // only currentPeriodEnd/endsAt is not enough: a stale past trialEndsAt from before the tenant
+        // moved to a paid plan still wins the ?? chain and keeps entitlements.isActive false, which 403s
+        // every @RequiresFeature route even though Tenant.status/TenantSubscription.status both read ACTIVE.
         await this.prisma.tenantSubscription.update({
           where: { tenantId: id },
           data: {
@@ -244,6 +249,7 @@ export class PlatformService {
             paymentStatus: "MANUAL_CONFIRMED",
             currentPeriodStart: new Date(),
             currentPeriodEnd: null,
+            trialEndsAt: null,
             endsAt: null,
             suspendedAt: null,
             canceledAt: null
