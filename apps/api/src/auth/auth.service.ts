@@ -7,6 +7,7 @@ import { AuditLogsService } from "../audit-logs/audit-logs.service";
 import { EmailService } from "../email/email.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { SecurityService } from "../security/security.service";
+import { isVtaEnterpriseTenant } from "../subscriptions/internal-tenant-policy";
 import { defaultPermissions } from "../rbac/default-permissions";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
@@ -491,20 +492,23 @@ export class AuthService {
   }
 
   private async assertTenantStatus(tenantId: string) {
+    // VTA Enterprise is the platform owner's operational tenant. It is not a
+    // customer subscription and must never be blocked by billing lifecycle.
+    if (isVtaEnterpriseTenant(tenantId)) return;
     const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { status: true, subscription: { select: { status: true, endsAt: true, trialEndsAt: true, currentPeriodEnd: true, graceEndsAt: true } } } });
     if (!tenant) throw new UnauthorizedException("Entreprise introuvable");
-    if (tenant.status === TenantStatus.PAUSED) throw new ForbiddenException("Compte en pause. Votre accès est temporairement suspendu. Contactez l'administrateur ou le support.");
-    if (tenant.status === TenantStatus.SUSPENDED) throw new ForbiddenException("Compte suspendu. Votre accès est temporairement suspendu. Contactez l'administrateur ou le support.");
-    if (tenant.status === TenantStatus.DELETED) throw new ForbiddenException("Compte supprimé. Contactez l'administrateur ou le support.");
-    if (tenant.status === TenantStatus.EXPIRED || tenant.status === TenantStatus.CANCELLED) throw new ForbiddenException("Abonnement expiré. Contactez l'administrateur ou le support.");
+    if (tenant.status === TenantStatus.PAUSED) throw new ForbiddenException({ code: "TENANT_PAUSED", message: "Compte en pause. Votre accès est temporairement suspendu. Contactez l'administrateur ou le support." });
+    if (tenant.status === TenantStatus.SUSPENDED) throw new ForbiddenException({ code: "TENANT_SUSPENDED", message: "Compte suspendu. Votre accès est temporairement suspendu. Contactez l'administrateur ou le support." });
+    if (tenant.status === TenantStatus.DELETED) throw new ForbiddenException({ code: "TENANT_DELETED", message: "Compte supprimé. Contactez l'administrateur ou le support." });
+    if (tenant.status === TenantStatus.EXPIRED || tenant.status === TenantStatus.CANCELLED) throw new ForbiddenException({ code: "TENANT_EXPIRED", message: "Abonnement expiré. Contactez l'administrateur ou le support." });
     if (tenant.subscription?.status && ["PAST_DUE", "SUSPENDED", "CANCELLED", "CANCELED", "EXPIRED"].includes(String(tenant.subscription.status))) {
-      throw new ForbiddenException("Abonnement inactif. Contactez l'administrateur ou le support.");
+      throw new ForbiddenException({ code: "SUBSCRIPTION_INACTIVE", message: "Abonnement inactif. Contactez l'administrateur ou le support." });
     }
     const subscriptionEnd = tenant.subscription?.currentPeriodEnd ?? tenant.subscription?.trialEndsAt ?? tenant.subscription?.endsAt;
     if (tenant.status === TenantStatus.TRIAL && subscriptionEnd && subscriptionEnd.getTime() < Date.now()) {
       await this.prisma.tenant.update({ where: { id: tenantId }, data: { status: TenantStatus.EXPIRED } });
       await this.prisma.tenantSubscription.update({ where: { tenantId }, data: { status: "EXPIRED", paymentStatus: "EXPIRED" } }).catch(() => undefined);
-      throw new ForbiddenException("Abonnement expiré. Contactez l'administrateur ou le support.");
+      throw new ForbiddenException({ code: "TENANT_EXPIRED", message: "Abonnement expiré. Contactez l'administrateur ou le support." });
     }
   }
 

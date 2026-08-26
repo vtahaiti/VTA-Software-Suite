@@ -12,7 +12,8 @@ assert(entitlements.includes('eventType: "PLAN_CHANGE_REQUESTED"'), "Une demande
 assert(entitlements.includes('requestStatus: "PENDING"'), "La demande de plan doit etre creee en PENDING.");
 assert(entitlements.includes("Une demande identique est déjà en attente"), "Les demandes identiques actives doivent etre bloquees.");
 assert(entitlements.includes("Une demande de changement de plan est déjà en attente"), "Une seule demande active doit etre autorisee par tenant.");
-assert(!entitlements.includes("status: SubscriptionStatus.ACTIVE") || entitlements.indexOf("requestPlanChange") < entitlements.indexOf("createMissingTrial"), "La demande tenant ne doit pas activer directement le plan.");
+const requestPlanChangeSource = entitlements.slice(entitlements.indexOf("async requestPlanChange"), entitlements.indexOf("async getPendingPlanRequest"));
+assert(!requestPlanChangeSource.includes("status: SubscriptionStatus.ACTIVE"), "La demande tenant ne doit pas activer directement le plan.");
 
 const platformController = read("apps/api/src/platform/platform.controller.ts");
 assert(platformController.includes("@UseGuards(JwtAuthGuard, PlatformAdminGuard)"), "Les routes plateforme doivent etre protegees par le guard Super Admin.");

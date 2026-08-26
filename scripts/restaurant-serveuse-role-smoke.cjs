@@ -1,158 +1,133 @@
-// Real-DB smoke test for the Serveuse role feature, using the REAL compiled service/guard classes
-// against the LOCAL dev Postgres (apps/api/dist, same pattern as restaurant-v1-menu-integrity-smoke.cjs).
-// A live HTTP round-trip could not be used in this environment (the locally started NestJS dev server's
-// port is not reachable from this shell/browser sandbox, a tooling/network limitation unrelated to this
-// change - confirmed via `netstat`/`curl`/browser fetch all refusing a connection despite the process and
-// its own logs confirming a clean boot). This script instead drives the exact same compiled classes NestJS
-// wires up at request time (UsersService, PosService, RolesService, PermissionsGuard.canActivate) directly,
-// which covers every code path this change touches, including the permission-guard boolean logic that
-// produces the real HTTP 403s.
-//
-// Creates and fully deletes its own throwaway QA Restaurant tenant. Nothing here touches production data.
+// End-to-end service smoke for the Restaurant Serveuse -> Caissier handoff.
+// Uses a throwaway local tenant and deletes it when finished.
 
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = "postgresql://vta:vta_password@localhost:5432/vta_commerce?schema=public";
-}
+if (!process.env.DATABASE_URL) process.env.DATABASE_URL = "postgresql://vta:vta_password@localhost:5432/vta_commerce?schema=public";
 
 const path = require("path");
+const fs = require("fs");
 const distApi = path.join(__dirname, "..", "apps", "api", "dist");
-
 const { PrismaService } = require(path.join(distApi, "prisma", "prisma.service.js"));
 const { UsersService } = require(path.join(distApi, "users", "users.service.js"));
 const { PosService } = require(path.join(distApi, "pos", "pos.service.js"));
-const { RolesService } = require(path.join(distApi, "roles", "roles.service.js"));
-const { PermissionsGuard } = require(path.join(distApi, "rbac", "guards", "permissions.guard.js"));
+const { PosController } = require(path.join(distApi, "pos", "pos.controller.js"));
+const { SalesService } = require(path.join(distApi, "sales", "sales.service.js"));
+const { StockService } = require(path.join(distApi, "stock", "stock.service.js"));
+const { InvoicePrintService } = require(path.join(distApi, "print", "invoice-print.service.js"));
+const { comparePassword } = require(path.join(distApi, "auth", "password-hashing.js"));
+const { AuthService } = require(path.join(distApi, "auth", "auth.service.js"));
+const { JwtService } = require("@nestjs/jwt");
 
-const results = [];
-function check(name, condition, detail) {
-  results.push({ name, pass: Boolean(condition) });
-  console.log(`${condition ? "PASS" : "FAIL"} - ${name}${detail ? " :: " + detail : ""}`);
+const checks = [];
+function check(name, condition) {
+  checks.push({ name, pass: Boolean(condition) });
+  console.log(`${condition ? "PASS" : "FAIL"} - ${name}`);
 }
-
-function guardAllows(requiredPermissions, user) {
-  const guard = new PermissionsGuard({ getAllAndOverride: () => requiredPermissions });
-  const context = { getHandler: () => ({}), getClass: () => ({}), switchToHttp: () => ({ getRequest: () => ({ user }) }) };
-  try {
-    return guard.canActivate(context);
-  } catch {
-    return false;
-  }
+async function expectForbidden(name, action) {
+  let forbidden = false;
+  try { await action(); } catch (error) { forbidden = error?.status === 403 || error?.response?.statusCode === 403; }
+  check(name, forbidden);
 }
 
 async function main() {
   const prisma = new PrismaService();
-  const users = new UsersService(prisma, {});
-  const pos = new PosService(prisma, {});
-  const roles = new RolesService(prisma, users);
-
+  const users = new UsersService(prisma, { invalidateUserSessions: () => undefined });
+  const stockService = new StockService(prisma);
+  const sales = new SalesService(prisma, stockService);
+  const pos = new PosService(prisma, sales);
+  const controller = new PosController(pos, sales);
+  const printer = new InvoicePrintService(prisma, {});
+  const security = {
+    isBlocked: async () => false,
+    recordBlockedLogin: async () => undefined,
+    recordLoginFailure: async () => undefined,
+    recordLoginSuccess: async () => undefined
+  };
+  const auth = new AuthService(new JwtService(), prisma, security, { create: async () => undefined }, {});
   const stamp = Date.now();
-  const slug = `qa-serveuse-restaurant-${stamp}`;
-  const tenant = await prisma.tenant.create({ data: { name: `QA Serveuse Restaurant ${stamp}`, slug, businessProfileType: "restaurant", primaryActivity: "restaurant", status: "TRIAL" } });
-  check("Setup: throwaway QA Restaurant tenant created", Boolean(tenant.id), `tenantId=${tenant.id}`);
+  const tenant = await prisma.tenant.create({ data: { name: `QA Restaurant Serveuse ${stamp}`, slug: `qa-restaurant-serveuse-${stamp}`, businessProfileType: "restaurant", primaryActivity: "restaurant", status: "TRIAL" } });
+
+  const posPage = fs.readFileSync(path.join(__dirname, "..", "apps", "web", "app", "dashboard", "pos", "page.tsx"), "utf8");
+  const usersPage = fs.readFileSync(path.join(__dirname, "..", "apps", "web", "app", "dashboard", "users", "page.tsx"), "utf8");
+  check("Serveuse UI hides checkout and discount behind canFinalizeSale", posPage.includes("props.canFinalizeSale ?") && posPage.includes("Envoyer la commande au caissier"));
+  check("Held order clears customer, table and note for a new command", posPage.includes('setCustomerId("")') && posPage.includes('setOrderContextType("")') && posPage.includes('setTableNumber("")') && posPage.includes('setHeldSaleNote("")'));
+  check("Temporary password generator uses Web Crypto", usersPage.includes("crypto.getRandomValues"));
 
   try {
-    // 1. Role/permission preset sync creates SERVEUSE with no duplicates, and pos.finalize exists.
     await users.ensureTenantRolePresets(tenant.id);
     const serveuseRole = await prisma.role.findFirst({ where: { tenantId: tenant.id, name: "SERVEUSE" }, include: { permissions: { include: { permission: true } } } });
-    check("SERVEUSE preset role created for the tenant", Boolean(serveuseRole), `role=${JSON.stringify(serveuseRole?.name)}`);
-    const serveusePerms = new Set((serveuseRole?.permissions ?? []).map((p) => p.permission.key));
-    check("SERVEUSE has pos.sell", serveusePerms.has("pos.sell"));
-    check("SERVEUSE does NOT have pos.finalize", !serveusePerms.has("pos.finalize"));
-    check("SERVEUSE does NOT have pos.open/pos.close (no cash register access)", !serveusePerms.has("pos.open") && !serveusePerms.has("pos.close"));
-    check("SERVEUSE does NOT have sales.view (no financial reports)", !serveusePerms.has("sales.view"));
-
     const caissierRole = await prisma.role.findFirst({ where: { tenantId: tenant.id, name: "CAISSIER" }, include: { permissions: { include: { permission: true } } } });
-    const caissierPerms = new Set((caissierRole?.permissions ?? []).map((p) => p.permission.key));
-    check("CAISSIER retains pos.sell (non-regression)", caissierPerms.has("pos.sell"));
-    check("CAISSIER gained pos.finalize (can still checkout, non-regression)", caissierPerms.has("pos.finalize"));
+    const serveusePerms = (serveuseRole?.permissions ?? []).map((entry) => entry.permission.key);
+    const caissierPerms = (caissierRole?.permissions ?? []).map((entry) => entry.permission.key);
+    check("Restaurant has the SERVEUSE preset", Boolean(serveuseRole));
+    check("Serveuse can sell but cannot finalize, discount or manage cash", serveusePerms.includes("pos.sell") && !serveusePerms.includes("pos.finalize") && !serveusePerms.includes("pos.discount") && !serveusePerms.some((key) => key.startsWith("cash.")));
 
-    // 2. Create the two users via the real UsersService.create() (exercises DTO-accepted role + password hashing).
-    const serveuseUser = await users.create(tenant.id, { name: "Marie Serveuse", email: `serveuse-${stamp}@example.com`, temporaryPassword: "ServeusePass123!", role: "SERVEUSE" });
-    check("UsersService.create() accepts role SERVEUSE and returns a real user", Boolean(serveuseUser.id), `role=${serveuseUser.role}`);
-    const caissierUser = await users.create(tenant.id, { name: "Jean Caissier", email: `caissier-${stamp}@example.com`, temporaryPassword: "CaissierPass123!", role: "CAISSIER" });
-    check("UsersService.create() accepts role CAISSIER", Boolean(caissierUser.id));
+    const serveusePassword = "Serveuse-Temp-2026";
+    const caissierPassword = "Caissier-Temp-2026";
+    const serveuse = await users.create(tenant.id, { name: "Marie Serveuse", email: `serveuse-${stamp}@example.test`, temporaryPassword: serveusePassword, role: "SERVEUSE" });
+    const caissier = await users.create(tenant.id, { name: "Jean Caissier", email: `caissier-${stamp}@example.test`, temporaryPassword: caissierPassword, role: "CAISSIER" });
+    const storedServeuse = await prisma.user.findUnique({ where: { id: serveuse.id } });
+    const storedCaissier = await prisma.user.findUnique({ where: { id: caissier.id } });
+    check("Serveuse temporary password is hashed and usable", storedServeuse?.password !== serveusePassword && await comparePassword(serveusePassword, storedServeuse.password));
+    check("Caissier temporary password is hashed and usable", storedCaissier?.password !== caissierPassword && await comparePassword(caissierPassword, storedCaissier.password));
+    check("New users are active", storedServeuse?.isActive === true && storedCaissier?.isActive === true);
+    const serveuseLogin = await auth.login({ email: storedServeuse.email, password: serveusePassword, rememberMe: false });
+    const caissierLogin = await auth.login({ email: storedCaissier.email, password: caissierPassword, rememberMe: false });
+    check("Serveuse can log in with the temporary password", Boolean(serveuseLogin.accessToken) && serveuseLogin.user.role === "SERVEUSE");
+    check("Caissier can log in with the temporary password", Boolean(caissierLogin.accessToken) && caissierLogin.user.role === "CAISSIER");
 
-    // 3. Permission guard: exact enforcement used on /pos/checkout and /pos/held-sales/:id/finalize.
-    const serveuseAuthUser = { id: serveuseUser.id, role: "SERVEUSE", roles: ["SERVEUSE"], permissions: Array.from(serveusePerms) };
-    const caissierAuthUser = { id: caissierUser.id, role: "CAISSIER", roles: ["CAISSIER"], permissions: Array.from(caissierPerms) };
-    check("Guard ALLOWS Serveuse on pos.sell-only routes (hold/claim/list)", guardAllows(["pos.sell"], serveuseAuthUser) === true);
-    check("Guard BLOCKS Serveuse on checkout/finalize (requires pos.sell+pos.finalize)", guardAllows(["pos.sell", "pos.finalize"], serveuseAuthUser) === false);
-    check("Guard ALLOWS Caissier on checkout/finalize", guardAllows(["pos.sell", "pos.finalize"], caissierAuthUser) === true);
-    const ownerAuthUser = { id: "owner-x", role: "OWNER", roles: ["OWNER"], permissions: [] };
-    check("Guard ALLOWS Owner on checkout/finalize even with empty permissions list (role bypass preserved)", guardAllows(["pos.sell", "pos.finalize"], ownerAuthUser) === true);
+    const market = await prisma.tenant.create({ data: { name: `QA Market ${stamp}`, slug: `qa-market-${stamp}`, businessProfileType: "market", primaryActivity: "market", status: "TRIAL" } });
+    await users.ensureTenantRolePresets(market.id);
+    check("Market does not receive a SERVEUSE preset", !(await prisma.role.findFirst({ where: { tenantId: market.id, name: "SERVEUSE" } })));
+    await prisma.tenant.delete({ where: { id: market.id } });
 
-    // 4. Held-sale visibility: Serveuse holds an order; only she sees it; Caissier (canViewAll via pos.finalize) sees it too.
-    const store = await prisma.store.create({ data: { tenantId: tenant.id, name: "Magasin QA", code: `QA-STORE-${stamp}`, status: "ACTIVE" } });
-    const warehouse = await prisma.warehouse.create({ data: { tenantId: tenant.id, name: "Depot QA", code: `QA-DEPOT-${stamp}` } });
-    const held = await pos.saveHeldSale(tenant.id, serveuseUser.id, "session-serveuse", { cart: { items: [], total: 0 }, storeId: store.id, warehouseId: warehouse.id, total: 0, note: "Table 5" });
-    check("Serveuse can hold an order (Table 5) via PosService.saveHeldSale", Boolean(held.id));
+    const store = await prisma.store.create({ data: { tenantId: tenant.id, name: "Restaurant QA", code: `REST-${stamp}`, status: "ACTIVE" } });
+    const warehouse = await prisma.warehouse.create({ data: { tenantId: tenant.id, name: "Bar QA", code: `BAR-${stamp}` } });
+    const cashRegister = await prisma.cashRegister.create({ data: { tenantId: tenant.id, storeId: store.id, name: "Caisse QA", code: `CAISSE-${stamp}` } });
+    const cashSession = await prisma.cashSession.create({ data: { tenantId: tenant.id, cashRegisterId: cashRegister.id, openedById: caissier.id, status: "OPEN" } });
+    const category = await prisma.category.create({ data: { tenantId: tenant.id, name: "Boissons QA", slug: `boissons-${stamp}` } });
+    const product = await prisma.product.create({ data: { tenantId: tenant.id, categoryId: category.id, sku: `EAU-${stamp}`, name: "Eau QA", salePrice: 100, purchasePrice: 50, sellable: true, isActive: true } });
+    await prisma.stock.create({ data: { tenantId: tenant.id, productId: product.id, warehouseId: warehouse.id, quantity: 10, minimumStock: 2 } });
+    const customer = await prisma.customer.create({ data: { tenantId: tenant.id, customerCode: `CLI-${stamp}`, displayName: "Client Table QA", phone: "+50937000000" } });
 
-    const serveuseOwnList = await pos.listHeldSales(tenant.id, serveuseUser.id, "session-serveuse", false);
-    check("Serveuse's own held-sale list contains her order", serveuseOwnList.items.some((i) => i.id === held.id));
+    const serveuseRequest = { user: { id: serveuse.id, tenantId: tenant.id, sessionId: "serveuse-session", role: "SERVEUSE", roles: ["SERVEUSE"], permissions: serveusePerms } };
+    const caissierRequest = { user: { id: caissier.id, tenantId: tenant.id, sessionId: "caissier-session", role: "CAISSIER", roles: ["CAISSIER"], permissions: caissierPerms } };
+    await expectForbidden("Serveuse cannot apply a discount through the API", () => controller.calculateCart(serveuseRequest, { warehouseId: warehouse.id, discount: 10, items: [{ productId: product.id, quantity: 1 }] }));
+    await expectForbidden("Serveuse cannot add a custom line through the API", () => controller.calculateCart(serveuseRequest, { warehouseId: warehouse.id, items: [{ customId: "custom-1", customName: "Travail libre", customType: "SERVICE", unitPrice: 100, quantity: 1 }] }));
+    await expectForbidden("Serveuse cannot checkout directly", () => controller.checkout(serveuseRequest, { storeId: store.id, warehouseId: warehouse.id, cashSessionId: cashSession.id, items: [{ productId: product.id, quantity: 1 }], payments: [{ method: "CASH", amount: 100 }] }));
 
-    const otherServeuseList = await pos.listHeldSales(tenant.id, "some-other-serveuse-id", "session-other", false);
-    check("A different Serveuse's held-sale list does NOT contain this order", !otherServeuseList.items.some((i) => i.id === held.id));
+    const cart = await pos.calculateCart(tenant.id, { warehouseId: warehouse.id, items: [{ productId: product.id, quantity: 1 }] });
+    const held = await controller.saveHeldSale(serveuseRequest, { cart, customerId: customer.id, storeId: store.id, warehouseId: warehouse.id, total: cart.total, note: "Table 5" });
+    check("Serveuse creates one non-empty open order", Boolean(held.id) && cart.items.length === 1 && Number(cart.total) === 100);
+    check("Serveuse sees her order exactly once", (await controller.heldSales(serveuseRequest)).items.filter((item) => item.id === held.id).length === 1);
+    const otherServeuseRequest = { user: { ...serveuseRequest.user, id: "other-serveuse", sessionId: "other-session" } };
+    check("Another Serveuse cannot see the order", !(await controller.heldSales(otherServeuseRequest)).items.some((item) => item.id === held.id));
+    check("Caissier sees the Serveuse order", (await controller.heldSales(caissierRequest)).items.some((item) => item.id === held.id));
 
-    const caissierList = await pos.listHeldSales(tenant.id, caissierUser.id, "session-caissier", true);
-    check("Caissier (canViewAll=true, from having pos.finalize) sees the Serveuse's order", caissierList.items.some((i) => i.id === held.id));
-
-    // 5. Creator preserved on finalize (existing.userId ?? userId) - verified by reading the exact
-    //    line finalizeHeldSale() executes; also confirm claim requires the finalizer's own session.
-    const claim = await pos.claimHeldSale(tenant.id, caissierUser.id, "session-caissier", held.id);
-    check("Caissier can claim the Serveuse's held order", claim.status === "CLAIMED");
-
-    // 6. Duplicate role name guard, case-insensitive.
-    let dupBlocked = false;
-    try { await roles.create(tenant.id, { name: "serveuse", description: "dup test" }); } catch (error) { dupBlocked = error?.status === 409 || error?.response?.statusCode === 409; }
-    check("RolesService.create rejects 'serveuse' as duplicate of SERVEUSE preset (case-insensitive)", dupBlocked);
-    let dupBlocked2 = false;
-    try { await roles.create(tenant.id, { name: "CAISSIER", description: "dup test 2" }); } catch (error) { dupBlocked2 = error?.status === 409 || error?.response?.statusCode === 409; }
-    check("RolesService.create rejects exact 'CAISSIER' duplicate", dupBlocked2);
-    const distinctRole = await roles.create(tenant.id, { name: `Livreur QA ${stamp}`, description: "distinct role, should succeed" });
-    check("RolesService.create still allows a genuinely new role name", Boolean(distinctRole.id));
-
-    // 7. Non-regression: a non-restaurant tenant's CAISSIER preset behaves identically (same global preset).
-    const marketTenant = await prisma.tenant.create({ data: { name: `QA Market Non-Regression ${stamp}`, slug: `qa-market-nonreg-${stamp}`, businessProfileType: "market", primaryActivity: "market", status: "TRIAL" } });
-    await users.ensureTenantRolePresets(marketTenant.id);
-    const marketCaissier = await prisma.role.findFirst({ where: { tenantId: marketTenant.id, name: "CAISSIER" }, include: { permissions: { include: { permission: true } } } });
-    const marketCaissierPerms = new Set((marketCaissier?.permissions ?? []).map((p) => p.permission.key));
-    check("Non-Restaurant (Market) tenant's CAISSIER preset is unaffected/identical (has pos.finalize too)", marketCaissierPerms.has("pos.sell") && marketCaissierPerms.has("pos.finalize"));
-    const marketServeuse = await prisma.role.findFirst({ where: { tenantId: marketTenant.id, name: "SERVEUSE" } });
-    check("Market tenant also gets a SERVEUSE role provisioned (harmless, preset is global; no Restaurant-only UI leak asserted here)", Boolean(marketServeuse));
-    await cleanupTenant(prisma, marketTenant.id);
+    await controller.claimHeldSale(caissierRequest, held.id);
+    const salePayload = { storeId: store.id, warehouseId: warehouse.id, cashSessionId: cashSession.id, customerId: customer.id, items: [{ productId: product.id, quantity: 1 }], payments: [{ method: "CASH", amount: 100 }], note: "Table 5" };
+    const key = `finalize-${stamp}`;
+    const finalized = await controller.finalizeHeldSale(caissierRequest, held.id, { sale: salePayload, idempotencyKey: key });
+    const repeated = await controller.finalizeHeldSale(caissierRequest, held.id, { sale: salePayload, idempotencyKey: key });
+    const savedSale = await prisma.sale.findUnique({ where: { id: finalized.id }, include: { payments: true } });
+    check("Finalization creates one sale only", finalized.id === repeated.id && await prisma.sale.count({ where: { tenantId: tenant.id } }) === 1);
+    check("Sale creator remains the Serveuse", savedSale?.createdById === serveuse.id);
+    check("Payment creator is the Caissier", savedSale?.payments.length === 1 && savedSale.payments[0].createdById === caissier.id);
+    const stockAfter = await prisma.stock.findUnique({ where: { tenantId_productId_warehouseId: { tenantId: tenant.id, productId: product.id, warehouseId: warehouse.id } } });
+    check("Stock is decremented once", stockAfter?.quantity === 9);
+    const receiptHtml = await printer.renderReceipt(tenant.id, finalized.id, "80");
+    check("Receipt identifies Serveuse and Caissier", String(receiptHtml).includes("Marie Serveuse") && String(receiptHtml).includes("Jean Caissier"));
+    await users.disable(tenant.id, serveuse.id, caissier.id);
+    let disabledLoginBlocked = false;
+    try { await auth.login({ email: storedServeuse.email, password: serveusePassword, rememberMe: false }); } catch (error) { disabledLoginBlocked = error?.status === 401 || error?.response?.statusCode === 401; }
+    check("A disabled Serveuse cannot log in", disabledLoginBlocked);
   } finally {
-    await cleanupTenant(prisma, tenant.id);
+    await prisma.tenant.delete({ where: { id: tenant.id } }).catch(() => undefined);
     await prisma.$disconnect();
   }
 
-  finish();
+  const passed = checks.filter((entry) => entry.pass).length;
+  console.log(`\n${passed}/${checks.length} checks passed`);
+  if (passed !== checks.length) process.exitCode = 1;
 }
 
-async function cleanupTenant(prisma, tenantId) {
-  await prisma.rolePermission.deleteMany({ where: { role: { tenantId } } });
-  await prisma.userRole.deleteMany({ where: { user: { tenantId } } });
-  await prisma.heldSale.deleteMany({ where: { tenantId } });
-  await prisma.userProfile.deleteMany({ where: { user: { tenantId } } });
-  await prisma.storeUser.deleteMany({ where: { tenantId } });
-  await prisma.user.deleteMany({ where: { tenantId } });
-  await prisma.role.deleteMany({ where: { tenantId } });
-  await prisma.store.deleteMany({ where: { tenantId } });
-  await prisma.warehouse.deleteMany({ where: { tenantId } });
-  await prisma.tenant.delete({ where: { id: tenantId } });
-}
-
-function finish() {
-  console.log("\n--- Summary ---");
-  const passed = results.filter((r) => r.pass).length;
-  console.log(`${passed}/${results.length} checks passed`);
-  const failed = results.filter((r) => !r.pass);
-  if (failed.length) {
-    console.log("FAILURES:", failed.map((f) => f.name));
-    process.exitCode = 1;
-  }
-}
-
-main().catch((error) => {
-  console.error("Smoke test crashed:", error);
-  process.exitCode = 1;
-});
+main().catch((error) => { console.error(error); process.exitCode = 1; });

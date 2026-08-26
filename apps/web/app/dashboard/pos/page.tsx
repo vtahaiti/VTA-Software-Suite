@@ -518,10 +518,13 @@ export default function PosPage() {
     setPayments([{ method: "CASH", amount: "", reference: "" }]);
     setOrderDiscount("0");
     setCustomerId("");
+    setOrderContextType("");
+    setTableNumber("");
+    setHeldSaleNote("");
     setLastPaymentSummary(null);
     setShowPaymentModal(false);
     setShowCartDrawer(false);
-    setMessage("Nouvelle vente vide prête.");
+    setMessage(isRestaurantContextProfile ? "Nouvelle commande vide prête." : "Nouvelle vente vide prête.");
   }
 
   async function saveLocalSale(payload: { storeId: string; warehouseId: string; cashSessionId: string; customerId?: string; taxRate: number; discount: number; items: CartPayloadItem[]; payments: Array<{ method: string; amount: number }> }, amount: number) {
@@ -651,7 +654,7 @@ export default function PosPage() {
   const cashierName = branding?.userName ?? currentUser?.name ?? "Utilisateur";
   const canFinalizeSale = useMemo(() => {
     const roles = new Set([currentUser?.role, ...(currentUser?.roles ?? [])].filter(Boolean).map((role) => String(role).toUpperCase()));
-    if (roles.has("OWNER") || roles.has("ADMIN")) return true;
+    if (["OWNER", "ADMIN", "MANAGER", "CAISSIER"].some((role) => roles.has(role))) return true;
     return (currentUser?.permissions ?? []).includes("pos.finalize");
   }, [currentUser]);
   const canCheckout = useMemo(() => cart.items.length > 0 && cart.canCheckout && Boolean(storeId) && Boolean(warehouseId) && Boolean(cashSessionId) && !isLoading && canFinalizeSale, [canFinalizeSale, cart.canCheckout, cart.items.length, cashSessionId, isLoading, storeId, warehouseId]);
@@ -805,6 +808,7 @@ export default function PosPage() {
             balanceDue={balanceDue}
             canReceivePayment={canReceivePayment}
             canStartPayment={canCheckout}
+            canFinalizeSale={canFinalizeSale}
             isLoading={isLoading}
             isHoldingSale={isHoldingSale}
             showExpertOptions={showExpertOptions}
@@ -873,6 +877,7 @@ export default function PosPage() {
               balanceDue={balanceDue}
               canReceivePayment={canReceivePayment}
               canStartPayment={canCheckout}
+              canFinalizeSale={canFinalizeSale}
               isLoading={isLoading}
               isHoldingSale={isHoldingSale}
               showExpertOptions={showExpertOptions}
@@ -1110,6 +1115,7 @@ type CartPanelProps = {
   balanceDue: number;
   canReceivePayment: boolean;
   canStartPayment: boolean;
+  canFinalizeSale: boolean;
   isLoading: boolean;
   isHoldingSale: boolean;
   showExpertOptions: boolean;
@@ -1252,16 +1258,25 @@ function CartTotalsPanel(props: CartPanelProps) {
   return (
     <div className="space-y-3 border-t border-slate-200 p-4">
       <SaleSummary cart={props.cart} />
-      <details className="rounded-lg border border-slate-200 bg-white">
-        <summary className="cursor-pointer list-none px-3 py-2 text-sm font-semibold text-slate-600">Ajouter une remise</summary>
-        <label className="grid gap-1 px-3 pb-3 text-sm font-semibold">Remise globale
-          <input value={props.orderDiscount} onChange={(event) => props.setOrderDiscount(event.target.value)} onBlur={props.syncCart} className="rounded-lg border border-slate-300 px-3 py-2 font-normal" />
-        </label>
-      </details>
-      <button onClick={props.checkout} disabled={!props.canStartPayment} className="w-full rounded-lg bg-emerald-600 px-4 py-4 text-base font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">{props.isLoading ? "Encaissement..." : `Encaisser — ${formatMoney(props.cart.total)}`}</button>
+      {props.canFinalizeSale ? (
+        <>
+          <details className="rounded-lg border border-slate-200 bg-white">
+            <summary className="cursor-pointer list-none px-3 py-2 text-sm font-semibold text-slate-600">Ajouter une remise</summary>
+            <label className="grid gap-1 px-3 pb-3 text-sm font-semibold">Remise globale
+              <input value={props.orderDiscount} onChange={(event) => props.setOrderDiscount(event.target.value)} onBlur={props.syncCart} className="rounded-lg border border-slate-300 px-3 py-2 font-normal" />
+            </label>
+          </details>
+          <button onClick={props.checkout} disabled={!props.canStartPayment} className="w-full rounded-lg bg-emerald-600 px-4 py-4 text-base font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">{props.isLoading ? "Encaissement..." : `Encaisser — ${formatMoney(props.cart.total)}`}</button>
+        </>
+      ) : (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+          <p className="font-bold">Prise de commande</p>
+          <p>Ajoutez le client et les produits, puis envoyez la commande au caissier.</p>
+        </div>
+      )}
       <div className="flex items-center justify-between gap-2">
-        <button onClick={props.holdSale} disabled={!props.cart.items.length || props.isHoldingSale} className="min-h-11 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-50">{props.isHoldingSale ? "Mise en attente..." : props.pendingLabel}</button>
-        <details className="relative">
+        <button onClick={props.holdSale} disabled={!props.cart.items.length || props.isHoldingSale} className={`min-h-11 flex-1 rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-50 ${props.canFinalizeSale ? "border border-slate-300" : "bg-brand-600 text-white hover:bg-brand-700"}`}>{props.isHoldingSale ? props.canFinalizeSale ? "Mise en attente..." : "Envoi..." : props.canFinalizeSale ? props.pendingLabel : "Envoyer la commande au caissier"}</button>
+        {props.canFinalizeSale ? <details className="relative">
           <summary className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50" aria-label="Autres actions">
             <MoreHorizontal aria-hidden="true" className="h-5 w-5" />
           </summary>
@@ -1274,7 +1289,7 @@ function CartTotalsPanel(props: CartPanelProps) {
               </>
             ) : null}
           </div>
-        </details>
+        </details> : null}
       </div>
     </div>
   );

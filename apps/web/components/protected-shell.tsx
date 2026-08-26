@@ -10,6 +10,7 @@ import { canAccessHref } from "@/lib/role-access";
 import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
 import { getTenantBusinessConfiguration, TenantBusinessConfiguration } from "@/lib/business-profiles";
 import { tenantPageTitle } from "@/lib/tenant-page-title";
+import { isTenantAccessBlockedResponse } from "@/lib/tenant-access";
 
 type ProtectedShellProps = {
   children: ReactNode | ((user: AuthUser) => ReactNode);
@@ -38,7 +39,7 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
           sessionUser = body?.user ?? currentUser;
           if (sessionUser.tenantId !== currentUser.tenantId) clearTenantScopedCaches("tenant-mismatch");
           updateStoredUser(sessionUser);
-        } else if (response?.status === 403) {
+        } else if (response && await isTenantAccessBlockedResponse(response)) {
           clearTenantScopedCaches("tenant-blocked");
           setAccessBlocked(true);
           setIsReady(true);

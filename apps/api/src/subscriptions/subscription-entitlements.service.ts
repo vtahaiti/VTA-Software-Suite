@@ -3,6 +3,7 @@ import { Prisma, SubscriptionPlan, SubscriptionStatus, TenantStatus } from "@pri
 import { PrismaService } from "../prisma/prisma.service";
 import { hasRestaurantStockZones, RESTAURANT_SYSTEM_WAREHOUSE_CODES } from "../business-profiles/restaurant-warehouse-policy";
 import { defaultFeatures, defaultPlans, planFeatureMatrix, planLimitMatrix, type SubscriptionFeatureKey, type SubscriptionLimitKey } from "./subscription-features";
+import { isVtaEnterpriseTenant } from "./internal-tenant-policy";
 
 const inactiveStatuses = new Set<SubscriptionStatus>([
   SubscriptionStatus.PAST_DUE,
@@ -120,6 +121,11 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
   async getEntitlements(tenantId: string) {
     const cached = this.cache.get(tenantId);
     if (cached && cached.expiresAt > Date.now()) return cached.entitlements;
+    if (isVtaEnterpriseTenant(tenantId)) {
+      const entitlements = await this.buildVtaEnterpriseEntitlements(tenantId);
+      this.cache.set(tenantId, { expiresAt: Date.now() + 30_000, entitlements });
+      return entitlements;
+    }
     const subscription = await this.getSubscription(tenantId);
     const entitlements = { ...this.buildEntitlements(subscription), usage: await this.getUsage(tenantId), pendingRequest: await this.getPendingPlanRequest(tenantId) };
     this.cache.set(tenantId, { expiresAt: Date.now() + 30_000, entitlements });
@@ -304,6 +310,43 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
 
   private limitsForPlan(planCode: string) {
     return planLimitMatrix[planCode] ?? planLimitMatrix.TRIAL;
+  }
+
+  private async buildVtaEnterpriseEntitlements(tenantId: string): Promise<CachedEntitlements> {
+    const [subscription, usage] = await Promise.all([
+      this.prisma.tenantSubscription.findUnique({ where: { tenantId } }),
+      this.getUsage(tenantId)
+    ]);
+    const features = defaultFeatures.map((feature) => ({
+      key: feature.key,
+      name: feature.name,
+      category: feature.category,
+      enabled: true,
+      limit: null
+    }));
+    const unlimited = Number.MAX_SAFE_INTEGER;
+    return {
+      id: subscription?.id ?? "subscription_vta_enterprise_internal",
+      tenantId,
+      planCode: "INTERNAL",
+      legacyPlan: subscription?.plan ?? SubscriptionPlan.EXPERT,
+      planName: "VTA Enterprise",
+      status: SubscriptionStatus.ACTIVE,
+      isActive: true,
+      trialStartedAt: null,
+      trialEndsAt: null,
+      currentPeriodStart: subscription?.startedAt ?? new Date(0),
+      currentPeriodEnd: null,
+      daysRemaining: null,
+      price: 0,
+      currency: subscription?.currency ?? "HTG",
+      limits: { users: unlimited, stores: unlimited, warehouses: unlimited, cashRegisters: unlimited },
+      features,
+      featureDetails: features,
+      payments: [],
+      usage,
+      pendingRequest: null
+    };
   }
 
   private async getUsage(tenantId: string) {

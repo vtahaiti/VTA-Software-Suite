@@ -410,7 +410,7 @@ export class PosService {
       throw new ConflictException("Reprenez la vente en attente avant de l'encaisser.");
     }
     try {
-      const sale = await this.sales.create(tenantId, dto, existing.userId ?? userId);
+      const sale = await this.sales.create(tenantId, dto, existing.userId ?? userId, userId);
       await this.prisma.heldSale.update({
         where: { id },
         data: {

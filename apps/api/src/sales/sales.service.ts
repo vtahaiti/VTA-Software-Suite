@@ -71,7 +71,7 @@ export class SalesService {
     return sale;
   }
 
-  async create(tenantId: string, dto: CreateSaleDto, userId?: string) {
+  async create(tenantId: string, dto: CreateSaleDto, userId?: string, paymentCreatedById = userId) {
     if (!dto.items?.length) throw new BadRequestException("Panier vide");
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -205,7 +205,7 @@ export class SalesService {
       });
 
       for (const payment of paymentRows) {
-        await tx.payment.create({ data: { saleId: sale.id, invoiceId: invoice.id, method: payment.method, amount: payment.amount, receivedAmount: payment.receivedAmount, changeAmount: payment.changeAmount, reference: payment.reference } });
+        await tx.payment.create({ data: { saleId: sale.id, invoiceId: invoice.id, method: payment.method, amount: payment.amount, receivedAmount: payment.receivedAmount, changeAmount: payment.changeAmount, reference: payment.reference, createdById: paymentCreatedById } });
       }
 
       if (dto.cashSessionId && settledAmount > 0) {

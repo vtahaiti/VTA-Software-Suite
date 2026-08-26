@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
@@ -58,30 +58,35 @@ export class PosController {
   @Post("cart/calculate")
   @Permissions("pos.sell")
   calculateCart(@Req() req: AuthenticatedRequest, @Body() dto: PosCartDto) {
+    this.assertServeuseOrderRules(req, dto);
     return this.pos.calculateCart(req.user.tenantId, dto);
   }
 
   @Post("cart/add")
   @Permissions("pos.sell")
   addToCart(@Req() req: AuthenticatedRequest, @Body() dto: PosCartAddDto) {
+    this.assertServeuseOrderRules(req, dto);
     return this.pos.addToCart(req.user.tenantId, dto);
   }
 
   @Post("cart/update")
   @Permissions("pos.sell")
   updateCartItem(@Req() req: AuthenticatedRequest, @Body() dto: PosCartUpdateDto) {
+    this.assertServeuseOrderRules(req, dto);
     return this.pos.updateCartItem(req.user.tenantId, dto);
   }
 
   @Post("cart/remove")
   @Permissions("pos.sell")
   removeFromCart(@Req() req: AuthenticatedRequest, @Body() dto: PosCartRemoveDto) {
+    this.assertServeuseOrderRules(req, dto);
     return this.pos.removeFromCart(req.user.tenantId, dto);
   }
 
   @Post("checkout")
-  @Permissions("pos.sell", "pos.finalize")
+  @Permissions("pos.sell")
   checkout(@Req() req: AuthenticatedRequest, @Body() dto: CreateSaleDto) {
+    this.assertCanFinalizeSales(req);
     if (!dto.cashSessionId) throw new BadRequestException("Une caisse ouverte est obligatoire avant la vente");
     if (this.paidAmount(dto) <= 0) throw new BadRequestException("Montant recu obligatoire avant l encaissement");
     return this.sales.create(req.user.tenantId, dto, req.user.id);
@@ -114,6 +119,7 @@ export class PosController {
   @RequiresFeature("HELD_SALES")
   @Permissions("pos.sell")
   saveHeldSale(@Req() req: AuthenticatedRequest, @Body() dto: HeldSaleRequest) {
+    this.assertServeuseHeldSaleRules(req, dto);
     return this.pos.saveHeldSale(req.user.tenantId, req.user.id, req.user.sessionId, dto);
   }
 
@@ -133,8 +139,9 @@ export class PosController {
 
   @Post("held-sales/:id/finalize")
   @RequiresFeature("HELD_SALES")
-  @Permissions("pos.sell", "pos.finalize")
+  @Permissions("pos.sell")
   finalizeHeldSale(@Req() req: AuthenticatedRequest, @Param("id") id: string, @Body() dto: HeldSaleFinalizeRequest) {
+    this.assertCanFinalizeSales(req);
     if (!dto?.sale?.cashSessionId) throw new BadRequestException("Une caisse ouverte est obligatoire avant la vente");
     if (this.paidAmount(dto.sale) <= 0) throw new BadRequestException("Montant recu obligatoire avant l encaissement");
     return this.pos.finalizeHeldSale(req.user.tenantId, req.user.id, req.user.sessionId, id, dto.sale, dto.idempotencyKey);
@@ -153,8 +160,9 @@ export class PosController {
   }
 
   @Post("sync-offline-sales")
-  @Permissions("pos.sell", "pos.finalize")
+  @Permissions("pos.sell")
   async syncOfflineSales(@Req() req: AuthenticatedRequest, @Body() dto: SyncOfflineSalesDto) {
+    this.assertCanFinalizeSales(req);
     const results = [];
     for (const offlineSale of dto.sales) {
       const { localId, createdOfflineAt, ...saleDto } = offlineSale;
@@ -187,8 +195,39 @@ export class PosController {
 
   private canFinalizeSales(req: AuthenticatedRequest) {
     const roles = new Set([req.user.role, ...(req.user.roles ?? [])].filter(Boolean).map((role) => String(role).toUpperCase()));
-    if (roles.has("OWNER") || roles.has("ADMIN")) return true;
+    if (["OWNER", "ADMIN", "MANAGER", "CAISSIER"].some((role) => roles.has(role))) return true;
     return (req.user.permissions ?? []).includes("pos.finalize");
+  }
+
+  private assertCanFinalizeSales(req: AuthenticatedRequest) {
+    if (!this.canFinalizeSales(req)) {
+      throw new ForbiddenException("Seul un caissier autorisé peut encaisser cette commande.");
+    }
+  }
+
+  private isServeuse(req: AuthenticatedRequest) {
+    return [req.user.role, ...(req.user.roles ?? [])].filter(Boolean).some((role) => String(role).toUpperCase() === "SERVEUSE");
+  }
+
+  private assertServeuseOrderRules(req: AuthenticatedRequest, dto: PosCartDto) {
+    if (!this.isServeuse(req)) return;
+    const canDiscount = (req.user.permissions ?? []).includes("pos.discount");
+    const hasDiscount = Number(dto.discount ?? 0) > 0 || (dto.items ?? []).some((item) => Number(item.discount ?? 0) > 0);
+    if (hasDiscount && !canDiscount) throw new ForbiddenException("La Serveuse ne peut pas appliquer de remise.");
+    if ((dto.items ?? []).some((item) => !item.productId)) {
+      throw new ForbiddenException("La Serveuse peut uniquement sélectionner des produits du menu.");
+    }
+  }
+
+  private assertServeuseHeldSaleRules(req: AuthenticatedRequest, dto: HeldSaleRequest) {
+    if (!this.isServeuse(req)) return;
+    const canDiscount = (req.user.permissions ?? []).includes("pos.discount");
+    const cart = dto.cart && typeof dto.cart === "object" && !Array.isArray(dto.cart) ? dto.cart as { items?: Array<{ productId?: string; discount?: number }>; discount?: number } : {};
+    const hasDiscount = Number(dto.orderDiscount ?? 0) > 0 || Number(cart.discount ?? 0) > 0 || (cart.items ?? []).some((item) => Number(item.discount ?? 0) > 0);
+    if (hasDiscount && !canDiscount) throw new ForbiddenException("La Serveuse ne peut pas appliquer de remise.");
+    if ((cart.items ?? []).some((item) => !item.productId)) {
+      throw new ForbiddenException("La Serveuse peut uniquement sélectionner des produits du menu.");
+    }
   }
 
   private paidAmount(dto: Pick<CreateSaleDto, "payments">) {

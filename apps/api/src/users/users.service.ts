@@ -114,19 +114,21 @@ export class UsersService {
 
   async roles(tenantId: string) {
     await this.ensureTenantRolePresets(tenantId);
+    const restaurant = await this.isRestaurantTenant(tenantId);
     // "Administrator"/"Manager"/"Cashier"/"Inventory"/"Accountant" delibarement exclus : ce sont des
     // roles heritages crees sans aucune permission attachee (voir roles.service.ts) - les proposer ici
     // ferait choisir a un admin un role qui bloque completement l'utilisateur assigne. "Owner" reste
     // inclus car, contrairement aux autres, il recoit bien toutes les permissions et des utilisateurs
     // existants y sont deja reellement rattaches.
     return this.prisma.role.findMany({
-      where: { tenantId, name: { in: [...tenantRoleNames, "Owner"] } },
+      where: { tenantId, name: { in: [...tenantRoleNames.filter((name) => restaurant || name !== "SERVEUSE"), "Owner"] } },
       orderBy: { name: "asc" },
       select: { id: true, name: true, description: true, isSystem: true }
     });
   }
 
   async ensureTenantRolePresets(tenantId: string) {
+    const restaurant = await this.isRestaurantTenant(tenantId);
     const permissions = await Promise.all(defaultPermissions.map((permission) => this.prisma.permission.upsert({
       where: { key: permission.key },
       update: { name: permission.name, category: permission.category, description: permission.description },
@@ -135,6 +137,7 @@ export class UsersService {
     const permissionIdsByKey = new Map(permissions.map((permission) => [permission.key, permission.id]));
 
     for (const [roleName, preset] of Object.entries(tenantRolePresets) as Array<[TenantRoleName, (typeof tenantRolePresets)[TenantRoleName]]>) {
+      if (roleName === "SERVEUSE" && !restaurant) continue;
       const role = await this.prisma.role.upsert({
         where: { tenantId_name: { tenantId, name: roleName } },
         update: { description: preset.description, isSystem: true },
@@ -162,6 +165,9 @@ export class UsersService {
   }
 
   private async roleOrFail(tenantId: string, roleName: TenantRoleName) {
+    if (roleName === "SERVEUSE" && !(await this.isRestaurantTenant(tenantId))) {
+      throw new BadRequestException("Le rôle Serveuse est réservé aux profils Restaurant.");
+    }
     await this.ensureTenantRolePresets(tenantId);
     const role = await this.prisma.role.findFirst({ where: { tenantId, name: roleName } });
     if (!role) throw new NotFoundException("Rôle introuvable");
@@ -170,5 +176,11 @@ export class UsersService {
 
   private roleJobTitle(roleName: string) {
     return roleName === "OWNER" || roleName === "Owner" ? "Propriétaire" : roleName;
+  }
+
+  private async isRestaurantTenant(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { businessProfileType: true, primaryActivity: true } });
+    const profile = `${tenant?.businessProfileType ?? ""} ${tenant?.primaryActivity ?? ""}`.toLowerCase();
+    return profile.includes("restaurant") || profile.includes("bar") || profile.includes("fast-food") || profile.includes("fast food");
   }
 }

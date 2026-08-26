@@ -27,9 +27,9 @@ const defaultRoles: RoleRow[] = [
 
 function generateTemporaryPassword() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-  let value = "";
-  for (let i = 0; i < 10; i += 1) value += chars[Math.floor(Math.random() * chars.length)];
-  return value;
+  const values = new Uint32Array(12);
+  window.crypto.getRandomValues(values);
+  return Array.from(values, (value) => chars[value % chars.length]).join("");
 }
 
 export default function UsersPage() {
@@ -94,7 +94,7 @@ export default function UsersPage() {
       return;
     }
     setForm({ name: "", email: "", phone: "", temporaryPassword: "", role: "CAISSIER", storeId: "" });
-    setMessage("Utilisateur ajouté avec succès.");
+    setMessage("Utilisateur actif ajouté. Il peut se connecter avec le mot de passe temporaire communiqué directement.");
     await load();
   }
 
@@ -219,7 +219,7 @@ export default function UsersPage() {
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
                         {user.isActive ? (
-                          <button disabled={user.id === currentUser?.id} onClick={() => void disableUser(user.id)} className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300">Désactiver</button>
+                          <button disabled={user.id === currentUser?.id} onClick={() => void disableUser(user.id)} className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300">Désactiver le compte</button>
                         ) : (
                           <button onClick={() => void reactivateUser(user.id)} className="rounded-lg border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-300">Réactiver</button>
                         )}

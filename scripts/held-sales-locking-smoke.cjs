@@ -35,7 +35,7 @@ assertContains(apiService, "updateMany", "Atomic claim/finalize updates must use
 assertContains(apiService, "Cette vente est deja reprise par un autre caissier.", "Concurrent claim conflict message missing");
 assertContains(apiService, "status: \"FINALIZING\"", "Finalize status transition missing");
 assertContains(apiService, "finalizeIdempotencyKey", "Finalize idempotency key missing in service");
-assertContains(apiService, "this.sales.create(tenantId, dto, existing.userId ?? userId)", "Finalize must keep the held sale creator as receipt cashier");
+assertContains(apiService, "this.sales.create(tenantId, dto, existing.userId ?? userId, userId)", "Finalize must keep the held sale creator and record the payment actor separately");
 assertContains(apiService, "canViewAll ? {} : { userId }", "Cashiers must only see their own held sales");
 assertContains(apiService, "catch (error)", "Finalize rollback path missing");
 

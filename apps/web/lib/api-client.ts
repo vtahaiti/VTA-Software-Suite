@@ -1,11 +1,12 @@
 import { getAccessToken, refreshSession } from "@/lib/auth";
 import { apiUrl } from "@/lib/api-url";
+import { isTenantAccessBlockedResponse } from "@/lib/tenant-access";
 
 export { apiUrl };
 
 export async function fetchWithAuth(input: RequestInfo | URL, init: RequestInit = {}) {
   return fetchWithCurrentToken(resolveInput(input), init).then(async (response) => {
-    if (response.status === 403 && typeof window !== "undefined") {
+    if (typeof window !== "undefined" && await isTenantAccessBlockedResponse(response)) {
       window.dispatchEvent(new CustomEvent("vta:tenant-access-blocked"));
       return response;
     }
