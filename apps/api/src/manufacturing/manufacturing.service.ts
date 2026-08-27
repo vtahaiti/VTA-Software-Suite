@@ -69,7 +69,7 @@ export class ManufacturingService {
     if (dto.assignedToId) await this.assertAssignee(tenantId, dto.assignedToId);
 
     return this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`${tenantId}:manufacturing-number`}))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${tenantId}:manufacturing-number`}))`;
       const duplicate = await tx.manufacturingOrder.findFirst({ where: { tenantId, proformaId }, include: orderInclude });
       if (duplicate) return this.serialize(duplicate);
       const proforma = await tx.proforma.findFirst({ where: { id: proformaId, tenantId }, include: { customer: true, items: { include: { product: true } } } });
