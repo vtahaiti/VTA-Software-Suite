@@ -24,7 +24,7 @@ expect("verrou transactionnel avant consommation", /FOR UPDATE/.test(service) &&
 expect("refus stock insuffisant", /Stock insuffisant/.test(service) && /quantity: \{ gte: quantity \}/.test(service));
 expect("mouvements liés à la fabrication", /manufacturingOrderId: order\.id/.test(service));
 expect("commande raccordée à Fabrication", /Lancer en fabrication/.test(detail) && /Voir la fabrication/.test(detail));
-expect("bon atelier imprimable sans finances", /Imprimer bon de fabrication/.test(atelier) && /Préparé par/.test(atelier) && /Fabricant/.test(atelier));
+expect("bon atelier imprimable sans finances", /Imprimer bon de fabrication/.test(atelier) && /Préparé par/.test(atelier) && /Fabricant/.test(atelier) && /className="print:hidden"><h2 className="font-bold">Résumé commande/.test(atelier));
 expect("pagination Production conforme max 100", /limit=100/.test(production) && !/limit=500/.test(production));
 
 console.log(`Fabrication V1 smoke: ${checks.length}/${checks.length} contrôles OK`);
