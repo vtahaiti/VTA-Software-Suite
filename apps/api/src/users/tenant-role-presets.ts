@@ -26,7 +26,7 @@ export const tenantRolePresets: Record<TenantRoleName, { description: string; pe
   },
   STOCK: {
     description: "Produits, stock, fournisseurs et achats.",
-    permissions: ["dashboard.view", "business.read", ...byPrefix("products.", "inventory.", "suppliers.", "purchases.", "warehouse.", "store.", "transfer.")]
+    permissions: ["dashboard.view", "business.read", ...byPrefix("products.", "inventory.", "manufacturing.", "suppliers.", "purchases.", "warehouse.", "store.", "transfer.")]
   },
   COMPTABLE: {
     description: "Ventes, achats, factures, paiements et rapports.",
@@ -39,7 +39,7 @@ export const tenantRolePresets: Record<TenantRoleName, { description: string; pe
       "business.read",
       "notifications.read",
       "notifications.update",
-      ...byPrefix("products.", "inventory.", "suppliers.", "purchases.", "sales.", "quote.", "proforma.", "invoice.", "invoices.", "payment.", "customer.", "customers.", "reports.", "warehouse.", "store.", "transfer.", "cash."),
+      ...byPrefix("products.", "inventory.", "manufacturing.", "suppliers.", "purchases.", "sales.", "quote.", "proforma.", "invoice.", "invoices.", "payment.", "customer.", "customers.", "reports.", "warehouse.", "store.", "transfer.", "cash."),
       "pos.sell",
       "pos.finalize",
       "pos.open",

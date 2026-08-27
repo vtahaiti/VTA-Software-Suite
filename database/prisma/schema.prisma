@@ -121,6 +121,21 @@ enum SalesDocumentPaymentStatus {
   REFUNDED
 }
 
+enum ManufacturingOrderStatus {
+  DRAFT
+  TO_PREPARE
+  IN_PRODUCTION
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum ManufacturingPriority {
+  NORMAL
+  HIGH
+  URGENT
+}
+
 enum PaymentMethod {
   CASH
   CARD
@@ -361,6 +376,7 @@ model Tenant {
   subscriptionEvents SubscriptionEvent[]
   subscriptionPayments SubscriptionPayment[]
   assetReservations AssetReservation[]
+  manufacturingOrders ManufacturingOrder[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -569,6 +585,8 @@ model User {
   onboardingStates OnboardingState[]
   passwordResetTokens PasswordResetToken[]
   emailLogs EmailLog[]
+  assignedManufacturingOrders ManufacturingOrder[] @relation("ManufacturingAssignedTo")
+  createdManufacturingOrders ManufacturingOrder[] @relation("ManufacturingCreatedBy")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@unique([tenantId, email])
@@ -747,6 +765,7 @@ model Product {
   salesReturnItems SalesReturnItem[]
   purchaseOrderItems PurchaseOrderItem[]
   goodsReceiptItems GoodsReceiptItem[]
+  manufacturingMaterials ManufacturingMaterial[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -869,6 +888,8 @@ model Warehouse {
   storeTransfersTo StoreTransfer[] @relation("StoreTransferToWarehouse")
   goodsReceipts GoodsReceipt[]
   proformas Proforma[]
+  manufacturingOrders ManufacturingOrder[]
+  manufacturingMaterials ManufacturingMaterial[]
   createdAt DateTime            @default(now())
   updatedAt DateTime            @updatedAt
 
@@ -913,6 +934,8 @@ model InventoryMovement {
   afterQty    Int
   reference   String?
   note        String?
+  manufacturingOrderId String?
+  manufacturingOrder ManufacturingOrder? @relation(fields: [manufacturingOrderId], references: [id], onDelete: SetNull)
   createdAt   DateTime              @default(now())
 
   @@index([tenantId])
@@ -921,6 +944,7 @@ model InventoryMovement {
   @@index([type])
   @@index([userId])
   @@index([storeId])
+  @@index([manufacturingOrderId])
 }
 
 enum AssetReservationType {
@@ -1313,6 +1337,7 @@ model Customer {
   salesReturns   SalesReturn[]
   heldSales      HeldSale[]
   assetReservations AssetReservation[]
+  manufacturingOrders ManufacturingOrder[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -1584,6 +1609,7 @@ model Proforma {
   invoices       Invoice[]
   payments       Payment[]
   stockReservations StockReservation[]
+  manufacturingOrder ManufacturingOrder?
   sentAt         DateTime?
   acceptedAt     DateTime?
   reservedAt      DateTime?
@@ -1619,6 +1645,7 @@ model ProformaItem {
   tax        Decimal  @default(0) @db.Decimal(12, 2)
   total      Decimal  @db.Decimal(12, 2)
   createdAt  DateTime @default(now())
+  manufacturingItems ManufacturingOrderItem[]
 
   @@index([proformaId])
   @@index([productId])
@@ -1637,12 +1664,108 @@ model StockReservation {
   quantity    Int
   releasedAt  DateTime?
   deliveredAt DateTime?
+  manufacturingOrderId String?
+  manufacturingOrder ManufacturingOrder? @relation(fields: [manufacturingOrderId], references: [id], onDelete: Cascade)
+  manufacturingMaterialId String?
+  manufacturingMaterial ManufacturingMaterial? @relation(fields: [manufacturingMaterialId], references: [id], onDelete: Cascade)
   createdById String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   @@index([tenantId])
   @@index([proformaId])
+  @@index([productId])
+  @@index([warehouseId])
+  @@index([manufacturingOrderId])
+  @@index([manufacturingMaterialId])
+}
+
+model ManufacturingOrder {
+  id                  String                   @id @default(cuid())
+  tenantId            String
+  tenant              Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  manufacturingNumber String
+  proformaId          String                   @unique
+  proforma            Proforma                 @relation(fields: [proformaId], references: [id], onDelete: Restrict)
+  customerId          String?
+  customer            Customer?                @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  warehouseId         String
+  warehouse           Warehouse                @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  title               String
+  status              ManufacturingOrderStatus @default(TO_PREPARE)
+  priority            ManufacturingPriority    @default(NORMAL)
+  expectedDate        DateTime?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  assignedToId        String?
+  assignedTo          User?                    @relation("ManufacturingAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  instructions        String?
+  notes               String?
+  createdById         String?
+  createdBy           User?                    @relation("ManufacturingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  items               ManufacturingOrderItem[]
+  materials           ManufacturingMaterial[]
+  reservations        StockReservation[]
+  inventoryMovements  InventoryMovement[]
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  @@unique([tenantId, manufacturingNumber])
+  @@index([tenantId, status])
+  @@index([tenantId, expectedDate])
+  @@index([customerId])
+  @@index([warehouseId])
+  @@index([assignedToId])
+}
+
+model ManufacturingOrderItem {
+  id                   String             @id @default(cuid())
+  manufacturingOrderId String
+  manufacturingOrder   ManufacturingOrder @relation(fields: [manufacturingOrderId], references: [id], onDelete: Cascade)
+  proformaItemId        String?
+  proformaItem          ProformaItem?      @relation(fields: [proformaItemId], references: [id], onDelete: SetNull)
+  description           String
+  quantity              Int
+  width                 Decimal?           @db.Decimal(12, 3)
+  height                Decimal?           @db.Decimal(12, 3)
+  length                Decimal?           @db.Decimal(12, 3)
+  dimensionUnit         String             @default("cm")
+  workType              String?
+  material              String?
+  color                 String?
+  glassType             String?
+  instructions          String?
+  materials             ManufacturingMaterial[]
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  @@index([manufacturingOrderId])
+  @@index([proformaItemId])
+}
+
+model ManufacturingMaterial {
+  id                    String                  @id @default(cuid())
+  manufacturingOrderId  String
+  manufacturingOrder    ManufacturingOrder      @relation(fields: [manufacturingOrderId], references: [id], onDelete: Cascade)
+  manufacturingItemId   String?
+  manufacturingItem     ManufacturingOrderItem? @relation(fields: [manufacturingItemId], references: [id], onDelete: SetNull)
+  productId              String
+  product                Product                 @relation(fields: [productId], references: [id], onDelete: Restrict)
+  warehouseId            String
+  warehouse              Warehouse               @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  requiredQuantity       Decimal                 @db.Decimal(14, 3)
+  reservedQuantity       Decimal                 @default(0) @db.Decimal(14, 3)
+  consumedQuantity       Decimal                 @default(0) @db.Decimal(14, 3)
+  wasteQuantity          Decimal                 @default(0) @db.Decimal(14, 3)
+  unit                   String
+  unitCost               Decimal?                @db.Decimal(14, 2)
+  notes                  String?
+  reservations           StockReservation[]
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+
+  @@index([manufacturingOrderId])
+  @@index([manufacturingItemId])
   @@index([productId])
   @@index([warehouseId])
 }

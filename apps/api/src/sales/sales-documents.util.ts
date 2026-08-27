@@ -92,6 +92,15 @@ export async function restockForItems(
   }
 }
 
+export async function hasOrderStockDeduction(tx: Transaction, tenantId: string, documentId: string) {
+  return (await tx.inventoryMovement.count({ where: { tenantId, reference: documentId, reason: "Sortie commande" } })) > 0;
+}
+
+export async function isWindowsManufacturingTenant(tx: Transaction, tenantId: string) {
+  const tenant = await tx.tenant.findUnique({ where: { id: tenantId }, select: { businessProfileType: true } });
+  return tenant?.businessProfileType === "windows-aluminium";
+}
+
 export function calculateDocumentTotals(items: SalesDocumentItemDto[], discount = 0) {
   for (const item of items) {
     if (!item.productId && !item.customName?.trim()) {

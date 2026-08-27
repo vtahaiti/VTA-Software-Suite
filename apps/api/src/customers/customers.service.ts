@@ -52,6 +52,7 @@ export class CustomersService {
         sales: { take: 10, orderBy: { createdAt: "desc" }, include: { receipt: true, payments: true } },
         quotes: { take: 10, orderBy: { createdAt: "desc" } },
         proformas: { take: 10, orderBy: { createdAt: "desc" } },
+        manufacturingOrders: { take: 10, orderBy: { createdAt: "desc" }, include: { proforma: { select: { documentNumber: true } }, assignedTo: { select: { name: true } } } },
         invoices: { take: 10, orderBy: { createdAt: "desc" } },
         salesReturns: { take: 10, orderBy: { createdAt: "desc" } }
       }
@@ -63,6 +64,7 @@ export class CustomersService {
         pos: customer.sales,
         quotes: customer.quotes,
         proformas: customer.proformas,
+        manufacturing: customer.manufacturingOrders,
         invoices: customer.invoices,
         returns: customer.salesReturns,
         payments: customer.sales.flatMap((sale) => sale.payments ?? [])
@@ -70,6 +72,7 @@ export class CustomersService {
       documents: {
         quotes: customer.quotes.length,
         proformas: customer.proformas.length,
+        manufacturing: customer.manufacturingOrders.length,
         invoices: customer.invoices.length,
         returns: customer.salesReturns.length
       }
@@ -246,7 +249,7 @@ export class CustomersService {
     return line.split(",").map((value) => value.replace(/^"|"$/g, "").replace(/""/g, '"').trim());
   }
 
-  private withCompatibilityAliases<T extends Record<string, any>>(customer: T) {
+  private withCompatibilityAliases<T extends Record<string, unknown> & { customerCode?: unknown; displayName?: unknown; customerType?: unknown; currentBalance?: unknown }>(customer: T) {
     return { ...customer, code: customer.customerCode, name: customer.displayName, type: customer.customerType, creditBalance: customer.currentBalance };
   }
 

@@ -56,6 +56,7 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
   const [branding, setBranding] = useState<CompanyBranding | null>(null);
   const [business, setBusiness] = useState<TenantBusinessConfiguration | null>(null);
   const [receiptPayment, setReceiptPayment] = useState<any>(null);
+  const [manufacturingOrder, setManufacturingOrder] = useState<any>(undefined);
   const showFabricationFields = business?.businessProfileType === "windows-aluminium";
 
   const load = useCallback(async () => {
@@ -70,6 +71,13 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
     void getTenantBusinessConfiguration().then(setBusiness).catch(() => undefined);
   }, []);
 
+  useEffect(() => {
+    if (!showFabricationFields || type !== "proformas") return;
+    void fetch(`${apiUrl}/manufacturing/by-proforma/${params.id}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } })
+      .then(async (response) => response.ok ? setManufacturingOrder(await response.json()) : setManufacturingOrder(null))
+      .catch(() => setManufacturingOrder(null));
+  }, [params.id, showFabricationFields, type]);
+
   function goToConversion() {
     if (!transformAction) return;
     router.push(`/dashboard/sales/proformas/create?fromQuote=${params.id}`);
@@ -77,7 +85,8 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
 
   async function cancelOrder() {
     if (type !== "proformas") return;
-    if (!window.confirm("Annuler cette commande ? Le stock sorti sera remis en inventaire.")) return;
+    const confirmation = showFabricationFields ? "Annuler cette commande ? Une fabrication déjà lancée devra être traitée séparément." : "Annuler cette commande ? Le stock sorti sera remis en inventaire.";
+    if (!window.confirm(confirmation)) return;
     const response = await fetch(`${apiUrl}/proformas/${params.id}/status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
@@ -85,11 +94,21 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
     });
     if (response.ok) {
       setDoc(await response.json());
-      setMessage("Commande annulée, stock remis en inventaire.");
+      setMessage(showFabricationFields ? "Commande annulée." : "Commande annulée, stock remis en inventaire.");
       return;
     }
     const body = await response.json().catch(() => null);
     setMessage(body?.message ?? "Annulation impossible.");
+  }
+
+  async function createManufacturingOrder() {
+    const warehouseId = doc?.warehouse?.id ?? doc?.warehouseId;
+    if (!warehouseId) { setMessage("Sélectionnez un dépôt sur la commande avant de lancer la fabrication."); return; }
+    const response = await fetch(`${apiUrl}/manufacturing/from-proforma/${params.id}`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` }, body: JSON.stringify({ warehouseId }) });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) { setMessage(body?.message ?? "Impossible de créer l'ordre de fabrication."); return; }
+    setManufacturingOrder(body);
+    router.push(`/dashboard/manufacturing/${body.id}`);
   }
 
   async function advanceStatus(nextStatus: string) {
@@ -139,7 +158,7 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
 
   if (!doc) return <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">Chargement...</div>;
   const canPay = type === "proformas" && Number(doc.balance ?? 0) > 0 && !["DRAFT", "CANCELLED"].includes(doc.status);
-  const forwardStep = type === "proformas" ? FORWARD_STATUS_STEPS[doc.status] : undefined;
+  const forwardStep = type === "proformas" && (!showFabricationFields || doc.status === "READY") ? FORWARD_STATUS_STEPS[doc.status] : undefined;
 
   return (
     <div className="space-y-5">
@@ -153,6 +172,7 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
           </div>
           <div className="flex flex-wrap gap-2">
             <button onClick={() => void printPage()} className="rounded-md border px-4 py-2 text-sm">Imprimer</button>
+            {showFabricationFields && type === "proformas" && manufacturingOrder ? <Link href={`/dashboard/manufacturing/${manufacturingOrder.id}`} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Voir la fabrication</Link> : null}
             {transformAction ? <button onClick={goToConversion} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">{transformLabel ?? "Convertir en commande"}</button> : null}
             <Link href={`/dashboard/sales/${type}`} className="rounded-md border px-4 py-2 text-sm">Retour</Link>
           </div>
@@ -225,8 +245,10 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
       {type === "proformas" && !["CANCELLED", "COMPLETED"].includes(doc.status) ? (
         <section className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900 print:hidden">
           <h2 className="text-lg font-semibold">Commande</h2>
-          <p className="mt-1 text-sm text-slate-500">Le stock a été sorti à la création de cette commande. Une annulation le remet en inventaire. Les autres statuts ne touchent pas le stock.</p>
+          <p className="mt-1 text-sm text-slate-500">{showFabricationFields ? "La commande ne consomme pas le stock. Les matières seront réservées puis consommées depuis la fiche de fabrication." : "Le stock a été sorti à la création de cette commande. Une annulation le remet en inventaire. Les autres statuts ne touchent pas le stock."}</p>
           <div className="mt-4 flex flex-wrap gap-2">
+            {showFabricationFields && manufacturingOrder === null ? <button onClick={() => void createManufacturingOrder()} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Lancer en fabrication</button> : null}
+            {showFabricationFields && manufacturingOrder ? <Link href={`/dashboard/manufacturing/${manufacturingOrder.id}`} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Voir la fabrication</Link> : null}
             {forwardStep ? (
               <button onClick={() => void advanceStatus(forwardStep.next)} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">
                 {showFabricationFields ? forwardStep.fabricationLabel : forwardStep.label}

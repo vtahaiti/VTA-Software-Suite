@@ -48,7 +48,7 @@ const activityCards: Record<string, Array<{ label: string; description: string; 
     { label: "Rapports", description: "Rapports scolaires et financiers.", href: "/dashboard/reports" }
   ],
   manufacturing: [
-    { label: "Production", description: "Utilise les devis pour suivre les commandes de fabrication (pas de module production dedie).", href: "/dashboard/sales/quotes" },
+    { label: "Fabrication", description: "Suivre les ouvrages à préparer, en fabrication et prêts.", href: "/dashboard/manufacturing" },
     { label: "Matieres premieres", description: "Suivi des matieres en stock.", href: "/dashboard/inventory" },
     { label: "Commandes", description: "Demandes clients et devis.", href: "/dashboard/sales" },
     { label: "Stock", description: "Stock produits finis et composants.", href: "/dashboard/inventory" }

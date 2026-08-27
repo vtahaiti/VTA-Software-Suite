@@ -16,6 +16,7 @@ function isFabricationProfile(business: TenantBusinessConfiguration | null) {
 
 type DocType = "quotes" | "proformas" | "invoices";
 type Customer = { id: string; name?: string; displayName?: string };
+type Warehouse = { id: string; name: string; code?: string; isActive?: boolean };
 type Product = { id: string; sku?: string | null; name: string; salePrice?: string | number | null; stockCurrent?: number | null; unit?: string | { name?: string | null; symbol?: string | null } | null };
 type Payment = { id: string; amount: string | number; method: string; createdAt: string };
 type DocumentItem = { id: string; quantity: number; unitPrice: string | number; discount: string | number; tax: string | number; total: string | number; customName?: string | null; customNote?: string | null; product?: Product | null };
@@ -148,6 +149,8 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
   const [fromQuoteId, setFromQuoteId] = useState<string | null>(null);
   const [branding, setBranding] = useState<CompanyBranding | null>(null);
   const [business, setBusiness] = useState<TenantBusinessConfiguration | null>(null);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [warehouseId, setWarehouseId] = useState("");
   const showFabricationFields = isFabricationProfile(business);
 
   const apiFetch = useCallback((path: string, init?: RequestInit) => {
@@ -173,12 +176,18 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
   }, [apiFetch, type]);
 
   const loadReferences = useCallback(async () => {
-    const [customersResponse, productsResponse] = await Promise.all([
+    const [customersResponse, productsResponse, warehousesResponse] = await Promise.all([
       apiFetch("/customers?limit=100"),
-      apiFetch("/products?limit=30")
+      apiFetch("/products?limit=30"),
+      apiFetch("/warehouses")
     ]);
     if (customersResponse.ok) setCustomers((await customersResponse.json()).items ?? []);
     if (productsResponse.ok) setProducts((await productsResponse.json()).items ?? []);
+    if (warehousesResponse.ok) {
+      const incoming: Warehouse[] = (await warehousesResponse.json()).filter((warehouse: Warehouse) => warehouse.isActive !== false);
+      setWarehouses(incoming);
+      if (incoming.length === 1) setWarehouseId(incoming[0].id);
+    }
   }, [apiFetch]);
 
   useEffect(() => {
@@ -270,6 +279,10 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
       setMessage(`Ajoutez au moins une ligne au ${documentName(type)}.`);
       return;
     }
+    if (type === "proformas" && showFabricationFields && !warehouseId) {
+      setMessage("Sélectionnez le dépôt qui sera utilisé pour cette fabrication.");
+      return;
+    }
     setLoading(true);
     const items = validLines.map((line) => ({
       productId: line.productId,
@@ -282,10 +295,10 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
       tax: line.tax
     }));
     const response = fromQuoteId
-      ? await apiFetch(`/quotes/${fromQuoteId}/to-proforma`, { method: "POST", body: JSON.stringify({ items, title: documentTitle || undefined, expectedDate: expectedDate || undefined }) })
+      ? await apiFetch(`/quotes/${fromQuoteId}/to-proforma`, { method: "POST", body: JSON.stringify({ items, title: documentTitle || undefined, expectedDate: expectedDate || undefined, warehouseId: warehouseId || undefined }) })
       : await apiFetch(`/${type}`, {
           method: "POST",
-          body: JSON.stringify({ customerId: customerId || undefined, title: documentTitle || undefined, expectedDate: expectedDate || undefined, notes, discount: globalDiscount, items })
+          body: JSON.stringify({ customerId: customerId || undefined, title: documentTitle || undefined, expectedDate: expectedDate || undefined, warehouseId: warehouseId || undefined, notes, discount: globalDiscount, items })
         });
     setLoading(false);
     if (response.ok) {
@@ -294,7 +307,9 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
       setDocumentTitle("");
       setExpectedDate("");
       setGlobalDiscount(0);
-      setMessage(fromQuoteId ? "Commande créée depuis le devis, stock sorti." : `${createLabel} enregistré.`);
+      setMessage(fromQuoteId
+        ? (showFabricationFields ? "Commande créée. Les matières seront réservées puis consommées depuis la fabrication." : "Commande créée depuis le devis, stock sorti.")
+        : `${createLabel} enregistré.`);
       setFromQuoteId(null);
       await loadDocuments();
       return;
@@ -312,7 +327,7 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
           {type === "quotes"
             ? "Le devis prépare un prix imprimable. Il ne modifie pas le stock et ne crée pas de vente POS."
             : type === "proformas"
-              ? "La commande sort le stock à la création et suit Total, Avance et Balance jusqu'à la vente terminée."
+              ? (showFabricationFields ? "La commande prépare le projet. Les matières seront gérées lorsque la fabrication sera lancée." : "La commande sort le stock à la création et suit Total, Avance et Balance jusqu'à la vente terminée.")
               : "Document finalisé issu d'une commande soldée."}
         </p>
         {message ? <p className="mt-3 rounded-md bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800">{message}</p> : null}
@@ -346,6 +361,15 @@ export function SalesDocumentPage({ type, title, eyebrow, createLabel, transform
             <label className="grid gap-1 text-xs font-semibold text-slate-500">
               Date de livraison/installation prévue
               <input type="date" value={expectedDate} onChange={(event) => setExpectedDate(event.target.value)} className="rounded-md border px-3 py-2 text-sm font-normal text-slate-950 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+            </label>
+          ) : null}
+          {type === "proformas" && showFabricationFields ? (
+            <label className="grid gap-1 text-xs font-semibold text-slate-500">
+              Dépôt de fabrication
+              <select required value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)} className="rounded-md border px-3 py-2 text-sm font-normal text-slate-950 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
+                <option value="">Sélectionner un dépôt</option>
+                {warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.code ? `${warehouse.code} — ` : ""}{warehouse.name}</option>)}
+              </select>
             </label>
           ) : null}
         </div>

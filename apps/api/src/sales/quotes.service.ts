@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { Prisma, SalesDocumentPaymentStatus, SalesDocumentStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { ConvertQuoteDto, CreateSalesDocumentDto, SalesDocumentQueryDto, UpdateSalesDocumentDto } from "./dto/sales-document.dto";
-import { calculateDocumentTotals, deductStockForItems, ensureCustomer, ensureProducts, generateDocumentNumber, mapDocumentItems, withDocumentNumber, withDocumentNumbers } from "./sales-documents.util";
+import { calculateDocumentTotals, deductStockForItems, ensureCustomer, ensureProducts, generateDocumentNumber, isWindowsManufacturingTenant, mapDocumentItems, withDocumentNumber, withDocumentNumbers } from "./sales-documents.util";
 
 type SalesDocumentLine = {
   productId?: string | null;
@@ -157,7 +157,9 @@ export class QuotesService {
         },
         include: { items: true }
       });
-      await deductStockForItems(tx, tenantId, warehouse?.id, proforma.items, proforma.id, documentNumber, createdById);
+      if (!(await isWindowsManufacturingTenant(tx, tenantId))) {
+        await deductStockForItems(tx, tenantId, warehouse?.id, proforma.items, proforma.id, documentNumber, createdById);
+      }
       await tx.quote.update({ where: { id }, data: { status: SalesDocumentStatus.CONVERTED, convertedAt: new Date() } });
       const refreshed = await tx.proforma.findUniqueOrThrow({ where: { id: proforma.id }, include: { customer: true, items: { include: { product: true } }, payments: true } });
       return withDocumentNumber(refreshed);
@@ -169,6 +171,9 @@ export class QuotesService {
       const warehouse = await client.warehouse.findFirst({ where: { id: warehouseId, tenantId, isActive: true } });
       if (!warehouse) throw new NotFoundException("Dépôt introuvable");
       return warehouse;
+    }
+    if (await isWindowsManufacturingTenant(client as Prisma.TransactionClient, tenantId)) {
+      throw new BadRequestException("Sélectionnez le dépôt de cette commande.");
     }
     return client.warehouse.findFirst({ where: { tenantId, isActive: true }, orderBy: { createdAt: "asc" } });
   }

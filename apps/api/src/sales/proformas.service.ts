@@ -1,13 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, SalesDocumentPaymentStatus, SalesDocumentStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
-import { CreateInvoicePaymentDto, CreateSalesDocumentDto, SalesDocumentQueryDto, UpdateSalesDocumentStatusDto } from "./dto/sales-document.dto";
+import { CreateInvoicePaymentDto, CreateSalesDocumentDto, SalesDocumentQueryDto } from "./dto/sales-document.dto";
 import {
   calculateDocumentTotals,
   deductStockForItems,
   ensureCustomer,
   ensureProducts,
   generateDocumentNumber,
+  hasOrderStockDeduction,
+  isWindowsManufacturingTenant,
   mapDocumentItems,
   restockForItems,
   withDocumentNumber,
@@ -85,7 +87,9 @@ export class ProformasService {
         },
         include: { items: true }
       });
-      await deductStockForItems(tx, tenantId, warehouse?.id, proforma.items, proforma.id, documentNumber, createdById);
+      if (!(await isWindowsManufacturingTenant(tx, tenantId))) {
+        await deductStockForItems(tx, tenantId, warehouse?.id, proforma.items, proforma.id, documentNumber, createdById);
+      }
       const refreshed = await tx.proforma.findUniqueOrThrow({ where: { id: proforma.id }, include: documentInclude });
       return withDocumentNumber(refreshed);
     });
@@ -114,7 +118,9 @@ export class ProformasService {
         if (!ProformasService.CANCELLABLE_FROM.includes(proforma.status)) {
           throw new BadRequestException("Cette commande ne peut plus être annulée.");
         }
-        await restockForItems(tx, tenantId, proforma.items, proforma.id, proforma.documentNumber, userId);
+        if (await hasOrderStockDeduction(tx, tenantId, proforma.id)) {
+          await restockForItems(tx, tenantId, proforma.items, proforma.id, proforma.documentNumber, userId);
+        }
         const updated = await tx.proforma.update({ where: { id }, data: { status: SalesDocumentStatus.CANCELLED, cancelledAt: new Date() }, include: documentInclude });
         return withDocumentNumber(updated);
       }
@@ -123,7 +129,10 @@ export class ProformasService {
         throw new BadRequestException("Cette transition de statut n'est pas autorisée.");
       }
       const data: Prisma.ProformaUpdateInput = { status };
-      if (status === SalesDocumentStatus.DELIVERED) data.deliveredAt = new Date();
+      if (status === SalesDocumentStatus.DELIVERED) {
+        data.deliveredAt = new Date();
+        await tx.manufacturingOrder.updateMany({ where: { tenantId, proformaId: id, status: "READY" }, data: { status: "COMPLETED", completedAt: new Date() } });
+      }
       const updated = await tx.proforma.update({ where: { id }, data, include: documentInclude });
       return withDocumentNumber(updated);
     });
@@ -211,6 +220,9 @@ export class ProformasService {
       const warehouse = await client.warehouse.findFirst({ where: { id: warehouseId, tenantId, isActive: true } });
       if (!warehouse) throw new NotFoundException("Dépôt introuvable");
       return warehouse;
+    }
+    if (await isWindowsManufacturingTenant(client as Prisma.TransactionClient, tenantId)) {
+      throw new BadRequestException("Sélectionnez le dépôt de cette commande.");
     }
     return client.warehouse.findFirst({ where: { tenantId, isActive: true }, orderBy: { createdAt: "asc" } });
   }

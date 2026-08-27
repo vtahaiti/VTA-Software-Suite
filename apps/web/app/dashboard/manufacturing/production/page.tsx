@@ -38,15 +38,35 @@ export default function ManufacturingProductionPage() {
 
   async function load() {
     setIsLoading(true);
-    const [w, p, m] = await Promise.all([
-      fetchWithAuth(`${apiUrl}/warehouses`).catch(() => null),
-      fetchWithAuth(`${apiUrl}/products?limit=500`).catch(() => null),
-      fetchWithAuth(`${apiUrl}/inventory/movements?limit=20`).catch(() => null)
-    ]);
-    if (w?.ok) setWarehouses(await w.json());
-    if (p?.ok) setProducts((await p.json()).items ?? []);
-    if (m?.ok) setMovements(((await m.json()).items ?? []).filter((item: Movement) => (item.reason ?? "").startsWith("Production")));
-    setIsLoading(false);
+    setError("");
+    try {
+      const [warehouseResponse, productRows, movementResponse] = await Promise.all([
+        fetchWithAuth(`${apiUrl}/warehouses`),
+        loadAllProducts(),
+        fetchWithAuth(`${apiUrl}/inventory/movements?limit=20`)
+      ]);
+      if (!warehouseResponse.ok) throw new Error(await responseMessage(warehouseResponse, "Impossible de charger les dépôts."));
+      if (!movementResponse.ok) throw new Error(await responseMessage(movementResponse, "Impossible de charger l'historique de production."));
+      setWarehouses(await warehouseResponse.json());
+      setProducts(productRows);
+      setMovements(((await movementResponse.json()).items ?? []).filter((item: Movement) => (item.reason ?? "").startsWith("Production")));
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Impossible de charger la production. Vérifiez votre connexion puis réessayez.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function loadAllProducts() {
+    const rows: Product[] = [];
+    for (let page = 1; page <= 50; page += 1) {
+      const response = await fetchWithAuth(`${apiUrl}/products?limit=100&page=${page}`);
+      if (!response.ok) throw new Error(await responseMessage(response, "Impossible de charger les produits."));
+      const body = await response.json();
+      rows.push(...(body.items ?? []));
+      if (page >= Number(body.meta?.pageCount ?? 1)) break;
+    }
+    return rows;
   }
 
   function updateLine(list: Line[], setList: (lines: Line[]) => void, index: number, patch: Partial<Line>) {
@@ -189,6 +209,11 @@ export default function ManufacturingProductionPage() {
       </div>
     </div>
   );
+}
+
+async function responseMessage(response: Response, fallback: string) {
+  const body = await response.json().catch(() => null);
+  return Array.isArray(body?.message) ? body.message[0] : body?.message ?? fallback;
 }
 
 function LineEditor({ title, lines, products, productLabel, onChange, onAdd, onRemove }: {

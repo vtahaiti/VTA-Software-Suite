@@ -16,6 +16,7 @@ import { VersionModule } from "./version/version.module";
 import { InventoryModule } from "./inventory/inventory.module";
 import { ImportExportModule } from "./import-export/import-export.module";
 import { MovementModule } from "./movements/movement.module";
+import { ManufacturingModule } from "./manufacturing/manufacturing.module";
 import { PaymentModule } from "./payments/payment.module";
 import { UploadsModule } from "./uploads/uploads.module";
 import { ProfileModule } from "./profile/profile.module";
@@ -73,6 +74,7 @@ import { WarehouseModule } from "./warehouses/warehouse.module";
     StoresModule,
     WarehouseModule,
     MovementModule,
+    ManufacturingModule,
     AdjustmentModule,
     SalesModule,
     ReceiptModule,

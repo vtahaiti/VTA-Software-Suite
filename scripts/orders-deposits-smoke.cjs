@@ -50,12 +50,9 @@ assert.equal(paid.paymentStatus, "PAID");
 assert.throws(() => calculateTotals([{ quantity: 1, unitPrice: 1 }]), /produit ou un service/);
 
 for (const label of [
-  "A) Produit du catalogue",
-  "B) Ligne personnalisée ou service",
-  "Ajouter au devis",
-  "Ajouter à la commande",
-  "Rechercher un produit",
-  "Produit sélectionné",
+  "Produit / description",
+  "Rechercher un produit ou décrire un service",
+  "+ Ajouter une ligne",
   "Total",
   "Avance",
   "Balance",
