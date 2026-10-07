@@ -10,6 +10,7 @@ const assert = (condition, message) => {
 const profileService = read("apps/api/src/business-profiles/business-profiles.service.ts");
 const catalog = read("apps/api/src/business-profiles/business-catalog.ts");
 const navigation = read("apps/web/lib/navigation.tsx");
+const onboarding = read("apps/web/app/onboarding/company/page.tsx");
 const hotelRoomsPage = read("apps/web/app/dashboard/hotel/rooms/page.tsx");
 const posService = read("apps/api/src/pos/pos.service.ts");
 
@@ -28,10 +29,19 @@ const hotelMenu = profileService.match(/hotel:\s*\[[\s\S]*?\n\s*\],/)?.[0] ?? ""
 assert(!hotelMenu.includes("/dashboard/restaurant/stock"), "Hotel simple ne doit pas afficher Stock Restaurant.");
 
 const hotelRestaurantProfile = catalog.match(/\{\s*slug:\s*"hotel-restaurant"[\s\S]*?\}/)?.[0] ?? "";
+assert(hotelRestaurantProfile.includes('name: "Hôtel / Bar-Restaurant"'), "Le profil combiné doit être visible comme Hôtel / Bar-Restaurant.");
 for (const moduleKey of ["pos", "products", "inventory", "customers", "reports", "settings", "hotel", "restaurant"]) {
   assert(hotelRestaurantProfile.includes(`"${moduleKey}"`), `Hôtel-restaurant doit conserver le module ${moduleKey}.`);
 }
 assert(hotelRestaurantProfile.includes('excludedModules: ["sales"]'), "Hôtel-restaurant ne doit pas réactiver Devis & Commandes.");
+assert(
+  catalog.includes('name: "Hôtel / Bar-Restaurant", profileType: "hotel-restaurant", categories: ["Chambres", "Restaurant", "Bar", "Boissons", "Cocktails", "Services"]'),
+  "Hôtel / Bar-Restaurant doit réunir les catégories hébergement, restaurant et bar."
+);
+assert(
+  onboarding.includes('name: "Hôtel / Bar-Restaurant", profileType: "hotel-restaurant", categories: ["Chambres", "Restaurant", "Bar", "Boissons", "Cocktails", "Services"]'),
+  "Le fallback onboarding doit proposer Hôtel / Bar-Restaurant avec toutes ses catégories."
+);
 assert(
   navigation.includes('href === "/dashboard/payments" && sourceHrefs.has("/dashboard/pos")'),
   "Hôtel-restaurant doit conserver Paiements à partir de sa capacité POS."

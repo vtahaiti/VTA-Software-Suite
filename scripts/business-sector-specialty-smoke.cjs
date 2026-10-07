@@ -27,6 +27,7 @@ for (const sector of [
   expect(catalog.includes(`name: "${sector}"`), `secteur manquant: ${sector}`);
 }
 expect(!catalog.includes('key: "education"'), "Le secteur Education / Ecole ne doit plus etre propose dans VTA Commerce.");
+expect(catalog.includes('normalized === "hotel avec restaurant"'), "Les anciens tenants Hôtel avec restaurant doivent rester compatibles.");
 expect(service.includes('profile.slug !== "school"'), "Le profil scolaire doit rester interne et etre retire du catalogue public.");
 expect(service.includes('module.key !== "school"'), "Le module scolaire doit rester interne et etre retire du catalogue public.");
 
@@ -37,7 +38,7 @@ for (const specialty of [
   "Reparation telephones",
   "Vente & Reparation telephones",
   "Vente telephones",
-  "Hotel avec restaurant",
+  "Hôtel / Bar-Restaurant",
   "Quincaillerie",
   "Matériaux de construction",
   "Fabrication fenêtres/portes",

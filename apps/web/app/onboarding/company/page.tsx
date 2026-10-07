@@ -50,7 +50,7 @@ const fallbackSectors: BusinessSector[] = [
   { key: "hotel", name: "Hôtel / Hébergement", description: "Hôtels, guest houses, résidences et hébergement avec restaurant.", specialties: [
     { name: "Hôtel", profileType: "hotel", categories: ["Chambres", "Services", "Restaurant"] },
     { name: "Guest house", profileType: "hotel", categories: ["Chambres", "Services"] },
-    { name: "Hôtel avec restaurant", profileType: "hotel-restaurant", categories: ["Chambres", "Restaurant", "Boissons"] },
+    { name: "Hôtel / Bar-Restaurant", profileType: "hotel-restaurant", categories: ["Chambres", "Restaurant", "Bar", "Boissons", "Cocktails", "Services"] },
     { name: "Autre hébergement", profileType: "hotel", categories: ["Chambres", "Services"] }
   ] },
   { key: "multi-activities", name: "Services / Multi-activité", description: "Services et multi-activité.", specialties: [

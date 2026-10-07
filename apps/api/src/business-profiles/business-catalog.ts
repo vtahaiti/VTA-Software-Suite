@@ -72,7 +72,7 @@ export const businessSectors: BusinessSectorDefinition[] = [
     { name: "Hotel", profileType: "hotel", categories: ["Chambres", "Services", "Restaurant", "Blanchisserie"] },
     { name: "Guest house", profileType: "hotel", categories: ["Chambres", "Services", "Petit dejeuner"] },
     { name: "Appartement / residence", profileType: "hotel", categories: ["Logements", "Services", "Depot"] },
-    { name: "Hotel avec restaurant", profileType: "hotel-restaurant", categories: ["Chambres", "Restaurant", "Boissons", "Services"] },
+    { name: "Hôtel / Bar-Restaurant", profileType: "hotel-restaurant", categories: ["Chambres", "Restaurant", "Bar", "Boissons", "Cocktails", "Services"] },
     { name: "Autre hebergement", profileType: "hotel", categories: ["Chambres", "Services"] }
   ] },
   { key: "multi-activities", name: "Services / Multi-activité", description: "Services generaux, imprimerie, reparation, evenementiel et multi-activité.", specialties: [
@@ -162,6 +162,9 @@ export function normalizeBusinessLabel(label?: string) {
 export function findActivityTemplate(activityName?: string) {
   const normalized = normalizeBusinessLabel(activityName);
   if (!normalized) return undefined;
+  if (normalized === "hotel avec restaurant") {
+    return businessActivityTemplates.find((template) => template.profileType === "hotel-restaurant");
+  }
   return businessActivityTemplates.find((template) => normalizeBusinessLabel(template.label) === normalized);
 }
 
@@ -223,7 +226,7 @@ export const businessProfiles: BusinessProfileDefinition[] = [
   { slug: "fashion", name: "Mode & Beauté", description: "Commerce avec tailles, couleurs et collections.", category: "Mode & Beauté", icon: "shirt", modules: ["dashboard", "pos", "products", "inventory", "customers", "suppliers", "reports", "settings", "fashion"] },
   { slug: "restaurant", name: "Restaurant", description: "POS, menu, commandes ouvertes, stock ingrédients, historique et tickets.", category: "Restaurant & Alimentation", icon: "utensils", modules: ["dashboard", "pos", "products", "inventory", "customers", "reports", "settings", "restaurant"], excludedModules: ["sales"] },
   { slug: "hotel", name: "Hôtel", description: "Hébergement, clients, facturation et services.", category: "Hôtel & Hébergement", icon: "hotel", modules: ["dashboard", "pos", "customers", "reports", "settings", "hotel"] },
-  { slug: "hotel-restaurant", name: "Hotel avec restaurant", description: "Hebergement avec POS restaurant, produits/menu, stock simple et facturation.", category: "Hotel / Hebergement", icon: "hotel", modules: ["dashboard", "pos", "products", "inventory", "customers", "suppliers", "reports", "settings", "hotel", "restaurant"], excludedModules: ["sales"] },
+  { slug: "hotel-restaurant", name: "Hôtel / Bar-Restaurant", description: "Hébergement avec chambres, réservations, commandes restaurant/bar, POS et stock par zone.", category: "Hôtel / Hébergement", icon: "hotel", modules: ["dashboard", "pos", "products", "inventory", "customers", "suppliers", "reports", "settings", "hotel", "restaurant"], excludedModules: ["sales"] },
   { slug: "pharmacy", name: "Pharmacie", description: "Commerce avec lots et expirations.", category: "Santé", icon: "pill", modules: ["dashboard", "pos", "products", "inventory", "customers", "suppliers", "reports", "settings", "pharmacy"] },
   { slug: "clinic", name: "Clinique", description: "Patients, consultations simples, paiements et rapports.", category: "Santé", icon: "clinic", modules: ["dashboard", "pos", "customers", "reports", "settings", "clinic"] },
   { slug: "school", name: "Éducation", description: "Élèves, paiements et facturation.", category: "Éducation", icon: "school", modules: ["dashboard", "pos", "customers", "sales", "reports", "settings", "school"] },
