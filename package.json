@@ -75,6 +75,7 @@
     "test:exports-runtime": "node scripts/export-runtime-smoke.cjs",
     "test:deleted-tenant-reregistration": "node scripts/deleted-tenant-reregistration-smoke.cjs",
     "test:web-api-url": "node scripts/web-api-url-smoke.cjs",
+    "test:security-hardening": "node scripts/security-hardening-smoke.cjs",
     "repair:deleted-tenant-users": "node scripts/repair-deleted-tenant-users.cjs"
   },
   "devDependencies": {
@@ -83,5 +84,11 @@
   },
   "dependencies": {
     "xlsx": "^0.18.5"
+  },
+  "overrides": {
+    "nanoid": "3.3.18",
+    "proxy-addr": "2.0.8",
+    "qs": "6.16.0",
+    "source-map-js": "1.2.2"
   }
 }

@@ -19,7 +19,7 @@ function buildCorsOrigins() {
 
   return Array.from(
     new Set([
-      "http://localhost:3000",
+      ...(process.env.NODE_ENV === "production" ? [] : ["http://localhost:3000"]),
       "https://vtaerp.com",
       "https://www.vtaerp.com",
       "https://admin.vtaerp.com",
@@ -28,7 +28,17 @@ function buildCorsOrigins() {
   );
 }
 
+function assertProductionSecrets() {
+  if (process.env.NODE_ENV !== "production") return;
+  for (const [name, value] of [["JWT_SECRET", process.env.JWT_SECRET], ["JWT_REFRESH_SECRET", process.env.JWT_REFRESH_SECRET]] as const) {
+    if (!value || value.length < 32 || value === "change-me" || value === "change-me-refresh") {
+      throw new Error(`${name} doit contenir au moins 32 caractères en production.`);
+    }
+  }
+}
+
 async function bootstrap() {
+  assertProductionSecrets();
   const bootstrapStartedAt = Date.now();
   const app = await NestFactory.create(AppModule, { rawBody: true });
   if ((process.env.PERF_BOOT_LOG ?? (process.env.NODE_ENV === "production" ? "1" : "0")) === "1") {

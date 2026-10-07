@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import { AdminShell } from "../../admin-shell";
 import { platformFetch } from "@/lib/platform";
 
@@ -29,15 +29,16 @@ type TenantDetail = {
   createdAt: string;
 };
 
-export default function AdminTenantDetailPage({ params }: { params: { id: string } }) {
+export default function AdminTenantDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const [tenant, setTenant] = useState<TenantDetail | null>(null);
   const [note, setNote] = useState("");
   const [platformMessage, setPlatformMessage] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  async function load() { setTenant(await platformFetch<TenantDetail>(`/platform/tenants/${params.id}`)); }
-  useEffect(() => { load().catch((err) => setError(err.message)); }, [params.id]);
+  const load = useCallback(async () => { setTenant(await platformFetch<TenantDetail>(`/platform/tenants/${id}`)); }, [id]);
+  useEffect(() => { load().catch((err) => setError(err.message)); }, [load]);
 
   async function action(run: () => Promise<unknown>, success: string) {
     setError(""); setMessage("");
@@ -47,7 +48,7 @@ export default function AdminTenantDetailPage({ params }: { params: { id: string
   async function setStatus(status: string) {
     const reason = window.prompt("Motif obligatoire pour cette action plateforme :");
     if (!reason || reason.trim().length < 6) { setError("Motif obligatoire, au moins 6 caractères."); return; }
-    await action(() => platformFetch(`/platform/tenants/${params.id}/status`, { method: "PATCH", body: JSON.stringify({ status, reason }) }), "Statut entreprise mis à jour.");
+    await action(() => platformFetch(`/platform/tenants/${id}/status`, { method: "PATCH", body: JSON.stringify({ status, reason }) }), "Statut entreprise mis à jour.");
   }
 
   async function dangerDelete() {

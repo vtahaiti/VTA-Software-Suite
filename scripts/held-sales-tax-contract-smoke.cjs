@@ -29,7 +29,7 @@ assert(
   "POS must reset cart and local draft after a held sale is saved on the server."
 );
 
-const apiSchema = read("apps/api/prisma/schema.prisma");
+const apiSchema = read("database/prisma/schema.prisma");
 assert(apiSchema.includes("model HeldSale"), "API Prisma schema must define HeldSale.");
 assert(apiSchema.includes("taxEnabled Boolean @default(false)"), "TenantSettings must include taxEnabled default false.");
 assert(apiSchema.includes("defaultTaxRate Decimal @default(0)"), "defaultTaxRate must default to 0.");
@@ -42,7 +42,7 @@ assert(controller.includes('@Delete("held-sales/:id")'), "POS controller must ex
 const settingsDto = read("apps/api/src/settings/dto/settings.dto.ts");
 assert(settingsDto.includes("taxEnabled"), "Invoicing settings DTO must accept taxEnabled.");
 
-const migration = path.join(root, "apps/api/prisma/migrations/20260712061000_held_sales_tax_enabled/migration.sql");
+const migration = path.join(root, "database/prisma/migrations/20260712061000_held_sales_tax_enabled/migration.sql");
 assert(fs.existsSync(migration), "HeldSale/taxEnabled migration must exist for API schema.");
 
 console.log("held-sales-tax-contract-smoke: ok");

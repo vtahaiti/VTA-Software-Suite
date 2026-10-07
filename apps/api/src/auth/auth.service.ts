@@ -571,11 +571,11 @@ export class AuthService {
   }
 
   private get accessTokenSecret() {
-    return process.env.JWT_SECRET ?? "change-me";
+    return process.env.JWT_SECRET ?? this.developmentSecret("access");
   }
 
   private get refreshTokenSecret() {
-    return process.env.JWT_REFRESH_SECRET ?? process.env.JWT_SECRET ?? "change-me-refresh";
+    return process.env.JWT_REFRESH_SECRET ?? process.env.JWT_SECRET ?? this.developmentSecret("refresh");
   }
 
   private get tokenIssuer() {
@@ -584,5 +584,10 @@ export class AuthService {
 
   private hashPasswordResetToken(token: string) {
     return createHash("sha256").update(token).digest("hex");
+  }
+
+  private developmentSecret(kind: "access" | "refresh") {
+    if (process.env.NODE_ENV === "production") throw new Error(`Secret JWT ${kind} manquant.`);
+    return `vta-development-only-${kind}-secret-do-not-use-in-production`;
   }
 }

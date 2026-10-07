@@ -33,7 +33,7 @@ assert(posPage.includes("Nouvelle vente vide"), "POS must expose a clean new-sal
 assert(posPage.includes("\"Disponible\""), "POS must keep non-stock products sellable without technical labels.");
 assert(posPage.includes("product.stockTracked !== false"), "POS must avoid decrementing stock locally for non-stock products.");
 assert(posApi.includes("stockTracked") && posApi.includes("private isStockTracked"), "POS API must expose stock tracking state.");
-assert(salesApi.includes("isStockTrackedProduct") && salesApi.includes("hasTrackedStockElsewhere"), "Sales API must not require stock records for non-stock products.");
+assert(salesApi.includes("isStockTrackedProduct") && salesApi.includes("Number(product.stocks?.length ?? 0) > 0"), "Sales API must derive stock tracking from existing stock rows.");
 assert(salesStatusPage.includes("setDrafts(uniqueDrafts((data.items ?? []).map(normalizeDraft)))"), "Held sales page must avoid server/local duplicates.");
 assert(salesStatusPage.includes("removeMatchingLocalDraft(draft)"), "Held sales cancel must clear matching local draft.");
 
@@ -42,7 +42,7 @@ assert(productForm.includes("Image produit"), "Product form must keep the produc
 assert(productForm.includes("<summary className=\"cursor-pointer text-lg font-semibold text-slate-950 dark:text-white\">Options avancées</summary>"), "Advanced product fields must stay collapsed by default.");
 assert(!/Section title="Tarification"[\s\S]*placeholder="Prix achat"[\s\S]*placeholder="Prix vente"/.test(productForm), "Advanced pricing must not duplicate essential sale and purchase prices.");
 assert(productsPage.includes("px-3 py-3 text-center text-sm font-bold"), "Mobile product edit button must remain large enough to tap.");
-assert(productsPage.includes("<th className=\"p-3\">Quantité</th>"), "Products page must expose a simple quantity column.");
+assert(productsPage.includes("<th className=\"p-3\">Stock</th>") && productsPage.includes("<QuantityDisplay product={product}"), "Products page must expose a simple stock quantity column.");
 assert(!productsPage.includes("openQuickCost"), "Products page must not show quick cost actions on every row.");
 assert(!productsPage.includes("Code disponible dans la fiche"), "Products page must not show technical code helper text in rows.");
 assert(!productsPage.includes("ProductTypeHint"), "Products page must not duplicate service/non-stock labels in product rows.");

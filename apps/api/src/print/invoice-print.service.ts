@@ -3,6 +3,8 @@ import { PrismaService } from "../prisma/prisma.service";
 import { PdfService } from "./pdf.service";
 import { summarizePayments } from "../common/payment-business-rules";
 import { formatBusinessDateTime, normalizeBusinessTimeZone } from "../common/business-timezone";
+import { existsSync, readFileSync } from "node:fs";
+import { extname, normalize, resolve, sep } from "node:path";
 
 type PaperFormat = "a4" | "letter";
 type ReceiptWidth = "58" | "72" | "80";
@@ -143,7 +145,14 @@ export class InvoicePrintService {
   private companyAddress(tenant: BrandedTenant) { return tenant.companyProfile?.address ?? tenant.address ?? ""; }
   private companyTax(tenant: BrandedTenant) { return tenant.companyProfile?.taxNumber ?? ""; }
   private logoUrl(tenant: BrandedTenant) { return this.absoluteAssetUrl(tenant.companyProfile?.logoUrl ?? tenant.logo?.url ?? ""); }
-  private logoContent(tenant: BrandedTenant) { const logo = this.logoUrl(tenant); return logo ? `<img src="${this.escape(logo)}" alt="Logo" crossorigin="anonymous" onerror="this.remove()"/>` : this.escape(this.initials(this.companyName(tenant))); }
+  private logoContent(tenant: BrandedTenant) {
+    const initials = this.escape(this.initials(this.companyName(tenant)));
+    const configured = tenant.companyProfile?.logoUrl ?? tenant.logo?.url ?? "";
+    const localDataUri = this.localLogoDataUri(configured);
+    const logo = localDataUri || this.logoUrl(tenant);
+    if (!logo) return initials;
+    return `<img src="${this.escape(logo)}" alt="Logo" crossorigin="anonymous" onerror="this.replaceWith(document.createTextNode('${initials}'))"/>`;
+  }
   private itemName(item: { product?: { name?: string | null } | null; customName?: string | null }) { return item.product?.name ?? item.customName ?? "Article personnalisé"; }
   private customItemLabel(value?: string | null) { return value ? `Article personnalisé - ${value}` : "Article personnalisé"; }
   private paymentMethods(payments: Array<{ method?: string | null }>) { return [...new Set(payments.map((payment) => payment.method).filter(Boolean))].join(", "); }
@@ -162,6 +171,19 @@ export class InvoicePrintService {
     if (value.startsWith("http://") || value.startsWith("https://") || value.startsWith("data:")) return value;
     const baseUrl = process.env.API_PUBLIC_URL ?? process.env.PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "https://api.vtaerp.com";
     return `${baseUrl.replace(/\/$/, "")}${value.startsWith("/") ? value : `/${value}`}`;
+  }
+  private localLogoDataUri(value: string) {
+    if (!value.startsWith("/uploads/")) return "";
+    const relativePath = normalize(value.slice("/uploads/".length)).replace(/^(\.\.[\\/])+/, "");
+    const uploadsRoot = resolve(process.cwd(), "uploads");
+    const filePath = resolve(uploadsRoot, relativePath);
+    if (!filePath.startsWith(`${uploadsRoot}${sep}`) || !existsSync(filePath)) return "";
+    const mime = extname(filePath).toLowerCase() === ".png" ? "image/png" : extname(filePath).toLowerCase() === ".webp" ? "image/webp" : "image/jpeg";
+    try {
+      return `data:${mime};base64,${readFileSync(filePath).toString("base64")}`;
+    } catch {
+      return "";
+    }
   }
 }
 

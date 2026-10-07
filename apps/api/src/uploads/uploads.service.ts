@@ -18,6 +18,19 @@ const ALLOWED_IMAGE_MIME_TYPES = new Map([
   ["image/webp", ".webp"]
 ]);
 
+function detectedImageType(buffer: Buffer) {
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return { mime: "image/jpeg", extension: ".jpg" };
+  }
+  if (buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+    return { mime: "image/png", extension: ".png" };
+  }
+  if (buffer.length >= 12 && buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP") {
+    return { mime: "image/webp", extension: ".webp" };
+  }
+  return null;
+}
+
 @Injectable()
 export class UploadsService {
   private readonly logger = new Logger(UploadsService.name);
@@ -42,20 +55,28 @@ export class UploadsService {
   async saveImageFile(folder: "tenants" | "users", file?: UploadedImage) {
     if (!file?.buffer?.length) throw new BadRequestException("Aucun fichier reçu.");
     if ((file.size ?? file.buffer.length) > MAX_IMAGE_SIZE_BYTES) throw new BadRequestException("Le fichier est trop grand. Taille maximale : 2 Mo.");
-    const extension = ALLOWED_IMAGE_MIME_TYPES.get(file.mimetype ?? "");
-    if (!extension) throw new BadRequestException("Format non accepté. Utilisez PNG, JPG, JPEG ou WebP.");
-    const fileName = `${randomUUID()}${extension}`;
-    return this.store(folder, fileName, file.buffer, file.mimetype!);
+    const declaredExtension = ALLOWED_IMAGE_MIME_TYPES.get(file.mimetype ?? "");
+    const detected = detectedImageType(file.buffer);
+    if (!declaredExtension || !detected || detected.extension !== declaredExtension) {
+      throw new BadRequestException("Le contenu du fichier ne correspond pas à une image PNG, JPG, JPEG ou WebP valide.");
+    }
+    const fileName = `${randomUUID()}${detected.extension}`;
+    return this.store(folder, fileName, file.buffer, detected.mime);
   }
 
-  async saveDataUrl(folder: "tenants" | "users", dataUrl?: string, fallbackExtension = ".png") {
+  async saveDataUrl(folder: "tenants" | "users", dataUrl?: string) {
     if (!dataUrl?.startsWith("data:")) return null;
     const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
     if (!match) return null;
     const mime = match[1];
-    const extension = this.extensionFromMime(mime) ?? fallbackExtension;
+    const buffer = Buffer.from(match[2], "base64");
+    if (buffer.length > MAX_IMAGE_SIZE_BYTES) throw new BadRequestException("Le fichier est trop grand. Taille maximale : 2 Mo.");
+    const detected = detectedImageType(buffer);
+    const extension = this.extensionFromMime(mime);
+    if (!extension) throw new BadRequestException("Format d'image non accepté.");
+    if (!detected || detected.extension !== extension) throw new BadRequestException("Image invalide.");
     const fileName = `${randomUUID()}${extension}`;
-    return this.store(folder, fileName, Buffer.from(match[2], "base64"), mime);
+    return this.store(folder, fileName, buffer, detected.mime);
   }
 
   normalizeUploadedName(folder: "tenants" | "users", fileName?: string) {

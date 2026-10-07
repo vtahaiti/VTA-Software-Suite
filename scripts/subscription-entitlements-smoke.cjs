@@ -4,7 +4,7 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const files = {
   schema: "database/prisma/schema.prisma",
-  apiSchema: "apps/api/prisma/schema.prisma",
+  apiSchema: "database/prisma/schema.prisma",
   features: "apps/api/src/subscriptions/subscription-features.ts",
   entitlements: "apps/api/src/subscriptions/subscription-entitlements.service.ts",
   guard: "apps/api/src/subscriptions/subscription-feature.guard.ts",

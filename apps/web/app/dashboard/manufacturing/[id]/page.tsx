@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, use, useCallback, useEffect, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 import { getCompanyBranding, type CompanyBranding } from "@/lib/company-branding";
@@ -15,7 +15,8 @@ type Order = { id: string; manufacturingNumber: string; title: string; status: s
 
 const statusLabels: Record<string, string> = { DRAFT: "Brouillon", TO_PREPARE: "À préparer", IN_PRODUCTION: "En fabrication", READY: "Prête", COMPLETED: "Terminée", CANCELLED: "Annulée" };
 
-export default function ManufacturingDetailPage({ params }: { params: { id: string } }) {
+export default function ManufacturingDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const [order, setOrder] = useState<Order | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [assignees, setAssignees] = useState<Assignee[]>([]);
@@ -30,7 +31,7 @@ export default function ManufacturingDetailPage({ params }: { params: { id: stri
     setError("");
     try {
       const [orderResponse, productResponse, assigneeResponse] = await Promise.all([
-        fetchWithAuth(`${apiUrl}/manufacturing/${params.id}`),
+        fetchWithAuth(`${apiUrl}/manufacturing/${id}`),
         fetchWithAuth(`${apiUrl}/products?limit=100`),
         fetchWithAuth(`${apiUrl}/manufacturing/assignees`)
       ]);
@@ -41,7 +42,7 @@ export default function ManufacturingDetailPage({ params }: { params: { id: stri
       if (productResponse.ok) setProducts((await productResponse.json()).items ?? []);
       if (assigneeResponse.ok) setAssignees(await assigneeResponse.json());
     } catch (loadError) { setError(loadError instanceof Error ? loadError.message : "Impossible de charger la fabrication."); }
-  }, [params.id]);
+  }, [id]);
 
   useEffect(() => { void load(); const token = getAccessToken(); if (token) void getCompanyBranding(token).then(setBranding).catch(() => null); }, [load]);
 
@@ -49,7 +50,7 @@ export default function ManufacturingDetailPage({ params }: { params: { id: stri
     if (confirmation && !window.confirm(confirmation)) return;
     setBusy(true); setError(""); setMessage("");
     try {
-      const response = await fetchWithAuth(`${apiUrl}/manufacturing/${params.id}/${path}`, { method: "POST" });
+      const response = await fetchWithAuth(`${apiUrl}/manufacturing/${id}/${path}`, { method: "POST" });
       if (!response.ok) throw new Error(await responseMessage(response, "Action impossible."));
       setOrder(await response.json());
       setMessage(path === "reserve" ? "Matières réservées." : path === "start" ? "Fabrication lancée. Les matières ont été consommées une seule fois." : path === "ready" ? "Fabrication marquée prête." : "Fabrication annulée.");
@@ -59,7 +60,7 @@ export default function ManufacturingDetailPage({ params }: { params: { id: stri
 
   async function save(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError("");
-    const response = await fetchWithAuth(`${apiUrl}/manufacturing/${params.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...edit, assignedToId: edit.assignedToId || undefined, expectedDate: edit.expectedDate || undefined }) });
+    const response = await fetchWithAuth(`${apiUrl}/manufacturing/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...edit, assignedToId: edit.assignedToId || undefined, expectedDate: edit.expectedDate || undefined }) });
     if (response.ok) { setOrder(await response.json()); setMessage("Fiche atelier enregistrée."); } else setError(await responseMessage(response, "Enregistrement impossible."));
     setBusy(false);
   }
@@ -67,14 +68,14 @@ export default function ManufacturingDetailPage({ params }: { params: { id: stri
   async function addMaterial(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError("");
     const selected = products.find((product) => product.id === material.productId);
-    const response = await fetchWithAuth(`${apiUrl}/manufacturing/${params.id}/materials`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productId: material.productId, requiredQuantity: Number(material.requiredQuantity), unit: material.unit || selected?.unit?.symbol || selected?.unit?.name || undefined, notes: material.notes || undefined }) });
+    const response = await fetchWithAuth(`${apiUrl}/manufacturing/${id}/materials`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productId: material.productId, requiredQuantity: Number(material.requiredQuantity), unit: material.unit || selected?.unit?.symbol || selected?.unit?.name || undefined, notes: material.notes || undefined }) });
     if (response.ok) { setOrder(await response.json()); setMaterial({ productId: "", requiredQuantity: "", unit: "", notes: "" }); setMessage("Matière ajoutée."); } else setError(await responseMessage(response, "Impossible d'ajouter la matière."));
     setBusy(false);
   }
 
   async function removeMaterial(materialId: string) {
     if (!window.confirm("Retirer cette matière de la fabrication ?")) return;
-    const response = await fetchWithAuth(`${apiUrl}/manufacturing/${params.id}/materials/${materialId}`, { method: "DELETE" });
+    const response = await fetchWithAuth(`${apiUrl}/manufacturing/${id}/materials/${materialId}`, { method: "DELETE" });
     if (response.ok) setOrder(await response.json()); else setError(await responseMessage(response, "Suppression impossible."));
   }
 

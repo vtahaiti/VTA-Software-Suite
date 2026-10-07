@@ -49,7 +49,7 @@ const corruptEncodingMarkers = [
 for (const corrupt of corruptEncodingMarkers) {
   assertNotIncludes(subscriptionPage, corrupt, `Texte corrompu restant dans la page abonnement: ${corrupt}`);
 }
-assertIncludes(subscriptionPage, "const subscription = data?.subscription ?? null", "La page abonnement doit gerer une subscription absente.");
+assertIncludes(subscriptionPage, "data?.subscription ?? rootEntitlements", "La page abonnement doit gerer une subscription absente et les entitlements racine.");
 assertIncludes(subscriptionPage, "payments = subscription?.payments ?? []", "La page abonnement doit gerer les paiements absents.");
 
 assertIncludes(purchasesPage, "purchasesToday", "La page achats doit lire purchasesToday renvoye par l'API.");
