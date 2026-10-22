@@ -61,7 +61,7 @@ public class VtaNativePrintPlugin extends Plugin {
             return;
         }
 
-        String title = safeDocumentName(call.getString("title", "VTA Commerce"));
+        String title = safeDocumentName(call.getString("title", "VTA POS"));
         String format = call.getString("format", "80");
         String orientation = call.getString("orientation", "portrait");
 
@@ -98,7 +98,7 @@ public class VtaNativePrintPlugin extends Plugin {
             return;
         }
 
-        String title = safeDocumentName(call.getString("title", "VTA Commerce"));
+        String title = safeDocumentName(call.getString("title", "VTA POS"));
         String fileName = safeFileName(call.getString("fileName", "vta-commerce.pdf"));
         String format = call.getString("format", "80");
         String orientation = call.getString("orientation", "portrait");
@@ -243,7 +243,7 @@ public class VtaNativePrintPlugin extends Plugin {
             .setMediaSize(mediaSize)
             .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
             .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
-            .setResolution(new PrintAttributes.Resolution("vta_pdf", "VTA Commerce", 300, 300))
+            .setResolution(new PrintAttributes.Resolution("vta_pdf", "VTA POS", 300, 300))
             .build();
     }
 
@@ -309,8 +309,8 @@ public class VtaNativePrintPlugin extends Plugin {
     }
 
     private String safeDocumentName(String value) {
-        String cleaned = value == null ? "VTA Commerce" : value.replaceAll("[\\r\\n\\t]+", " ").trim();
-        return cleaned.isEmpty() ? "VTA Commerce" : cleaned;
+        String cleaned = value == null ? "VTA POS" : value.replaceAll("[\\r\\n\\t]+", " ").trim();
+        return cleaned.isEmpty() ? "VTA POS" : cleaned;
     }
 
     private String safeFileName(String value) {
@@ -343,10 +343,10 @@ public class VtaNativePrintPlugin extends Plugin {
             + "};"
             + "function ticketWidth(){try{return new URLSearchParams(window.location.search).get('width')==='58'?'58':'80';}catch(e){return'80';}}"
             + "function ticketHtml(){var f=document.querySelector('iframe[title=\"Ticket POS\"]');if(!f)return'';try{return f.srcdoc||(f.contentDocument&&f.contentDocument.documentElement&&f.contentDocument.documentElement.outerHTML)||'';}catch(e){return f.srcdoc||'';}}"
-            + "function nativePrint(){var html=ticketHtml();if(!html||!window.Capacitor||!window.Capacitor.Plugins)return false;var w=ticketWidth();var dots=w==='58'?384:576;var np=window.Capacitor.Plugins.VtaNativePrint;var bt=window.Capacitor.Plugins.VtaBluetoothPrinter;function fallbackDialog(){if(np){np.printHtml({html:html,title:'Ticket VTA Commerce '+w+' mm',format:w});}}"
+            + "function nativePrint(){var html=ticketHtml();if(!html||!window.Capacitor||!window.Capacitor.Plugins)return false;var w=ticketWidth();var dots=w==='58'?384:576;var np=window.Capacitor.Plugins.VtaNativePrint;var bt=window.Capacitor.Plugins.VtaBluetoothPrinter;function fallbackDialog(){if(np){np.printHtml({html:html,title:'Ticket VTA POS '+w+' mm',format:w});}}"
             + "if(bt){bt.getDefaultPrinter().then(function(printer){if(printer&&printer.configured){bt.printTicket({html:html,widthDots:dots});}else{fallbackDialog();}}).catch(fallbackDialog);return true;}"
             + "if(!np)return false;fallbackDialog();return true;}"
-            + "function nativeShare(){var html=ticketHtml();if(!html||!window.Capacitor||!window.Capacitor.Plugins||!window.Capacitor.Plugins.VtaNativePrint)return false;var w=ticketWidth();window.Capacitor.Plugins.VtaNativePrint.sharePdf({html:html,title:'Ticket VTA Commerce '+w+' mm',fileName:'ticket-vta-'+w+'mm.pdf',format:w});return true;}"
+            + "function nativeShare(){var html=ticketHtml();if(!html||!window.Capacitor||!window.Capacitor.Plugins||!window.Capacitor.Plugins.VtaNativePrint)return false;var w=ticketWidth();window.Capacitor.Plugins.VtaNativePrint.sharePdf({html:html,title:'Ticket VTA POS '+w+' mm',fileName:'ticket-vta-'+w+'mm.pdf',format:w});return true;}"
             + "function patchTicketPage(){if(window.location.pathname.indexOf('/dashboard/pos/print')===-1)return;"
             + "var frame=document.querySelector('iframe[title=\"Ticket POS\"]');if(frame&&frame.contentWindow&&!frame.contentWindow.__vtaNativePrintPatched){try{frame.contentWindow.__vtaNativePrintPatched=true;frame.contentWindow.print=function(){nativePrint();};}catch(e){}}"
             + "var buttons=document.querySelectorAll('button');for(var i=0;i<buttons.length;i++){var b=buttons[i];var text=(b.textContent||'').trim();if(/Imprimer/i.test(text)&&!b.dataset.vtaNativePrint){b.dataset.vtaNativePrint='1';b.addEventListener('click',function(ev){if(nativePrint()){ev.preventDefault();ev.stopImmediatePropagation();}},true);}}"

@@ -23,6 +23,47 @@ html[data-capacitor="true"] body {
   min-height: 100dvh;
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
+  background: #f5f8ff;
+}
+
+.vta-native-only {
+  display: none !important;
+}
+
+html[data-capacitor="true"] .vta-native-flex {
+  display: flex !important;
+}
+
+html[data-capacitor="true"] .vta-native-grid {
+  display: grid !important;
+}
+
+html[data-capacitor="true"] .vta-native-block {
+  display: block !important;
+}
+
+html[data-capacitor="true"] .vta-native-hidden {
+  display: none !important;
+}
+
+html[data-capacitor="true"] .vta-mobile-main {
+  padding: 0 0 calc(78px + env(safe-area-inset-bottom));
+}
+
+html[data-capacitor="true"] .vta-native-cart-bar {
+  bottom: calc(70px + env(safe-area-inset-bottom));
+}
+
+html[data-capacitor="true"] .vta-pos-screen {
+  background: #f5f8ff;
+}
+
+html[data-capacitor="true"] .vta-pos-product-card {
+  min-height: 184px;
+}
+
+html[data-capacitor="true"] .vta-pos-product-card > div:first-child {
+  aspect-ratio: 4 / 2.75;
 }
 
 @media print {

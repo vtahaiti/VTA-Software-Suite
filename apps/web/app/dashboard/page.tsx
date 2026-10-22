@@ -9,6 +9,9 @@ import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
 import { businessDateKey, formatBusinessDateTime } from "@/lib/business-timezone";
 import { getTenantBusinessConfiguration, type TenantBusinessConfiguration } from "@/lib/business-profiles";
 import { RestaurantDashboard } from "./restaurant-dashboard";
+import { VtaPosBrand } from "@/components/vta-pos-brand";
+import { useNativeRuntime } from "@/lib/native-runtime";
+import { Bell, ChevronRight, CircleAlert, TrendingUp, WalletCards } from "lucide-react";
 
 
 type Kpis = {
@@ -137,6 +140,7 @@ function isCashierDashboardUser(user: ReturnType<typeof getCurrentUser>) {
 }
 
 export default function DashboardPage() {
+  const isNative = useNativeRuntime();
   const [branding, setBranding] = useState<CompanyBranding | null>(null);
   const [summary, setSummary] = useState<DashboardSummary>(emptyDashboard);
   const [isLoading, setIsLoading] = useState(true);
@@ -209,6 +213,7 @@ export default function DashboardPage() {
   ], [summary]);
 
   if (accessBlocked) return <DashboardAccessBlocked />;
+  if (isNative) return <MobilePosDashboard branding={branding} summary={summary} isLoading={isLoading} error={error} />;
   if (business?.businessProfileType === "restaurant") return <RestaurantDashboard />;
 
   return (
@@ -280,6 +285,82 @@ export default function DashboardPage() {
       )}
     </div>
   );
+}
+
+function MobilePosDashboard({ branding, summary, isLoading, error }: { branding: CompanyBranding | null; summary: DashboardSummary; isLoading: boolean; error: string }) {
+  const user = getCurrentUser();
+  const firstName = user?.name?.trim().split(/\s+/)[0] || "à vous";
+  const companyName = branding?.companyName ?? user?.tenant ?? "Mon magasin";
+  const weekly = summary.charts.trend30Days.slice(-7);
+  const maxRevenue = Math.max(...weekly.map((point) => point.revenue), 1);
+  const lastActivity = summary.recentActivity[0];
+
+  return (
+    <div className="min-h-[calc(100dvh-78px)] bg-[#f5f8ff] px-3 pb-5 pt-3 text-[#182858]">
+      <header className="flex items-center justify-between gap-3">
+        <VtaPosBrand compact />
+        <div className="flex items-center gap-2">
+          <button type="button" className="max-w-[145px] truncate rounded-xl bg-white px-3 py-2 text-xs font-bold shadow-sm ring-1 ring-slate-200" aria-label={`Entreprise active : ${companyName}`}>{companyName}</button>
+          <Link href="/dashboard/notifications" className="relative grid h-10 w-10 place-items-center rounded-xl bg-white text-[#182858] shadow-sm ring-1 ring-slate-200" aria-label="Notifications"><Bell className="h-5 w-5" />{summary.alerts.length ? <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-orange-500 ring-2 ring-white" /> : null}</Link>
+        </div>
+      </header>
+
+      <section className="mt-5">
+        <h1 className="text-[22px] font-black tracking-tight">Bonjour, {firstName} <span aria-hidden="true">👋</span></h1>
+        <p className="text-sm font-medium text-slate-500">Voici votre activité du jour.</p>
+      </section>
+
+      {error ? <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}<button onClick={() => window.location.reload()} className="ml-2 underline">Réessayer</button></div> : null}
+
+      <section className="mt-3 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#1882ff] to-[#1456e8] p-4 text-white shadow-lg shadow-blue-600/20">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-sm font-bold text-blue-50">Ventes du jour</p>
+            <p className="mt-1 text-[30px] font-black tracking-tight">{isLoading ? "—" : formatMoney(summary.kpis.revenueToday)}</p>
+            <p className="text-sm font-semibold text-blue-100">{summary.kpis.salesToday} vente{summary.kpis.salesToday > 1 ? "s" : ""}</p>
+          </div>
+          {summary.performance.monthlyGrowth !== null ? <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-black text-emerald-700">{summary.performance.monthlyGrowth >= 0 ? "+" : ""}{summary.performance.monthlyGrowth.toFixed(0)}%</span> : null}
+        </div>
+        <div className="mt-3 flex h-9 items-end justify-end gap-1 opacity-35" aria-hidden="true">{weekly.map((point) => <span key={point.date} className="w-4 rounded-t bg-white" style={{ height: `${Math.max(18, (point.revenue / maxRevenue) * 100)}%` }} />)}</div>
+      </section>
+
+      <section className="mt-3 grid grid-cols-2 gap-3">
+        <article className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-100 text-emerald-700"><TrendingUp className="h-5 w-5" /></span><p className="text-sm font-bold">Bénéfice du mois</p></div>
+          <p className="mt-2 text-xl font-black">{summary.kpis.profitReliable === false ? "N/A" : formatNullableMoney(summary.kpis.profitMonth)}</p>
+          <p className="mt-1 text-[11px] font-medium text-slate-500">{summary.kpis.profitReliable === false ? "Coûts incomplets" : "Calculé avec les coûts connus"}</p>
+        </article>
+        <article className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-xl bg-orange-100 text-orange-600"><WalletCards className="h-5 w-5" /></span><p className="text-sm font-bold">À encaisser</p></div>
+          <p className="mt-2 text-xl font-black">{summary.kpis.invoicesUnpaid}</p>
+          <p className="mt-1 text-[11px] font-medium text-slate-500">document{summary.kpis.invoicesUnpaid > 1 ? "s" : ""} non soldé{summary.kpis.invoicesUnpaid > 1 ? "s" : ""}</p>
+        </article>
+      </section>
+
+      <Link href="/dashboard/pos" className="mt-3 flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[#FF7A0A] px-5 text-base font-black text-white shadow-lg shadow-orange-500/20"><span className="text-2xl leading-none">+</span> Nouvelle vente</Link>
+
+      <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="flex items-center justify-between"><h2 className="text-sm font-black">Ventes des 7 derniers jours</h2><Link href="/dashboard/reports" className="text-xs font-bold text-blue-600">Voir tout</Link></div>
+        <div className="mt-3 flex h-28 items-end justify-between gap-2">
+          {weekly.length ? weekly.map((point) => <div key={point.date} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1"><span className="text-[9px] font-bold text-slate-500">{compactAmount(point.revenue)}</span><span className="w-full max-w-9 rounded-t-md bg-gradient-to-t from-blue-600 to-blue-300" style={{ height: `${Math.max(10, (point.revenue / maxRevenue) * 72)}px` }} /><span className="text-[9px] font-semibold text-slate-400">{new Date(point.date).toLocaleDateString("fr-HT", { weekday: "short" }).slice(0, 3)}</span></div>) : <p className="m-auto text-sm text-slate-400">Aucune vente pour cette période.</p>}
+        </div>
+      </section>
+
+      <Link href="/dashboard/inventory?lowStock=true" className="mt-3 flex items-center justify-between rounded-2xl border border-orange-200 bg-orange-50 p-3">
+        <span className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-full bg-orange-500 text-white"><CircleAlert className="h-5 w-5" /></span><span><strong className="block text-sm">À surveiller</strong><span className="text-xs font-medium text-slate-600">{summary.kpis.lowStock + summary.kpis.outOfStock} produit(s) en alerte stock</span></span></span><ChevronRight className="h-5 w-5" />
+      </Link>
+
+      <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="flex items-center justify-between"><h2 className="text-sm font-black">Dernière activité</h2><Link href="/dashboard/sales/completed" className="text-xs font-bold text-blue-600">Voir tout</Link></div>
+        {lastActivity ? <div className="mt-3 flex items-center justify-between gap-3"><span className="min-w-0"><strong className="block truncate text-sm">{lastActivity.label}</strong><span className="text-[11px] text-slate-500">{formatBusinessDateTime(lastActivity.createdAt)}</span></span><span className="shrink-0 text-sm font-black">{formatMoney(lastActivity.amount)}</span></div> : <p className="mt-3 text-sm text-slate-400">Aucune activité récente.</p>}
+      </section>
+    </div>
+  );
+}
+
+function compactAmount(value: number) {
+  if (value >= 1000) return `${Math.round(value / 100) / 10}k`;
+  return String(Math.round(value));
 }
 
 function KpiCard({ label, value, tone, isLoading }: { label: string; value: string; tone: string; isLoading: boolean }) {

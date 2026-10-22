@@ -11,6 +11,7 @@ import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
 import { getTenantBusinessConfiguration, TenantBusinessConfiguration } from "@/lib/business-profiles";
 import { tenantPageTitle } from "@/lib/tenant-page-title";
 import { isTenantAccessBlockedResponse } from "@/lib/tenant-access";
+import { NativeMobileNav } from "@/components/native-mobile-nav";
 
 type ProtectedShellProps = {
   children: ReactNode | ((user: AuthUser) => ReactNode);
@@ -156,15 +157,18 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
         </div>
       ) : null}
       <div className="min-w-0">
-        <Header
-          user={user}
-          branding={branding}
-          businessActivity={business?.primaryActivity ?? business?.profiles.find((profile) => profile.isPrimary)?.name}
-          onMenuClick={() => setIsMobileMenuOpen((value) => !value)}
-        />
-        <main className="px-3 py-4 sm:px-4 sm:py-5 lg:px-10 lg:py-8">
+        <div className="vta-native-hidden">
+          <Header
+            user={user}
+            branding={branding}
+            businessActivity={business?.primaryActivity ?? business?.profiles.find((profile) => profile.isPrimary)?.name}
+            onMenuClick={() => setIsMobileMenuOpen((value) => !value)}
+          />
+        </div>
+        <main className="vta-mobile-main px-3 py-4 sm:px-4 sm:py-5 lg:px-10 lg:py-8">
           {typeof children === "function" ? children(user) : children}
         </main>
+        <NativeMobileNav user={user} />
       </div>
     </div>
   );

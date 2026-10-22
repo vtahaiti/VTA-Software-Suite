@@ -1,11 +1,12 @@
 import { VtaBusinessMark } from "@/components/vta-business-mark";
 import { LoginForm } from "./login-form";
+import { VtaPosBrand } from "@/components/vta-pos-brand";
 
 export default function LoginPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-700 via-blue-900 to-slate-950 px-6 py-10 text-white">
       <section className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-5xl flex-col items-center justify-center">
-        <div className="text-center">
+        <div className="vta-native-hidden text-center">
           <VtaBusinessMark inverted centered />
           <h1 className="mt-8 text-4xl font-bold tracking-tight sm:text-5xl">Gérez votre entreprise avec clarté</h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg leading-8 text-blue-50">
@@ -13,7 +14,13 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="mt-10 w-full max-w-md rounded-[2rem] border border-white/15 bg-white p-8 text-slate-950 shadow-2xl shadow-slate-950/30 dark:bg-slate-900 dark:text-white">
+        <div className="vta-native-only vta-native-flex flex-col items-center text-center">
+          <span className="rounded-2xl bg-white px-5 py-3 shadow-xl"><VtaPosBrand /></span>
+          <p className="mt-3 text-sm font-semibold text-blue-100">Votre commerce, dans votre poche.</p>
+          <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-200">Une solution de VTA Enterprise</p>
+        </div>
+
+        <div className="mt-10 w-full max-w-md rounded-[2rem] border border-white/15 bg-white p-6 text-slate-950 shadow-2xl shadow-slate-950/30 dark:bg-slate-900 dark:text-white sm:p-8">
           <div>
             <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Connexion sécurisée</p>
             <h2 className="mt-2 text-3xl font-bold text-slate-950 dark:text-white">Accéder à mon espace</h2>

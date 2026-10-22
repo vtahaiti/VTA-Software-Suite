@@ -2,7 +2,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
   appId: "com.vtaerp.commerce",
-  appName: "VTA Commerce",
+  appName: "VTA POS",
   webDir: "public",
   server: {
     url: "https://vtaerp.com",
@@ -12,12 +12,12 @@ const config: CapacitorConfig = {
   plugins: {
     SplashScreen: {
       launchShowDuration: 1200,
-      backgroundColor: "#16a34a",
+      backgroundColor: "#2563EB",
       showSpinner: false
     },
     StatusBar: {
       style: "LIGHT",
-      backgroundColor: "#16a34a"
+      backgroundColor: "#2563EB"
     }
   }
 };

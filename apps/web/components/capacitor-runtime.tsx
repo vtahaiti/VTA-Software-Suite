@@ -43,7 +43,7 @@ export function CapacitorRuntime() {
           return;
         }
 
-        if (window.confirm("Quitter VTA Commerce ?")) {
+        if (window.confirm("Quitter VTA POS ?")) {
           void App.exitApp();
         }
       });

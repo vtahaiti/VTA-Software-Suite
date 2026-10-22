@@ -36,7 +36,7 @@ public class MainActivity extends BridgeActivity {
 
     private void confirmExit() {
         new AlertDialog.Builder(this)
-            .setTitle("Quitter VTA Commerce ?")
+            .setTitle("Quitter VTA POS ?")
             .setMessage("Voulez-vous fermer l'application ?")
             .setNegativeButton("Annuler", null)
             .setPositiveButton("Quitter", (dialog, which) -> moveTaskToBack(true))

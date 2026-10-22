@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { getAccessToken } from "@/lib/auth";
 import { getTenantBusinessConfiguration, isRestaurantBusiness, type TenantBusinessConfiguration } from "@/lib/business-profiles";
+import { ChevronRight, CircleAlert, Package, ScanLine, Search } from "lucide-react";
 
 type StockLine = {
   id: string;
@@ -46,6 +47,7 @@ export default function InventoryPage() {
   const [stocks, setStocks] = useState<StockLine[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [query, setQuery] = useState("");
+  const [lowStockOnly, setLowStockOnly] = useState(searchParams.get("lowStock") === "true");
   const [showNonStock, setShowNonStock] = useState(false);
   const [warehouseId, setWarehouseId] = useState("");
   const [showAdvancedCorrection, setShowAdvancedCorrection] = useState(false);
@@ -81,6 +83,7 @@ export default function InventoryPage() {
     const params = new URLSearchParams({ limit: "100", includeNonStock: showNonStock ? "true" : "false" });
     if (query.trim()) params.set("search", query.trim());
     if (warehouseId) params.set("warehouseId", warehouseId);
+    if (lowStockOnly) params.set("lowStock", "true");
     const [stockResponse, warehouseResponse] = await Promise.all([
       fetch(`${apiUrl}/stock?${params.toString()}`, { headers: authHeaders() }).catch(() => null),
       fetch(`${apiUrl}/warehouses`, { headers: authHeaders() }).catch(() => null)
@@ -94,7 +97,7 @@ export default function InventoryPage() {
     setStocks(data.items ?? []);
     if (warehouseResponse?.ok) setWarehouses(await warehouseResponse.json());
     setError("");
-  }, [query, showNonStock, warehouseId]);
+  }, [lowStockOnly, query, showNonStock, warehouseId]);
 
   useEffect(() => {
     const timer = setTimeout(() => void loadStocks(), 200);
@@ -207,7 +210,12 @@ export default function InventoryPage() {
 
   return (
     <div className="space-y-5">
-      <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <section className="vta-native-only vta-native-flex items-center justify-between px-1 pt-4">
+        <h1 className="text-[28px] font-black tracking-tight text-[#182858]">Stock</h1>
+        <Link href="/dashboard/inventory/movements" className="grid h-10 w-10 place-items-center rounded-xl bg-white text-[#182858] shadow-sm ring-1 ring-slate-200" aria-label="Mouvements de stock">•••</Link>
+      </section>
+
+      <section className="vta-native-hidden rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
             <p className="text-sm font-medium text-brand-600">Inventaire</p>
@@ -232,25 +240,53 @@ export default function InventoryPage() {
         </section>
       ) : null}
 
-      <section className="grid gap-3 md:grid-cols-4">
+      <section className="vta-native-hidden grid gap-3 md:grid-cols-4">
         <SummaryCard label="Produits suivis" value={summary.tracked} />
         <SummaryCard label="Ruptures" value={summary.outOfStock} tone="red" />
         <SummaryCard label="Stock faible" value={summary.lowStock} tone="amber" />
         <SummaryCard label="Valeur potentielle du stock" value={formatMoney(summary.potentialValue)} helper="Prix de vente × quantité. Ce n'est pas le bénéfice." />
       </section>
 
+      <section className="vta-native-only vta-native-grid grid-cols-2 gap-3 px-1">
+        <article className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-white p-4 shadow-sm"><span className="grid h-11 w-11 place-items-center rounded-xl bg-blue-50 text-blue-600"><Package className="h-6 w-6" /></span><span><strong className="block text-2xl font-black text-[#182858]">{summary.tracked}</strong><span className="text-sm font-semibold text-slate-500">Produits</span></span></article>
+        <article className="flex items-center gap-3 rounded-2xl border border-orange-100 bg-white p-4 shadow-sm"><span className="grid h-11 w-11 place-items-center rounded-xl bg-orange-50 text-orange-600"><CircleAlert className="h-6 w-6" /></span><span><strong className="block text-2xl font-black text-orange-600">{summary.lowStock + summary.outOfStock}</strong><span className="text-sm font-semibold text-orange-600">Alertes</span></span></article>
+      </section>
+
       {error ? <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error} <button type="button" onClick={() => void loadStocks()} className="ml-2 font-bold underline">Réessayer</button></div> : null}
       {message ? <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">{message}</p> : null}
 
-      <section className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-[1fr_auto]">
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Rechercher produit ou SKU" className="rounded-md border border-slate-300 px-3 py-3 dark:border-slate-700 dark:bg-slate-950" />
+      <section className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-[1fr_auto]">
+        <div className="flex items-center gap-2 rounded-xl bg-slate-100 px-3"><Search className="h-5 w-5 shrink-0 text-slate-500" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Rechercher un produit..." className="min-w-0 flex-1 bg-transparent py-3 outline-none" /><button type="button" className="vta-native-only vta-native-flex h-9 w-9 items-center justify-center rounded-lg bg-white text-[#182858] shadow-sm" aria-label="Scanner un produit"><ScanLine className="h-5 w-5" /></button></div>
         <label className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-3 text-sm font-semibold dark:border-slate-700">
           <input type="checkbox" checked={showNonStock} onChange={(event) => setShowNonStock(event.target.checked)} />
           Afficher les articles non suivis
         </label>
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <section className="vta-native-only vta-native-flex gap-2 overflow-x-auto px-1 pb-1">
+        <button type="button" onClick={() => setLowStockOnly(false)} className={`shrink-0 rounded-full px-5 py-2 text-sm font-bold ${!lowStockOnly ? "bg-blue-600 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}>Tous</button>
+        <button type="button" onClick={() => setLowStockOnly(true)} className={`shrink-0 rounded-full px-5 py-2 text-sm font-bold ${lowStockOnly ? "bg-blue-600 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}>Stock faible ({summary.lowStock + summary.outOfStock})</button>
+      </section>
+
+      <section className="vta-native-only vta-native-flex flex-col gap-2 px-1">
+        {stocks.map((stock) => {
+          const tracked = isStockTracked(stock);
+          const isOut = tracked && stock.quantity <= 0;
+          const isLow = tracked && stock.quantity > 0 && stock.quantity <= Number(stock.minimumStock ?? 0);
+          return (
+            <article key={`mobile-${stock.id}`} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+              <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-600"><Package className="h-7 w-7" /></span>
+              <div className="min-w-0 flex-1"><h2 className="truncate text-sm font-black text-[#182858]">{stock.product?.name ?? "Produit"}</h2><p className="mt-0.5 text-sm font-black text-blue-600">{formatMoney(Number(stock.product?.salePrice ?? 0))}</p></div>
+              <button type="button" onClick={() => tracked && openStockModal(stock, "in")} disabled={!tracked} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${isOut ? "bg-red-50 text-red-700" : isLow ? "bg-orange-50 text-orange-700" : tracked ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{tracked ? `${stock.quantity}${unitLabel(stock) ? ` ${unitLabel(stock)}` : ""} en stock` : "Non suivi"}</button>
+              <ChevronRight className="h-5 w-5 shrink-0 text-slate-400" />
+            </article>
+          );
+        })}
+        {!isLoading && !error && !stocks.length ? <p className="rounded-2xl bg-white p-5 text-center text-sm text-slate-500">Aucun produit suivi en stock.</p> : null}
+        <Link href="/dashboard/products?create=true" className="mt-2 flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-base font-black text-white shadow-lg shadow-blue-600/20"><span className="text-2xl">+</span> Ajouter un produit</Link>
+      </section>
+
+      <section className="vta-native-hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <table className="w-full min-w-[860px] text-left text-sm">
           <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950">
             <tr>
@@ -293,7 +329,7 @@ export default function InventoryPage() {
         {isLoading ? <p className="p-5 text-sm text-slate-500">Chargement de l&apos;inventaire...</p> : null}
       </section>
 
-      <details open={showAdvancedCorrection} onToggle={(event) => setShowAdvancedCorrection(event.currentTarget.open)} className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <details open={showAdvancedCorrection} onToggle={(event) => setShowAdvancedCorrection(event.currentTarget.open)} className="vta-native-hidden rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
         <summary className="cursor-pointer text-sm font-bold text-slate-700 dark:text-slate-200">Options avancées</summary>
         <p className="mt-2 text-sm text-slate-500">Correction inventaire : utilisez cette action seulement après comptage ou erreur de saisie, avec une note claire.</p>
         <div className="mt-3 flex flex-wrap gap-2">

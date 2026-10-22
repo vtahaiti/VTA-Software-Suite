@@ -10,7 +10,7 @@ import { syncOfflineSalesNow } from "@/lib/offline-sync";
 import { useNetworkStatus } from "@/lib/network-status";
 import { getTenantBusinessConfiguration, isRestaurantBusiness, type TenantBusinessConfiguration } from "@/lib/business-profiles";
 import { getReceiptPrintSettings, openPrintPreview } from "@/lib/print";
-import { Info, MoreHorizontal, Plus, Search, Trash2, X } from "lucide-react";
+import { Info, MoreHorizontal, Plus, ScanLine, Trash2, X } from "lucide-react";
 
 
 type Product = { id: string; name: string; sku: string; salePrice: number; availableStock: number; stockTracked?: boolean; image?: string | null; primaryBarcode?: string | null; category?: string | null; unit?: string | null };
@@ -678,14 +678,14 @@ export default function PosPage() {
     : `${products.length} / ${productTotal || products.length} produit${(productTotal || products.length) > 1 ? "s" : ""} affiché${(productTotal || products.length) > 1 ? "s" : ""}`;
 
   return (
-    <div className="min-h-screen bg-slate-100 font-sans text-slate-950 lg:-m-6">
+    <div className="vta-pos-screen min-h-screen bg-slate-100 font-sans text-slate-950 lg:-m-6">
       <div className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_360px]">
         <main className="min-h-0 overflow-auto px-3 pb-28 pt-3 sm:px-4 lg:p-5 xl:p-6">
           <section className="sticky top-0 z-20 mb-4 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
             <div className="flex min-h-14 items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{isRestaurantContextProfile ? "Nouvelle commande" : "Vente"}</h1>
+                <h1 className="text-xl font-bold tracking-tight text-[#182858] sm:text-2xl">{isRestaurantContextProfile ? "Nouvelle commande" : "Nouvelle vente"}</h1>
                   <span className={`h-2.5 w-2.5 rounded-full ${isOnline ? "bg-emerald-500" : "bg-orange-500"}`} aria-label={isOnline ? "En ligne" : "Hors ligne"} />
                   {pendingOfflineSales > 0 ? <span className="rounded-full bg-orange-50 px-2 py-1 text-xs font-semibold text-orange-700">{pendingOfflineSales} en attente</span> : null}
                 </div>
@@ -720,8 +720,8 @@ export default function PosPage() {
               <div className="flex min-w-0 gap-2">
                 <label className="sr-only" htmlFor="pos-product-search">Rechercher un produit</label>
                 <input id="pos-product-search" ref={scanInputRef} autoFocus value={query} onChange={(event) => { setQuery(event.target.value); setBarcode(event.target.value); }} onKeyDown={(event) => { if (event.key === "Enter") void scanBarcode(query); }} placeholder={posTemplate.searchPlaceholder} className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-base outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-100" />
-                <button aria-label="Rechercher un produit" title="Rechercher" onClick={() => void scanBarcode(query)} className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-slate-950 text-white shadow-sm transition hover:bg-slate-800">
-                  <Search aria-hidden="true" className="h-5 w-5" />
+                <button aria-label="Scanner ou rechercher un produit" title="Scanner ou rechercher" onClick={() => void scanBarcode(query)} className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white text-[#182858] shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50">
+                  <ScanLine aria-hidden="true" className="h-5 w-5" />
                 </button>
               </div>
               <CustomerSelector customers={customers} customerId={customerId} defaultLabel={posTemplate.defaultCustomer} onChange={setCustomerId} onCreate={() => setShowCustomerModal(true)} />
@@ -749,9 +749,9 @@ export default function PosPage() {
               </select>
             </div>
             <div className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1">
-              <button type="button" onClick={() => setCategoryFilter("")} className={`h-10 shrink-0 rounded-full border px-4 text-sm font-semibold ${categoryFilter === "" ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-700"}`}>Toutes</button>
+              <button type="button" onClick={() => setCategoryFilter("")} className={`h-10 shrink-0 rounded-full border px-4 text-sm font-semibold ${categoryFilter === "" ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700"}`}>Tous</button>
               {categories.map((category) => (
-                <button key={category} type="button" onClick={() => setCategoryFilter(category)} className={`h-10 shrink-0 rounded-full border px-4 text-sm font-semibold ${categoryFilter === category ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-700"}`}>{category}</button>
+                <button key={category} type="button" onClick={() => setCategoryFilter(category)} className={`h-10 shrink-0 rounded-full border px-4 text-sm font-semibold ${categoryFilter === category ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700"}`}>{category}</button>
               ))}
             </div>
           </section>
@@ -1049,7 +1049,7 @@ function ProductCard({ product, onAdd }: { product: Product; onAdd: () => void }
   const isLowStock = stockTracked && product.availableStock > 0 && product.availableStock <= 3;
   const isOut = stockTracked && product.availableStock <= 0;
   return (
-    <button onClick={onAdd} disabled={isOut} className="group flex h-full min-h-[214px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm transition hover:border-brand-500 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-brand-100 disabled:cursor-not-allowed disabled:opacity-55">
+    <button onClick={onAdd} disabled={isOut} className="vta-pos-product-card group flex h-full min-h-[214px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm transition hover:border-blue-500 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-55">
       <div className="aspect-[4/3] bg-slate-100">
         {product.image ? (
           <Image unoptimized src={product.image} alt={product.name} width={320} height={240} className="h-full w-full object-cover" />
@@ -1068,7 +1068,7 @@ function ProductCard({ product, onAdd }: { product: Product; onAdd: () => void }
             <p className="text-base font-bold tabular-nums text-slate-950">{formatMoney(product.salePrice)}</p>
             <p className={`mt-1 text-xs font-medium ${isOut ? "text-red-600" : isLowStock ? "text-orange-600" : "text-slate-500"}`}>{stockTracked ? (isOut ? "Rupture" : `Stock ${product.availableStock}`) : "Disponible"}</p>
           </div>
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-slate-950 text-white transition group-hover:bg-brand-600" aria-label="Ajouter"><Plus aria-hidden="true" className="h-5 w-5" /></span>
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-blue-100 text-blue-600 transition group-hover:bg-blue-600 group-hover:text-white" aria-label="Ajouter"><Plus aria-hidden="true" className="h-5 w-5" /></span>
         </div>
       </div>
     </button>
@@ -1478,8 +1478,8 @@ function ExpertOptions(props: CartPanelProps) {
 
 function MobileCartBar({ cart, onOpen }: { cart: Cart; onOpen: () => void }) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 p-3 shadow-2xl backdrop-blur lg:hidden">
-      <button onClick={onOpen} className="flex min-h-14 w-full items-center justify-between rounded-xl bg-slate-950 px-4 py-3 text-left text-white">
+    <div className="vta-native-cart-bar fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 p-3 shadow-2xl backdrop-blur lg:hidden">
+      <button onClick={onOpen} className="flex min-h-14 w-full items-center justify-between rounded-xl bg-blue-600 px-4 py-3 text-left text-white">
         <span>
           <span className="block text-xs font-semibold opacity-75">Panier · {cart.items.length} article{cart.items.length > 1 ? "s" : ""}</span>
           <span className="block text-lg font-bold">Voir le panier</span>
