@@ -9,6 +9,7 @@ import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
 import { businessDateKey, formatBusinessDateTime } from "@/lib/business-timezone";
 import { getTenantBusinessConfiguration, type TenantBusinessConfiguration } from "@/lib/business-profiles";
 import { RestaurantDashboard } from "./restaurant-dashboard";
+import { IosHome } from "@/components/ios-home";
 
 
 type Kpis = {
@@ -209,6 +210,7 @@ export default function DashboardPage() {
   ], [summary]);
 
   if (accessBlocked) return <DashboardAccessBlocked />;
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <IosHome name={currentUser?.name ?? ""} summary={summary} loading={isLoading} error={error} />;
   if (business?.businessProfileType === "restaurant") return <RestaurantDashboard />;
 
   return (

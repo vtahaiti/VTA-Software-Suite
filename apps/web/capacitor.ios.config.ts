@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: "VTA POS",
   webDir: "ios-bundle",
   server: { cleartext: false },
-  ios: { contentInset: "automatic", preferredContentMode: "mobile" },
+  ios: { contentInset: "never", preferredContentMode: "mobile" },
   plugins: {
     CapacitorHttp: { enabled: true },
     SplashScreen: { launchShowDuration: 1000, backgroundColor: "#0877f9" },

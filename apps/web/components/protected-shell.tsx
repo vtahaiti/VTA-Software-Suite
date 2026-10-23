@@ -4,6 +4,9 @@ import { networkTimeout } from "@/lib/network-timeout";
 import { ReactNode, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { IosBottomNav } from "@/components/ios-bottom-nav";
+import { IosPageContent } from "@/components/ios-page-content";
+import Link from "next/link";
+import { ChevronLeft, Store } from "lucide-react";
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
 import { fetchApi } from "@/lib/api-url";
@@ -148,8 +151,8 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
 
   if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return (
     <div className="ios-app-shell min-h-screen bg-[#f5f7fb] text-[#111b3c]">
-      {pathname.replace(/\/$/, "") !== "/dashboard/pos" && <header className="flex items-center justify-between px-5 pb-1 pt-4"><a href="/dashboard" className="text-xl font-extrabold tracking-tight"><span className="text-[#0877f9]">VTA</span> POS</a><span className="max-w-[50%] truncate rounded-lg border border-slate-100 bg-white px-3 py-2 text-xs font-semibold">{branding?.companyName || user.tenant}</span></header>}
-      <main className="px-4 pb-24 pt-4">{typeof children === "function" ? children(user) : children}</main>
+      {pathname.replace(/\/$/, "") !== "/dashboard/pos" && <header className="ios-app-header"><div>{!["/dashboard", "/dashboard/inventory", "/dashboard/more"].includes(pathname.replace(/\/$/, "")) && <Link aria-label="Retour" className="ios-back" href={pathname.replace(/\/$/, "").split("/").length > 3 ? pathname.replace(/\/$/, "").split("/").slice(0, -1).join("/") : "/dashboard/more"}><ChevronLeft size={22} /></Link>}<Link href="/dashboard" className="ios-wordmark"><span>VTA</span> POS</Link></div><span className="ios-business-chip"><Store size={14} /><span>{branding?.companyName || user.tenant}</span></span></header>}
+      <IosPageContent sale={pathname.replace(/\/$/, "") === "/dashboard/pos"}>{typeof children === "function" ? children(user) : children}</IosPageContent>
       <IosBottomNav />
     </div>
   );

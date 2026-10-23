@@ -4,6 +4,11 @@ import Capacitor
 @objc(PosBridgeViewController)
 class PosBridgeViewController: CAPBridgeViewController {
     override func router() -> Router { PosStaticRouter() }
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        webView?.scrollView.keyboardDismissMode = .interactive
+        webView?.scrollView.alwaysBounceHorizontal = false
+    }
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(VtaNativePrintPlugin())
         bridge?.registerPluginInstance(VtaBluetoothPrinterPlugin())
@@ -94,6 +99,12 @@ private struct PosStaticRouter: Router {
         let clean = path.hasPrefix("/") ? String(path.dropFirst()) : path
         let candidate = root.appendingPathComponent(clean).standardizedFileURL
         guard candidate.path == root.path || candidate.path.hasPrefix(root.path + "/") else { return root.appendingPathComponent("404.html").path }
+        // Next client navigation requests /login.txt, while trailingSlash export
+        // writes /login/index.txt. Serve the payload instead of forcing a reload.
+        if candidate.pathExtension == "txt", !FileManager.default.fileExists(atPath: candidate.path) {
+            let payload = candidate.deletingPathExtension().appendingPathComponent("index.txt")
+            if FileManager.default.fileExists(atPath: payload.path) { return payload.path }
+        }
         if candidate.pathExtension.isEmpty {
             let index = candidate.appendingPathComponent("index.html")
             return FileManager.default.fileExists(atPath: index.path) ? index.path : root.appendingPathComponent("404.html").path

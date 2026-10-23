@@ -13,7 +13,7 @@ export function IosBottomNav({ guest = false }: { guest?: boolean }) {
   ];
   return <nav aria-label="Navigation principale" className="ios-bottom-nav">
     {tabs.map(({ label, href, icon: Icon }) => {
-      const active = guest ? label === "Vendre" : href === "/dashboard" ? pathname === href : pathname.startsWith(href);
+      const active = guest ? label === "Vendre" : label === "Accueil" ? pathname === href : label === "Vendre" ? pathname.startsWith(href) : label === "Stock" ? pathname.startsWith("/dashboard/inventory") || pathname.startsWith("/dashboard/products") : !["/dashboard", "/dashboard/pos"].includes(pathname) && !pathname.startsWith("/dashboard/inventory") && !pathname.startsWith("/dashboard/products");
       return <Link key={label} href={guest ? label === "Vendre" ? "/" : "/login" : href} aria-current={active ? "page" : undefined} className={active ? "is-active" : ""}><Icon aria-hidden="true" size={21} strokeWidth={active ? 2.6 : 2} /><span>{label}</span></Link>;
     })}
   </nav>;

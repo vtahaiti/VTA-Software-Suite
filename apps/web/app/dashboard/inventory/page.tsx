@@ -210,9 +210,9 @@ export default function InventoryPage() {
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
-            <p className="text-sm font-medium text-brand-600">Inventaire</p>
-            <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Mouvements et contrôle stock</h1>
-            <p className="mt-1 text-sm text-slate-500">Les produits se gèrent dans le catalogue. Ici, suivez les entrées, sorties, transferts et historiques de stock.</p>
+            {process.env.NEXT_PUBLIC_IOS_EMBEDDED !== "1" && <p className="text-sm font-medium text-brand-600">Inventaire</p>}
+            <h1 className="text-2xl font-bold text-slate-950 dark:text-white">{process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? "Stock" : "Mouvements et contrôle stock"}</h1>
+            <p className="mt-1 text-sm text-slate-500">{process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? "Suivez vos produits et vos emplacements." : "Les produits se gèrent dans le catalogue. Ici, suivez les entrées, sorties, transferts et historiques de stock."}</p>
             {isRestaurantInventoryProfile(business) ? (
               <p className="mt-1 text-xs text-slate-500">Emplacements Restaurant : Dépôt, Frigo, Bar, Cuisine et Fournitures.</p>
             ) : null}

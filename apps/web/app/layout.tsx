@@ -17,7 +17,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr">
+    <html lang="fr" data-capacitor={process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? "true" : undefined} data-capacitor-platform={process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? "ios" : undefined}>
       <body>
         {children}
         <CapacitorRuntime />

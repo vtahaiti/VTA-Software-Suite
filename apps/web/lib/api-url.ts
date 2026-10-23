@@ -52,6 +52,26 @@ export function publicApiErrorMessage(error: unknown, fallback = apiUnavailableM
 export async function fetchApi(path: string, init: RequestInit = {}) {
   try {
     const headers = new Headers(init.headers);
+    // Keep auth JSON on the native transport explicitly. Its response data can
+    // already be decoded by Foundation; normalize it exactly once for callers.
+    if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" &&
+        (init.body == null || (typeof init.body === "string" && headers.get("Content-Type")?.includes("application/json")))) {
+      const { Capacitor, CapacitorHttp } = await import("@capacitor/core");
+      if (Capacitor.getPlatform() === "ios") {
+        if (init.signal?.aborted) throw new Error("Request aborted");
+        const native = await CapacitorHttp.request({
+          url: apiUrl(path), method: init.method ?? "GET",
+          headers: Object.fromEntries(headers.entries()),
+          ...(init.body == null ? {} : { data: JSON.parse(init.body as string) }),
+          connectTimeout: 15000, readTimeout: 30000, responseType: "text"
+        });
+        if (init.signal?.aborted) throw new Error("Request aborted");
+        console.info("[VTA API]", init.method ?? "GET", path.split("?")[0], native.status);
+        const body = [204, 205, 304].includes(native.status) ? null :
+          typeof native.data === "string" ? native.data : JSON.stringify(native.data);
+        return new Response(body, { status: native.status, headers: native.headers });
+      }
+    }
     if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" && typeof FormData !== "undefined" && init.body instanceof FormData && !headers.has("Content-Type")) {
       headers.set("Content-Type", "multipart/form-data");
     }

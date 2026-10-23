@@ -25,6 +25,30 @@ html[data-capacitor="true"] body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* CSS owns iOS safe areas; UIKit must not add a second content inset. */
+html[data-capacitor-platform="ios"] {
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+html[data-capacitor-platform="ios"] body {
+  margin: 0;
+  overflow-x: clip;
+  overscroll-behavior: none;
+}
+html[data-capacitor-platform="ios"] .min-h-screen {
+  min-height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+}
+/* Inputs below 16px make iPhone zoom the whole page when the keyboard opens. */
+html[data-capacitor-platform="ios"] input:not([type="checkbox"]):not([type="radio"]),
+html[data-capacitor-platform="ios"] select,
+html[data-capacitor-platform="ios"] textarea {
+  font-size: 16px;
+}
+html[data-capacitor-platform="ios"] button,
+html[data-capacitor-platform="ios"] a {
+  touch-action: manipulation;
+}
+
 @media print {
   body:has(.printable-document) * {
     visibility: hidden;
@@ -80,3 +104,75 @@ html[data-capacitor="true"] body {
 
 .ios-pos .pos-sync-status { border:0; background:transparent; padding:0; margin-bottom:10px; font-size:10px; font-weight:500; color:#72809a; }
 .ios-pos .pos-product-card > div:first-child { height: 94px; aspect-ratio: auto; }
+
+/* Shared iOS screens: the same spacing, blue actions and compact cards as POS. */
+.ios-app-shell { color-scheme: light; font-size: 14px; line-height: 1.45; }
+.ios-app-header { display:flex; align-items:center; justify-content:space-between; gap:12px; max-width:680px; margin:auto; padding:12px 16px 4px; }
+.ios-app-header > div { display:flex; align-items:center; min-width:0; gap:4px; }
+.ios-wordmark { white-space:nowrap; font-size:23px; font-weight:800; letter-spacing:-1px; }
+.ios-wordmark > span { color:#0877f9; }
+.ios-back { display:flex; align-items:center; justify-content:center; width:32px; height:40px; color:#0877f9; }
+.ios-business-chip { display:flex; align-items:center; gap:7px; min-width:0; max-width:48%; padding:8px 10px; background:white; border:1px solid #e9edf5; border-radius:10px; font-size:11px; font-weight:600; }
+.ios-business-chip > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ios-page-content { width:100%; max-width:680px; min-width:0; margin:auto; padding:12px 16px calc(90px + env(safe-area-inset-bottom)); }
+.ios-page-content :where(div,section,article,form) { min-width:0; }
+.ios-page-content [class~="bg-white"] { background:#fff; color:#111b3c; }
+.ios-page-content h1 { font-size:25px; font-weight:800; line-height:1.2; letter-spacing:-.8px; color:#111b3c; }
+.ios-page-content h2 { font-size:17px; letter-spacing:-.3px; }
+.ios-page-content :where(input,select,textarea) { max-width:100%; border-radius:10px; border-color:#e5eaf3; background:#fff; color:#111b3c; }
+.ios-page-content :where(button,a)[class~="bg-brand-600"] { background:#0877f9; border-radius:11px; }
+.ios-page-content :where(button,a)[class*="text-brand-"] { color:#0877f9; }
+.ios-page-content :where(button,a)[class~="bg-brand-600"] { color:#fff; }
+.ios-page-content :where(button,input,select) { min-height:44px; }
+.ios-page-content :where(section,article,form,div)[class~="border"][class~="bg-white"] { border-color:#e9edf5; border-radius:14px; box-shadow:0 2px 12px #142d5c03; }
+.ios-page-content > div > :first-child:has(h1):not(.ios-page-intro) { border:0; border-radius:0; box-shadow:none; background:transparent; padding:0 0 4px; }
+.ios-page-content .fixed.inset-0.z-50 { overflow-y:auto; padding-top:max(16px,env(safe-area-inset-top)); padding-bottom:max(16px,env(safe-area-inset-bottom)); }
+.ios-page-content .fixed.inset-0.z-50 > div { max-height:calc(100dvh - 56px); overflow-y:auto; border-radius:20px; }
+.ios-home { display:grid; gap:12px; }
+.ios-page-intro > p { margin-top:5px; font-size:12px; color:#72809a; }
+.ios-revenue { display:flex; align-items:center; gap:14px; min-height:112px; padding:20px; border-radius:14px; background:linear-gradient(120deg,#2b8aff,#0060e7); color:white; box-shadow:0 5px 16px #0877f922; }
+.ios-revenue p { font-size:12px; color:#d9ebff; }
+.ios-revenue strong { display:block; margin-top:4px; font-size:28px; font-weight:800; letter-spacing:-.8px; }
+.ios-home-metrics { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.ios-home-metrics > a { display:flex; align-items:center; gap:9px; min-width:0; min-height:70px; padding:12px; border-radius:12px; background:white; }
+.ios-home-metrics svg { flex-shrink:0; color:#0877f9; }
+.ios-home-metrics > a:nth-child(2) > svg:first-child { color:#efa50d; }
+.ios-home-metrics > a > svg:last-child { margin-left:auto; color:#98a1b2; }
+.ios-home-metrics strong { display:block; font-size:20px; line-height:1.1; }
+.ios-home-metrics span { display:block; margin-top:4px; font-size:10px; color:#72809a; }
+.ios-home-shortcuts { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+.ios-home-shortcuts a { display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:7px; padding:10px 4px; min-height:88px; text-align:center; background:white; border-radius:12px; font-size:10px; font-weight:600; }
+.ios-home-shortcuts a > span { display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:10px; color:#0877f9; }
+.ios-home-shortcuts a:first-child > span { background:#0877f9; color:white; }
+.ios-section-title { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:6px 0 10px; }
+.ios-section-title h2 { font-size:15px; font-weight:800; }
+.ios-section-title > a { display:flex; align-items:center; gap:2px; font-size:11px; font-weight:600; color:#0877f9; }
+.ios-activity-list { overflow:hidden; background:white; border-radius:13px; }
+.ios-activity-list > div { display:flex; align-items:center; gap:10px; min-height:64px; padding:12px; border-bottom:1px solid #f0f2f7; }
+.ios-activity-list > div:last-child { border-bottom:0; }
+.ios-activity-icon { display:flex; align-items:center; justify-content:center; width:29px; height:34px; flex-shrink:0; background:#f5f7fb; color:#8a92a3; border-radius:8px; }
+.ios-activity-list > div > div { min-width:0; flex:1; }
+.ios-activity-list strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; font-weight:700; }
+.ios-activity-list div > span:not(.ios-activity-icon) { display:block; font-size:10px; color:#8a92a3; margin-top:3px; }
+.ios-activity-list b { font-size:12px; white-space:nowrap; }
+.ios-empty { padding:24px 16px; background:white; border-radius:13px; text-align:center; font-size:12px; color:#72809a; }
+.ios-notice { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:12px; border-radius:12px; background:#fff2ed; color:#a94324; font-size:12px; }
+.ios-notice button { color:inherit; text-decoration:underline; }
+.ios-stock-alert { display:flex; align-items:center; gap:8px; padding:12px; color:#9a650d; background:#fff7e7; border-radius:12px; font-size:12px; }
+.ios-stock-alert svg:last-child { margin-left:auto; }
+@media (max-width:767px) {
+  .ios-page-content .grid:has(>div>p.text-2xl) { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .ios-page-content table:not([data-ios-cards]) { display:block; min-width:0!important; max-width:100%; overflow-x:auto; }
+  .ios-page-content table[data-ios-cards] { display:block; min-width:0!important; width:100%; }
+  .ios-page-content table[data-ios-cards] thead { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+  .ios-page-content table[data-ios-cards] tbody { display:block; }
+  .ios-page-content table[data-ios-cards] tbody tr { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; padding:14px; border-top:1px solid #edf0f5; }
+  .ios-page-content table[data-ios-cards] tbody tr:first-child { border-top:0; }
+  .ios-page-content table[data-ios-cards] td { display:block; min-width:0; padding:0; overflow-wrap:anywhere; font-size:13px; }
+  .ios-page-content table[data-ios-cards] td:first-child { grid-column:1/-1; font-size:15px; font-weight:700; }
+  .ios-page-content table[data-ios-cards] td:last-child { grid-column:1/-1; }
+  .ios-page-content table[data-ios-cards] td[data-column-label]::before { content:attr(data-column-label); display:block; margin-bottom:4px; font-size:10px; font-weight:500; color:#8a92a3; }
+  .ios-page-content table[data-ios-cards] td:first-child::before { display:none; }
+  .ios-page-content table[data-ios-cards] td:last-child:has(button,a)::before { display:none; }
+  .ios-page-content table[data-ios-cards] td[colspan] { grid-column:1/-1; }
+}
