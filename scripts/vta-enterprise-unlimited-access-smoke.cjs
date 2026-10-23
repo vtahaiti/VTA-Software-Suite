@@ -11,7 +11,9 @@ const entitlements = read("apps/api/src/subscriptions/subscription-entitlements.
 const apiClient = read("apps/web/lib/api-client.ts");
 const tenantAccess = read("apps/web/lib/tenant-access.ts");
 
-assert.match(policy, /VTA_ENTERPRISE_TENANT_ID = "tenant_vta"/, "VTA Enterprise must use its reserved tenant ID.");
+assert.match(policy, /VTA_ENTERPRISE_TENANT_ID = "cmrmd6u2200w9a2m8mdgz41l4"/, "VTA Enterprise must use its immutable production tenant ID.");
+assert.match(policy, /LEGACY_VTA_ENTERPRISE_TENANT_ID = "tenant_vta"/, "The local legacy VTA tenant must remain compatible.");
+assert.doesNotMatch(policy, /tenant\.name|tenant\.email|tenant\.slug/, "Internal access must never be granted from mutable tenant identity fields.");
 assert.match(auth, /if \(isVtaEnterpriseTenant\(tenantId\)\) return;/, "Billing status must not block VTA Enterprise authentication.");
 assert.match(entitlements, /planCode: "INTERNAL"/, "VTA Enterprise must have an internal non-billable plan.");
 assert.match(entitlements, /status: SubscriptionStatus\.ACTIVE/, "VTA Enterprise entitlements must always be active.");
