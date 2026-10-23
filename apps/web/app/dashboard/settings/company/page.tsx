@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Camera } from "lucide-react";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
+import { optimizeCompanyLogo as optimizeLogoFile } from "@/lib/company-logo-file";
 import { initials, resolveAssetUrl } from "@/lib/company-branding";
 
 const tabs = [["Entreprise", "/dashboard/settings/company"], ["Activité", "/dashboard/settings/business-modules"], ["Impression", "/dashboard/settings/pos"], ["Facturation", "/dashboard/settings/invoicing"], ["Abonnement", "/dashboard/settings/subscription"], ["Emails", "/dashboard/settings/emails"]];
@@ -228,25 +229,6 @@ export default function CompanySettingsPage() {
       </section>
     ) : null}
   </div>;
-}
-
-async function optimizeLogoFile(file: File) {
-  if (file.size <= maxLogoBytes && file.type === "image/webp") return file;
-  const bitmap = await createImageBitmap(file);
-  const maxSide = 512;
-  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
-  const width = Math.max(1, Math.round(bitmap.width * scale));
-  const height = Math.max(1, Math.round(bitmap.height * scale));
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d");
-  if (!context) return file;
-  context.drawImage(bitmap, 0, 0, width, height);
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.88));
-  bitmap.close();
-  if (!blob) return file;
-  return new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), { type: "image/webp" });
 }
 
 async function readSettingsError(response: Response) {

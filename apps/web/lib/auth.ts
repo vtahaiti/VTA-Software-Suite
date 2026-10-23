@@ -195,10 +195,12 @@ export async function registerUser(payload: { firstName: string; lastName: strin
   const response = await fetchApi("/onboarding/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    body: JSON.stringify({ ...payload, firstName: payload.firstName.trim(), lastName: payload.lastName.trim(), email: payload.email.trim().toLowerCase(), phone: payload.phone?.trim() })
   });
   if (!response.ok) throw new Error(await readApiError(response));
-  return response.json() as Promise<{ pendingToken: string; email: string; message: string }>;
+  const data = await response.json() as { pendingToken: string; email: string; message: string };
+  if (!data.pendingToken || typeof data.pendingToken !== "string") throw new Error("Session d’inscription non reçue. Réessayez.");
+  return data;
 }
 
 export async function requestPasswordReset(payload: { email: string }) {
@@ -230,6 +232,7 @@ export async function createCompany(payload: Record<string, unknown>) {
   });
   if (!response.ok) throw new Error(await readApiError(response));
   const data = (await response.json()) as AuthResponse;
+  if (!data.accessToken || !data.refreshToken || !data.user?.id || !data.user?.tenantId) throw new Error("L’entreprise n’a pas pu être confirmée. Essayez de vous connecter avant de recommencer.");
   saveSession(data);
   return data.user;
 }

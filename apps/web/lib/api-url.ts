@@ -63,7 +63,7 @@ export async function fetchApi(path: string, init: RequestInit = {}) {
           url: apiUrl(path), method: init.method ?? "GET",
           headers: Object.fromEntries(headers.entries()),
           ...(init.body == null ? {} : { data: JSON.parse(init.body as string) }),
-          connectTimeout: 15000, readTimeout: 30000, responseType: "text"
+          connectTimeout: 15000, readTimeout: path.split("?")[0] === "/onboarding/company" ? 120000 : 30000, responseType: "text"
         });
         const native = await withAbort(request, init.signal);
         console.info("[VTA API]", init.method ?? "GET", path.split("?")[0], native.status);

@@ -63,3 +63,11 @@ test('transport failure is not misreported as an invalid password and web is unc
   await assert.rejects(response, /Connexion au serveur impossible/);
   assert.equal(f.calls.length, 1);
 });
+
+test('Company creation gets time to finish its setup transaction while ordinary API reads keep their normal timeout', async () => {
+ const f=fixture({data:{}});
+ await f.fetchApi('/onboarding/company',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+ await f.fetchApi('/profile/me');
+ assert.equal(f.calls[0].readTimeout,120000);
+ assert.equal(f.calls[1].readTimeout,30000);
+});

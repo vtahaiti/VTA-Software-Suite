@@ -2,11 +2,14 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { pendingRegistration, readCompanyDraft, rememberCompanyDraft, clearOnboardingProgress, reconcileBusinessSelection } from "@/lib/onboarding-progress";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchApi, publicApiErrorMessage } from "@/lib/api-url";
 import { createCompany } from "@/lib/auth";
 import { getBusinessCatalog, type BusinessSector } from "@/lib/business-profiles";
+import { optimizeCompanyLogo as optimizeLogoFile } from "@/lib/company-logo-file";
 import { resolveAssetUrl } from "@/lib/company-branding";
 import { citiesForHaitiDepartment, haitiDepartmentNames } from "@/lib/haiti-locations";
 
@@ -127,6 +130,7 @@ type CompanyForm = typeof initialForm;
 
 export default function OnboardingCompanyPage() {
   const router = useRouter();
+  const submitting = useRef(false);
   const [pendingToken, setPendingToken] = useState("");
   const [sectors, setSectors] = useState<BusinessSector[]>(fallbackSectors);
   const [form, setForm] = useState<CompanyForm>(initialForm);
@@ -138,26 +142,23 @@ export default function OnboardingCompanyPage() {
 
   const selectedSector = useMemo(() => sectors.find((sector) => sector.key === form.businessSector) ?? sectors[0], [sectors, form.businessSector]);
   const selectedSpecialty = useMemo(() => selectedSector.specialties.find((specialty) => specialty.name === form.businessSpecialty) ?? selectedSector.specialties[0], [selectedSector, form.businessSpecialty]);
-  const availableCities = form.country === "Haiti" ? [...citiesForHaitiDepartment(form.department), "Autre"] : citiesByCountry[form.country] ?? [];
+  const availableCities = form.country === "Haiti" ? [...citiesForHaitiDepartment(form.department), "Autre"] : [...(citiesByCountry[form.country] ?? []), "Autre"];
   useEffect(() => {
-    const token = window.localStorage.getItem("vta_pending_onboarding") ?? "";
-    setPendingToken(token);
+    const pending = pendingRegistration();
     setHasCheckedPendingToken(true);
-    if (!token) setError("Session d'inscription introuvable ou expirée. Recommencez la création du compte.");
-
-    getBusinessCatalog().then((catalog) => {
-      const nextSectors = catalog.sectors?.length ? catalog.sectors : fallbackSectors;
-      const sector = nextSectors[0];
-      const specialty = sector.specialties[0];
+    if (!pending) { setError("Session d’inscription introuvable ou expirée."); return; }
+    setPendingToken(pending.pendingToken);
+    const draft = readCompanyDraft(pending.pendingToken);
+    setForm(current => ({ ...current, email: pending.email, phone: pending.phone, ...draft } as CompanyForm));
+    getBusinessCatalog().then(catalog => {
+      const nextSectors = catalog.sectors?.filter(sector => sector.specialties?.length) ?? [];
+      if (!nextSectors.length) return;
       setSectors(nextSectors);
-      setForm((current) => ({
-        ...current,
-        businessSector: sector.key,
-        businessSpecialty: specialty.name,
-        businessProfileSlug: specialty.profileType
-      }));
+      setForm(current => ({ ...current, ...reconcileBusinessSelection(nextSectors, current) }));
     }).catch(() => undefined);
   }, []);
+
+  useEffect(() => { if (hasCheckedPendingToken && pendingToken) rememberCompanyDraft(pendingToken, form); }, [hasCheckedPendingToken, pendingToken, form]);
 
   useEffect(() => () => {
     if (localLogoPreview) URL.revokeObjectURL(localLogoPreview);
@@ -191,11 +192,11 @@ export default function OnboardingCompanyPage() {
   function updateCountry(country: string) {
     if (country === "Haiti") {
       const cities = citiesForHaitiDepartment("Nord");
-      setForm((current) => ({ ...current, country, department: "Nord", city: cities[0] ?? "", otherCity: "" }));
+      setForm((current) => ({ ...current, country, department: "Nord", city: cities[0] ?? "", otherCity: "", currency:"HTG", timezone:"America/Port-au-Prince" }));
       return;
     }
     const cities = citiesByCountry[country] ?? [];
-    setForm((current) => ({ ...current, country, department: "", city: cities[0] ?? "", otherCity: "" }));
+    setForm((current) => ({ ...current, country, department: "", city: cities[0] ?? "Autre", otherCity: "", currency: country === "Canada" ? "CAD" : country === "République dominicaine" ? "DOP" : "USD", timezone: country === "Canada" ? "America/Toronto" : country === "République dominicaine" ? "America/Santo_Domingo" : "America/New_York" }));
   }
 
   function updateDepartment(department: string) {
@@ -209,22 +210,25 @@ export default function OnboardingCompanyPage() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitting.current || isLoading || isUploadingLogo) return;
     setError("");
     if (!pendingToken) {
       setError("Session d'inscription introuvable ou expirée. Recommencez la création du compte.");
       return;
     }
+    if (!form.companyName.trim() || !form.address.trim() || !form.phone.trim()) { setError("Complétez le nom de l’entreprise, l’adresse et le téléphone."); return; }
     const city = form.city === "Autre" ? form.otherCity.trim() : form.city;
     if (!city) {
       setError("Veuillez choisir ou saisir une commune/ville.");
       return;
     }
     const address = form.country === "Haiti" ? withDepartmentInAddress(form.address, form.department) : form.address;
+    submitting.current = true;
     setIsLoading(true);
     try {
       await createCompany({
         pendingToken,
-        companyName: form.companyName,
+        companyName: form.companyName.trim(),
         businessCategory: form.businessSector,
         primaryActivity: form.businessSpecialty,
         businessProfileSlug: form.businessProfileSlug,
@@ -233,9 +237,9 @@ export default function OnboardingCompanyPage() {
         country: form.country,
         city,
         address,
-        phone: form.phone,
+        phone: form.phone.trim(),
         whatsapp: form.whatsapp,
-        email: form.email,
+        email: form.email.trim().toLowerCase(),
         website: form.website,
         taxNumber: form.taxNumber,
         currency: form.currency,
@@ -246,11 +250,12 @@ export default function OnboardingCompanyPage() {
         logoUrl: form.logoUrl?.startsWith("data:") ? "" : form.logoUrl,
         userPhotoDataUrl: form.userPhotoDataUrl
       });
-      window.localStorage.removeItem("vta_pending_onboarding");
-      router.push(process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? "/dashboard/pos" : "/dashboard");
+      clearOnboardingProgress();
+      router.replace(process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? "/dashboard/pos" : "/dashboard");
     } catch (caught) {
       setError(publicApiErrorMessage(caught, "Création de l'entreprise impossible."));
     } finally {
+      submitting.current = false;
       setIsLoading(false);
     }
   }
@@ -258,7 +263,7 @@ export default function OnboardingCompanyPage() {
   async function uploadLogo(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file) return;
+    if (!file || isUploadingLogo || submitting.current) return;
     if (!pendingToken) {
       setError("Session d'inscription introuvable ou expirée. Recommencez la création du compte.");
       return;
@@ -304,13 +309,15 @@ export default function OnboardingCompanyPage() {
     return <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">Chargement de l&apos;inscription...</main>;
   }
 
+  if (!pendingToken) return <main className="vm-onboarding-screen"><section className="vm-settings-panel"><h1>Reprendre l’inscription</h1><p className="vm-form-help">La session d’inscription est absente ou expirée. Si votre entreprise a déjà été créée, connectez-vous avec votre compte.</p><Link href="/signup" className="vm-primary-button">Créer mon compte</Link><Link href="/login" className="vm-business-edit">Se connecter ›</Link></section></main>;
+
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-700 via-blue-900 to-slate-950 px-6 py-10 text-slate-950">
+    <main className={process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? "vm-onboarding-screen" : "min-h-screen bg-gradient-to-br from-blue-700 via-blue-900 to-slate-950 px-6 py-10 text-slate-950"}>
       <section className="mx-auto grid min-h-[calc(100vh-5rem)] w-full max-w-6xl items-center gap-8 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="text-white">
-          <p className="text-sm font-semibold uppercase tracking-[0.28em] text-blue-100">Création entreprise</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.28em] text-blue-100">{process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? "Étape 2 sur 2 · Votre entreprise" : "Création entreprise"}</p>
           <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">Créez votre espace entreprise.</h1>
-          <p className="mt-5 max-w-xl text-lg leading-8 text-blue-50">Choisissez d&apos;abord votre secteur, puis votre spécialité. VTA adapte ensuite les modules sans limiter les anciens profils.</p>
+          <p className="mt-5 max-w-xl text-lg leading-8 text-blue-50">Choisissez votre type d’activité. Vous pourrez compléter les paramètres après la création.</p>
         </div>
 
         <form onSubmit={submit} className="rounded-[2rem] border border-white/20 bg-white p-6 shadow-2xl shadow-slate-950/30 dark:border-slate-800 dark:bg-slate-900 sm:p-8">
@@ -334,21 +341,22 @@ export default function OnboardingCompanyPage() {
           </div>
 
           <div className="mt-8 grid gap-4 md:grid-cols-2">
-            <Input label="Nom de l'entreprise" value={form.companyName} required onChange={(value) => updateField("companyName", value)} />
+            <fieldset className="vm-onboarding-group"><legend>Votre activité</legend><Input label="Nom de l'entreprise" value={form.companyName} required onChange={(value) => updateField("companyName", value)} />
             <Select label="Secteur" value={form.businessSector} required options={sectors.map((sector) => ({ value: sector.key, label: sector.name }))} onChange={updateSector} />
-            <Select label="Spécialité" value={form.businessSpecialty} required options={selectedSector.specialties.map((specialty) => ({ value: specialty.name, label: specialty.name }))} onChange={updateSpecialty} />
-            <ReadOnly label="Profil appliqué" value={selectedSpecialty.profileType} />
+            <Select label="Type d’entreprise" value={form.businessSpecialty} required options={selectedSector.specialties.map((specialty) => ({ value: specialty.name, label: specialty.name }))} onChange={updateSpecialty} />
+            {process.env.NEXT_PUBLIC_IOS_EMBEDDED !== "1" && <ReadOnly label="Profil appliqué" value={selectedSpecialty.profileType} />}
+            </fieldset><fieldset className="vm-onboarding-group"><legend>Localisation</legend>
             <Select label="Pays" value={form.country} required options={Object.keys(citiesByCountry).map((country) => ({ value: country, label: country === "Haiti" ? "Haïti" : country }))} onChange={updateCountry} />
             {form.country === "Haiti" ? <Select label="Département" value={form.department} required options={haitiDepartmentNames.map((name) => ({ value: name, label: name }))} onChange={updateDepartment} /> : null}
             <Select label="Commune / Ville" value={form.city} required options={availableCities.map((city) => ({ value: city, label: city }))} onChange={updateCity} />
             {form.city === "Autre" ? <Input label="Commune / Ville autre" value={form.otherCity} required onChange={(value) => updateField("otherCity", value)} /> : null}
             <Input label="Adresse" value={form.address} required onChange={(value) => updateField("address", value)} />
-            <Input label="Téléphone principal" value={form.phone} required type="tel" onChange={(value) => updateField("phone", value)} />
+            </fieldset><fieldset className="vm-onboarding-group"><legend>Contact et devise</legend><Input label="Téléphone principal" value={form.phone} required type="tel" onChange={(value) => updateField("phone", value)} />
             <Input label="Email principal" value={form.email} required type="email" onChange={(value) => updateField("email", value)} />
-            <Select label="Devise" value={form.currency} required options={currencies.map((currency) => ({ value: currency, label: currency }))} onChange={(value) => updateField("currency", value)} />
+            <Select label="Devise" value={form.currency} required options={currencies.map((currency) => ({ value: currency, label: currency }))} onChange={(value) => updateField("currency", value)} /></fieldset>
           </div>
 
-          <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Pour Haïti, le département est conservé dans l&apos;adresse de l&apos;entreprise sans migration de base de données.</p>
+          <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Votre progression est conservée sur cet appareil pendant l’inscription.</p>
 
           <div className="mt-6">
             <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Couleur principale</p>
@@ -367,11 +375,13 @@ export default function OnboardingCompanyPage() {
               <Input label="WhatsApp" value={form.whatsapp} type="tel" onChange={(value) => updateField("whatsapp", value)} />
               <Input label="Site web" value={form.website} type="url" onChange={(value) => updateField("website", value)} />
               <Input label="Numéro fiscal" value={form.taxNumber} onChange={(value) => updateField("taxNumber", value)} />
+              <Select label="Heure locale" value={form.timezone} onChange={value => updateField("timezone", value)} options={[{value:"America/Port-au-Prince",label:"Haïti"},{value:"America/Santo_Domingo",label:"République dominicaine"},{value:"America/Toronto",label:"Canada · Montréal / Toronto"},{value:"America/Vancouver",label:"Canada · Vancouver"},{value:"America/New_York",label:"États-Unis · New York / Miami"},{value:"America/Chicago",label:"États-Unis · Chicago"},{value:"America/Denver",label:"États-Unis · Denver"},{value:"America/Los_Angeles",label:"États-Unis · Los Angeles"}]} />
             </div>
           </details>
 
-          {error ? <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{error}</div> : null}
+          {error ? <div role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{error}</div> : null}
           <button disabled={isLoading || isUploadingLogo || !pendingToken} className="mt-6 w-full rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-green-600/20 transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60">{isLoading ? "Création en cours..." : "Créer mon entreprise"}</button>
+          {error && <p className="vm-form-help mt-3">Si l’entreprise a déjà été créée après une interruption, <Link className="text-blue-600 underline" href="/login">connectez-vous</Link>. Sinon, corrigez les informations et réessayez.</p>}
         </form>
       </section>
     </main>
@@ -379,7 +389,7 @@ export default function OnboardingCompanyPage() {
 }
 
 function Input({ label, value, onChange, required = false, type = "text" }: { label: string; value: string; required?: boolean; type?: string; onChange: (value: string) => void }) {
-  return <label className="grid gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">{label}<input required={required} type={type} value={value} onChange={(event) => onChange(event.target.value)} className="rounded-xl border border-slate-300 px-3 py-2.5 outline-none transition focus:border-blue-600 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-blue-950" /></label>;
+  return <label className="grid gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">{label}<input required={required} type={type} autoCapitalize={type === "email" ? "none" : undefined} value={value} onChange={(event) => onChange(event.target.value)} className="rounded-xl border border-slate-300 px-3 py-2.5 outline-none transition focus:border-blue-600 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-blue-950" /></label>;
 }
 
 function Select({ label, value, options, onChange, required = false }: { label: string; value: string; options: Array<{ value: string; label: string }>; required?: boolean; onChange: (value: string) => void }) {
@@ -395,25 +405,6 @@ function withDepartmentInAddress(address: string, department: string) {
   if (!department) return cleanAddress;
   if (cleanAddress.toLowerCase().includes(`département: ${department.toLowerCase()}`)) return cleanAddress;
   return `${cleanAddress} - Département: ${department}`;
-}
-
-async function optimizeLogoFile(file: File) {
-  if (file.size <= maxLogoBytes && file.type === "image/webp") return file;
-  const bitmap = await createImageBitmap(file);
-  const maxSide = 512;
-  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
-  const width = Math.max(1, Math.round(bitmap.width * scale));
-  const height = Math.max(1, Math.round(bitmap.height * scale));
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d");
-  if (!context) return file;
-  context.drawImage(bitmap, 0, 0, width, height);
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.88));
-  bitmap.close();
-  if (!blob) return file;
-  return new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), { type: "image/webp" });
 }
 
 async function readUploadError(response: Response) {

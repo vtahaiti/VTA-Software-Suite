@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { publicApiErrorMessage } from "@/lib/api-url";
+import { pendingRegistration, rememberPendingRegistration } from "@/lib/onboarding-progress";
 import { registerUser } from "@/lib/auth";
 import { PasswordVisibilityInput } from "@/components/password-visibility-input";
 import { VtaBusinessMark } from "@/components/vta-business-mark";
@@ -11,13 +12,18 @@ import { isPasswordStrong, passwordPolicyMessage } from "@/lib/password-policy";
 
 export default function SignupPage() {
   const router = useRouter();
+  const submitting = useRef(false);
+  const [resumeEmail, setResumeEmail] = useState<string | null>(null);
+  useEffect(() => { const pending = pendingRegistration(); if (pending) setResumeEmail(pending.email); }, []);
   const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "", password: "", confirmPassword: "", acceptedTerms: false });
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitting.current) return;
     setError("");
+    if (!form.firstName.trim() || !form.lastName.trim()) { setError("Saisissez votre prénom et votre nom."); return; }
 
     if (!form.acceptedTerms) {
       setError("Vous devez accepter les conditions d’utilisation et la politique de confidentialité pour continuer.");
@@ -34,24 +40,28 @@ export default function SignupPage() {
       return;
     }
 
+    submitting.current = true;
     setIsLoading(true);
     try {
       const result = await registerUser(form);
-      window.localStorage.setItem("vta_pending_onboarding", result.pendingToken);
+      rememberPendingRegistration(result.pendingToken, result.email, form.phone.trim());
       router.push("/onboarding/company");
     } catch (caught) {
       setError(publicApiErrorMessage(caught, "Inscription impossible."));
     } finally {
+      submitting.current = false;
       setIsLoading(false);
     }
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-6 py-12 dark:bg-slate-950">
+    <main className={process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? "vm-signup-screen" : "min-h-screen bg-slate-50 px-6 py-12 dark:bg-slate-950"}>
       <section className="mx-auto w-full max-w-2xl rounded-lg border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         {process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? <Link href="/" className="flex items-center gap-3 font-bold text-[#0877f9]"><img src="/vta-pos-app-icon.png" alt="" className="h-12 w-12 rounded-xl" />VTA POS · Retour à la caisse</Link> : <VtaBusinessMark />}
         <h1 className="mt-4 text-3xl font-bold text-slate-950 dark:text-white">Créer votre compte</h1>
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Retrouvez votre entreprise et votre point de vente sur tous vos appareils.</p>
+        {resumeEmail !== null && <div className="vm-settings-notice" role="status">Une inscription est en cours{resumeEmail ? ` pour ${resumeEmail}` : ""}.<Link href="/onboarding/company" className="vm-business-edit">Reprendre mon inscription ›</Link></div>}
+        <p className="vm-registration-step">Étape 1 sur 2 · Votre compte</p>
         <form method="post" onSubmit={submit} className="mt-8 grid gap-4 sm:grid-cols-2">
           <Input label="Prénom" name="firstName" autoComplete="given-name" value={form.firstName} onChange={(value) => setForm({ ...form, firstName: value })} />
           <Input label="Nom" name="lastName" autoComplete="family-name" value={form.lastName} onChange={(value) => setForm({ ...form, lastName: value })} />
@@ -107,6 +117,9 @@ function Input({
         type={type}
         value={value}
         autoComplete={autoComplete}
+        autoCapitalize={type === "email" ? "none" : undefined}
+        autoCorrect={type === "email" ? "off" : undefined}
+        spellCheck={type === "email" ? false : undefined}
         onChange={(event) => onChange(event.target.value)}
         className="rounded-md border border-slate-300 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950"
       />
