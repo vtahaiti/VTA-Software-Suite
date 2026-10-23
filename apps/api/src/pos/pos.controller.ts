@@ -170,7 +170,7 @@ export class PosController {
       try {
         if (!saleDto.cashSessionId) throw new BadRequestException("Une caisse ouverte est obligatoire avant la synchronisation");
         if (this.paidAmount(saleDto) <= 0) throw new BadRequestException("Montant recu obligatoire avant la synchronisation");
-        const sale = await this.sales.create(req.user.tenantId, saleDto, req.user.id);
+        const sale = await this.sales.createOffline(req.user.tenantId, req.user.id, localId, saleDto);
         results.push({ localId, status: "SYNCED", saleId: sale.id, receipt: sale.receipt ?? null });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Synchronisation impossible";

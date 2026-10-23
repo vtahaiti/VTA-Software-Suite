@@ -1,7 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { CapacitorRuntime } from "@/components/capacitor-runtime";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import "./globals.css";
+
+export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
 
 export const metadata: Metadata = {
   title: "VTA Commerce",

@@ -88,7 +88,7 @@ export async function refreshSession() {
     body: JSON.stringify({ refreshToken })
   });
   } catch {
-    clearSession();
+    // Keep queued offline sales and the stored session during transport failures.
     return null;
   }
 
@@ -160,7 +160,7 @@ export function clearTenantScopedCaches(reason = "session-reset") {
       window.localStorage.removeItem(key);
     }
   }
-  if ("indexedDB" in window) {
+  if ("indexedDB" in window && reason === "legacy-cache-reset") {
     const request = window.indexedDB.deleteDatabase(offlineDbName);
     request.onerror = () => undefined;
     request.onsuccess = () => undefined;

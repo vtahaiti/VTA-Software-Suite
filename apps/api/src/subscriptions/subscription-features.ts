@@ -37,7 +37,10 @@ export type SubscriptionLimitKey = "users" | "stores" | "warehouses" | "cashRegi
 export type SubscriptionPlanLimits = Record<SubscriptionLimitKey, number>;
 
 export const defaultPlans = [
-  { id: "plan_trial", code: "TRIAL", name: "Essai gratuit", description: "30 jours gratuits avec les fonctionnalites et limites du plan Expert.", monthlyPrice: 0, currency: "HTG", trialDays: 30, sortOrder: 0 },
+  { id: "plan_pos_free", code: "POS_FREE", name: "VTA POS Gratuit", description: "Sans abonnement et sans expiration : une caisse, un utilisateur, produits, clients et historique des ventes.", monthlyPrice: 0, currency: "USD", trialDays: 0, sortOrder: 0 },
+  { id: "plan_pos_basic", code: "POS_BASIC", name: "VTA POS Basique", description: "Caisse, produits et ventes sans limite, stock, clients et rapports quotidiens pour une boutique.", monthlyPrice: 6, currency: "USD", trialDays: 0, sortOrder: 1 },
+  { id: "plan_pos_premium", code: "POS_PREMIUM", name: "VTA POS Premium", description: "Le plan Basique avec achats, fournisseurs, alertes de stock, rapports avances, import/export et roles du personnel.", monthlyPrice: 10, currency: "USD", trialDays: 0, sortOrder: 2 },
+  { id: "plan_trial", code: "TRIAL", name: "Essai gratuit", description: "Premier mois gratuit avec toutes les fonctionnalites, y compris Premium et Expert. Aucun prelevement automatique.", monthlyPrice: 0, currency: "HTG", trialDays: 30, sortOrder: 0 },
   { id: "plan_essential", code: "ESSENTIAL", name: "Essentiel", description: "POS, catalogue, inventaire de base, clients, ventes en attente, historique et notifications internes.", monthlyPrice: 1000, currency: "HTG", trialDays: 0, sortOrder: 10 },
   { id: "plan_standard", code: "STANDARD", name: "Professionnel", description: "Achats, fournisseurs, import/export, rapports avances, remises et paiements avances.", monthlyPrice: 2000, currency: "HTG", trialDays: 0, sortOrder: 20 },
   { id: "plan_expert", code: "EXPERT", name: "Expert", description: "Limites etendues, roles avances, audit, analytics, multi-activite et fonctions avancees existantes.", monthlyPrice: 4000, currency: "HTG", trialDays: 0, sortOrder: 30 }
@@ -78,6 +81,9 @@ export const defaultFeatures: Array<{ id: string; key: SubscriptionFeatureKey; n
 ];
 
 export const planFeatureMatrix: Record<string, SubscriptionFeatureKey[]> = {
+  POS_FREE: ["POS", "PRODUCTS", "CATEGORIES", "CUSTOMERS", "SALES_HISTORY", "BASIC_REPORTS", "THERMAL_PRINTING"],
+  POS_BASIC: ["POS", "PRODUCTS", "CATEGORIES", "INVENTORY", "CUSTOMERS", "SALES_HISTORY", "HELD_SALES", "BASIC_REPORTS", "USERS", "THERMAL_PRINTING", "NOTIFICATIONS"],
+  POS_PREMIUM: ["POS", "PRODUCTS", "CATEGORIES", "INVENTORY", "CUSTOMERS", "SALES_HISTORY", "HELD_SALES", "BASIC_REPORTS", "USERS", "THERMAL_PRINTING", "NOTIFICATIONS", "SUPPLIERS", "PURCHASES", "LOW_STOCK_ALERTS", "ADVANCED_REPORTS", "IMPORT_EXPORT", "ROLES_PERMISSIONS", "EMAIL_RECEIPTS", "LETTER_REPORT_PRINTING", "PRINT_SETTINGS"],
   TRIAL: [...subscriptionFeatureKeys],
   EXPERT: [...subscriptionFeatureKeys],
   STANDARD: ["POS", "PRODUCTS", "CATEGORIES", "INVENTORY", "CUSTOMERS", "SUPPLIERS", "PURCHASES", "SALES_HISTORY", "HELD_SALES", "BASIC_REPORTS", "ADVANCED_REPORTS", "USERS", "EMAIL_RECEIPTS", "QUOTES", "ORDERS", "MULTI_PAYMENT", "THERMAL_PRINTING", "LETTER_REPORT_PRINTING", "NOTIFICATIONS", "IMPORT_EXPORT", "LOW_STOCK_ALERTS", "PRINT_SETTINGS"],
@@ -85,6 +91,9 @@ export const planFeatureMatrix: Record<string, SubscriptionFeatureKey[]> = {
 };
 
 export const planLimitMatrix: Record<string, SubscriptionPlanLimits> = {
+  POS_FREE: { users: 1, stores: 1, warehouses: 1, cashRegisters: 1 },
+  POS_BASIC: { users: 2, stores: 1, warehouses: 1, cashRegisters: 1 },
+  POS_PREMIUM: { users: 5, stores: 1, warehouses: 1, cashRegisters: 3 },
   TRIAL: { users: 15, stores: 5, warehouses: 10, cashRegisters: 10 },
   ESSENTIAL: { users: 2, stores: 1, warehouses: 1, cashRegisters: 1 },
   STANDARD: { users: 5, stores: 2, warehouses: 2, cashRegisters: 3 },

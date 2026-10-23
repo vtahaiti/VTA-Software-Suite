@@ -10,7 +10,11 @@
     "lint": "next lint",
     "mobile:add:android": "npx cap add android",
     "mobile:sync": "npx cap sync android",
-    "mobile:open": "npx cap open android"
+    "mobile:open": "npx cap open android",
+    "ios:add": "node ../../scripts/ios-cap.cjs add ios --packagemanager SPM",
+    "ios:sync": "node ../../scripts/build-ios-web.cjs && node ../../scripts/ios-cap.cjs sync ios",
+    "ios:open": "node ../../scripts/ios-cap.cjs open ios",
+    "ios:build": "node ../../scripts/build-ios-web.cjs"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.2",
@@ -18,6 +22,7 @@
     "@capacitor/browser": "^6.0.6",
     "@capacitor/core": "^6.2.2",
     "@capacitor/filesystem": "^6.0.4",
+    "@capacitor/ios": "^6.2.2",
     "@capacitor/share": "^6.0.4",
     "@capacitor/splash-screen": "^6.0.4",
     "@capacitor/status-bar": "^6.0.3",

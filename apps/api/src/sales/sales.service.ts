@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InventoryMovementType, PaymentMethod, Prisma, SaleStatus, SalesDocumentStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
@@ -71,7 +72,21 @@ export class SalesService {
     return sale;
   }
 
-  async create(tenantId: string, dto: CreateSaleDto, userId?: string, paymentCreatedById = userId) {
+  async createOffline(tenantId: string, userId: string, localId: string, dto: CreateSaleDto) {
+    const id = `offline_${createHash("sha256").update(JSON.stringify([tenantId, userId, localId])).digest("hex")}`;
+    const existing = await this.prisma.sale.findFirst({ where: { id, tenantId } });
+    if (existing) return this.findOne(tenantId, id);
+    try {
+      return await this.create(tenantId, dto, userId, userId, id);
+    } catch (error) {
+      // A concurrent retry may already have committed this exact local sale.
+      const committed = await this.prisma.sale.findFirst({ where: { id, tenantId } });
+      if (committed) return this.findOne(tenantId, id);
+      throw error;
+    }
+  }
+
+  async create(tenantId: string, dto: CreateSaleDto, userId?: string, paymentCreatedById = userId, offlineSaleId?: string) {
     if (!dto.items?.length) throw new BadRequestException("Panier vide");
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -170,6 +185,7 @@ export class SalesService {
 
       const sale = await tx.sale.create({
         data: {
+          id: offlineSaleId,
           tenantId,
           customerId: dto.customerId,
           storeId: dto.storeId,

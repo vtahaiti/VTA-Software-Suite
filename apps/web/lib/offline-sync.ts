@@ -1,7 +1,7 @@
 "use client";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
-import { getAccessToken } from "@/lib/auth";
+import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { getPendingOfflineSales, updateOfflineSale } from "@/lib/offline-db";
 
 
@@ -12,7 +12,15 @@ type SyncResult = {
   message?: string;
 };
 
-export async function syncOfflineSalesNow() {
+let inFlight: Promise<{ synced: number; conflicts: number; errors: number }> | null = null;
+export function syncOfflineSalesNow() {
+  if (!inFlight) inFlight = synchronize().finally(() => { inFlight = null; });
+  return inFlight;
+}
+
+async function synchronize() {
+  const owner = getCurrentUser();
+  const sameOwner = () => { const user = getCurrentUser(); return user?.tenantId === owner?.tenantId && user?.id === owner?.id; };
   const token = getAccessToken();
   if (!token) throw new Error("Session expiree. Connectez-vous avant de synchroniser.");
 
@@ -38,7 +46,9 @@ export async function syncOfflineSalesNow() {
   let conflicts = 0;
   let errors = 0;
 
+  if (!sameOwner()) throw new Error("Session modifiée. Les ventes restent sauvegardées sur ce téléphone.");
   for (const result of body.results) {
+    if (!sameOwner()) throw new Error("Session modifiée pendant la synchronisation.");
     if (result.status === "SYNCED") {
       synced += 1;
       await updateOfflineSale(result.localId, { status: "SYNCED", saleId: result.saleId, message: "Synchronisee" });

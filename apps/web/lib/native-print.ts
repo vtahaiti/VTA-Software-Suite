@@ -28,7 +28,7 @@ export async function isNativePrintAvailable() {
   if (typeof window === "undefined") return false;
   try {
     const { Capacitor } = await import("@capacitor/core");
-    return Capacitor.isNativePlatform();
+    return Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("VtaNativePrint");
   } catch {
     return false;
   }
@@ -40,11 +40,12 @@ export async function printHtmlNative(options: {
   format?: NativePrintFormat;
   orientation?: NativePrintOrientation;
 }) {
+  const html = /<img\b/i.test(options.html) ? await (await import("@/lib/receipt-images")).prepareReceiptImages(options.html) : options.html;
   return NativePrint.printHtml({
     title: "VTA Commerce",
     format: "80",
     orientation: "portrait",
-    ...options
+    ...options, html
   });
 }
 
@@ -58,17 +59,13 @@ export async function printReceiptSmart(options: {
   format?: NativePrintFormat;
   widthDots?: number;
 }) {
-  try {
-    const printer = await getDefaultBluetoothPrinter();
-    if (printer.configured) {
-      await printTicketOverBluetooth(options.html, options.widthDots ?? 576);
-      return { status: "printed-bluetooth" as const };
-    }
-  } catch {
-    // Pas d'imprimante Bluetooth disponible ou erreur : on retombe sur l'impression classique.
+  const printer = await getDefaultBluetoothPrinter();
+  if (printer.configured) {
+    // A partial BLE write must never silently fall back to a second print.
+    await printTicketOverBluetooth(options.html, options.widthDots ?? (options.format === "58" ? 384 : 576), printer.address);
+    return { status: "printed-bluetooth" as const };
   }
-  await printHtmlNative(options);
-  return { status: "printed-dialog" as const };
+  return printHtmlNative(options);
 }
 
 export async function sharePdfNative(options: {
@@ -78,11 +75,12 @@ export async function sharePdfNative(options: {
   format?: NativePrintFormat;
   orientation?: NativePrintOrientation;
 }) {
+  const html = /<img\b/i.test(options.html) ? await (await import("@/lib/receipt-images")).prepareReceiptImages(options.html) : options.html;
   return NativePrint.sharePdf({
     title: "VTA Commerce",
     fileName: "vta-commerce.pdf",
     format: "80",
     orientation: "portrait",
-    ...options
+    ...options, html
   });
 }

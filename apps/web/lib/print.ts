@@ -1,5 +1,5 @@
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
-import { getAccessToken } from "@/lib/auth";
+import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { downloadAuthenticatedFile } from "@/lib/authenticated-download";
 import { isNativePrintAvailable, printHtmlNative, type NativePrintFormat } from "@/lib/native-print";
 
@@ -18,6 +18,12 @@ type PrintHtmlContentOptions = {
 
 export async function getReceiptPrintSettings(): Promise<{ width: ReceiptWidth; autoPrintReceipt: boolean }> {
   const token = getAccessToken();
+  const user = getCurrentUser();
+  const cacheKey = `vta_receipt_settings:${user?.tenantId}:${user?.id}`;
+  const cached = typeof window !== "undefined" ? window.localStorage.getItem(cacheKey) : null;
+  if (typeof navigator !== "undefined" && !navigator.onLine && cached) {
+    try { return JSON.parse(cached); } catch { /* refresh below */ }
+  }
   const [invoicingResponse, posResponse] = await Promise.all([
     fetch(`${apiUrl}/settings/invoicing`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
     fetch(`${apiUrl}/settings/pos`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null)
@@ -25,8 +31,11 @@ export async function getReceiptPrintSettings(): Promise<{ width: ReceiptWidth; 
 
   const invoicing = invoicingResponse?.ok ? await invoicingResponse.json().catch(() => null) : null;
   const pos = posResponse?.ok ? await posResponse.json().catch(() => null) : null;
+  if (!invoicing && !pos && cached) { try { return JSON.parse(cached); } catch { /* use defaults */ } }
   const width = normalizeReceiptWidth(invoicing?.posReceiptFormat);
-  return { width, autoPrintReceipt: Boolean(pos?.autoPrintReceipt) };
+  const settings = { width, autoPrintReceipt: Boolean(pos?.autoPrintReceipt) };
+  if (invoicing && pos && typeof window !== "undefined") window.localStorage.setItem(cacheKey, JSON.stringify(settings));
+  return settings;
 }
 
 export async function openThermalDemoPreview(width: ReceiptWidth = "72") {

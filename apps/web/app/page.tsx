@@ -350,7 +350,7 @@ export default function HomePage() {
               </article>
             ))}
           </div>
-          <div className="mt-6 text-center"><Link href="/dashboard/settings/subscription" className="text-sm font-black text-blue-700 hover:underline">Voir les plans</Link></div>
+          <div className="mt-6 text-center"><Link href="/dashboard/settings/subscription" className="text-sm font-black text-blue-700 hover:underline">Premier mois gratuit — voir les plans</Link></div>
         </div>
       </section>
 

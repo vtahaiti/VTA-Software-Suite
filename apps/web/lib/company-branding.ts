@@ -31,7 +31,7 @@ export async function getCompanyBranding(token: string): Promise<CompanyBranding
   return {
     companyName,
     companyInitials: initials(companyName, "ME"),
-    logoUrl: resolveAssetUrl(profile?.logoUrl),
+    logoUrl: resolveAssetUrl(profile?.logoUrl ?? data.tenant?.logo?.url),
     primaryColor: profile?.primaryColor ?? "#2563eb",
     phone: profile?.phone ?? "",
     whatsapp: profile?.whatsapp ?? "",

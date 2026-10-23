@@ -1,4 +1,5 @@
 "use client";
+import { networkTimeout } from "@/lib/network-timeout";
 
 import { ReactNode, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -33,8 +34,10 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
       let sessionUser: AuthUser | null = null;
 
       if (currentUser && currentToken) {
-        const response = await fetchApi("/auth/me", { headers: { Authorization: `Bearer ${currentToken}` } }).catch(() => null);
-        if (response?.ok) {
+        const response = navigator.onLine ? await fetchApi("/auth/me", { signal: networkTimeout(5000), headers: { Authorization: `Bearer ${currentToken}` } }).catch(() => null) : null;
+        if (!response && process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") {
+          sessionUser = currentUser;
+        } else if (response?.ok) {
           const body = await response.json().catch(() => null) as { user?: AuthUser } | null;
           sessionUser = body?.user ?? currentUser;
           if (sessionUser.tenantId !== currentUser.tenantId) clearTenantScopedCaches("tenant-mismatch");
