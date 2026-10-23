@@ -2,7 +2,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
   appId: "com.vtaerp.commerce",
-  appName: "VTA Commerce",
+  appName: "VTA POS",
   webDir: "public",
   server: {
     url: "https://vtaerp.com",

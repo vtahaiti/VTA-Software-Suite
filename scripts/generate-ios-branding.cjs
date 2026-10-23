@@ -8,7 +8,7 @@ const icon = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024"
 const splash = `<svg xmlns="http://www.w3.org/2000/svg" width="2732" height="2732" viewBox="0 0 2732 2732"><rect width="2732" height="2732" fill="#0877f9"/><g transform="translate(1007.6 1007.6) scale(.7)">${mark}</g></svg>`;
 (async () => {
   fs.writeFileSync(path.resolve(__dirname, '../apps/web/public/vta-pos-icon.svg'), icon);
-  await sharp(Buffer.from(icon)).png().toFile(path.join(assets, 'AppIcon.appiconset/AppIcon-512@2x.png'));
+  await sharp(Buffer.from(icon)).removeAlpha().png().toFile(path.join(assets, 'AppIcon.appiconset/AppIcon-512@2x.png'));
   for (const file of ['splash-2732x2732.png', 'splash-2732x2732-1.png', 'splash-2732x2732-2.png']) {
     await sharp(Buffer.from(splash)).png().toFile(path.join(assets, 'Splash.imageset', file));
   }
