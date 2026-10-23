@@ -9,6 +9,7 @@ COPY package*.json ./
 COPY apps ./apps
 COPY packages ./packages
 COPY database ./database
+COPY scripts ./scripts
 
 RUN npm ci
 
