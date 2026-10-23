@@ -20,6 +20,10 @@ const mainActivity = read("apps/web/android/app/src/main/java/com/vtaerp/commerc
 const bluetoothPlugin = read("apps/web/android/app/src/main/java/com/vtaerp/commerce/VtaBluetoothPrinterPlugin.java");
 const printSettings = read("apps/web/app/dashboard/settings/pos/page.tsx");
 const iosInfo = read("apps/web/ios/App/App/Info.plist");
+const iosProject = read("apps/web/ios/App/App.xcodeproj/project.pbxproj");
+const iosPodfile = read("apps/web/ios/App/Podfile");
+const iosPrivacy = read("apps/web/ios/App/App/PrivacyInfo.xcprivacy");
+const iosDelegate = read("apps/web/ios/App/App/AppDelegate.swift");
 
 assert(capacitor.includes('appId: "com.vtaerp.commerce"'), "L'appId Android existant doit rester stable");
 assert(capacitor.includes('appName: "VTA POS"'), "Le nom natif doit être VTA POS");
@@ -27,6 +31,11 @@ assert(capacitor.includes('errorPath: "offline.html"'), "L'app native doit affic
 assert(manifest.includes('"name": "VTA POS"'), "Le manifeste installable doit utiliser VTA POS");
 assert(androidStrings.includes(">VTA POS<"), "Le libellé Android doit utiliser VTA POS");
 assert(iosInfo.includes("VTA POS"), "Le libellé iOS doit utiliser VTA POS");
+assert(iosInfo.includes("UIDesignRequiresCompatibility") && iosInfo.includes("NSCameraUsageDescription"), "iOS doit préparer iPadOS 26 et l'usage caméra du scanner");
+assert(iosPodfile.includes("platform :ios, '15.0'") && !iosProject.includes("IPHONEOS_DEPLOYMENT_TARGET = 13.0"), "La cible iOS minimale doit être iOS 15");
+assert(iosProject.includes("PrivacyInfo.xcprivacy in Resources"), "Le manifeste de confidentialité doit être inclus dans le bundle iOS");
+assert(iosPrivacy.includes("NSPrivacyAccessedAPICategoryFileTimestamp") && iosPrivacy.includes("C617.1") && iosPrivacy.includes("NSPrivacyAccessedAPICategoryUserDefaults") && iosPrivacy.includes("CA92.1"), "Le manifeste iOS doit déclarer les API à raison requise");
+assert(iosDelegate.includes("@main") && !iosDelegate.includes("@UIApplicationMain"), "Le point d'entrée iOS doit utiliser la syntaxe Swift moderne");
 assert(androidManifest.includes("android.permission.BLUETOOTH_CONNECT"), "Android récent doit demander la permission Bluetooth requise");
 assert(mainActivity.includes("registerPlugin(VtaBluetoothPrinterPlugin.class)"), "Le plugin d'impression Bluetooth doit être enregistré");
 assert(bluetoothPlugin.includes("sendBitmapOverBluetooth") && bluetoothPlugin.includes("GS v 0"), "L'impression directe doit envoyer un ticket raster ESC/POS");
