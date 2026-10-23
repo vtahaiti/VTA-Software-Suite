@@ -1,4 +1,5 @@
 "use client";
+import { IosSettingsMenu } from "@/components/ios-settings-menu";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -53,6 +54,7 @@ const advancedSections = [
 
 export default function SettingsPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <IosSettingsMenu sections={sections} advanced={advancedSections} />;
   return (
     <div className="space-y-5">
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">

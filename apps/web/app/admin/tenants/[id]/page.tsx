@@ -60,7 +60,7 @@ export default function AdminTenantDetailPage({ params }: { params: Promise<{ id
     await action(() => platformFetch(`/platform/tenants/${tenant.id}`, { method: "DELETE", body: JSON.stringify({ reason }) }), "Entreprise désactivée. La purge définitive reste une étape séparée et protégée.");
   }
 
-  if (!tenant) return <AdminShell><div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 text-slate-300">Chargement...</div></AdminShell>;
+  if (!tenant) return <AdminShell><div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 text-slate-300">{error || "Chargement..."}{error && <button className="block mt-3 underline" onClick={() => { setError(""); void load().catch(err => setError(err.message)); }}>Réessayer</button>}</div></AdminShell>;
 
   return (
     <AdminShell>

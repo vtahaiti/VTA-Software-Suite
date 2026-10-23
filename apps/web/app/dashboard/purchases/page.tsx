@@ -1,6 +1,8 @@
 "use client";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
+import { IosListScreen } from "@/components/ios-list-screen";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
@@ -40,6 +42,7 @@ type Dashboard = {
 };
 
 export default function PurchasesPage() {
+  const router = useRouter();
   const [items, setItems] = useState<PurchaseOrder[]>([]);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(true);
@@ -114,6 +117,8 @@ export default function PurchasesPage() {
     ["Montants a payer fournisseur", formatMoney(Number(dashboard?.supplierBalanceDue ?? 0))],
     ["Factures impayées", dashboard?.unpaidInvoices ?? 0]
   ];
+
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <IosListScreen title="Achats" search={search} onSearch={value => { setSearch(value); setPage(1); }} onAdd={() => router.push("/dashboard/purchases/create")} count={total} page={page} pages={pages} previous={() => setPage(page - 1)} next={() => setPage(page + 1)} loading={listLoading} error={error} retry={() => { setError(""); void loadPurchases(); void loadDashboard(); }} options={<div className="vm-filter-panel w-full"><label>Statut<select value={status} onChange={event => { setStatus(event.target.value); setPage(1); }}><option value="">Tous</option>{Object.entries(statusLabels).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label><Link className="vm-utility-link" href="/dashboard/purchases/receipts">Réception des marchandises</Link><details className="vm-advanced"><summary>Indicateurs d’achats</summary><div className="vm-report-metrics">{cards.map(([label,value]) => <div key={label}><small>{label}</small><strong>{dashboardLoading ? "—" : value}</strong></div>)}</div></details><div className="vm-document-actions"><button onClick={() => void exportFile("csv")}>CSV</button><button onClick={() => void exportFile("excel")}>Excel</button><button onClick={() => void exportFile("pdf")}>PDF</button></div></div>}>{items.map(order => <article className="vm-record" key={order.id}><Link className="vm-record-main" href={`/dashboard/purchases/${order.id}`}><span className="vm-person-avatar">{order.supplier?.name?.slice(0,1) || "A"}</span><span className="vm-record-name"><strong>{order.number}</strong><small>{order.supplier?.name || "Fournisseur"}</small><small>{statusLabels[order.status] || order.status}</small></span><span className="vm-record-value"><strong>{formatMoney(Number(order.total))}</strong></span></Link></article>)}</IosListScreen>;
 
   return (
     <div className="space-y-5">

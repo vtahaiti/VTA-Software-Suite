@@ -11,13 +11,19 @@ const typeLabels: Record<string, string> = { INDIVIDUAL: "Particulier", BUSINESS
 
 export default function CustomerDetailPage() {
   const params = useParams<{ id: string }>();
+  const [error, setError] = useState("");
   const [customer, setCustomer] = useState<any>(null);
   const loadCustomer = useCallback(async () => {
-    const response = await fetch(`${apiUrl}/customers/${params.id}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
-    if (response.ok) setCustomer(await response.json());
+    setError("");
+    try {
+      const response = await fetch(`${apiUrl}/customers/${params.id}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
+      if (!response.ok) throw new Error();
+      setCustomer(await response.json());
+    } catch { setError("Impossible de charger ce client. Vérifiez la connexion puis réessayez."); }
   }, [params.id]);
   useEffect(() => { void loadCustomer(); }, [loadCustomer]);
   async function action(name: string) { await fetch(`${apiUrl}/customers/${params.id}/${name}`, { method: "POST", headers: { Authorization: `Bearer ${getAccessToken()}` } }); await loadCustomer(); }
+  if (error) return <div role="alert" className="rounded-xl bg-white p-5"><p>{error}</p><button className="mt-3 underline" onClick={() => void loadCustomer()}>Réessayer</button></div>;
   if (!customer) return <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">Chargement du client...</div>;
   const information = [["Prénom", customer.firstName], ["Nom", customer.lastName], ["Entreprise", customer.company], ["Numéro fiscal", customer.taxNumber], ["Téléphone", customer.phone], ["Mobile", customer.mobile], ["WhatsApp", customer.whatsapp], ["Email", customer.email]];
   const address = [["Pays", customer.country], ["Ville", customer.city], ["Code postal", customer.postalCode], ["Site web", customer.website], ["Adresse", customer.address]];

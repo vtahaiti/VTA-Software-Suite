@@ -7,6 +7,7 @@ export type NativePrintFormat = "58" | "80" | "A4" | "LETTER";
 export type NativePrintOrientation = "portrait" | "landscape";
 
 type NativePrintPlugin = {
+  shareFile(options: { base64: string; fileName: string }): Promise<{ status: string }>;
   printHtml(options: {
     html: string;
     title?: string;
@@ -23,6 +24,16 @@ type NativePrintPlugin = {
 };
 
 const NativePrint = registerPlugin<NativePrintPlugin>("VtaNativePrint");
+
+export async function shareFileNative(blob: Blob, fileName: string) {
+  const base64 = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Lecture du fichier impossible."));
+    reader.onload = () => resolve(String(reader.result).split(",")[1]);
+    reader.readAsDataURL(blob);
+  });
+  return NativePrint.shareFile({ base64, fileName });
+}
 
 export async function isNativePrintAvailable() {
   if (typeof window === "undefined") return false;

@@ -1,3 +1,4 @@
+import { ChevronRight, FileText, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import { ExcludedModuleGuard } from "@/components/excluded-module-guard";
 
@@ -10,6 +11,8 @@ const dashboardCards = [
 ];
 
 export default function SalesPage() {
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <ExcludedModuleGuard moduleKey="sales" redirectTo="/dashboard/sales/in-progress"><div className="vm-screen"><div className="vm-title"><h1>Documents</h1></div><div className="vm-quick-grid vm-document-shortcuts"><Link href="/dashboard/sales/quotes/create"><span><FileText size={22}/></span>Nouveau devis</Link><Link href="/dashboard/sales/proformas/create"><span><ShoppingBag size={22}/></span>Nouvelle commande</Link></div><section className="vm-menu-section"><h2>Suivi des documents</h2><div className="vm-menu-group">{dashboardCards.map(card => <Link key={card.href} href={card.href} className="vm-menu-row"><span><FileText size={20}/></span><div><strong>{card.title}</strong></div><ChevronRight size={17}/></Link>)}<Link href="/dashboard/sales/invoices" className="vm-menu-row"><span><FileText size={20}/></span><div><strong>Factures</strong></div><ChevronRight size={17}/></Link></div></section></div></ExcludedModuleGuard>;
+
   return (
     <ExcludedModuleGuard moduleKey="sales" redirectTo="/dashboard/sales/in-progress">
     <div className="space-y-5">

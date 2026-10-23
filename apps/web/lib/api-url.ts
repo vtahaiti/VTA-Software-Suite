@@ -59,13 +59,13 @@ export async function fetchApi(path: string, init: RequestInit = {}) {
       const { Capacitor, CapacitorHttp } = await import("@capacitor/core");
       if (Capacitor.getPlatform() === "ios") {
         if (init.signal?.aborted) throw new Error("Request aborted");
-        const native = await CapacitorHttp.request({
+        const request = CapacitorHttp.request({
           url: apiUrl(path), method: init.method ?? "GET",
           headers: Object.fromEntries(headers.entries()),
           ...(init.body == null ? {} : { data: JSON.parse(init.body as string) }),
           connectTimeout: 15000, readTimeout: 30000, responseType: "text"
         });
-        if (init.signal?.aborted) throw new Error("Request aborted");
+        const native = await withAbort(request, init.signal);
         console.info("[VTA API]", init.method ?? "GET", path.split("?")[0], native.status);
         const body = [204, 205, 304].includes(native.status) ? null :
           typeof native.data === "string" ? native.data : JSON.stringify(native.data);
@@ -79,6 +79,16 @@ export async function fetchApi(path: string, init: RequestInit = {}) {
   } catch {
     throw new ApiUnavailableError();
   }
+}
+
+function withAbort<T>(request: Promise<T>, signal?: AbortSignal | null): Promise<T> {
+  if (!signal) return request;
+  return new Promise((resolve, reject) => {
+    const abort = () => reject(new Error("Request aborted"));
+    signal.addEventListener("abort", abort, { once: true });
+    if (signal.aborted) abort();
+    request.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
+  });
 }
 
 function normalizeApiUrl(value: string) {

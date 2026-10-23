@@ -125,7 +125,9 @@ export default function ImportExportPage() {
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = "rapport-erreurs-import.csv";
+    document.body.appendChild(anchor);
     anchor.click();
+    anchor.remove();
     URL.revokeObjectURL(url);
   }
 

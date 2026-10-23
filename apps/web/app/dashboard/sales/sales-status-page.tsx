@@ -1,4 +1,6 @@
 "use client";
+import Link from "next/link";
+import { IosSalesList } from "@/components/ios-sales-list";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -50,7 +52,7 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
   const [sales, setSales] = useState<Sale[]>([]);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [message, setMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [period, setPeriod] = useState<PeriodFilter>("today");
@@ -135,6 +137,8 @@ export function SalesStatusPage({ type }: { type: "in-progress" | "completed" | 
   const pages = useMemo(() => Math.max(1, Math.ceil(total / 25)), [total]);
 
   if (accessBlocked) return <TenantAccessBlockedInline />;
+
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <div className="vm-screen"><div className="vm-title"><h1>Mes ventes</h1><Link className="vm-round-action" href="/dashboard/pos" aria-label="Nouvelle vente">+</Link></div><nav className="vm-chips vm-link-chips" aria-label="Statut des ventes">{[{key:"in-progress",label:"En attente"},{key:"completed",label:"Terminées"},{key:"cancelled",label:"Annulées"}].map(item => <Link key={item.key} aria-current={type === item.key ? "page" : undefined} href={`/dashboard/sales/${item.key}`}>{item.label}</Link>)}</nav>{message && <p role="alert" className="ios-notice">{message}</p>}{type === "completed" && <><section className="vm-report-revenue"><div><p>Ventes sur la période</p><strong>{summary ? formatMoney(summary.total) : "—"}</strong><small>{summary ? `${summary.count} vente(s)` : "Chargement…"}</small></div></section><details className="vm-sales-filters"><summary>Période et caissier</summary><SalesFilters period={period} cashierId={cashierId} customStart={customStart} customEnd={customEnd} canViewAllSales={canViewAllSales} summary={summary} cashiers={cashiers} onPeriodChange={setPeriod} onCashierChange={setCashierId} onCustomStartChange={setCustomStart} onCustomEndChange={setCustomEnd}/></details></>}{type === "in-progress" ? <DraftList drafts={drafts} isLoading={isLoading} onReload={() => void load()} /> : <SaleList sales={sales} type={type} isLoading={isLoading}/>} {type !== "in-progress" && pages > 1 && <Pagination page={page} pages={pages} total={total} onPrev={() => setPage(page - 1)} onNext={() => setPage(page + 1)} />}</div>;
 
   return <div className="space-y-5">
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -351,6 +355,7 @@ function SaleList({ sales, type, isLoading }: { sales: Sale[]; type: "completed"
     }
   }
 
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <IosSalesList sales={sales} cancelled={type === "cancelled"} loading={isLoading} onPrint={printSale} />;
   return <section className="rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
     <div className="grid gap-3 p-3 md:hidden">
       {sales.map((sale) => {

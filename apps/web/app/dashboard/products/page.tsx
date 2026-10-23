@@ -1,6 +1,8 @@
 "use client";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
+import { IosSheet } from "@/components/ios-sheet";
+import { IosListScreen } from "@/components/ios-list-screen";
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
@@ -66,7 +68,7 @@ export default function ProductsPage() {
   const [showOptions, setShowOptions] = useState(false);
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [message, setMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1");
   const [isSaving, setIsSaving] = useState(false);
   const [business, setBusiness] = useState<TenantBusinessConfiguration | null>(null);
   const isRestaurant = isRestaurantBusiness(business?.businessProfileType, business?.primaryActivity);
@@ -170,6 +172,7 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-5">
+      {process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? <IosListScreen title="Produits" search={search} onSearch={value => { setSearch(value); setPage(1); }} onAdd={() => setIsModalOpen(true)} count={displayTotal} page={page} pages={pages} previous={() => setPage(page - 1)} next={() => setPage(page + 1)} loading={isLoading} error={message} options={<><Link href="/dashboard/products/create">Fiche complète</Link><Link href="/dashboard/import-export">Import / export</Link><Link href="/dashboard/products/categories">Catégories</Link></>}>{items.map(product => <article className="vm-record" key={product.id}><Link className="vm-record-main" href={`/dashboard/products/${product.id}/edit`}><ProductThumb product={product}/><span className="vm-record-name"><strong>{product.name}</strong><small>{product.category?.name || "Sans catégorie"}</small></span><span className="vm-record-value"><strong>{formatMoney(product.salePrice)}</strong><small>{product.stockCurrent ?? "—"} en stock</small></span></Link><div className="vm-record-actions"><ProductRowActions product={product} onDelete={deleteProduct} variant="table" /></div></article>)}</IosListScreen> : <>
       <div className="flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:flex-row md:items-center">
         <h1 className="text-2xl font-bold text-slate-950 dark:text-white">{isRestaurant ? "Produits / menu" : "Produits"}</h1>
         {isRestaurant ? <div className="flex flex-wrap gap-2">
@@ -223,6 +226,8 @@ export default function ProductsPage() {
       </div>
 
       <Pagination page={page} pages={pages} total={displayTotal} displayed={items.length} label="produits" onPrev={() => setPage(page - 1)} onNext={() => setPage(page + 1)} />
+
+      </>}
 
       {isModalOpen && isRestaurant ? (
         <Modal title={form.sellable ? "Ajouter plat / boisson" : "Ajouter ingrédient / fourniture"} onClose={() => setIsModalOpen(false)}>
@@ -283,11 +288,12 @@ export default function ProductsPage() {
 }
 
 function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <IosSheet title={title} onClose={onClose}>{children}</IosSheet>;
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"><div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-5 shadow-xl dark:bg-slate-900"><div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-bold">{title}</h2><button type="button" onClick={onClose} className="rounded-md border px-3 py-1 text-sm dark:border-slate-700">Fermer</button></div>{children}</div></div>;
 }
 
 function Input({ value, onChange, placeholder, helper, required = false, type = "text" }: { value: string; placeholder: string; helper?: string; required?: boolean; type?: string; onChange: (value: string) => void }) {
-  return <label className="grid gap-1"><input type={type} required={required} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />{helper ? <span className="text-xs text-slate-500">{helper}</span> : null}</label>;
+  return <label className="grid gap-1">{process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" && <span className="text-xs font-medium text-slate-600">{placeholder}</span>}<input type={type} required={required} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />{helper ? <span className="text-xs text-slate-500">{helper}</span> : null}</label>;
 }
 
 function SellableChoice({ sellable, onChange }: { sellable: boolean; onChange: (sellable: boolean) => void }) {

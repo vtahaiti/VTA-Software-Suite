@@ -77,7 +77,9 @@ export default function AuditLogsPage() {
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = "vta-audit." + type;
+    document.body.appendChild(anchor);
     anchor.click();
+    anchor.remove();
     URL.revokeObjectURL(url);
   }
 

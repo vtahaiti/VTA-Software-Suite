@@ -1,5 +1,5 @@
 import { getAccessToken, refreshSession } from "@/lib/auth";
-import { apiUrl } from "@/lib/api-url";
+import { apiUrl, apiBaseUrl, fetchApi } from "@/lib/api-url";
 import { isTenantAccessBlockedResponse } from "@/lib/tenant-access";
 
 export { apiUrl };
@@ -35,5 +35,8 @@ async function fetchWithCurrentToken(input: RequestInfo | URL, init: RequestInit
     headers.set("Content-Type", "multipart/form-data");
   }
   if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" && typeof input === "string" && input.startsWith(apiBaseUrl + "/")) {
+    return fetchApi(input.slice(apiBaseUrl.length), { ...init, headers });
+  }
   return fetch(input, { ...init, headers });
 }

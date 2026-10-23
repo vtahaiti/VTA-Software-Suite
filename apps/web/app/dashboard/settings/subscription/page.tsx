@@ -1,6 +1,7 @@
 "use client";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
+import { IosPageHeading } from "@/components/ios-page-heading";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
@@ -241,6 +242,7 @@ export default function SubscriptionSettingsPage() {
 }
 
 function Header({ active }: { active: string }) {
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <IosPageHeading title="Abonnement" />;
   return (
     <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
       <p className="text-sm font-medium text-brand-600">Paramètres</p>

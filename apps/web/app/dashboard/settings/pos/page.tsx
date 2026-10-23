@@ -1,6 +1,7 @@
 "use client";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
+import { IosPageHeading } from "@/components/ios-page-heading";
 import Link from "next/link";
 import { bluetoothPrintError, buildBluetoothTestTicketHtml, receiptPrintOptions } from "@/lib/receipt-print-options";
 
@@ -33,6 +34,8 @@ export default function PosSettingsPage() {
   const [receiptWidth, setReceiptWidth] = useState<ReceiptPreviewWidth>("80");
   const [msg, setMsg] = useState("");
   const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const waitingForSettings = process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" && !loaded;
   const [testWidth, setTestWidth] = useState<"58" | "80">("80");
   const [nativePrinting, setNativePrinting] = useState(false);
   const [bluetoothSupported, setBluetoothSupported] = useState(false);
@@ -44,8 +47,8 @@ export default function PosSettingsPage() {
 
   useEffect(() => {
     fetchWithAuth(`${apiUrl}/settings/pos`)
-      .then((response) => response.ok ? response.json() : null)
-      .then((data) => data && setForm(toPosForm(data))).catch(() => undefined);
+      .then((response) => { if (!response.ok) throw new Error(); return response.json(); })
+      .then((data) => { setForm(toPosForm(data)); setLoaded(true); }).catch(() => setMsg("Chargement des paramètres impossible. Reconnectez-vous puis rouvrez cette page."));
     void getReceiptPrintSettings().then((settings) => setReceiptWidth(settings.width)).catch(() => undefined);
     void import("@capacitor/core").then(({ Capacitor }) => setNativePrinting(Capacitor.isNativePlatform()));
     void isBluetoothPrintSupported().then((supported) => {
@@ -105,7 +108,7 @@ export default function PosSettingsPage() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (saving) return;
+    if (saving || waitingForSettings) return;
     setMsg("");
     setSaving(true);
     try {
@@ -145,7 +148,7 @@ export default function PosSettingsPage() {
           <button type="button" onClick={previewTicket} className="mt-3 rounded-md border px-4 py-2 text-sm font-semibold">Aperçu du ticket</button>
         </div>
         <div className="flex flex-wrap items-center gap-3 pt-3">
-          <button disabled={saving} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement..." : "Sauvegarder"}</button>
+          <button disabled={saving || waitingForSettings} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement..." : "Sauvegarder"}</button>
           {msg ? <p className="text-sm text-slate-500">{msg}</p> : null}
         </div>
       </form>
@@ -208,6 +211,7 @@ function toPosForm(data: Partial<PosForm>): PosForm {
 }
 
 function Header() {
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <IosPageHeading title="Impression" />;
   return <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm font-medium text-brand-600">Paramètres</p><h1 className="text-2xl font-bold">Impression</h1><div className="mt-4 flex flex-wrap gap-2"><Link href="/dashboard/settings/company" className="rounded-md border px-3 py-2 text-sm">Entreprise</Link><Link href="/dashboard/settings/pos" className="rounded-md bg-brand-600 px-3 py-2 text-sm text-white">Impression</Link><Link href="/dashboard/settings/invoicing" className="rounded-md border px-3 py-2 text-sm">Facturation</Link><Link href="/dashboard/settings/subscription" className="rounded-md border px-3 py-2 text-sm">Abonnement</Link><Link href="/dashboard/settings/emails" className="rounded-md border px-3 py-2 text-sm">Emails</Link></div></div>;
 }
 

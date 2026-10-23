@@ -1,8 +1,10 @@
 "use client";
 import { networkTimeout } from "@/lib/network-timeout";
 
-import { ReactNode, useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { ReactNode, useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { iosBackHref, iosRouteNeedsId } from "@/lib/ios-route-map";
+import { IosBackNavigation } from "@/components/ios-back-navigation";
 import { IosBottomNav } from "@/components/ios-bottom-nav";
 import { IosPageContent } from "@/components/ios-page-content";
 import Link from "next/link";
@@ -23,7 +25,10 @@ type ProtectedShellProps = {
 
 export function ProtectedShell({ children }: ProtectedShellProps) {
   const router = useRouter();
+  const [screenBack, setScreenBack] = useState<(() => void) | null>(null);
+  const setScreenBackAction = useCallback((action: (() => void) | null) => setScreenBack(() => action), []);
   const pathname = usePathname();
+  const search = useSearchParams();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -121,7 +126,7 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
 
   useEffect(() => {
     if (!isReady || !user) return;
-    if (!canAccessHref(user, pathname)) router.replace("/dashboard");
+    if (!canAccessHref(user, pathname === "/offline" || pathname === "/offline/" ? "/dashboard/pos" : pathname)) router.replace("/dashboard");
   }, [isReady, pathname, router, user]);
 
   useEffect(() => {
@@ -150,11 +155,11 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
   }
 
   if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return (
-    <div className="ios-app-shell min-h-screen bg-[#f5f7fb] text-[#111b3c]">
-      {pathname.replace(/\/$/, "") !== "/dashboard/pos" && <header className="ios-app-header"><div>{!["/dashboard", "/dashboard/inventory", "/dashboard/more"].includes(pathname.replace(/\/$/, "")) && <Link aria-label="Retour" className="ios-back" href={pathname.replace(/\/$/, "").split("/").length > 3 ? pathname.replace(/\/$/, "").split("/").slice(0, -1).join("/") : "/dashboard/more"}><ChevronLeft size={22} /></Link>}<Link href="/dashboard" className="ios-wordmark"><span>VTA</span> POS</Link></div><span className="ios-business-chip"><Store size={14} /><span>{branding?.companyName || user.tenant}</span></span></header>}
-      <IosPageContent sale={pathname.replace(/\/$/, "") === "/dashboard/pos"}>{typeof children === "function" ? children(user) : children}</IosPageContent>
+    <IosBackNavigation.Provider value={setScreenBackAction}><div className="ios-app-shell min-h-screen bg-[#f5f7fb] text-[#111b3c]">
+      {pathname.replace(/\/$/, "") !== "/dashboard/pos" && <header className="ios-app-header"><div>{!["/dashboard", "/dashboard/inventory", "/dashboard/more"].includes(pathname.replace(/\/$/, "")) && (screenBack ? <button type="button" aria-label="Retour au profil" className="ios-back" onClick={screenBack}><ChevronLeft size={22} /></button> : <Link aria-label="Retour" className="ios-back" href={iosBackHref(pathname, search.toString())}><ChevronLeft size={22} /></Link>)}<Link href="/dashboard" className="ios-wordmark"><span>VTA</span> POS</Link></div><span className="ios-business-chip"><Store size={14} /><span>{branding?.companyName || user.tenant}</span></span></header>}
+      <IosPageContent sale={pathname.replace(/\/$/, "") === "/dashboard/pos"}>{iosRouteNeedsId(pathname) && !search.get("id") ? <div className="ios-empty">Choisissez un élément depuis la liste.<Link href={iosBackHref(pathname)} className="block mt-3 underline">Retour à la liste</Link></div> : typeof children === "function" ? children(user) : children}</IosPageContent>
       <IosBottomNav />
-    </div>
+    </div></IosBackNavigation.Provider>
   );
 
   return (

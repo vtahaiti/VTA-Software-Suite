@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { Wifi, WifiOff, RefreshCw, Printer } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getOfflineSummary, getOfflineSales, type OfflineSale } from "@/lib/offline-db";
 import { printReceiptSmart, isNativePrintAvailable } from "@/lib/native-print";
@@ -33,6 +35,8 @@ export default function OfflinePage() {
     try { const result = await syncOfflineSalesNow(); setMessage(`${result.synced} synchronisée(s), ${result.conflicts} conflit(s), ${result.errors} erreur(s).`); await refresh(); }
     catch (error) { setMessage(error instanceof Error ? error.message : "Synchronisation indisponible."); }
   }
+
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <div className="vm-screen"><div className="vm-title"><h1>Hors ligne</h1><span className={isOnline ? "vm-network-online" : "vm-network-offline"}>{isOnline ? <Wifi size={17}/> : <WifiOff size={17}/>} {isOnline ? "En ligne" : "Hors ligne"}</span></div><div className="vm-stock-summary"><div><strong>{summary?.products ?? "—"}</strong><span>produits disponibles</span></div><div><strong>{summary?.customers ?? "—"}</strong><span>clients enregistrés</span></div><div><strong>{summary?.pendingSales ?? "—"}</strong><span>ventes en attente</span></div></div><p className="vm-offline-description">Les ventes enregistrées sur cet iPhone restent disponibles ici jusqu’à leur synchronisation.</p><button disabled={!isOnline} onClick={() => void synchronize()} className="vm-primary-button"><RefreshCw size={18}/>Synchroniser maintenant</button>{message && <p className="ios-notice" role="status">{message}</p>}<div className="vm-section-heading"><h2>Ventes de cet iPhone</h2><span className="vm-count">{sales.length}</span></div>{!sales.length ? <div className="vm-state">Aucune vente locale pour le moment.</div> : <div className="vm-record-list">{sales.map(sale => <article className="vm-record" key={sale.localId}><div className="vm-record-main"><span className="vm-record-name"><strong>{new Date(sale.createdOfflineAt).toLocaleString("fr-HT")}</strong><small>{{PENDING:"En attente",SYNCED:"Synchronisée",CONFLICT:"À vérifier",ERROR:"Erreur de synchronisation"}[sale.status]}</small></span><span className="vm-record-value"><strong>{sale.total.toFixed(2)} HTG</strong></span></div>{sale.message && <p className="ios-notice">{sale.message}</p>}{sale.receiptHtml && <button className="vm-utility-link" onClick={() => void reprint(sale)}><Printer size={16}/>Réimprimer le ticket</button>}</article>)}</div>}<Link className="vm-utility-link" href="/dashboard/pos">Retour à la vente →</Link></div>;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 px-6 text-slate-950 dark:bg-slate-950 dark:text-white">

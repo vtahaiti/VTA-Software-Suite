@@ -1,10 +1,12 @@
 ﻿"use client";
 
+import DashboardProfilePage from "@/app/dashboard/profile/page";
 import { ProtectedShell } from "@/components/protected-shell";
 import type { AuthUser } from "@/lib/auth";
 import { formatRole } from "@/lib/format";
 
 export default function ProfilePage() {
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <ProtectedShell><DashboardProfilePage /></ProtectedShell>;
   return <ProtectedShell>{(user) => <ProfileContent user={user} />}</ProtectedShell>;
 }
 

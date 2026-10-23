@@ -61,6 +61,7 @@ const emptyForm = {
 
 export function ProductForm({ productId }: { productId?: string }) {
   const router = useRouter();
+  const [recordReady, setRecordReady] = useState(!productId);
   const [refs, setRefs] = useState<{ categories: Ref[]; brands: Ref[]; units: Ref[]; suppliers: Supplier[]; stores: Store[]; warehouses: Warehouse[] }>({
     categories: [],
     brands: [],
@@ -80,13 +81,13 @@ export function ProductForm({ productId }: { productId?: string }) {
   const [isRestaurant, setIsRestaurant] = useState(false);
 
   useEffect(() => {
-    void loadRefs();
+    void loadRefs().catch(() => setError("Les listes de référence sont indisponibles."));
     void getTenantBusinessConfiguration().then((business) => {
       const restaurant = isRestaurantBusiness(business?.businessProfileType, business?.primaryActivity);
       setIsRestaurant(restaurant);
       if (restaurant && !productId) setForm((current) => ({ ...current, sellable: true, noStockTracking: true }));
     }).catch(() => undefined);
-    if (productId) void loadProduct();
+    setRecordReady(!productId); if (productId) void loadProduct().catch(() => setError("Chargement impossible. Vérifiez la connexion."));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId]);
 
@@ -121,8 +122,9 @@ export function ProductForm({ productId }: { productId?: string }) {
 
   async function loadProduct() {
     const response = await fetchWithAuth(`${apiUrl}/products/${productId}`);
-    if (!response.ok) return;
+    if (!response.ok) { setError("Chargement impossible. Vérifiez la connexion."); return; }
     const product = await response.json();
+    setRecordReady(true);
     const variant = product.variants?.[0] ?? {};
     const primaryImage = product.images?.[0]?.url ?? "";
     const stockCurrent = Number(product.stockCurrent ?? product.stocks?.[0]?.quantity ?? 0);
@@ -176,6 +178,7 @@ export function ProductForm({ productId }: { productId?: string }) {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" && !recordReady) return;
     if (isSaving) return;
     setError(null);
     setMessage(null);
@@ -319,6 +322,7 @@ export function ProductForm({ productId }: { productId?: string }) {
     setForm((current) => ({ ...current, barcode: value, barcodeType: "EAN", qrCode: current.qrCode || `PROD:${current.sku || current.name}:${value}` }));
   }
 
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" && !recordReady) return <div className="rounded-xl bg-white p-5"><p role="status">{error || "Chargement de la fiche…"}</p><button type="button" className="mt-3 underline" onClick={() => { setError(null); void loadProduct().catch(() => setError("Chargement impossible. Vérifiez la connexion.")); }}>Réessayer</button></div>;
   return <form onSubmit={submit} className="space-y-5 pb-4">
     {error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
     <Section title="Produit">
@@ -396,8 +400,8 @@ export function ProductForm({ productId }: { productId?: string }) {
 
         <Section title="Images et dates">
           <GalleryPicker selected={Boolean(form.galleryUrls)} onChange={(value) => update("galleryUrls", value)} />
-          <input type="date" value={form.manufacturingDate} onChange={(event) => update("manufacturingDate", event.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-          <input type="date" value={form.expirationDate} onChange={(event) => update("expirationDate", event.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+          <label className="grid gap-1 text-xs font-medium">Date de fabrication<input type="date" value={form.manufacturingDate} onChange={(event) => update("manufacturingDate", event.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /></label>
+          <label className="grid gap-1 text-xs font-medium">Date d’expiration<input type="date" value={form.expirationDate} onChange={(event) => update("expirationDate", event.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /></label>
           <Input value={form.warrantyMonths} onChange={(value) => update("warrantyMonths", value)} placeholder="Garantie en mois" type="number" />
         </Section>
       </div> : null}
@@ -452,14 +456,15 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 function Input({ value, onChange, placeholder, helper, required = false, type = "text" }: { value: string; placeholder: string; helper?: string; required?: boolean; type?: string; onChange: (value: string) => void }) {
-  return <label className="grid gap-1"><input type={type} required={required} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="min-w-0 rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />{helper ? <span className="text-xs text-slate-500">{helper}</span> : null}</label>;
+  return <label className="grid gap-1">{process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" && <span className="text-xs font-medium text-slate-600">{placeholder}</span>}<input type={type} required={required} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="min-w-0 rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />{helper ? <span className="text-xs text-slate-500">{helper}</span> : null}</label>;
 }
 
 function Select({ value, onChange, placeholder, items }: { value: string; placeholder: string; items: Ref[]; onChange: (value: string) => void }) {
-  return <select value={value} onChange={(event) => onChange(event.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+  const field = <select aria-label={placeholder} value={value} onChange={(event) => onChange(event.target.value)} className="rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
     <option value="">{placeholder}</option>
     {items.map((item) => <option key={`${item.id}-${item.name}`} value={item.id}>{item.name}</option>)}
   </select>;
+  return process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? <label className="grid min-w-0 flex-1 gap-1"><span className="text-xs font-medium text-slate-600">{placeholder}</span>{field}</label> : field;
 }
 
 function RestaurantProductKindChoice({ sellable, onChange }: { sellable: boolean; onChange: (sellable: boolean) => void }) {

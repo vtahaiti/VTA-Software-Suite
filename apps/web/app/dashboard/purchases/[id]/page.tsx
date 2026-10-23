@@ -38,11 +38,16 @@ type PurchaseOrder = {
 
 export default function PurchaseDetailPage() {
   const params = useParams<{ id: string }>();
+  const [loadError, setLoadError] = useState("");
   const [order, setOrder] = useState<PurchaseOrder | null>(null);
 
   const loadOrder = useCallback(async function loadOrder() {
-    const response = await fetch(`${apiUrl}/purchase-orders/${params.id}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
-    if (response.ok) setOrder(await response.json());
+    setLoadError("");
+    try {
+      const response = await fetch(`${apiUrl}/purchase-orders/${params.id}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
+      if (!response.ok) throw new Error();
+      setOrder(await response.json());
+    } catch { setLoadError("Impossible de charger ce bon de commande. Vérifiez la connexion puis réessayez."); }
   }, [params.id]);
 
   useEffect(() => {
@@ -54,6 +59,7 @@ export default function PurchaseDetailPage() {
     if (response.ok) void loadOrder();
   }
 
+  if (loadError && !order) return <div role="alert" className="rounded-xl bg-white p-5"><p>{loadError}</p><button className="mt-3 underline" onClick={() => void loadOrder()}>Réessayer</button></div>;
   if (!order) return <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">Chargement du bon de commande...</div>;
 
   const canReceive = ["SENT", "APPROVED", "PARTIALLY_RECEIVED"].includes(order.status);

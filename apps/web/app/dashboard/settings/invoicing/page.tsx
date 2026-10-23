@@ -1,6 +1,7 @@
 "use client";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
+import { IosPageHeading } from "@/components/ios-page-heading";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
@@ -34,12 +35,14 @@ export default function InvoicingSettingsPage() {
   const [form, setForm] = useState<InvoicingForm>(initialForm);
   const [msg, setMsg] = useState("");
   const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const waitingForSettings = process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" && !loaded;
 
   useEffect(() => {
     fetchWithAuth(`${apiUrl}/settings/invoicing`)
-      .then((response) => response.ok ? response.json() : null)
-      .then((data) => data && setForm(toInvoicingForm(data)))
-      .catch(() => undefined);
+      .then((response) => { if (!response.ok) throw new Error(); return response.json(); })
+      .then((data) => { setForm(toInvoicingForm(data)); setLoaded(true); })
+      .catch(() => setMsg("Chargement des paramètres impossible. Reconnectez-vous puis rouvrez cette page."));
   }, []);
 
   function update(key: keyof InvoicingForm, value: string) {
@@ -52,7 +55,7 @@ export default function InvoicingSettingsPage() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (saving) return;
+    if (saving || waitingForSettings) return;
     setMsg("");
     const defaultTaxRate = Number(form.defaultTaxRate);
     const maxDiscountRate = Number(form.maxDiscountRate);
@@ -92,7 +95,7 @@ export default function InvoicingSettingsPage() {
             <span className="block text-xs font-normal text-slate-500">Si cette option est désactivée, le POS applique toujours 0 % même si un taux est renseigné.</span>
           </span>
         </label>
-        <Input type="number" min="0" max="100" step="0.01" label="Taxe par défaut (%)" help="Contrat : l'interface et l'API utilisent 10 pour 10 %. La base conserve 0,10 pour les calculs. La taxe ne s'applique que si elle est activée." value={form.defaultTaxRate} onChange={(value) => update("defaultTaxRate", value)} />
+        <Input type="number" min="0" max="100" step="0.01" label="Taxe par défaut (%)" help={process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? "Taux appliqué aux ventes lorsque la taxe est activée." : "Contrat : l’interface et l’API utilisent 10 pour 10 %. La base conserve 0,10 pour les calculs. La taxe ne s’applique que si elle est activée."} value={form.defaultTaxRate} onChange={(value) => update("defaultTaxRate", value)} />
         <Input type="number" min="0" max="100" step="0.01" label="Remise maximale autorisée (%)" value={form.maxDiscountRate} onChange={(value) => update("maxDiscountRate", value)} />
         <Input label="Numérotation factures" value={form.invoicePrefix} onChange={(value) => update("invoicePrefix", value)} />
         <Input label="Numérotation devis" value={form.quotePrefix} onChange={(value) => update("quotePrefix", value)} />
@@ -100,10 +103,10 @@ export default function InvoicingSettingsPage() {
         <label className="grid gap-1 text-sm font-medium">
           {"Type d'impression ticket"}
           <select value={form.posReceiptFormat} onChange={(event) => update("posReceiptFormat", event.target.value)} className="rounded-md border px-3 py-2 dark:bg-slate-950">
-            <option value="72">Imprimante thermique 80mm (POS80 Windows)</option>
+            <option value="72">{process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? "Ticket thermique 80 mm" : "Imprimante thermique 80mm (POS80 Windows)"}</option>
             <option value="58">Imprimante thermique 58mm</option>
           </select>
-          <span className="text-xs font-normal text-slate-500">Pour POS80 Printer / POS80 Printer(2), choisissez le profil POS80 Windows. VTA utilise automatiquement la largeur imprimable interne 72 mm.</span>
+          <span className="text-xs font-normal text-slate-500">{process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? "Choisissez le format de papier de votre imprimante." : "Pour POS80 Printer / POS80 Printer(2), choisissez le profil POS80 Windows. VTA utilise automatiquement la largeur imprimable interne 72 mm."}</span>
         </label>
         <label className="grid gap-1 text-sm font-medium">
           A4 / Lettre
@@ -114,7 +117,7 @@ export default function InvoicingSettingsPage() {
           <span className="text-xs font-normal text-slate-500">Pour rapports et factures classiques, pas pour le ticket caisse.</span>
         </label>
         <div className="flex items-center gap-3 md:col-span-2">
-          <button disabled={saving} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">
+          <button disabled={saving || waitingForSettings} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">
             {saving ? "Enregistrement..." : "Sauvegarder"}
           </button>
           {msg ? <p className="text-sm text-slate-500">{msg}</p> : null}
@@ -155,6 +158,7 @@ function normalizeReceiptFormat(value: unknown): ReceiptFormat {
 }
 
 function Header() {
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <IosPageHeading title="Facturation" />;
   return (
     <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
       <p className="text-sm font-medium text-brand-600">Paramètres</p>

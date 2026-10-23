@@ -1,10 +1,13 @@
 "use client";
+import { IosPersonalInformation, IosPasswordForm, IosAccountDeletion } from "@/components/ios-account-forms";
+import { IosProfile } from "@/components/ios-profile";
+import { canAccessHref } from "@/lib/role-access";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
 import { FormEvent, useEffect, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
 import { initials, resolveAssetUrl } from "@/lib/company-branding";
-import { clearSession, getCurrentUser } from "@/lib/auth";
+import { clearSession, getCurrentUser, logout } from "@/lib/auth";
 import { getOfflineSales } from "@/lib/offline-db";
 import { formatRole } from "@/lib/format";
 
@@ -19,6 +22,7 @@ export default function DashboardProfilePage() {
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteMessage, setDeleteMessage] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -65,8 +69,12 @@ export default function DashboardProfilePage() {
   }
 
   async function load() {
-    const response = await fetchWithAuth(`${apiUrl}/profile/me`);
-    if (response.ok) setProfile(await response.json());
+    setLoadError("");
+    try {
+      const response = await fetchWithAuth(`${apiUrl}/profile/me`);
+      if (!response.ok) throw new Error();
+      setProfile(await response.json());
+    } catch { setLoadError("Impossible de charger votre profil. Réessayez après avoir vérifié la connexion."); }
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -116,22 +124,13 @@ export default function DashboardProfilePage() {
     }
   }
 
+  if (loadError && !profile) return <div role="alert" className="vm-state"><h1>Mon profil</h1><p>{loadError}</p><button onClick={() => void load()}>Réessayer</button></div>;
   if (!profile) return <div className="text-sm text-slate-500">Chargement du profil...</div>;
   const photo = resolveAssetUrl(profile.profile?.photoUrl);
   const companyName = profile.tenant?.companyProfile?.companyName ?? profile.tenant?.companyProfile?.name ?? profile.tenant?.name ?? "Mon entreprise";
   const companyLogo = resolveAssetUrl(profile.tenant?.companyProfile?.logoUrl);
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        {companyLogo ? <img src={companyLogo} alt={`Logo ${companyName}`} className="h-14 w-14 rounded-xl object-cover" /> : <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-brand-600 text-lg font-bold text-white">{initials(companyName, "ME")}</div>}
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-brand-600">Profil utilisateur</p>
-          <h1 className="mt-1 text-3xl font-bold text-slate-950 dark:text-white">{profile.name}</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Entreprise associée : {companyName}</p>
-        </div>
-      </div>
-      <form onSubmit={submit} className="grid gap-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:grid-cols-[180px_1fr]">
+  const identityForm = (<form onSubmit={submit} className="grid gap-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:grid-cols-[180px_1fr]">
         <div className="flex flex-col items-center gap-3">
           {photo ? <img src={photo} alt="Photo utilisateur" className="h-28 w-28 rounded-full object-cover" /> : <div className="flex h-28 w-28 items-center justify-center rounded-full bg-brand-100 text-3xl font-bold text-brand-700">{initials(profile.name, "U")}</div>}
           <p className="text-sm text-slate-500">Photo utilisateur</p>
@@ -147,9 +146,8 @@ export default function DashboardProfilePage() {
           {message ? <p className="md:col-span-2 text-sm font-semibold text-green-600">{message}</p> : null}
           <button disabled={saving} className="md:col-span-2 rounded-md bg-brand-600 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement..." : "Sauvegarder"}</button>
         </div>
-      </form>
-
-      <form onSubmit={submitPasswordChange} className="grid gap-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2">
+      </form>);
+  const passwordForm = (<form onSubmit={submitPasswordChange} className="grid gap-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2">
         <h2 className="text-lg font-semibold text-slate-950 dark:text-white md:col-span-2">Changer le mot de passe</h2>
         <Input label="Mot de passe actuel" type="password" value={currentPassword} onChange={setCurrentPassword} />
         <div />
@@ -158,8 +156,8 @@ export default function DashboardProfilePage() {
         <p className="text-xs text-slate-500 md:col-span-2">Au moins 8 caractères, avec une majuscule, une minuscule, un chiffre et un caractère spécial.</p>
         {passwordMessage ? <p className="md:col-span-2 text-sm font-semibold text-slate-600 dark:text-slate-300">{passwordMessage}</p> : null}
         <button disabled={changingPassword} className="md:col-span-2 rounded-md bg-slate-950 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-950">{changingPassword ? "Enregistrement..." : "Changer le mot de passe"}</button>
-      </form>
-      <form onSubmit={deleteAccount} className="grid gap-4 rounded-lg border border-red-200 bg-white p-6 dark:border-red-900 dark:bg-slate-900">
+      </form>);
+  const deletionForm = (<form onSubmit={deleteAccount} className="grid gap-4 rounded-lg border border-red-200 bg-white p-6 dark:border-red-900 dark:bg-slate-900">
         <h2 className="text-lg font-semibold text-red-700">Supprimer mon compte</h2>
         <p className="text-sm text-slate-600 dark:text-slate-300">Cette action est définitive : votre profil, vos accès et vos sessions seront supprimés. Les ventes et documents de l’entreprise restent conservés avec une identité anonymisée. Si vous gérez cette entreprise, attribuez les accès nécessaires à un autre responsable avant de partir.</p>
         <p className="text-sm text-slate-600 dark:text-slate-300">Synchronisez vos ventes hors ligne avant de continuer. Les données locales de ce compte seront effacées de cet appareil.</p>
@@ -168,7 +166,23 @@ export default function DashboardProfilePage() {
         {hasPending && <label className="flex gap-2 text-sm text-red-700"><input type="checkbox" checked={discardPending} onChange={e => setDiscardPending(e.target.checked)} />Je comprends que les ventes locales non synchronisées seront définitivement perdues avec ce compte.</label>}
         {deleteMessage ? <p role="alert" className="text-sm text-red-700">{deleteMessage}</p> : null}
         <button disabled={deleting || !deletePassword || deleteConfirmation !== "SUPPRIMER"} className="rounded-md bg-red-700 px-4 py-3 font-semibold text-white disabled:opacity-50">{deleting ? "Suppression…" : "Supprimer définitivement mon compte"}</button>
-      </form>
+      </form>);
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <IosProfile name={profile.name} email={profile.email} role={displayRole(profile.role)} company={companyName} photo={photo} initials={initials(profile.name, "U")} identity={<IosPersonalInformation name={profile.name} jobTitle={formatProfileJobTitle(profile.profile?.jobTitle)} phone={profile.profile?.phone ?? ""} language={profile.profile?.language ?? "fr"} email={profile.email} role={displayRole(profile.role)} company={companyName} saving={saving} message={message} onName={value => setProfile({ ...profile, name:value })} onJobTitle={value => setProfile({ ...profile, profile:{ ...profile.profile,jobTitle:value } })} onPhone={value => setProfile({ ...profile, profile:{ ...profile.profile,phone:value } })} onLanguage={value => setProfile({ ...profile, profile:{ ...profile.profile,language:value } })} onSubmit={submit}/>} password={<IosPasswordForm current={currentPassword} next={newPassword} confirmation={confirmPassword} onCurrent={setCurrentPassword} onNext={setNewPassword} onConfirmation={setConfirmPassword} saving={changingPassword} message={passwordMessage} onSubmit={submitPasswordChange}/>} deletion={<IosAccountDeletion password={deletePassword} confirmation={deleteConfirmation} onPassword={setDeletePassword} onConfirmation={setDeleteConfirmation} hasPending={hasPending} discardPending={discardPending} onDiscardPending={setDiscardPending} message={deleteMessage} deleting={deleting} onSubmit={deleteAccount}/>} canManageCompany={canAccessHref(getCurrentUser(), "/dashboard/settings/company")} onLogout={() => { void logout().then(() => { window.location.href = "/"; }); }} />;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        {companyLogo ? <img src={companyLogo} alt={`Logo ${companyName}`} className="h-14 w-14 rounded-xl object-cover" /> : <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-brand-600 text-lg font-bold text-white">{initials(companyName, "ME")}</div>}
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-wide text-brand-600">Profil utilisateur</p>
+          <h1 className="mt-1 text-3xl font-bold text-slate-950 dark:text-white">{profile.name}</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Entreprise associée : {companyName}</p>
+        </div>
+      </div>
+      {identityForm}
+
+      {passwordForm}
+      {deletionForm}
     </div>
   );
 }

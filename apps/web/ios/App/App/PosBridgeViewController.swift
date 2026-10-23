@@ -21,8 +21,37 @@ public class VtaNativePrintPlugin: CAPPlugin, CAPBridgedPlugin {
     public let jsName = "VtaNativePrint"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "printHtml", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "sharePdf", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "sharePdf", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "shareFile", returnType: CAPPluginReturnPromise)
     ]
+
+    @objc func shareFile(_ call: CAPPluginCall) {
+        guard let encoded = call.getString("base64"), let data = Data(base64Encoded: encoded) else {
+            call.reject("Fichier invalide."); return
+        }
+        DispatchQueue.main.async {
+            guard let presenter = self.bridge?.viewController else { call.reject("Écran indisponible."); return }
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            do {
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                let name = URL(fileURLWithPath: call.getString("fileName") ?? "export.csv").lastPathComponent
+                let file = directory.appendingPathComponent(name.isEmpty ? "export.csv" : name)
+                try data.write(to: file)
+                let share = UIActivityViewController(activityItems: [file], applicationActivities: nil)
+                share.popoverPresentationController?.sourceView = presenter.view
+                share.popoverPresentationController?.sourceRect = CGRect(x: presenter.view.bounds.midX, y: presenter.view.bounds.midY, width: 1, height: 1)
+                share.completionWithItemsHandler = { _, completed, _, error in
+                    try? FileManager.default.removeItem(at: directory)
+                    if let error = error { call.reject(error.localizedDescription) }
+                    else { call.resolve(["status": completed ? "shared" : "cancelled"]) }
+                }
+                presenter.present(share, animated: true)
+            } catch {
+                try? FileManager.default.removeItem(at: directory)
+                call.reject(error.localizedDescription)
+            }
+        }
+    }
 
     @objc func printHtml(_ call: CAPPluginCall) {
         guard let html = call.getString("html"), !html.isEmpty else {

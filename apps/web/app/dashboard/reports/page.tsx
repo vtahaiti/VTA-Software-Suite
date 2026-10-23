@@ -1,4 +1,5 @@
 "use client";
+import { IosReports } from "@/components/ios-reports";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -200,6 +201,7 @@ export default function ReportsPage() {
       ]
     : [];
 
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <IosReports cards={cards} dateFrom={dateFrom} dateTo={dateTo} onFrom={setDateFrom} onTo={setDateTo} loading={isLoading} error={error} retry={() => void loadReports()} onExport={prepareExport} onPrint={() => window.print()} sections={sections.map(section => ({ key: section.key, title: section.title, content: reports ? <ReportTable config={section} report={reports[section.key]} /> : null }))} />;
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:flex-row lg:items-center">

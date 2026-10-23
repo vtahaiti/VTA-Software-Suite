@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 import { iosEmbeddedRoutes } from "@/lib/ios-embedded-routes";
+import { resolveIosHref } from "@/lib/ios-route-map";
+import { useRouter } from "next/navigation";
 
 const ALLOWED_WEBVIEW_ORIGINS = new Set([
   "https://vtaerp.com",
@@ -10,11 +12,13 @@ const ALLOWED_WEBVIEW_ORIGINS = new Set([
 ]);
 
 export function CapacitorRuntime() {
+  const router = useRouter();
   useEffect(() => {
     let removeBackButtonListener: (() => void) | undefined;
     let removeAppUrlOpenListener: (() => void) | undefined;
     let clickHandler: ((event: MouseEvent) => void) | undefined;
     let disposed = false;
+    let removeDocumentActions: (() => void) | undefined;
 
     async function setupNativeRuntime() {
       const { Capacitor } = await import("@capacitor/core");
@@ -31,6 +35,12 @@ export function CapacitorRuntime() {
       ]);
 
       if (disposed) return;
+
+      if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" && Capacitor.getPlatform() === "ios") {
+        const { installIosDocumentActions } = await import("@/lib/ios-document-actions");
+        if (disposed) return;
+        removeDocumentActions = installIosDocumentActions();
+      }
 
       if (Capacitor.getPlatform() === "android") {
       const backButtonHandle = await App.addListener("backButton", ({ canGoBack }) => {
@@ -63,7 +73,7 @@ export function CapacitorRuntime() {
         try {
           const nextUrl = new URL(url);
           if (ALLOWED_WEBVIEW_ORIGINS.has(nextUrl.origin)) {
-            window.location.href = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
+            router.push(resolveIosHref(`${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`));
           }
         } catch {
           // Ignore malformed external app links.
@@ -106,6 +116,13 @@ export function CapacitorRuntime() {
         // Relative links in the embedded app use capacitor://, not https://.
         // Compare protocol and host because custom-scheme URL.origin can be null.
         if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" && nextUrl.protocol === window.location.protocol && nextUrl.host === window.location.host) {
+          const original = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
+          const mapped = resolveIosHref(original);
+          if (mapped !== original) {
+            event.preventDefault();
+            router.push(mapped);
+            return;
+          }
           const route = nextUrl.pathname.replace(/\/$/, "") || "/";
           if (!iosEmbeddedRoutes.includes(route)) {
             event.preventDefault();
@@ -116,6 +133,14 @@ export function CapacitorRuntime() {
         }
         if (nextUrl.protocol !== "https:" && nextUrl.protocol !== "http:") {
           event.preventDefault();
+          return;
+        }
+        if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" && ALLOWED_WEBVIEW_ORIGINS.has(nextUrl.origin)) {
+          event.preventDefault();
+          const mapped = resolveIosHref(`${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
+          const route = new URL(mapped, "https://vtaerp.com").pathname.replace(/\/$/, "") || "/";
+          if (nextUrl.origin !== "https://api.vtaerp.com" && iosEmbeddedRoutes.includes(route)) router.push(mapped);
+          else void Browser.open({ url: nextUrl.toString() });
           return;
         }
         if (!ALLOWED_WEBVIEW_ORIGINS.has(nextUrl.origin)) {
@@ -135,12 +160,13 @@ export function CapacitorRuntime() {
       disposed = true;
       removeBackButtonListener?.();
       removeAppUrlOpenListener?.();
+      removeDocumentActions?.();
       if (clickHandler) {
         document.removeEventListener("click", clickHandler, true);
       }
       delete document.documentElement.dataset.capacitor;
     };
-  }, []);
+  }, [router]);
 
   return null;
 }

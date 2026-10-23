@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { IosPageContent } from "@/components/ios-page-content";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
@@ -42,6 +43,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
   if (!allowed) {
     return <main className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-300">Vérification de l&apos;accès plateforme...</main>;
   }
+
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <div className="ios-app-shell ios-admin-shell min-h-screen bg-[#f5f7fb]"><header className="ios-app-header"><div><Link href="/dashboard" className="ios-wordmark"><span>VTA</span> POS</Link></div><button onClick={logout} className="text-xs text-blue-600">Déconnexion</button></header><nav aria-label="Administration" className="ios-admin-nav">{nav.map(item => <Link key={item.href} href={item.href}>{item.label}</Link>)}</nav><IosPageContent>{children}</IosPageContent></div>;
 
   return (
     <div className="min-h-screen bg-[#07111f] text-slate-100">

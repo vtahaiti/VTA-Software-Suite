@@ -173,7 +173,7 @@ export default function PosTicketPrintPage() {
             onLoad={() => setStatus("Aperçu prêt.")}
           />
         ) : (
-          <div className="no-print rounded-2xl bg-white p-8 text-sm text-slate-500 shadow-sm">Chargement du ticket...</div>
+          <div className="no-print rounded-2xl bg-white p-8 text-sm text-slate-500 shadow-sm">{error ? "Choisissez une vente pour afficher son ticket." : "Chargement du ticket..."}</div>
         )}
       </section>
       {isDemo ? (

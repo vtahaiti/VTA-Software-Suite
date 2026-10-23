@@ -1,6 +1,9 @@
 "use client";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
+import { IosSheet } from "@/components/ios-sheet";
+import { IosLabeledInput } from "@/components/ios-form-fields";
+import { IosListScreen } from "@/components/ios-list-screen";
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
@@ -30,7 +33,7 @@ export default function CustomersPage() {
   const [showOptions, setShowOptions] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [message, setMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1");
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -89,6 +92,7 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-5">
+      {process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? <IosListScreen title="Clients" search={search} onSearch={value => { setSearch(value); setPage(1); }} onAdd={() => setIsModalOpen(true)} count={total} page={page} pages={pages} previous={() => setPage(page - 1)} next={() => setPage(page + 1)} loading={isLoading} error={message} options={<><Link href="/dashboard/customers/create">Fiche complète</Link><Link href="/dashboard/import-export">Import / export</Link></>}>{items.map(customer => <article className="vm-record" key={customer.id}><Link className="vm-record-main" href={`/dashboard/customers/${customer.id}`}><span className="vm-person-avatar">{customer.displayName?.slice(0,1).toUpperCase() || "C"}</span><span className="vm-record-name"><strong>{customer.displayName}</strong><small>{customer.mobile || customer.phone || customer.customerCode}</small></span><span className="vm-record-value"><strong>{formatMoney(customer.currentBalance)}</strong><small>Solde</small></span></Link><div className="vm-record-actions"><Link href={`/dashboard/customers/${customer.id}/statement`}>Relevé</Link><Link href={`/dashboard/customers/${customer.id}/edit`}>Modifier</Link></div></article>)}</IosListScreen> : <>
       <div className="flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:flex-row md:items-center">
         <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Clients</h1>
         <button onClick={() => setIsModalOpen(true)} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white">+ Nouveau client</button>
@@ -111,6 +115,8 @@ export default function CustomersPage() {
 
       <Pagination page={page} pages={pages} total={total} label="client" onPrev={() => setPage(page - 1)} onNext={() => setPage(page + 1)} />
 
+      </>}
+
       {isModalOpen ? (
         <Modal title="Nouveau client" onClose={() => setIsModalOpen(false)}>
           <form onSubmit={createCustomer} className="space-y-3">
@@ -130,11 +136,12 @@ export default function CustomersPage() {
 }
 
 function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <IosSheet title={title} onClose={onClose}>{children}</IosSheet>;
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"><div className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl dark:bg-slate-900"><div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-bold">{title}</h2><button onClick={onClose} className="rounded-md border px-3 py-1 text-sm dark:border-slate-700">Fermer</button></div>{children}</div></div>;
 }
 
 function Input({ value, onChange, placeholder, required = false }: { value: string; placeholder: string; required?: boolean; onChange: (value: string) => void }) {
-  return <input required={required} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />;
+  return <IosLabeledInput required={required} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="w-full rounded-md border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />;
 }
 
 function Pagination({ page, pages, total, label, onPrev, onNext }: { page: number; pages: number; total: number; label: string; onPrev: () => void; onNext: () => void }) {

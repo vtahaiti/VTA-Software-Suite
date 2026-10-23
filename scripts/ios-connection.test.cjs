@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const ts = require('typescript');
 
-function fixture({ native = true, status = 200, data, headers = { 'Content-type': 'application/json' }, fail = false } = {}) {
+function fixture({ native = true, status = 200, data, headers = { 'Content-type': 'application/json' }, fail = false, hang = false } = {}) {
   const calls = [];
   const exports = {};
   const source = ts.transpileModule(fs.readFileSync('apps/web/lib/api-url.ts', 'utf8'), {
@@ -14,7 +14,7 @@ function fixture({ native = true, status = 200, data, headers = { 'Content-type'
     exports, Headers, Response, FormData, console: { info() {} },
     process: { env: { NODE_ENV: 'production', NEXT_PUBLIC_IOS_EMBEDDED: native ? '1' : '0' } },
     require: () => ({ Capacitor: { getPlatform: () => 'ios' }, CapacitorHttp: { request: async options => {
-      calls.push(options); if (fail) throw Error('transport failed'); return { status, data, headers };
+      calls.push(options); if (hang) return new Promise(() => {}); if (fail) throw Error('transport failed'); return { status, data, headers };
     } } }),
     fetch: async () => { calls.push('web'); return new Response('web'); }
   });
@@ -53,4 +53,13 @@ test('transport failure is not misreported as an invalid password and web is unc
   const web = fixture({ native: false });
   assert.equal(await (await web.fetchApi('/auth/login')).text(), 'web');
   assert.deepEqual(web.calls, ['web']);
+});
+
+ test('iOS session verification returns promptly when its caller aborts a stalled native request', async () => {
+  const f = fixture({ hang: true });
+  const controller = new AbortController();
+  const response = f.fetchApi('/auth/me', { signal: controller.signal });
+  setImmediate(() => controller.abort());
+  await assert.rejects(response, /Connexion au serveur impossible/);
+  assert.equal(f.calls.length, 1);
 });

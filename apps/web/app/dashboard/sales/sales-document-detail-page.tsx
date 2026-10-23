@@ -50,6 +50,7 @@ function money(value: string | number | null | undefined) {
 export function SalesDocumentDetailPage({ type, title, transformAction, transformLabel }: { type: string; title: string; transformAction?: string; transformLabel?: string }) {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const [loadError, setLoadError] = useState("");
   const [doc, setDoc] = useState<any>(null);
   const [payment, setPayment] = useState({ method: "CASH", amount: "", reference: "", notes: "" });
   const [message, setMessage] = useState("");
@@ -60,8 +61,12 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
   const showFabricationFields = business?.businessProfileType === "windows-aluminium";
 
   const load = useCallback(async () => {
-    const response = await fetch(`${apiUrl}/${type}/${params.id}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
-    if (response.ok) setDoc(await response.json());
+    setLoadError("");
+    try {
+      const response = await fetch(`${apiUrl}/${type}/${params.id}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
+      if (!response.ok) throw new Error();
+      setDoc(await response.json());
+    } catch { setLoadError("Impossible de charger ce document. Vérifiez la connexion puis réessayez."); }
   }, [params.id, type]);
 
   useEffect(() => { void load(); }, [load]);
@@ -156,6 +161,7 @@ export function SalesDocumentDetailPage({ type, title, transformAction, transfor
     setReceiptPayment(null);
   }
 
+  if (loadError && !doc) return <div role="alert" className="rounded-xl bg-white p-5"><p>{loadError}</p><button className="mt-3 underline" onClick={() => void load()}>Réessayer</button></div>;
   if (!doc) return <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">Chargement...</div>;
   const canPay = type === "proformas" && Number(doc.balance ?? 0) > 0 && !["DRAFT", "CANCELLED"].includes(doc.status);
   const forwardStep = type === "proformas" && (!showFabricationFields || doc.status === "READY") ? FORWARD_STATUS_STEPS[doc.status] : undefined;

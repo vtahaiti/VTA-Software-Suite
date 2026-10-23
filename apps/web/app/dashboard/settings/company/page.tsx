@@ -1,6 +1,7 @@
 "use client";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
+import { IosPageHeading } from "@/components/ios-page-heading";
 import Link from "next/link";
 import { Camera } from "lucide-react";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
@@ -35,6 +36,8 @@ export default function CompanySettingsPage() {
   const [customBank, setCustomBank] = useState(false);
   const [msg, setMsg] = useState("");
   const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const waitingForSettings = process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" && !loaded;
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [installingRestaurant, setInstallingRestaurant] = useState(false);
   const [localLogoPreview, setLocalLogoPreview] = useState<string | null>(null);
@@ -45,14 +48,15 @@ export default function CompanySettingsPage() {
 
   useEffect(() => {
     fetchWithAuth(`${apiUrl}/settings/company`)
-      .then((response) => response.ok ? response.json() : null)
+      .then((response) => { if (!response.ok) throw new Error(); return response.json(); })
       .then((data) => {
         if (!data) return;
         const loaded = toCompanyForm(data);
         setForm(loaded);
+        setLoaded(true);
         setCustomBank(Boolean(loaded.bankName) && !haitianBanks.includes(loaded.bankName!));
       })
-      .catch(() => undefined);
+      .catch(() => setMsg("Chargement des paramètres impossible. Reconnectez-vous puis rouvrez cette page."));
   }, []);
 
   useEffect(() => () => {
@@ -69,7 +73,7 @@ export default function CompanySettingsPage() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (saving || uploadingLogo) return;
+    if (saving || uploadingLogo || waitingForSettings) return;
     setMsg("");
     setSaving(true);
     try {
@@ -209,7 +213,7 @@ export default function CompanySettingsPage() {
           {colors.map(([label, value]) => <button type="button" key={value} onClick={() => update("primaryColor", value)} className={`rounded-full border px-3 py-2 text-sm font-semibold ${primaryColor === value ? "border-slate-950 dark:border-white" : "border-slate-200 dark:border-slate-700"}`}><span className="mr-2 inline-block h-3 w-3 rounded-full" style={{ backgroundColor: value }} />{label}</button>)}
         </div>
       </div>
-      <div className="md:col-span-2 flex flex-wrap items-center gap-3"><button disabled={saving || uploadingLogo} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement..." : "Sauvegarder"}</button>{msg && <p className="text-sm text-slate-500" role="status">{msg}</p>}</div>
+      <div className="md:col-span-2 flex flex-wrap items-center gap-3"><button disabled={saving || uploadingLogo || waitingForSettings} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement..." : "Sauvegarder"}</button>{msg && <p className="text-sm text-slate-500" role="status">{msg}</p>}</div>
     </form>
     {isRestaurantCompany(form) ? (
       <section className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
@@ -307,6 +311,7 @@ function toCompanyPayload(form: CompanyForm) {
 }
 
 function Header({ active }: { active: string }) {
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <IosPageHeading title="Mon entreprise" />;
   return <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm font-medium text-brand-600">Paramètres</p><h1 className="text-2xl font-bold">Profil de l&apos;entreprise</h1><div className="mt-4 flex flex-wrap gap-2">{tabs.map(([label, href]) => <Link key={href} href={href} className={`rounded-md px-3 py-2 text-sm ${label === active ? "bg-brand-600 text-white" : "border"}`}>{label}</Link>)}</div></div>;
 }
 

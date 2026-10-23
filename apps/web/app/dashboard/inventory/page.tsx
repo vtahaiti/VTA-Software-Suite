@@ -1,6 +1,8 @@
 "use client";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
+import { IosSheet } from "@/components/ios-sheet";
+import { IosStock } from "@/components/ios-stock";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -51,7 +53,7 @@ export default function InventoryPage() {
   const [showAdvancedCorrection, setShowAdvancedCorrection] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1");
   const [selectedStock, setSelectedStock] = useState<StockLine | null>(null);
   const [stockAction, setStockAction] = useState<StockAction>("in");
   const [stockForm, setStockForm] = useState<StockForm>(emptyStockForm);
@@ -207,6 +209,7 @@ export default function InventoryPage() {
 
   return (
     <div className="space-y-5">
+      {process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? <IosStock stocks={stocks} loading={isLoading} error={error} message={message} query={query} onQuery={setQuery} warehouses={warehouses} warehouseId={warehouseId} onWarehouse={setWarehouseId} showNonStock={showNonStock} onNonStock={setShowNonStock} retry={() => void loadStocks()} tracked={isStockTracked} onAction={openStockModal} onTransfer={openTransfer} /> : <>
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
@@ -303,8 +306,9 @@ export default function InventoryPage() {
         </div>
       </details>
 
-      {selectedStock ? <StockModal stock={selectedStock} action={stockAction} form={stockForm} setForm={setStockForm} onClose={() => setSelectedStock(null)} onSave={saveStockAction} /> : null}
-      {isTransferOpen ? <TransferModal form={transferForm} setForm={setTransferForm} stocks={transferProducts} warehouses={warehouses} onClose={() => setIsTransferOpen(false)} onSave={saveTransfer} /> : null}
+      </>}
+      {selectedStock ? <StockModal error={error} stock={selectedStock} action={stockAction} form={stockForm} setForm={setStockForm} onClose={() => setSelectedStock(null)} onSave={saveStockAction} /> : null}
+      {isTransferOpen ? <TransferModal error={error} form={transferForm} setForm={setTransferForm} stocks={transferProducts} warehouses={warehouses} onClose={() => setIsTransferOpen(false)} onSave={saveTransfer} /> : null}
     </div>
   );
 }
@@ -318,20 +322,11 @@ function SummaryCard({ label, value, helper, tone = "slate" }: { label: string; 
   </div>;
 }
 
-function StockModal({ stock, action, form, setForm, onClose, onSave }: { stock: StockLine; action: StockAction; form: StockForm; setForm: (form: StockForm) => void; onClose: () => void; onSave: () => void }) {
+function StockModal({ error, stock, action, form, setForm, onClose, onSave }: { error: string; stock: StockLine; action: StockAction; form: StockForm; setForm: (form: StockForm) => void; onClose: () => void; onSave: () => void }) {
   const title = action === "adjust" ? "Correction inventaire" : action === "in" ? "Entrée stock" : "Sortie stock";
   const quantityLabel = action === "adjust" ? "Quantité comptée" : action === "in" ? "Quantité entrée" : "Quantité sortie";
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold">{title}</h2>
-            <p className="text-sm text-slate-500">{stock.product?.name} - quantité actuelle {stock.quantity}</p>
-          </div>
-          <button type="button" onClick={onClose} className="rounded-md border border-slate-200 px-3 py-1 text-sm font-semibold dark:border-slate-700">Fermer</button>
-        </div>
-        <div className="mt-4 grid gap-3">
+  const fields = (<div className="mt-4 grid gap-3">
+          {error && <p role="alert" className="ios-notice">{error}</p>}
           <ModalInput label={quantityLabel} value={form.quantity} onChange={(value) => setForm({ ...form, quantity: value })} type="number" />
           {action === "in" ? (
             <>
@@ -350,21 +345,27 @@ function StockModal({ stock, action, form, setForm, onClose, onSave }: { stock: 
           <ModalInput label="Note facultative" value={form.note} onChange={(value) => setForm({ ...form, note: value })} />
           {action === "out" ? <p className="rounded-md bg-orange-50 px-3 py-2 text-xs font-semibold text-orange-800">Cette sortie est non commerciale : elle ne crée aucune vente.</p> : null}
           <button type="button" onClick={() => void onSave()} className="rounded-md bg-brand-600 px-4 py-3 text-sm font-bold text-white">Enregistrer</button>
+        </div>);
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <IosSheet title={title} subtitle={`${stock.product?.name || "Produit"} · ${stock.quantity} en stock`} onClose={onClose}>{fields}</IosSheet>;
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4">
+      <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold">{title}</h2>
+            <p className="text-sm text-slate-500">{stock.product?.name} - quantité actuelle {stock.quantity}</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-md border border-slate-200 px-3 py-1 text-sm font-semibold dark:border-slate-700">Fermer</button>
         </div>
+        {fields}
       </div>
     </div>
   );
 }
 
-function TransferModal({ form, setForm, stocks, warehouses, onClose, onSave }: { form: TransferForm; setForm: (form: TransferForm) => void; stocks: StockLine[]; warehouses: Warehouse[]; onClose: () => void; onSave: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900">
-        <div className="flex items-start justify-between gap-4">
-          <h2 className="text-xl font-bold">Transfert stock</h2>
-          <button type="button" onClick={onClose} className="rounded-md border border-slate-200 px-3 py-1 text-sm font-semibold dark:border-slate-700">Fermer</button>
-        </div>
-        <div className="mt-4 grid gap-3">
+function TransferModal({ error, form, setForm, stocks, warehouses, onClose, onSave }: { error: string; form: TransferForm; setForm: (form: TransferForm) => void; stocks: StockLine[]; warehouses: Warehouse[]; onClose: () => void; onSave: () => void }) {
+  const fields = (<div className="mt-4 grid gap-3">
+          {error && <p role="alert" className="ios-notice">{error}</p>}
           <Select label="Produit" value={form.productId} onChange={(value) => setForm({ ...form, productId: value })} items={stocks.map((stock) => ({ id: stock.productId, name: stock.product?.name ?? "Produit" }))} />
           <Select label="Emplacement source" value={form.fromWarehouseId} onChange={(value) => setForm({ ...form, fromWarehouseId: value })} items={warehouses} />
           <Select label="Emplacement destination" value={form.toWarehouseId} onChange={(value) => setForm({ ...form, toWarehouseId: value })} items={warehouses} />
@@ -372,7 +373,16 @@ function TransferModal({ form, setForm, stocks, warehouses, onClose, onSave }: {
           <ModalInput label="Note facultative" value={form.note} onChange={(value) => setForm({ ...form, note: value })} />
           <p className="rounded-md bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">Le transfert déplace le stock entre emplacements sans changer la quantité globale.</p>
           <button type="button" onClick={() => void onSave()} className="rounded-md bg-brand-600 px-4 py-3 text-sm font-bold text-white">Enregistrer le transfert</button>
+        </div>);
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <IosSheet title="Transfert de stock" subtitle="Entre vos emplacements" onClose={onClose}>{fields}</IosSheet>;
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4">
+      <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900">
+        <div className="flex items-start justify-between gap-4">
+          <h2 className="text-xl font-bold">Transfert stock</h2>
+          <button type="button" onClick={onClose} className="rounded-md border border-slate-200 px-3 py-1 text-sm font-semibold dark:border-slate-700">Fermer</button>
         </div>
+        {fields}
       </div>
     </div>
   );

@@ -13,6 +13,7 @@ function render(file, embedded, states = []) {
     react: hooks, 'react/jsx-runtime': require('react/jsx-runtime'),
     'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) },
     'next/navigation': { useRouter: () => ({ replace() {} }) },
+    '@/components/ios-page-heading': { IosPageHeading: ({title}) => React.createElement('h1',null,title) },
     '@/components/ios-bottom-nav': { IosBottomNav: () => null }, 'lucide-react': { ShoppingCart: () => null },
     '@/lib/auth': {}, '@/lib/api-client': {}, '@/lib/api-url': { apiBaseUrl: 'https://api.example.test' }
   };
@@ -44,6 +45,9 @@ test('Embedded capacitor links remain navigable while external documents and uns
   const document = { documentElement: { dataset: {} }, addEventListener: (_, callback) => { handler = callback; }, removeEventListener() {} };
   const mocks = {
     react: { useEffect: fn => fn() },
+    'next/navigation': { useRouter: () => ({ push() {} }) },
+    '@/lib/ios-route-map': { resolveIosHref: href => href },
+    '@/lib/ios-document-actions': { installIosDocumentActions: () => () => {} },
     '@/lib/ios-embedded-routes': { iosEmbeddedRoutes: ['/', '/login', '/signup'] },
     '@capacitor/core': { Capacitor: { isNativePlatform: () => true, getPlatform: () => 'ios' } },
     '@capacitor/app': { App: { addListener: async () => ({ remove() {} }) } },

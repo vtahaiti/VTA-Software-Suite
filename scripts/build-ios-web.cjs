@@ -1,12 +1,13 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const { addDynamicPages, adaptClientNavigation } = require('./ios-export-routes.cjs');
 const root = path.resolve(__dirname, '..');
 const web = path.join(root, 'apps/web');
 const target = path.join(root, 'apps/ios-export');
 fs.mkdirSync(target, { recursive: true });
-// Build an embedded client bundle; Next's server-only API and dynamic ERP detail
-// routes are not part of the mobile POS bundle.
+// API handlers stay server-side. Detail screens use static mobile routes with
+// query IDs; the web application's dynamic routes are left unchanged.
 for (const name of ['app', 'components', 'lib', 'public']) {
   fs.rmSync(path.join(target, name), { recursive: true, force: true });
   fs.cpSync(path.join(web, name), path.join(target, name), {
@@ -14,6 +15,9 @@ for (const name of ['app', 'components', 'lib', 'public']) {
     filter: source => !path.basename(source).startsWith('[') && source !== path.join(web, 'app/api')
   });
 }
+const dynamicRoutes = addDynamicPages(path.join(web, 'app'), path.join(target, 'app'));
+adaptClientNavigation(path.join(target, 'app'));
+adaptClientNavigation(path.join(target, 'components'));
 fs.writeFileSync(path.join(target, 'app/page.tsx'), `import { PosWelcome } from '@/components/pos-welcome';
 export default function MobileStart() { return <PosWelcome />; }
 `);
@@ -25,7 +29,7 @@ function walk(directory, segments = []) {
   }
 }
 walk(path.join(target, 'app'));
-fs.writeFileSync(path.join(target, 'lib/ios-embedded-routes.ts'), 'export const iosEmbeddedRoutes: string[] = ' + JSON.stringify(routes) + ';\n');
+fs.writeFileSync(path.join(target, 'lib/ios-embedded-routes.ts'), 'export const iosEmbeddedRoutes: string[] = ' + JSON.stringify(routes) + ';\nexport const iosDynamicRoutes: Array<{pattern:string;target:string}> = ' + JSON.stringify(dynamicRoutes) + ';\n');
 for (const name of ['next-env.d.ts' , 'tailwind.config.ts', 'postcss.config.mjs']) fs.copyFileSync(path.join(web, name), path.join(target, name));
 fs.writeFileSync(path.join(target, 'package.json'), JSON.stringify({ name: 'vta-ios-export', private: true }));
 const tsconfig = JSON.parse(fs.readFileSync(path.join(web, 'tsconfig.json')));
