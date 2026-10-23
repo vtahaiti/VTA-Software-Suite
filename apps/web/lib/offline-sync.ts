@@ -1,6 +1,7 @@
 "use client";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
+import { fetchWithAuth } from "@/lib/api-client";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { getPendingOfflineSales, updateOfflineSale } from "@/lib/offline-db";
 
@@ -27,7 +28,7 @@ async function synchronize() {
   const pendingSales = await getPendingOfflineSales();
   if (!pendingSales.length) return { synced: 0, conflicts: 0, errors: 0 };
 
-  const response = await fetch(`${apiUrl}/pos/sync-offline-sales`, {
+  const response = await fetchWithAuth(`${apiUrl}/pos/sync-offline-sales`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify({

@@ -1,3 +1,4 @@
+import { AccountDeletionForm } from "@/components/account-deletion-form";
 import Link from "next/link";
 
 export default function AccountDeletionPage() {
@@ -14,23 +15,22 @@ export default function AccountDeletionPage() {
           </p>
         </div>
 
+        <AccountDeletionForm />
         <div className="mt-8 grid gap-5 md:grid-cols-2">
           <article className="rounded-lg border border-slate-200 p-5 dark:border-slate-800">
             <h2 className="text-lg font-semibold">Comment faire la demande</h2>
             <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              <li>Envoyez un email à <a className="font-semibold text-brand-600" href="mailto:support@vtaerp.com">support@vtaerp.com</a>.</li>
-              <li>Indiquez votre nom, l&apos;email du compte, le nom de l&apos;entreprise et votre rôle.</li>
-              <li>Précisez si vous demandez la suppression d&apos;un utilisateur ou de toute l&apos;entreprise.</li>
-              <li>Attendez la vérification d&apos;identité et d&apos;autorisation avant l&apos;exécution.</li>
+              <li>Connectez-vous puis ouvrez <Link href="/dashboard/profile" className="font-semibold text-brand-600">Mon profil</Link>.</li>
+              <li>Synchronisez les ventes hors ligne puis ouvrez « Supprimer mon compte ».</li>
+              <li>Saisissez votre mot de passe et la confirmation SUPPRIMER.</li>
+              <li>Validez : votre identité est anonymisée et vos accès sont supprimés immédiatement, sans contacter le support.</li>
             </ol>
           </article>
 
           <article className="rounded-lg border border-slate-200 p-5 dark:border-slate-800">
             <h2 className="text-lg font-semibold">Délai de traitement</h2>
             <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Les demandes complètes sont généralement examinées sous 30 jours. Une demande peut prendre plus de temps si
-              elle exige une vérification du propriétaire, une obligation légale, un litige, une facture ou une mesure de
-              sécurité.
+              La suppression du compte est immédiate après vérification du mot de passe. Elle est définitive. Pour une demande distincte concernant toutes les données d’une entreprise partagée, contactez support@vtaerp.com.
             </p>
           </article>
         </div>
@@ -39,9 +39,7 @@ export default function AccountDeletionPage() {
           <article className="rounded-lg border border-slate-200 p-5 dark:border-slate-800">
             <h2 className="text-lg font-semibold">Données supprimées</h2>
             <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Selon la portée validée, la suppression peut retirer le profil utilisateur, les sessions, invitations, fichiers,
-              paramètres, produits, clients, fournisseurs, achats, ventes, stocks, factures, notifications et autres données
-              liées au tenant.
+              La suppression retire votre nom, votre email, votre profil, vos rôles, vos sessions, vos jetons de réinitialisation et vos notifications personnelles. Les données locales du compte sont effacées de l’appareil ayant effectué la demande.
             </p>
           </article>
 

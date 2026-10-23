@@ -43,7 +43,7 @@ export function isTenantAdmin(user: AuthUser | null) {
 
 export function canAccessHref(user: AuthUser | null, href: string) {
   if (!user || isTenantAdmin(user)) return true;
-  if (href === "/dashboard") return true;
+  if (href === "/dashboard" || href === "/dashboard/more") return true;
   const permissions = new Set(user.permissions ?? []);
   const roles = new Set([user.role, ...(user.roles ?? [])].filter(Boolean));
   const rule = routePermissions

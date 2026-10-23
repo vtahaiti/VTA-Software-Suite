@@ -14,10 +14,8 @@ for (const name of ['app', 'components', 'lib', 'public']) {
     filter: source => !path.basename(source).startsWith('[') && source !== path.join(web, 'app/api')
   });
 }
-fs.writeFileSync(path.join(target, 'app/page.tsx'), `"use client";
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-export default function MobileStart() { const router = useRouter(); useEffect(() => { router.replace('/dashboard/pos'); }, [router]); return <main>Ouverture de VTA POS…</main>; }
+fs.writeFileSync(path.join(target, 'app/page.tsx'), `import { PosWelcome } from '@/components/pos-welcome';
+export default function MobileStart() { return <PosWelcome />; }
 `);
 const routes = [];
 function walk(directory, segments = []) {

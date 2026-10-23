@@ -4,7 +4,7 @@ import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { clearSession, getAccessToken, getCurrentUser } from "@/lib/auth";
 import { fetchWithAuth } from "@/lib/api-client";
-import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
+import { CompanyBranding, getCompanyBranding, resolveAssetUrl } from "@/lib/company-branding";
 import { getOfflinePosContext, getOfflineProducts, getPendingOfflineSales, saveOfflinePosContext, saveOfflineProducts, commitOfflineSale, getOfflineSales, getOfflineTaxRate, saveOfflineTaxRate, getOfflineReceiptBranding } from "@/lib/offline-db";
 import { syncOfflineSalesNow } from "@/lib/offline-sync";
 import { useNetworkStatus } from "@/lib/network-status";
@@ -18,7 +18,7 @@ import { prepareReceiptBranding } from "@/lib/receipt-branding";
 import { buildOfflineReceipt } from "@/lib/offline-receipt";
 import { printReceiptSmart, isNativePrintAvailable } from "@/lib/native-print";
 import { printHtmlContent } from "@/lib/print";
-import { Info, MoreHorizontal, Plus, Search, Trash2, X } from "lucide-react";
+import { Info, MoreHorizontal, Plus, Search, ShoppingCart, Trash2, X } from "lucide-react";
 
 
 type Product = { id: string; name: string; sku: string; salePrice: number; availableStock: number; stockTracked?: boolean; image?: string | null; primaryBarcode?: string | null; category?: string | null; unit?: string | null };
@@ -42,6 +42,7 @@ const emptyCart: Cart = { items: [], subtotal: 0, itemDiscount: 0, discount: 0, 
 const emptyCustomerForm: CustomerForm = { name: "", phone: "", address: "", email: "", notes: "" };
 const emptyCustomItemForm: CustomItemForm = { name: "", price: "", quantity: "1", discount: "0", note: "", type: "SERVICE" };
 const POS_PRODUCT_PAGE_SIZE = 24;
+const iosPos = process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1";
 
 export default function PosPage() {
   const { isOnline } = useNetworkStatus();
@@ -72,6 +73,7 @@ export default function PosPage() {
   const [heldSaleNote, setHeldSaleNote] = useState("");
   const [showExpertOptions, setShowExpertOptions] = useState(false);
   const [showMoreActions, setShowMoreActions] = useState(false);
+  const [showCustomerPicker, setShowCustomerPicker] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [showCartDrawer, setShowCartDrawer] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -263,7 +265,12 @@ export default function PosPage() {
     }
     savePosDraft({ heldSaleId, heldSaleFinalizeKey, cart, customerId, payments, orderDiscount, taxRate, storeId, warehouseId, cashSessionId, updatedAt: new Date().toISOString() });
   }, [heldSaleId, heldSaleFinalizeKey, cart, customerId, payments, orderDiscount, taxRate, storeId, warehouseId, cashSessionId]);
-  useEffect(() => { scanInputRef.current?.focus(); }, []);
+  useEffect(() => {
+    if (!iosPos || !message) return;
+    const timer = window.setTimeout(() => setMessage(""), 6000);
+    return () => window.clearTimeout(timer);
+  }, [message]);
+  useEffect(() => { if (!iosPos) scanInputRef.current?.focus(); }, []);
   useEffect(() => {
     const timer = setTimeout(() => {
       setProductPage(1);
@@ -738,20 +745,21 @@ export default function PosPage() {
     : `${products.length} / ${productTotal || products.length} produit${(productTotal || products.length) > 1 ? "s" : ""} affiché${(productTotal || products.length) > 1 ? "s" : ""}`;
 
   return (
-    <div className="min-h-screen bg-slate-100 font-sans text-slate-950 lg:-m-6">
+    <div className={`${iosPos ? "ios-pos -mx-4 -mt-4" : ""} min-h-screen bg-slate-100 font-sans text-slate-950 lg:-m-6`}>
       <div className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_360px]">
         <main className="min-h-0 overflow-auto px-3 pb-28 pt-3 sm:px-4 lg:p-5 xl:p-6">
           <section className="sticky top-0 z-20 mb-4 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
             <div className="flex min-h-14 items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{isRestaurantContextProfile ? "Nouvelle commande" : "Vente"}</h1>
+                  <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{isRestaurantContextProfile ? "Nouvelle commande" : iosPos ? "Nouvelle vente" : "Vente"}</h1>
                   <span className={`h-2.5 w-2.5 rounded-full ${isOnline ? "bg-emerald-500" : "bg-orange-500"}`} aria-label={isOnline ? "En ligne" : "Hors ligne"} />
                   {pendingOfflineSales > 0 ? <span className="rounded-full bg-orange-50 px-2 py-1 text-xs font-semibold text-orange-700">{pendingOfflineSales} en attente</span> : null}
                 </div>
                 <p className="mt-0.5 text-xs font-medium text-slate-500">{posTemplate.eyebrow}</p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
+                {iosPos && <select aria-label="Ma boutique" value={storeId} onChange={event => setStoreId(event.target.value)} className="ios-store-select"><option value="">Ma boutique</option>{stores.map(store => <option key={store.id} value={store.id}>{store.name}</option>)}</select>}
                 <details className="relative">
                   <summary className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50" aria-label="Informations de caisse">
                     <Info aria-hidden="true" className="h-5 w-5" />
@@ -768,6 +776,7 @@ export default function PosPage() {
                     <MoreHorizontal aria-hidden="true" className="h-5 w-5" />
                   </button>
                   {showMoreActions ? <div className="absolute right-0 z-30 mt-2 grid w-64 gap-2 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-xl">
+                    {iosPos && <button type="button" onClick={() => { setShowCustomerPicker(value => !value); setShowMoreActions(false); }} className="rounded-lg px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50">Choisir un client</button>}
                     <button type="button" onClick={() => { setShowCustomItemModal(true); setShowMoreActions(false); }} className="rounded-lg px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50">Article personnalisé</button>
                     <button type="button" onClick={() => { setShowExpertOptions(true); setShowMoreActions(false); }} className="rounded-lg px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50">Options avancées</button>
                   </div>
@@ -779,12 +788,12 @@ export default function PosPage() {
             <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_minmax(240px,0.75fr)]">
               <div className="flex min-w-0 gap-2">
                 <label className="sr-only" htmlFor="pos-product-search">Rechercher un produit</label>
-                <input id="pos-product-search" ref={scanInputRef} autoFocus value={query} onChange={(event) => { setQuery(event.target.value); setBarcode(event.target.value); }} onKeyDown={(event) => { if (event.key === "Enter") void scanBarcode(query); }} placeholder={posTemplate.searchPlaceholder} className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-base outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-100" />
+                <input id="pos-product-search" ref={scanInputRef} autoFocus={!iosPos} value={query} onChange={(event) => { setQuery(event.target.value); setBarcode(event.target.value); }} onKeyDown={(event) => { if (event.key === "Enter") void scanBarcode(query); }} placeholder={posTemplate.searchPlaceholder} className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-base outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-100" />
                 <button aria-label="Rechercher un produit" title="Rechercher" onClick={() => void scanBarcode(query)} className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-slate-950 text-white shadow-sm transition hover:bg-slate-800">
                   <Search aria-hidden="true" className="h-5 w-5" />
                 </button>
               </div>
-              <CustomerSelector customers={customers} customerId={customerId} defaultLabel={posTemplate.defaultCustomer} onChange={setCustomerId} onCreate={() => setShowCustomerModal(true)} />
+              {(!iosPos || showCustomerPicker) && <CustomerSelector customers={customers} customerId={customerId} defaultLabel={posTemplate.defaultCustomer} onChange={(value) => { setCustomerId(value); if (iosPos) setShowCustomerPicker(false); }} onCreate={() => setShowCustomerModal(true)} />}
             </div>
           </section>
 
@@ -798,7 +807,7 @@ export default function PosPage() {
             </a>
           ) : null}
 
-          <section className="mb-4">
+          <section className="pos-categories mb-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-semibold">Produits</h2>
@@ -899,7 +908,7 @@ export default function PosPage() {
         </div>
       </div>
 
-      <MobileCartBar cart={cart} onOpen={() => setShowCartDrawer(true)} />
+      <MobileCartBar cart={cart} onOpen={() => setShowCartDrawer(true)} onCheckout={() => setShowPaymentModal(true)} canCheckout={canCheckout} />
       {showCartDrawer ? (
         <div className="fixed inset-0 z-50 bg-slate-950/60 lg:hidden">
           <div className="ml-auto flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
@@ -1100,20 +1109,23 @@ function StatusMessages({ error, message, syncMessage }: { error: string; messag
     <>
       {error ? <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</div> : null}
       {message ? <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{message}</div> : null}
-      {syncMessage ? <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm font-semibold text-blue-700">{syncMessage}</div> : null}
+      {syncMessage ? <div role="status" className="pos-sync-status mb-4 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm font-semibold text-blue-700">{syncMessage}</div> : null}
     </>
   );
 }
 
 function ProductCard({ product, onAdd }: { product: Product; onAdd: () => void }) {
+  const imageSource = resolveAssetUrl(product.image);
+  const [imageFailed, setImageFailed] = useState(false);
+  useEffect(() => setImageFailed(false), [product.image]);
   const stockTracked = product.stockTracked !== false;
   const isLowStock = stockTracked && product.availableStock > 0 && product.availableStock <= 3;
   const isOut = stockTracked && product.availableStock <= 0;
   return (
-    <button onClick={onAdd} disabled={isOut} className="group flex h-full min-h-[214px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm transition hover:border-brand-500 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-brand-100 disabled:cursor-not-allowed disabled:opacity-55">
+    <button aria-label={`${product.name} · ${formatMoney(product.salePrice)}${isOut ? " · Rupture de stock" : " · Ajouter au panier"}`} onClick={onAdd} disabled={isOut} className="pos-product-card group flex h-full min-h-[214px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm transition hover:border-brand-500 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-brand-100 disabled:cursor-not-allowed disabled:opacity-55">
       <div className="aspect-[4/3] bg-slate-100">
-        {product.image ? (
-          <Image unoptimized src={product.image} alt={product.name} width={320} height={240} className="h-full w-full object-cover" />
+        {imageSource && !imageFailed ? (
+          <Image onError={() => setImageFailed(true)} unoptimized src={imageSource} alt={product.name} width={320} height={240} className="h-full w-full object-cover" />
         ) : (
           <ProductPlaceholder name={product.name} />
         )}
@@ -1537,7 +1549,11 @@ function ExpertOptions(props: CartPanelProps) {
   );
 }
 
-function MobileCartBar({ cart, onOpen }: { cart: Cart; onOpen: () => void }) {
+function MobileCartBar({ cart, onOpen, onCheckout, canCheckout }: { cart: Cart; onOpen: () => void; onCheckout: () => void; canCheckout: boolean }) {
+  if (iosPos) return <div className="ios-pos-cart lg:hidden">
+    <button type="button" onClick={onOpen} className="flex w-full items-center justify-between pb-3 text-left"><span className="flex items-center gap-3"><ShoppingCart aria-hidden="true" size={23} className="text-blue-600" /><span><b className="block text-sm">{cart.items.reduce((sum, item) => sum + item.quantity, 0)} articles</b><span className="text-xs text-slate-500">Voir le panier</span></span></span><span className="flex items-center gap-3"><b className="text-base">{formatMoney(cart.total)}</b><span className="text-blue-600">⌃</span></span></button>
+    <button type="button" onClick={onCheckout} disabled={!canCheckout} className="w-full rounded-xl bg-[#0877f9] py-3 text-sm font-bold text-white shadow-sm disabled:opacity-45">Encaisser</button>
+  </div>;
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 p-3 shadow-2xl backdrop-blur lg:hidden">
       <button onClick={onOpen} className="flex min-h-14 w-full items-center justify-between rounded-xl bg-slate-950 px-4 py-3 text-left text-white">
@@ -1560,7 +1576,7 @@ function customerLabel(customer: Customer) {
 }
 
 function formatMoney(value: number) {
-  return new Intl.NumberFormat("fr-HT", { style: "currency", currency: "HTG", maximumFractionDigits: 2 }).format(value || 0);
+  return new Intl.NumberFormat("fr-HT", { style: "currency", currency: "HTG", currencyDisplay: iosPos ? "code" : "symbol", minimumFractionDigits: iosPos ? 0 : 2, maximumFractionDigits: 2 }).format(value || 0);
 }
 
 function productInitials(name: string) {

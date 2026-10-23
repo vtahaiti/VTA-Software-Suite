@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
 
+const iosCompanion = process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1";
+
 const tabs = [
   ["Entreprise", "/dashboard/settings/company"],
   ["POS", "/dashboard/settings/pos"],
@@ -106,7 +108,7 @@ export default function SubscriptionSettingsPage() {
   const usage = entitlements?.usage ?? null;
 
   async function requestPlan(planCode?: string | null) {
-    if (!planCode) return;
+    if (!planCode || iosCompanion) return;
     setError("");
     setActionMessage("");
     try {
@@ -126,10 +128,11 @@ export default function SubscriptionSettingsPage() {
   return (
     <div className="space-y-5">
       <Header active="Abonnement" />
-      <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-5 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">
+      {!iosCompanion && <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-5 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">
         <h2 className="text-xl font-bold">Le premier mois, tous les plans sont gratuits</h2>
         <p className="mt-2 text-sm">Chaque nouvelle entreprise bénéficie d’un mois d’essai avec toutes les fonctionnalités. Ensuite, choisissez Gratuit, Basique à 6 USD/mois ou Premium à 10 USD/mois. Aucun prélèvement automatique.</p>
-      </section>
+      </section>}
+      {iosCompanion && <p className="rounded-lg border p-4 text-sm">VTA POS est l’application compagnon gratuite de votre entreprise. Connectez-vous avec votre compte existant pour retrouver ses fonctionnalités. Aucun achat ni renouvellement n’est proposé dans cette application.</p>}
 
       {loading ? <LoadingState /> : null}
       {!loading && error ? <ErrorState message={error} onRetry={() => void load()} /> : null}
@@ -157,14 +160,14 @@ export default function SubscriptionSettingsPage() {
               {pendingRequest ? <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">Demande en attente : {pendingRequest.requestedPlanName || labelPlan(pendingRequest.requestedPlanCode)}. Le nouveau plan commencera après confirmation par VTA Commerce.</div> : null}
               {limits ? <LimitsPanel limits={limits} usage={usage} /> : null}
               {actionMessage ? <div className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-100">{actionMessage}</div> : null}
-              <div className="mt-5 flex flex-wrap gap-2">
+              {!iosCompanion && <div className="mt-5 flex flex-wrap gap-2">
                 {plans.filter((plan) => plan.code && plan.code !== planCode && plan.code !== "TRIAL").map((plan) => (
                   <button key={plan.code} type="button" disabled={Boolean(pendingRequest)} onClick={() => void requestPlan(plan.code)} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Demander {plan.name ?? labelPlan(plan.code)}</button>
                 ))}
                 <button type="button" className="rounded-md border px-4 py-2 text-sm font-semibold" disabled={Boolean(pendingRequest)} onClick={() => { if (planCode.startsWith("POS_") && !isActive) void requestPlan(planCode); else setActionMessage("Le renouvellement est validé par VTA Commerce après confirmation du paiement."); }}>Renouveler</button>
-                <button className="rounded-md border px-4 py-2 text-sm font-semibold opacity-60" title="Disponible après paiement validé">Télécharger le reçu</button>
-              </div>
-              <p className="mt-3 text-xs text-slate-500">Le paiement automatique n’est pas activé. Les renouvellements restent validés par VTA Commerce ou par le futur fournisseur de paiement configuré.</p>
+
+              </div>}
+              {!iosCompanion && <p className="mt-3 text-xs text-slate-500">Le paiement automatique n’est pas activé. Les renouvellements restent validés par VTA Commerce ou par le futur fournisseur de paiement configuré.</p>}
             </div>
 
             <div className="rounded-lg border bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -178,7 +181,7 @@ export default function SubscriptionSettingsPage() {
             </div>
           </section>
 
-          <section className="rounded-lg border bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          {!iosCompanion && <section className="rounded-lg border bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <p className="text-sm font-semibold text-brand-600">Comparaison des plans</p>
             <h2 className="text-2xl font-bold">VTA POS : Gratuit, Basique ou Premium</h2>
             <p className="mt-2 text-sm text-slate-500">Un plan gratuit sans expiration et deux plans en USD, par mois et par entreprise. Produits et ventes sans limite. Les offres ERP restent disponibles ci-dessous.</p>
@@ -202,7 +205,7 @@ export default function SubscriptionSettingsPage() {
                 </div>
               ))}
             </div>
-          </section>
+          </section>}
 
           <section className="rounded-lg border bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <p className="text-sm font-semibold text-brand-600">Fonctionnalités incluses</p>

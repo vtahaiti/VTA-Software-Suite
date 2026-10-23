@@ -51,7 +51,11 @@ export function publicApiErrorMessage(error: unknown, fallback = apiUnavailableM
 
 export async function fetchApi(path: string, init: RequestInit = {}) {
   try {
-    return await fetch(apiUrl(path), init);
+    const headers = new Headers(init.headers);
+    if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" && typeof FormData !== "undefined" && init.body instanceof FormData && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "multipart/form-data");
+    }
+    return await fetch(apiUrl(path), { ...init, headers });
   } catch {
     throw new ApiUnavailableError();
   }

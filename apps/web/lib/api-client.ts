@@ -29,6 +29,11 @@ async function fetchWithCurrentToken(input: RequestInfo | URL, init: RequestInit
     token = refreshedUser ? getAccessToken() : null;
   }
   const headers = new Headers(init.headers);
+  // Capacitor 6's native fetch bridge expects a multipart content type before
+  // it converts FormData; it then removes it and generates its own boundary.
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" && typeof FormData !== "undefined" && init.body instanceof FormData && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "multipart/form-data");
+  }
   if (token) headers.set("Authorization", `Bearer ${token}`);
   return fetch(input, { ...init, headers });
 }

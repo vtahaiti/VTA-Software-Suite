@@ -34,7 +34,7 @@ export function LoginForm() {
     try {
       const user = await login({ email, password, rememberMe });
       const isPlatformAdmin = user.roles?.includes("PlatformAdmin") || user.role === "PlatformAdmin";
-      router.push(isPlatformAdmin ? "/admin/dashboard" : "/dashboard");
+      router.push(process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? "/dashboard/pos" : isPlatformAdmin ? "/admin/dashboard" : "/dashboard");
       router.refresh();
     } catch (caughtError) {
       setError(publicApiErrorMessage(caughtError));

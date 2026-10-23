@@ -29,6 +29,16 @@ type AuthResponse = {
 const accessTokenKey = "vta_access_token";
 const refreshTokenKey = "vta_refresh_token";
 const userKey = "vta_user";
+const offlineValidatedKey = "vta_offline_validated_at";
+const offlineAccessDurationMs = 7 * 24 * 60 * 60 * 1000;
+
+export function hasValidOfflineSession() {
+  if (typeof window === "undefined") return false;
+  const validatedAt = Number(window.localStorage.getItem(offlineValidatedKey));
+  const age = Date.now() - validatedAt;
+  return validatedAt > 0 && age >= 0 && age <= offlineAccessDurationMs;
+}
+
 const tenantScopedLocalStoragePrefixes = ["vta_pos_draft_"];
 const tenantScopedLocalStorageKeys = ["vta_pending_pos_print"];
 const offlineDbName = "vta-commerce-offline";
@@ -133,6 +143,7 @@ export function saveSession(data: AuthResponse) {
   window.localStorage.setItem(accessTokenKey, data.accessToken);
   window.localStorage.setItem(refreshTokenKey, data.refreshToken);
   window.localStorage.setItem(userKey, JSON.stringify(data.user));
+  window.localStorage.setItem(offlineValidatedKey, String(Date.now()));
   window.dispatchEvent(new CustomEvent("vta:session-changed", { detail: { tenantId: data.user.tenantId } }));
 }
 
@@ -142,6 +153,7 @@ export function updateStoredUser(user: AuthUser) {
     clearTenantScopedCaches("tenant-switch");
   }
   window.localStorage.setItem(userKey, JSON.stringify(user));
+  window.localStorage.setItem(offlineValidatedKey, String(Date.now()));
   window.dispatchEvent(new CustomEvent("vta:session-changed", { detail: { tenantId: user.tenantId } }));
 }
 
@@ -150,6 +162,7 @@ export function clearSession() {
   window.localStorage.removeItem(accessTokenKey);
   window.localStorage.removeItem(refreshTokenKey);
   window.localStorage.removeItem(userKey);
+  window.localStorage.removeItem(offlineValidatedKey);
   window.dispatchEvent(new CustomEvent("vta:session-cleared"));
 }
 

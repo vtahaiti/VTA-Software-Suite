@@ -1,0 +1,9 @@
+Retrouvez votre point de vente VTA sur iPhone et iPad.
+
+Connectez votre entreprise pour consulter vos produits, préparer vos ventes et retrouver votre caisse avec le même compte que VTA ERP.
+
+Après une première connexion et la préparation du catalogue, enregistrez vos ventes hors ligne puis synchronisez-les lorsque la connexion revient. Les tickets peuvent intégrer le nom et le logo de votre entreprise. Partagez un document PDF ou utilisez une imprimante prise en charge.
+
+L’application compagnon est gratuite à télécharger. Les fonctionnalités disponibles dépendent des droits et du plan de votre entreprise. Aucun achat ni renouvellement n’est proposé dans l’app.
+
+L’impression Bluetooth nécessite une imprimante BLE ESC/POS compatible. Une imprimante Bluetooth Classic seule ne suffit pas. Une connexion Internet reste nécessaire pour créer un compte, préparer le catalogue et synchroniser les ventes.

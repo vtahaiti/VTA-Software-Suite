@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
@@ -49,9 +49,9 @@ export default function SignupPage() {
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-12 dark:bg-slate-950">
       <section className="mx-auto w-full max-w-2xl rounded-lg border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <VtaBusinessMark />
+        {process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? <Link href="/" className="flex items-center gap-3 font-bold text-[#0877f9]"><img src="/vta-pos-icon.svg" alt="" className="h-12 w-12 rounded-xl" />VTA POS · Retour à la caisse</Link> : <VtaBusinessMark />}
         <h1 className="mt-4 text-3xl font-bold text-slate-950 dark:text-white">Créer votre compte</h1>
-        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Démarrez votre espace SaaS en quelques minutes.</p>
+        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Retrouvez votre entreprise et votre point de vente sur tous vos appareils.</p>
         <form method="post" onSubmit={submit} className="mt-8 grid gap-4 sm:grid-cols-2">
           <Input label="Prénom" name="firstName" autoComplete="given-name" value={form.firstName} onChange={(value) => setForm({ ...form, firstName: value })} />
           <Input label="Nom" name="lastName" autoComplete="family-name" value={form.lastName} onChange={(value) => setForm({ ...form, lastName: value })} />

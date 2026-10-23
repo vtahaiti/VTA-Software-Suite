@@ -122,3 +122,6 @@ isolation des entreprises, suppression/changement du logo et changement de sessi
 12 vérifications Swift du protocole et du décodage des documents de logo passent sur Mac.
 L'export iOS et les vérifications de types passent. La sortie physique et le rendu UIKit sur
 un iPhone restent à confirmer avec la 2Connect V10 ; ces tests ne prouvent pas le résultat papier.
+
+
+Mise à jour du 23 octobre 2026 : les corrections de publication, la compilation et le lancement natifs, et la nouvelle interface bleue iOS sont détaillés dans [18-iOS-Release-Readiness.md](18-iOS-Release-Readiness.md). Les validations physiques et la soumission Apple restent distinctes des tests simulateur.

@@ -3,10 +3,11 @@ import { networkTimeout } from "@/lib/network-timeout";
 
 import { ReactNode, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { IosBottomNav } from "@/components/ios-bottom-nav";
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
 import { fetchApi } from "@/lib/api-url";
-import { AuthUser, clearSession, clearTenantScopedCaches, getAccessToken, getCurrentUser, refreshSession, updateStoredUser } from "@/lib/auth";
+import { AuthUser, clearSession, clearTenantScopedCaches, getAccessToken, getCurrentUser, hasValidOfflineSession, refreshSession, updateStoredUser } from "@/lib/auth";
 import { canAccessHref } from "@/lib/role-access";
 import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
 import { getTenantBusinessConfiguration, TenantBusinessConfiguration } from "@/lib/business-profiles";
@@ -35,7 +36,7 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
 
       if (currentUser && currentToken) {
         const response = navigator.onLine ? await fetchApi("/auth/me", { signal: networkTimeout(5000), headers: { Authorization: `Bearer ${currentToken}` } }).catch(() => null) : null;
-        if (!response && process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") {
+        if (!response && process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" && hasValidOfflineSession()) {
           sessionUser = currentUser;
         } else if (response?.ok) {
           const body = await response.json().catch(() => null) as { user?: AuthUser } | null;
@@ -56,7 +57,7 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
 
       if (!sessionUser) {
         clearSession();
-        router.push("/login");
+        router.push(process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? "/" : "/login");
         return;
       }
 
@@ -145,6 +146,14 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
     );
   }
 
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return (
+    <div className="ios-app-shell min-h-screen bg-[#f5f7fb] text-[#111b3c]">
+      {pathname.replace(/\/$/, "") !== "/dashboard/pos" && <header className="flex items-center justify-between px-5 pb-1 pt-4"><a href="/dashboard" className="text-xl font-extrabold tracking-tight"><span className="text-[#0877f9]">VTA</span> POS</a><span className="max-w-[50%] truncate rounded-lg border border-slate-100 bg-white px-3 py-2 text-xs font-semibold">{branding?.companyName || user.tenant}</span></header>}
+      <main className="px-4 pb-24 pt-4">{typeof children === "function" ? children(user) : children}</main>
+      <IosBottomNav />
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white lg:grid lg:grid-cols-[270px_1fr]">
       <div className="hidden lg:block">
@@ -180,6 +189,7 @@ function TenantAccessBlocked() {
         <p className="text-sm font-semibold text-amber-600">Compte en pause</p>
         <h1 className="mt-2 text-2xl font-bold">Votre accès est temporairement suspendu.</h1>
         <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">Contactez l&apos;administrateur ou le support VTA Commerce pour réactiver l&apos;accès.</p>
+        <a href="/account-deletion" className="mt-4 block text-sm underline">Supprimer mon compte</a>
         <button type="button" onClick={() => { clearSession(); window.location.href = "/login"; }} className="mt-5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Retour à la connexion</button>
       </section>
     </main>

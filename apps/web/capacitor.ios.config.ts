@@ -7,8 +7,9 @@ const config: CapacitorConfig = {
   server: { cleartext: false },
   ios: { contentInset: "automatic", preferredContentMode: "mobile" },
   plugins: {
-    SplashScreen: { launchShowDuration: 1000, backgroundColor: "#16a34a" },
-    StatusBar: { style: "LIGHT", backgroundColor: "#16a34a" }
+    CapacitorHttp: { enabled: true },
+    SplashScreen: { launchShowDuration: 1000, backgroundColor: "#0877f9" },
+    StatusBar: { style: "DARK", backgroundColor: "#0877f9" }
   }
 };
 export default config;

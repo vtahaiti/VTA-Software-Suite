@@ -247,7 +247,7 @@ export default function OnboardingCompanyPage() {
         userPhotoDataUrl: form.userPhotoDataUrl
       });
       window.localStorage.removeItem("vta_pending_onboarding");
-      router.push("/dashboard");
+      router.push(process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? "/dashboard/pos" : "/dashboard");
     } catch (caught) {
       setError(publicApiErrorMessage(caught, "Création de l'entreprise impossible."));
     } finally {

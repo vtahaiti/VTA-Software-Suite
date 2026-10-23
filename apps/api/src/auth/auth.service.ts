@@ -69,7 +69,7 @@ export class AuthService {
     user ??= await this.ensureConfiguredSuperAdmin(email, loginDto.password);
     if (!user) {
       const passwordMatchesDemo = await comparePassword(loginDto.password, demoPasswordHash);
-      if (email !== adminEmail || !passwordMatchesDemo) {
+      if (process.env.NODE_ENV === "production" || process.env.AUTH_DEMO_ENABLED !== "true" || email !== adminEmail || !passwordMatchesDemo) {
         await this.security.recordLoginFailure(email, meta);
         await this.recordAuthAudit(AuditAction.LOGIN_FAILED, null, email, meta, "Connexion echouee");
         throw new UnauthorizedException("Email ou mot de passe incorrect");
@@ -100,6 +100,18 @@ export class AuthService {
     await this.security.recordLoginSuccess(authUser, meta);
     await this.recordAuthAudit(AuditAction.LOGIN, authUser, authUser.email, meta, "Connexion reussie");
     return session;
+  }
+
+  async authorizeAccountDeletion(emailInput: string, password: string, meta: { ipAddress?: string; userAgent?: string } = {}) {
+    const email = emailInput.trim().toLowerCase();
+    if (await this.security.isBlocked(email)) throw new UnauthorizedException("Réessayez plus tard.");
+    const user = await this.findUserByEmail(email);
+    if (!user || !await comparePassword(password, user.password)) {
+      await this.security.recordLoginFailure(email, meta);
+      throw new UnauthorizedException("Email ou mot de passe incorrect.");
+    }
+    // Reauthentication grants deletion only, never an application session or tenant access.
+    return user.id;
   }
 
   async loginPlatformAdmin(loginDto: LoginDto, meta: { ipAddress?: string; userAgent?: string } = {}) {
@@ -476,7 +488,7 @@ export class AuthService {
   }
 
   private async assertUserActive(userId: string) {
-    if (userId === demoUser.id) return;
+    if (userId === demoUser.id && process.env.NODE_ENV !== "production" && process.env.AUTH_DEMO_ENABLED === "true") return;
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { isActive: true } });
     if (!user || !user.isActive) throw new UnauthorizedException("Compte utilisateur desactive. Contactez votre administrateur.");
   }

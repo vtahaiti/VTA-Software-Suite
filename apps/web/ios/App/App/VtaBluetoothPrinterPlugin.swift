@@ -6,7 +6,7 @@ import CoreBluetooth
 public class VtaBluetoothPrinterPlugin: CAPPlugin, CAPBridgedPlugin, CBCentralManagerDelegate, CBPeripheralDelegate {
     public let identifier = "VtaBluetoothPrinterPlugin"
     public let jsName = "VtaBluetoothPrinter"
-    public let pluginMethods = ["isAvailable", "listPaired", "getDefaultPrinter", "setDefaultPrinter", "clearDefaultPrinter", "printTicket"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
+    public let pluginMethods: [CAPPluginMethod] = ["isAvailable", "listPaired", "getDefaultPrinter", "setDefaultPrinter", "clearDefaultPrinter", "printTicket"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
     private var central: CBCentralManager?
     private var devices: [UUID: CBPeripheral] = [:]
     private var scanCall: CAPPluginCall?
@@ -69,7 +69,7 @@ public class VtaBluetoothPrinterPlugin: CAPPlugin, CAPBridgedPlugin, CBCentralMa
     }
     @objc func clearDefaultPrinter(_ call: CAPPluginCall) { UserDefaults.standard.removeObject(forKey: printerKey); call.resolve() }
     @objc func printTicket(_ call: CAPPluginCall) {
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [self] in
             guard self.printCall == nil && self.scanCall == nil && self.disconnecting.isEmpty else { call.reject("Une opération Bluetooth est déjà en cours."); return }
             guard let html = call.getString("html"), !html.isEmpty else { call.reject("Ticket vide."); return }
             let address = call.getString("address") ?? UserDefaults.standard.dictionary(forKey: self.printerKey)?["address"] as? String

@@ -4,6 +4,8 @@ import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 import { FormEvent, useEffect, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
 import { initials, resolveAssetUrl } from "@/lib/company-branding";
+import { clearSession, getCurrentUser } from "@/lib/auth";
+import { getOfflineSales } from "@/lib/offline-db";
 import { formatRole } from "@/lib/format";
 
 const roleLabels: Record<string, string> = { OWNER: "Propriétaire", Owner: "Propriétaire", ADMIN: "Administrateur", CAISSIER: "Caissier", STOCK: "Stock", COMPTABLE: "Comptable", MANAGER: "Manager" };
@@ -11,6 +13,12 @@ const roleLabels: Record<string, string> = { OWNER: "Propriétaire", Owner: "Pro
 type Profile = { name: string; firstName: string; lastName: string; email: string; role: string; createdAt: string; profile?: { photoUrl?: string | null; jobTitle?: string | null; phone?: string | null; language?: string | null }; tenant?: { name: string; companyProfile?: { companyName?: string | null; name?: string | null; logoUrl?: string | null } | null } };
 
 export default function DashboardProfilePage() {
+  const [discardPending, setDiscardPending] = useState(false);
+  const [hasPending, setHasPending] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteMessage, setDeleteMessage] = useState("");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -21,6 +29,40 @@ export default function DashboardProfilePage() {
   const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => { void load(); }, []);
+
+  async function deleteAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (deleting) return;
+    setDeleting(true);
+    setDeleteMessage("");
+    try {
+      if (!navigator.onLine) throw new Error("Connectez-vous à Internet pour supprimer le compte.");
+      const sales = await getOfflineSales();
+      if (!discardPending && sales.some((sale) => sale.status !== "SYNCED")) {
+        setHasPending(true);
+        throw new Error("Synchronisez d’abord les ventes locales depuis le journal hors ligne.");
+      }
+      const user = getCurrentUser();
+      const response = await fetchWithAuth(`${apiUrl}/profile/me`, {
+        method: "DELETE", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword: deletePassword, confirmation: deleteConfirmation })
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(Array.isArray(body.message) ? body.message[0] : body.message || "Suppression impossible.");
+      }
+      if (user) {
+        const request = indexedDB.deleteDatabase(`vta-commerce-offline:${user.tenantId}:${user.id}`);
+        request.onerror = () => undefined;
+        request.onblocked = () => undefined;
+      }
+      clearSession();
+      window.location.replace("/login?accountDeleted=1");
+    } catch (error) {
+      setDeleteMessage(error instanceof Error ? error.message : "Suppression impossible.");
+      setDeleting(false);
+    }
+  }
 
   async function load() {
     const response = await fetchWithAuth(`${apiUrl}/profile/me`);
@@ -116,6 +158,16 @@ export default function DashboardProfilePage() {
         <p className="text-xs text-slate-500 md:col-span-2">Au moins 8 caractères, avec une majuscule, une minuscule, un chiffre et un caractère spécial.</p>
         {passwordMessage ? <p className="md:col-span-2 text-sm font-semibold text-slate-600 dark:text-slate-300">{passwordMessage}</p> : null}
         <button disabled={changingPassword} className="md:col-span-2 rounded-md bg-slate-950 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-950">{changingPassword ? "Enregistrement..." : "Changer le mot de passe"}</button>
+      </form>
+      <form onSubmit={deleteAccount} className="grid gap-4 rounded-lg border border-red-200 bg-white p-6 dark:border-red-900 dark:bg-slate-900">
+        <h2 className="text-lg font-semibold text-red-700">Supprimer mon compte</h2>
+        <p className="text-sm text-slate-600 dark:text-slate-300">Cette action est définitive : votre profil, vos accès et vos sessions seront supprimés. Les ventes et documents de l’entreprise restent conservés avec une identité anonymisée. Si vous gérez cette entreprise, attribuez les accès nécessaires à un autre responsable avant de partir.</p>
+        <p className="text-sm text-slate-600 dark:text-slate-300">Synchronisez vos ventes hors ligne avant de continuer. Les données locales de ce compte seront effacées de cet appareil.</p>
+        <Input label="Votre mot de passe actuel" type="password" value={deletePassword} onChange={setDeletePassword} />
+        <Input label="Tapez SUPPRIMER pour confirmer" value={deleteConfirmation} onChange={setDeleteConfirmation} />
+        {hasPending && <label className="flex gap-2 text-sm text-red-700"><input type="checkbox" checked={discardPending} onChange={e => setDiscardPending(e.target.checked)} />Je comprends que les ventes locales non synchronisées seront définitivement perdues avec ce compte.</label>}
+        {deleteMessage ? <p role="alert" className="text-sm text-red-700">{deleteMessage}</p> : null}
+        <button disabled={deleting || !deletePassword || deleteConfirmation !== "SUPPRIMER"} className="rounded-md bg-red-700 px-4 py-3 font-semibold text-white disabled:opacity-50">{deleting ? "Suppression…" : "Supprimer définitivement mon compte"}</button>
       </form>
     </div>
   );

@@ -80,7 +80,9 @@
     "repair:deleted-tenant-users": "node scripts/repair-deleted-tenant-users.cjs",
     "test:ios-runtime": "node --test scripts/ios-runtime.test.cjs",
     "test:ios-offline": "node --test scripts/ios-offline.test.cjs scripts/offline-idempotency.test.cjs scripts/receipt-logo.test.cjs",
-    "test:ios-escpos": "node scripts/test-ios-escpos.cjs"
+    "test:ios-escpos": "node scripts/test-ios-escpos.cjs",
+    "test:ios": "node --test scripts/ios-runtime.test.cjs scripts/ios-offline.test.cjs scripts/receipt-logo.test.cjs scripts/offline-idempotency.test.cjs scripts/pos-plans.test.cjs scripts/ios-publication.test.cjs scripts/ios-ui.test.cjs",
+    "test:ios:swift": "node scripts/test-ios-escpos.cjs"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

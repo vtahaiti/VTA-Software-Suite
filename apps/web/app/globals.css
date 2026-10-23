@@ -45,3 +45,38 @@ html[data-capacitor="true"] body {
     padding: 12mm;
   }
 }
+
+/* iOS POS: compact, touch-first blue-and-white interface. */
+.ios-bottom-nav { position: fixed; inset: auto 0 0; z-index: 40; display: grid; grid-template-columns: repeat(4,1fr); padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); background: #fff; border-top: 1px solid #edf0f5; }
+.ios-bottom-nav a { display: flex; min-height: 43px; flex-direction: column; justify-content: center; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; color: #8a92a3; }
+.ios-bottom-nav a.is-active { color: #0877f9; }
+.ios-pos-cart { position: fixed; inset: auto 0 calc(68px + env(safe-area-inset-bottom)); z-index: 35; padding: 12px 16px; background: rgba(255,255,255,.98); border-top: 1px solid #edf0f5; box-shadow: 0 -4px 24px #142d5c08; }
+.ios-pos { background: #f5f7fb; color: #111b3c; }
+.ios-pos > div > main { padding: 12px 14px 220px; }
+.ios-pos > div > main > section:first-child { position: static; border: 0; background: transparent; padding: 0; box-shadow: none; }
+.ios-pos > div > main > section:first-child h1 { font-size: 23px; letter-spacing: -.7px; }
+.ios-pos > div > main > section:first-child h1 ~ span { width: 6px; height: 6px; }
+.ios-pos > div > main > section:first-child h1 + span + span { font-size: 9px; }
+.ios-pos > div > main > section:first-child h1 { line-height: 32px; }
+.ios-pos > div > main > section:first-child .mt-0\.5 { display: none; }
+.ios-pos > div > main > section:first-child details { display: none; }
+.ios-pos > div > main > section:first-child button[aria-label="Plus d'actions"] { width: 30px; height: 32px; border: 0; background: transparent; }
+.ios-store-select { max-width: 135px; min-height: 34px; border-radius: 9px; border: 1px solid #e9edf5; background: white; padding: 5px 8px; font-size: 11px; font-weight: 600; }
+.ios-pos #pos-product-search { min-height: 40px; padding: 9px 12px; font-size: 13px; border-color: #e9edf5; border-radius: 10px; }
+.ios-pos button[title="Rechercher"] { width: 40px; height: 40px; background: #fff; color: #0877f9; box-shadow: none; }
+.ios-pos > div > main > a[href="/offline"] { padding: 4px 0; border: 0; font-size: 10px; color: #78849a; margin-bottom: 8px; }
+.ios-pos > div > main > section.pos-categories > div:first-child { display: none; }
+.ios-pos > div > main > section.pos-categories button { height: 32px; font-size: 11px; padding: 0 14px; border: 0; box-shadow: 0 2px 10px #10275705; }
+.ios-pos > div > main > section.pos-categories button.bg-slate-950 { background: #0877f9; }
+.ios-pos .pos-product-card { min-height: 172px; border: 0; border-radius: 14px; box-shadow: 0 3px 12px #10275704; }
+.ios-pos .pos-product-card > div:first-child { background: white; aspect-ratio: 1.35; padding: 10px; }
+.ios-pos .pos-product-card img { object-fit: contain; }
+.ios-pos .pos-product-card > div:last-child { padding: 10px; gap: 7px; }
+.ios-pos .pos-product-card p.line-clamp-2 { min-height: 30px; font-size: 12px; line-height: 15px; color: #111b3c; }
+.ios-pos .pos-product-card p.truncate, .ios-pos .pos-product-card .text-xs { display: none; }
+.ios-pos .pos-product-card .text-base { font-size: 14px; color: #111b3c; }
+.ios-pos .pos-product-card span[aria-label="Ajouter"] { width: 28px; height: 28px; border-radius: 50%; color: #0877f9; background: #e8f2ff; }
+@media (min-width:1024px) { .ios-pos .ios-pos-cart { display:none; } }
+
+.ios-pos .pos-sync-status { border:0; background:transparent; padding:0; margin-bottom:10px; font-size:10px; font-weight:500; color:#72809a; }
+.ios-pos .pos-product-card > div:first-child { height: 94px; aspect-ratio: auto; }

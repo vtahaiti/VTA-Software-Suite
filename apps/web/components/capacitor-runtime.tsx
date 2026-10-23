@@ -103,18 +103,19 @@ export function CapacitorRuntime() {
           return;
         }
 
-        if (nextUrl.protocol !== "https:" && nextUrl.protocol !== "http:") {
-          event.preventDefault();
-          return;
-        }
-
-        if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" && nextUrl.origin === window.location.origin) {
+        // Relative links in the embedded app use capacitor://, not https://.
+        // Compare protocol and host because custom-scheme URL.origin can be null.
+        if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" && nextUrl.protocol === window.location.protocol && nextUrl.host === window.location.host) {
           const route = nextUrl.pathname.replace(/\/$/, "") || "/";
           if (!iosEmbeddedRoutes.includes(route)) {
             event.preventDefault();
             if (!navigator.onLine) window.alert("Ce document nécessite une connexion Internet. Le point de vente reste disponible hors ligne.");
             else void Browser.open({ url: `https://vtaerp.com${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}` });
           }
+          return;
+        }
+        if (nextUrl.protocol !== "https:" && nextUrl.protocol !== "http:") {
+          event.preventDefault();
           return;
         }
         if (!ALLOWED_WEBVIEW_ORIGINS.has(nextUrl.origin)) {
