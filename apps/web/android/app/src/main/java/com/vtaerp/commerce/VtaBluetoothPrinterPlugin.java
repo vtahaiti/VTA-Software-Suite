@@ -4,12 +4,14 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 import android.util.Log;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -48,9 +50,27 @@ public class VtaBluetoothPrinterPlugin extends Plugin {
 
     @PluginMethod
     public void isAvailable(PluginCall call) {
+        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
         JSObject result = new JSObject();
-        result.put("available", BluetoothAdapter.getDefaultAdapter() != null);
+        result.put("available", adapter != null);
+        try {
+            result.put("enabled", adapter != null && adapter.isEnabled());
+        } catch (SecurityException exception) {
+            // Android 12+ pa kite nou li eta Bluetooth anvan itilizatè a bay pèmisyon.
+            // Pa voye yon fo "disabled"; listPaired() ap mande pèmisyon an nan bon moman.
+        }
         call.resolve(result);
+    }
+
+    @PluginMethod
+    public void openBluetoothSettings(PluginCall call) {
+        try {
+            Intent intent = new Intent(Settings.ACTION_BLUETOOTH_SETTINGS);
+            getActivity().startActivity(intent);
+            call.resolve(new JSObject());
+        } catch (Exception exception) {
+            call.reject("BLUETOOTH_SETTINGS_UNAVAILABLE", exception);
+        }
     }
 
     @PluginMethod
@@ -78,6 +98,10 @@ public class VtaBluetoothPrinterPlugin extends Plugin {
             return;
         }
         try {
+            if (!adapter.isEnabled()) {
+                call.reject("BLUETOOTH_DISABLED");
+                return;
+            }
             Set<BluetoothDevice> devices = adapter.getBondedDevices();
             JSArray items = new JSArray();
             for (BluetoothDevice device : devices) {

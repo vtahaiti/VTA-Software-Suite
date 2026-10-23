@@ -11,6 +11,7 @@ import {
   getDefaultBluetoothPrinter,
   isBluetoothPrintSupported,
   listPairedBluetoothPrinters,
+  openBluetoothSettings,
   printTicketOverBluetooth,
   setDefaultBluetoothPrinter,
   type DefaultPrinter,
@@ -32,7 +33,7 @@ export default function PosSettingsPage() {
   const [receiptWidth, setReceiptWidth] = useState<ReceiptPreviewWidth>("80");
   const [msg, setMsg] = useState("");
   const [saving, setSaving] = useState(false);
-  const [bluetoothSupported, setBluetoothSupported] = useState(false);
+  const [bluetoothStatus, setBluetoothStatus] = useState<{ available: boolean; enabled?: boolean }>({ available: false });
   const [pairedPrinters, setPairedPrinters] = useState<PairedPrinter[]>([]);
   const [defaultPrinter, setDefaultPrinter] = useState<DefaultPrinter>({ configured: false });
   const [bluetoothMsg, setBluetoothMsg] = useState("");
@@ -44,9 +45,9 @@ export default function PosSettingsPage() {
       .then((response) => response.ok ? response.json() : null)
       .then((data) => data && setForm(toPosForm(data)));
     void getReceiptPrintSettings().then((settings) => setReceiptWidth(settings.width)).catch(() => undefined);
-    void isBluetoothPrintSupported().then((supported) => {
-      setBluetoothSupported(supported);
-      if (supported) void getDefaultBluetoothPrinter().then(setDefaultPrinter);
+    void isBluetoothPrintSupported().then((status) => {
+      setBluetoothStatus(status);
+      if (status.available) void getDefaultBluetoothPrinter().then(setDefaultPrinter);
     });
   }, []);
 
@@ -54,13 +55,34 @@ export default function PosSettingsPage() {
     setBluetoothMsg("");
     setBluetoothLoading(true);
     try {
+      const status = await isBluetoothPrintSupported();
+      setBluetoothStatus(status);
       const devices = await listPairedBluetoothPrinters();
+      setBluetoothStatus({ available: true, enabled: true });
       setPairedPrinters(devices);
       if (devices.length === 0) setBluetoothMsg("Aucun appareil Bluetooth appairé. Associez d'abord l'imprimante dans les réglages Bluetooth d'Android.");
-    } catch {
-      setBluetoothMsg("Impossible de lister les appareils Bluetooth. Vérifiez que le Bluetooth est activé et l'autorisation accordée.");
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "";
+      if (code.includes("BLUETOOTH_DISABLED")) {
+        setBluetoothStatus({ available: true, enabled: false });
+        setPairedPrinters([]);
+        setBluetoothMsg("Bluetooth est désactivé. Activez-le dans les réglages Android, puis revenez ici.");
+      } else if (code.includes("BLUETOOTH_PERMISSION_DENIED")) {
+        setBluetoothMsg("Autorisation Bluetooth refusée. Autorisez VTA POS dans les réglages Android puis réessayez.");
+      } else {
+        setBluetoothMsg("Impossible de lister les appareils Bluetooth. Vérifiez que le Bluetooth est activé et l'autorisation accordée.");
+      }
     } finally {
       setBluetoothLoading(false);
+    }
+  }
+
+  async function configureBluetooth() {
+    setBluetoothMsg("");
+    try {
+      await openBluetoothSettings();
+    } catch {
+      setBluetoothMsg("Impossible d’ouvrir les réglages Bluetooth sur cet appareil.");
     }
   }
 
@@ -150,12 +172,18 @@ export default function PosSettingsPage() {
         </div>
       </form>
 
-      {bluetoothSupported ? (
+      {bluetoothStatus.available ? (
         <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
           <p className="text-sm font-semibold">Imprimante Bluetooth (impression directe, sans boîte de dialogue)</p>
           <p className="mt-1 text-sm text-slate-500">
-            Associez d&apos;abord l&apos;imprimante dans les réglages Bluetooth de la tablette, puis choisissez-la ici une seule fois. Les tickets s&apos;imprimeront ensuite automatiquement dessus, comme sur un système de caisse classique.
+            Appuyez sur « Configurer Bluetooth » pour associer l&apos;imprimante dans Android, revenez dans VTA POS, puis choisissez-la une seule fois. Les tickets s&apos;imprimeront ensuite automatiquement dessus.
           </p>
+
+          {bluetoothStatus.enabled === false ? <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200">Bluetooth est actuellement désactivé.</p> : null}
+
+          <button type="button" onClick={() => void configureBluetooth()} className="mt-4 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white">
+            Configurer Bluetooth
+          </button>
 
           {defaultPrinter.configured ? (
             <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm dark:border-emerald-900 dark:bg-emerald-950">
@@ -167,7 +195,7 @@ export default function PosSettingsPage() {
             <p className="mt-3 text-sm text-amber-700 dark:text-amber-300">Aucune imprimante Bluetooth configurée pour l&apos;instant.</p>
           )}
 
-          <button type="button" onClick={() => void refreshPairedPrinters()} disabled={bluetoothLoading} className="mt-4 rounded-md border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60">
+          <button type="button" onClick={() => void refreshPairedPrinters()} disabled={bluetoothLoading} className="ml-0 mt-3 rounded-md border px-4 py-2 text-sm font-semibold sm:ml-2 sm:mt-4 disabled:cursor-not-allowed disabled:opacity-60">
             {bluetoothLoading ? "Recherche..." : "Voir les appareils Bluetooth appairés"}
           </button>
 
@@ -184,7 +212,12 @@ export default function PosSettingsPage() {
 
           {bluetoothMsg ? <p className="mt-3 text-sm text-slate-500">{bluetoothMsg}</p> : null}
         </div>
-      ) : null}
+      ) : (
+        <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-sm font-semibold">Impression Bluetooth directe indisponible</p>
+          <p className="mt-1 text-sm text-slate-500">Cette fonction apparaît uniquement dans l&apos;application Android VTA POS sur un appareil équipé de Bluetooth. L&apos;impression système/PDF reste disponible.</p>
+        </div>
+      )}
     </div>
   );
 }

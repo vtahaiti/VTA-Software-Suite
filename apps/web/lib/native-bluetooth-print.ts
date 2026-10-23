@@ -6,7 +6,8 @@ export type PairedPrinter = { name: string; address: string };
 export type DefaultPrinter = { configured: boolean; address?: string; name?: string };
 
 type VtaBluetoothPrinterPlugin = {
-  isAvailable(): Promise<{ available: boolean }>;
+  isAvailable(): Promise<{ available: boolean; enabled?: boolean }>;
+  openBluetoothSettings(): Promise<void>;
   listPaired(): Promise<{ devices: PairedPrinter[] }>;
   getDefaultPrinter(): Promise<DefaultPrinter>;
   setDefaultPrinter(options: { address: string; name?: string }): Promise<void>;
@@ -17,15 +18,18 @@ type VtaBluetoothPrinterPlugin = {
 const BluetoothPrinter = registerPlugin<VtaBluetoothPrinterPlugin>("VtaBluetoothPrinter");
 
 export async function isBluetoothPrintSupported() {
-  if (typeof window === "undefined") return false;
+  if (typeof window === "undefined") return { available: false, enabled: undefined };
   try {
     const { Capacitor } = await import("@capacitor/core");
-    if (!Capacitor.isNativePlatform()) return false;
-    const { available } = await BluetoothPrinter.isAvailable();
-    return available;
+    if (!Capacitor.isNativePlatform()) return { available: false, enabled: undefined };
+    return await BluetoothPrinter.isAvailable();
   } catch {
-    return false;
+    return { available: false, enabled: undefined };
   }
+}
+
+export async function openBluetoothSettings() {
+  await BluetoothPrinter.openBluetoothSettings();
 }
 
 export async function listPairedBluetoothPrinters() {
