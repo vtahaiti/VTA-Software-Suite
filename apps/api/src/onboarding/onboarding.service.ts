@@ -4,9 +4,10 @@ import { randomUUID } from "crypto";
 import { defaultPermissions } from "../rbac/default-permissions";
 import { businessActivityTemplates, businessModules, businessProfiles, findActivityTemplate, resolveBusinessProfileSlug } from "../business-profiles/business-catalog";
 import { AuthService } from "../auth/auth.service";
-import { hashPassword } from "../auth/password-hashing";
+import { comparePassword, hashPassword } from "../auth/password-hashing";
 import { isPasswordStrong, passwordPolicyMessage } from "../auth/password-policy";
 import { EmailService } from "../email/email.service";
+import { SecurityService } from "../security/security.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { SubscriptionEntitlementsService } from "../subscriptions/subscription-entitlements.service";
 import { UploadsService } from "../uploads/uploads.service";
@@ -21,7 +22,8 @@ export class OnboardingService {
     private readonly auth: AuthService,
     private readonly email: EmailService,
     private readonly uploads: UploadsService,
-    private readonly subscriptions: SubscriptionEntitlementsService
+    private readonly subscriptions: SubscriptionEntitlementsService,
+    private readonly security: SecurityService
   ) {}
 
   async register(dto: RegisterUserDto) {
@@ -29,6 +31,8 @@ export class OnboardingService {
     if (dto.password !== dto.confirmPassword) throw new BadRequestException("Les mots de passe ne correspondent pas.");
     if (!isPasswordStrong(dto.password)) throw new BadRequestException(passwordPolicyMessage);
     if (!dto.acceptedTerms) throw new BadRequestException("Vous devez accepter les conditions d’utilisation et la politique de confidentialité.");
+
+    if (await this.security.isBlocked(email)) throw new BadRequestException("Trop de tentatives. Réessayez dans 15 minutes.");
 
     const existingUsers = await this.prisma.user.findMany({
       where: { email },
@@ -39,34 +43,40 @@ export class OnboardingService {
 
     const existingPending = await this.prisma.pendingRegistration.findUnique({ where: { email } });
     if (existingPending && existingPending.expiresAt.getTime() > Date.now()) {
-      throw new BadRequestException("Un compte est déjà en cours de création avec cet email.");
+      // The same password proves ownership after a lost response or a device change.
+      // Never replace another pending account's credentials or extend its lifetime.
+      if (!await comparePassword(dto.password, existingPending.passwordHash)) {
+        await this.security.recordLoginFailure(email, {});
+        throw new BadRequestException("Inscription en cours. Utilisez le mot de passe choisi lors de votre inscription.");
+      }
+      return { pendingToken: existingPending.token, email, expiresAt: existingPending.expiresAt, message: "Inscription retrouvée. Complétez votre entreprise." };
     }
 
-    const token = randomUUID();
-    await this.prisma.pendingRegistration.upsert({
-      where: { email },
-      update: {
-        token,
-        firstName: dto.firstName.trim(),
-        lastName: dto.lastName.trim(),
-        phone: dto.phone?.trim(),
-        passwordHash: await hashPassword(dto.password),
-        acceptedTerms: true,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
-      },
-      create: {
-        token,
-        email,
-        firstName: dto.firstName.trim(),
-        lastName: dto.lastName.trim(),
-        phone: dto.phone?.trim(),
-        passwordHash: await hashPassword(dto.password),
-        acceptedTerms: true,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
-      }
+    const data = {
+      token: randomUUID(),
+      firstName: dto.firstName.trim(),
+      lastName: dto.lastName.trim(),
+      phone: dto.phone?.trim(),
+      passwordHash: await hashPassword(dto.password),
+      acceptedTerms: true,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+    };
+    // A simultaneous registration must not overwrite the first caller's password.
+    const prepared = await this.prisma.pendingRegistration.upsert({
+      where: { email }, update: {}, create: { ...data, email }
     });
-
-    return { pendingToken: token, email, message: "Compte préparé. Complétez maintenant votre entreprise." };
+    if (prepared.expiresAt.getTime() <= Date.now()) {
+      const replaced = await this.prisma.pendingRegistration.updateMany({
+        where: { id: prepared.id, token: prepared.token, expiresAt: { lte: new Date() } }, data
+      });
+      if (replaced.count !== 1) throw new BadRequestException("Inscription modifiée. Réessayez avec votre mot de passe.");
+      return { pendingToken: data.token, email, expiresAt: data.expiresAt, message: "Compte préparé. Complétez maintenant votre entreprise." };
+    }
+    if (!await comparePassword(dto.password, prepared.passwordHash)) {
+      await this.security.recordLoginFailure(email, {});
+      throw new BadRequestException("Inscription en cours. Utilisez le mot de passe choisi lors de votre inscription.");
+    }
+    return { pendingToken: prepared.token, email, expiresAt: prepared.expiresAt, message: "Compte préparé. Complétez maintenant votre entreprise." };
   }
 
   async createCompany(dto: CreateCompanyDto) {

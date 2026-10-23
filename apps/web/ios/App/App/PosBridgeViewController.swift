@@ -12,6 +12,7 @@ class PosBridgeViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(VtaNativePrintPlugin())
         bridge?.registerPluginInstance(VtaBluetoothPrinterPlugin())
+        bridge?.registerPluginInstance(VtaSubscriptionsPlugin())
     }
 }
 

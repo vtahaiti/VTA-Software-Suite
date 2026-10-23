@@ -4,7 +4,7 @@ const { defaultPlans, planFeatureMatrix, planLimitMatrix } = require("../apps/ap
 const { nextMonthlyPeriodEnd } = require("../apps/api/src/subscriptions/subscription-period.ts");
 
 test("POS prices are monthly USD and ERP prices remain intact", () => {
-  for (const [code, price] of [["POS_FREE", 0], ["POS_BASIC", 6], ["POS_PREMIUM", 10]]) {
+  for (const [code, price] of [["POS_FREE", 0], ["POS_BASIC", 6.99], ["POS_PREMIUM", 10.99], ["POS_PRO", 18.99]]) {
     const plan = defaultPlans.find(plan => plan.code === code);
     assert.equal(plan.monthlyPrice, price);
     assert.equal(plan.currency, "USD");
@@ -51,7 +51,7 @@ test("Monthly renewal clamps short months and preserves UTC time and input", () 
 test("First month trial includes every POS tier without a subscription charge", () => {
   const trial = defaultPlans.find(plan => plan.code === "TRIAL");
   assert.equal(trial.monthlyPrice, 0);
-  for (const code of ["POS_FREE", "POS_BASIC", "POS_PREMIUM"]) {
+  for (const code of ["POS_FREE", "POS_BASIC", "POS_PREMIUM", "POS_PRO"]) {
     for (const feature of planFeatureMatrix[code]) assert.ok(planFeatureMatrix.TRIAL.includes(feature));
     for (const key of Object.keys(planLimitMatrix[code])) assert.ok(planLimitMatrix.TRIAL[key] >= planLimitMatrix[code][key]);
   }

@@ -44,7 +44,7 @@ export default function SignupPage() {
     setIsLoading(true);
     try {
       const result = await registerUser(form);
-      rememberPendingRegistration(result.pendingToken, result.email, form.phone.trim());
+      rememberPendingRegistration(result.pendingToken, result.email, form.phone.trim(), result.expiresAt);
       router.push("/onboarding/company");
     } catch (caught) {
       setError(publicApiErrorMessage(caught, "Inscription impossible."));

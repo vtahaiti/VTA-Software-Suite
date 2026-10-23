@@ -2215,3 +2215,17 @@ model TenantBusinessModule {
 
 
 
+
+// Verified Apple purchase ownership and notification ordering. No receipt secrets.
+model AppleSubscriptionPurchase {
+  originalTransactionId String @id
+  tenantId String
+  environment String
+  productId String
+  transactionId String
+  signedAt DateTime
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([tenantId])
+}

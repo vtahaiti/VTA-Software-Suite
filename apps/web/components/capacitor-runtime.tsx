@@ -19,6 +19,7 @@ export function CapacitorRuntime() {
     let clickHandler: ((event: MouseEvent) => void) | undefined;
     let disposed = false;
     let removeDocumentActions: (() => void) | undefined;
+    let removeApplePurchaseIntent: (() => void) | undefined;
 
     async function setupNativeRuntime() {
       const { Capacitor } = await import("@capacitor/core");
@@ -40,6 +41,13 @@ export function CapacitorRuntime() {
         const { installIosDocumentActions } = await import("@/lib/ios-document-actions");
         if (disposed) return;
         removeDocumentActions = installIosDocumentActions();
+        const { AppleSubscriptions } = await import("@/lib/apple-subscriptions");
+        if (disposed) return;
+        const purchaseIntent = await AppleSubscriptions.addListener("purchaseIntent", () => {
+          router.push(resolveIosHref("/dashboard/settings/subscription"));
+        });
+        if (disposed) { await purchaseIntent.remove(); return; }
+        removeApplePurchaseIntent = () => { void purchaseIntent.remove(); };
       }
 
       if (Capacitor.getPlatform() === "android") {
@@ -161,6 +169,7 @@ export function CapacitorRuntime() {
       removeBackButtonListener?.();
       removeAppUrlOpenListener?.();
       removeDocumentActions?.();
+      removeApplePurchaseIntent?.();
       if (clickHandler) {
         document.removeEventListener("click", clickHandler, true);
       }

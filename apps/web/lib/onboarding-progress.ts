@@ -3,10 +3,13 @@ const pendingKey = "vta_pending_onboarding";
 const detailsKey = "vta_pending_onboarding_details";
 const draftKey = "vta_onboarding_company_draft";
 const draftFields = new Set(["companyName","businessSector","businessSpecialty","businessProfileSlug","country","department","city","otherCity","address","phone","whatsapp","email","website","taxNumber","currency","language","timezone","primaryColor","secondaryColor","logoUrl"]);
-export function rememberPendingRegistration(pendingToken: string, email: string, phone = "") {
+export function rememberPendingRegistration(pendingToken: string, email: string, phone = "", serverExpiresAt?: string) {
   if (!pendingToken || ["undefined", "null"].includes(pendingToken)) throw new Error("La session d’inscription n’a pas été reçue. Réessayez.");
+  const serverExpiry = serverExpiresAt ? Date.parse(serverExpiresAt) : NaN;
+  const expiresAt = Number.isFinite(serverExpiry) ? serverExpiry : Date.now() + 24 * 60 * 60 * 1000;
+  if (expiresAt <= Date.now()) throw new Error("Inscription expirée. Recommencez la création du compte.");
   localStorage.setItem(pendingKey, pendingToken);
-  localStorage.setItem(detailsKey, JSON.stringify({ pendingToken, email, phone, expiresAt: Date.now() + 24 * 60 * 60 * 1000 }));
+  localStorage.setItem(detailsKey, JSON.stringify({ pendingToken, email, phone, expiresAt }));
 }
 export function pendingRegistration() {
   const pendingToken = localStorage.getItem(pendingKey) ?? "";

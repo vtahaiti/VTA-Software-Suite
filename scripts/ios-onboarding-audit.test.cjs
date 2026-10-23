@@ -4,7 +4,7 @@ function transpile(file){return ts.transpileModule(fs.readFileSync(file,'utf8'),
 function storage(){const data=new Map();return{getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,String(v)),removeItem:k=>data.delete(k),data};}
 function progress(){const localStorage=storage(),exports={};vm.runInNewContext(transpile('apps/web/lib/onboarding-progress.ts'),{exports,localStorage,Date});return{...exports,storage:localStorage};}
 test('Pending registration resumes on the same device and expired preparations cannot be reused',()=>{
- const p=progress();p.rememberPendingRegistration('qa-token','test@example.invalid','0000');assert.equal(p.pendingRegistration().pendingToken,'qa-token');
+ const p=progress();const serverExpiry=new Date(Date.now()+300000).toISOString();p.rememberPendingRegistration('qa-server','test@example.invalid','',serverExpiry);assert.equal(JSON.parse(p.storage.getItem('vta_pending_onboarding_details')).expiresAt,Date.parse(serverExpiry));p.rememberPendingRegistration('qa-token','test@example.invalid','0000');assert.equal(p.pendingRegistration().pendingToken,'qa-token');
  p.storage.setItem('vta_pending_onboarding_details',JSON.stringify({pendingToken:'qa-token',expiresAt:Date.now()-1}));assert.equal(p.pendingRegistration(),null);
 });
 test('Business drafts survive reloads, remain tied to the prepared account and never persist passwords or photo data',()=>{
@@ -18,13 +18,13 @@ test('Late catalogue loading preserves the chosen business activity and uses can
  assert.equal(selected.businessSpecialty,'Bar');assert.equal(selected.businessProfileSlug,'restaurant');
  assert.equal(p.reconcileBusinessSelection([{key:'commerce',specialties:[{name:'Epicerie / Market',profileType:'commerce'}]}],{businessSector:'commerce',businessSpecialty:'Épicerie / Market'}).businessSpecialty,'Epicerie / Market');
 });
-function backend({expired=false,duplicate=false,mailFailure=false,transactionFailure=false}={}){
+function backend({expired=false,duplicate=false,mailFailure=false,transactionFailure=false,pendingByEmail=false,wrongPassword=false}={}){
  const calls=[],pureCache={};
  function pure(file){if(pureCache[file])return pureCache[file];const exports={};vm.runInNewContext(transpile(file),{exports,require});return pureCache[file]=exports;}
  const catalog=pure('apps/api/src/business-profiles/business-catalog.ts');
- const pending={id:'pending',email:'test@example.invalid',firstName:'Test',lastName:'Audit',passwordHash:'qa-hash',expiresAt:new Date(Date.now()+(expired?-1000:86400000))};
+ const pending={id:'pending',token:'qa-pending-token',email:'test@example.invalid',firstName:'Test',lastName:'Audit',passwordHash:'qa-hash',expiresAt:new Date(Date.now()+(expired?-1000:86400000))};
  const tx=new Proxy({}, {get:(_,model)=>new Proxy({}, {get:(_,method)=>async args=>{calls.push({model,method,args});return{id:`qa-${model}`, ...args?.data, ...args?.create};}})});
- const prisma={user:{findMany:async()=>duplicate?[{id:'exists',tenant:{status:'ACTIVE'}}]:[]},pendingRegistration:{findUnique:async args=>args.where.token?pending:null,upsert:async args=>{calls.push({model:'pendingRegistration',method:'upsert',args});return pending;}},tenant:{findUnique:async()=>null},$transaction:async callback=>{calls.push({transaction:true});if(transactionFailure)throw Error('Database unavailable');return callback(tx);}};
+ const prisma={user:{findMany:async()=>duplicate?[{id:'exists',tenant:{status:'ACTIVE'}}]:[]},pendingRegistration:{findUnique:async args=>args.where.token||pendingByEmail?pending:null,upsert:async args=>{calls.push({model:'pendingRegistration',method:'upsert',args});return pendingByEmail?pending:{...pending,...args.create};},updateMany:async args=>{calls.push({model:'pendingRegistration',method:'updateMany',args});return{count:1};}},tenant:{findUnique:async()=>null},$transaction:async callback=>{calls.push({transaction:true});if(transactionFailure)throw Error('Database unavailable');return callback(tx);}};
  const auth={issueSessionForUser:async id=>{calls.push({session:id});return{accessToken:'qa-access',refreshToken:'qa-refresh',user:{id,tenantId:'qa-tenant'}};}};
  const email={sendCompanyWelcomeEmail:async()=>{calls.push({welcome:true});if(mailFailure)throw Error('Mail unavailable');}};
  const subscriptions={ensureCatalogOnce:async()=>{},createTrialSubscription:async(_,tenant,user)=>{calls.push({trial:{tenant,user}});}};
@@ -34,12 +34,12 @@ function backend({expired=false,duplicate=false,mailFailure=false,transactionFai
  if(key==='crypto')return{randomUUID:()=> 'qa-pending-token'};
  if(key.endsWith('/business-catalog'))return catalog;
  if(key.endsWith('/default-permissions'))return pure('apps/api/src/rbac/default-permissions.ts');
- if(key.endsWith('/password-hashing'))return{hashPassword:async()=> 'qa-hashed-password'};
+ if(key.endsWith('/password-hashing'))return{hashPassword:async()=> 'qa-hashed-password',comparePassword:async()=>!wrongPassword};
  if(key.endsWith('/password-policy'))return pure('apps/api/src/auth/password-policy.ts');
  if(key==='./restaurant-starter-catalog')return{createRestaurantStarterCatalog:async()=>{calls.push({restaurant:true});return{warehouse:{id:'qa-restaurant-warehouse'}};}};
  throw Error('Unexpected runtime dependency: '+key);
  }});
- return{service:new exports.OnboardingService(prisma,auth,email,{saveDataUrl:async()=>null},subscriptions),calls,catalog};
+ return{service:new exports.OnboardingService(prisma,auth,email,{saveDataUrl:async()=>null},subscriptions,{isBlocked:async()=>false,recordLoginFailure:async()=>{}}),calls,catalog};
 }
 const account={firstName:' Test ',lastName:' Audit ',email:'TEST@example.invalid ',phone:'0000',password:'AuditOnly123!',confirmPassword:'AuditOnly123!',acceptedTerms:true};
 test('Actual registration service normalizes the email, hashes the password and prepares a 24-hour account without creating a tenant yet',async()=>{
@@ -49,6 +49,16 @@ test('Actual registration service normalizes the email, hashes the password and 
 test('Actual registration service rejects duplicate emails and missing acceptance before saving',async()=>{
  await assert.rejects(backend({duplicate:true}).service.register(account),/existe déjà/);
  const b=backend();await assert.rejects(b.service.register({...account,acceptedTerms:false}),/accepter/);assert.equal(b.calls.length,0);
+});
+test('Registration recovers the same pending token only with the original password, without overwriting or extending it',async()=>{
+ const b=backend({pendingByEmail:true}); const result=await b.service.register(account);
+ assert.equal(result.pendingToken,'qa-pending-token'); assert.equal(b.calls.length,0);
+ await assert.rejects(backend({pendingByEmail:true,wrongPassword:true}).service.register(account),/mot de passe choisi/);
+});
+test('Expired pending accounts are replaced conditionally and simultaneous registration cannot overwrite a live password',async()=>{
+ const expired=backend({pendingByEmail:true,expired:true}); await expired.service.register(account);
+ const update=expired.calls.find(c=>c.method==='updateMany');assert.equal(update.args.where.token,'qa-pending-token');assert.ok(update.args.where.expiresAt.lte);assert.equal(update.args.data.acceptedTerms,true);
+ const race=backend({wrongPassword:true});await assert.rejects(race.service.register(account),/mot de passe choisi/);assert.deepEqual(Object.keys(race.calls[0].args.update),[]);
 });
 test('Actual company service creates the shop, warehouse, cash register, owner access, trial and completed onboarding in one transaction',async()=>{
  const b=backend({mailFailure:true});const result=await b.service.createCompany({pendingToken:'qa-pending-token',companyName:'Boutique test',businessCategory:'commerce',primaryActivity:'Boutique',businessProfileSlug:'commerce',city:'Jacmel',country:'Haiti',currency:'HTG'});

@@ -24,6 +24,7 @@ const PLAN_CODES_TO_LEGACY: Record<string, SubscriptionPlan> = {
   POS_FREE: SubscriptionPlan.FREE,
   POS_BASIC: SubscriptionPlan.ESSENTIAL,
   POS_PREMIUM: SubscriptionPlan.STANDARD,
+  POS_PRO: SubscriptionPlan.EXPERT,
   TRIAL: SubscriptionPlan.FREE,
   FREE: SubscriptionPlan.FREE,
   ESSENTIAL: SubscriptionPlan.ESSENTIAL,
@@ -351,7 +352,7 @@ export class PlatformService {
       if (!planRecord) throw new BadRequestException("Plan demandé introuvable ou inactif.");
       const previous = await tx.tenantSubscription.findUnique({ where: { tenantId: request.tenantId }, include: { planRecord: true } });
       const now = new Date();
-      const periodEnd = planRecord.code === "POS_BASIC" || planRecord.code === "POS_PREMIUM"
+      const periodEnd = planRecord.code.startsWith("POS_")
         ? nextMonthlyPeriodEnd(now)
         : null;
       const legacyPlan = PLAN_CODES_TO_LEGACY[planRecord.code] ?? SubscriptionPlan.ESSENTIAL;

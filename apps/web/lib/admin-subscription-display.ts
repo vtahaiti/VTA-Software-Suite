@@ -16,6 +16,7 @@ const planLabels: Record<string, string> = {
   POS_FREE: "VTA POS Gratuit",
   POS_BASIC: "VTA POS Basique",
   POS_PREMIUM: "VTA POS Premium",
+  POS_PRO: "VTA POS Pro",
   TRIAL: "Essai gratuit",
   FREE: "Essai gratuit",
   ESSENTIAL: "Essentiel",
@@ -42,7 +43,7 @@ const statusLabels: Record<string, string> = {
   EXPIRED: "Expiré"
 };
 
-const paidPlans = new Set(["POS_BASIC", "POS_PREMIUM", "ESSENTIAL", "STARTER", "BASIC", "STANDARD", "PRO", "PROFESSIONAL", "PROFESSIONNEL", "EXPERT", "ENTERPRISE"]);
+const paidPlans = new Set(["POS_BASIC", "POS_PREMIUM", "POS_PRO", "ESSENTIAL", "STARTER", "BASIC", "STANDARD", "PRO", "PROFESSIONAL", "PROFESSIONNEL", "EXPERT", "ENTERPRISE"]);
 
 export function labelAdminPlan(code?: string | null) {
   const normalized = normalize(code);

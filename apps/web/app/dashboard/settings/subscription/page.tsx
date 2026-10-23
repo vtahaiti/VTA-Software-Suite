@@ -1,6 +1,7 @@
 "use client";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
+import { IosSubscriptions } from "@/components/ios-subscriptions";
 import { IosPageHeading } from "@/components/ios-page-heading";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -126,12 +127,14 @@ export default function SubscriptionSettingsPage() {
     }
   }
 
+  if (iosCompanion) return <IosSubscriptions />;
+
   return (
     <div className="space-y-5">
       <Header active="Abonnement" />
       {!iosCompanion && <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-5 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">
         <h2 className="text-xl font-bold">Le premier mois, tous les plans sont gratuits</h2>
-        <p className="mt-2 text-sm">Chaque nouvelle entreprise bénéficie d’un mois d’essai avec toutes les fonctionnalités. Ensuite, choisissez Gratuit, Basique à 6 USD/mois ou Premium à 10 USD/mois. Aucun prélèvement automatique.</p>
+        <p className="mt-2 text-sm">Chaque nouvelle entreprise bénéficie d’un mois d’essai avec toutes les fonctionnalités. Ensuite, choisissez Gratuit, Basique à 6,99 USD/mois, Premium à 10,99 USD/mois ou Pro à 18,99 USD/mois. Aucun prélèvement automatique.</p>
       </section>}
       {iosCompanion && <p className="rounded-lg border p-4 text-sm">VTA POS est l’application compagnon gratuite de votre entreprise. Connectez-vous avec votre compte existant pour retrouver ses fonctionnalités. Aucun achat ni renouvellement n’est proposé dans cette application.</p>}
 
@@ -155,8 +158,8 @@ export default function SubscriptionSettingsPage() {
               </div>
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
                 <Info label="Statut" value={labelStatus(subscription?.status ?? entitlements?.status ?? "TRIALING")} />
-                <Info label="Jours restants" value={typeof subscription?.daysRemaining === "number" ? subscription.daysRemaining : "Non défini"} />
-                <Info label="Prochain renouvellement" value={formatDate(subscription?.currentPeriodEnd ?? subscription?.trialEndsAt)} />
+                <Info label="Jours restants" value={planCode === "POS_FREE" ? "Sans expiration" : typeof subscription?.daysRemaining === "number" ? subscription.daysRemaining : "Non défini"} />
+                <Info label={planCode === "TRIAL" ? "Fin de l’essai" : "Fin de période"} value={planCode === "POS_FREE" ? "Sans expiration" : formatDate(subscription?.currentPeriodEnd ?? subscription?.trialEndsAt)} />
               </div>
               {pendingRequest ? <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">Demande en attente : {pendingRequest.requestedPlanName || labelPlan(pendingRequest.requestedPlanCode)}. Le nouveau plan commencera après confirmation par VTA Commerce.</div> : null}
               {limits ? <LimitsPanel limits={limits} usage={usage} /> : null}
@@ -184,8 +187,8 @@ export default function SubscriptionSettingsPage() {
 
           {!iosCompanion && <section className="rounded-lg border bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <p className="text-sm font-semibold text-brand-600">Comparaison des plans</p>
-            <h2 className="text-2xl font-bold">VTA POS : Gratuit, Basique ou Premium</h2>
-            <p className="mt-2 text-sm text-slate-500">Un plan gratuit sans expiration et deux plans en USD, par mois et par entreprise. Produits et ventes sans limite. Les offres ERP restent disponibles ci-dessous.</p>
+            <h2 className="text-2xl font-bold">VTA POS : Gratuit, Basique, Premium ou Pro</h2>
+            <p className="mt-2 text-sm text-slate-500">Un plan gratuit sans expiration et trois plans en USD, par mois et par entreprise. Produits et ventes sans limite. Les offres ERP restent disponibles ci-dessous.</p>
             <div className="mt-4 grid gap-3 lg:grid-cols-2">
               {plans.filter((plan) => plan.code !== "TRIAL").map((plan) => (
                 <div key={plan.code} className="rounded-lg border p-4 dark:border-slate-800">
@@ -285,7 +288,7 @@ function limitRows(limits: PlanLimits) {
 }
 
 function formatMoney(value: number | string | null | undefined, currency = "HTG") {
-  return new Intl.NumberFormat("fr-HT", { style: "currency", currency, maximumFractionDigits: 0 }).format(Number(value ?? 0));
+  return new Intl.NumberFormat("fr-HT", { style: "currency", currency, maximumFractionDigits: 2 }).format(Number(value ?? 0));
 }
 
 function formatDate(value?: string | null) {
@@ -293,7 +296,7 @@ function formatDate(value?: string | null) {
 }
 
 function labelPlan(code?: string | null) {
-  const labels: Record<string, string> = { POS_FREE: "VTA POS Gratuit", POS_BASIC: "VTA POS Basique", POS_PREMIUM: "VTA POS Premium", TRIAL: "Essai gratuit", FREE: "Essai gratuit", ESSENTIAL: "Essentiel", STARTER: "Essentiel", STANDARD: "Professionnel", PRO: "Professionnel", EXPERT: "Expert", ENTERPRISE: "Expert" };
+  const labels: Record<string, string> = { POS_FREE: "VTA POS Gratuit", POS_BASIC: "VTA POS Basique", POS_PREMIUM: "VTA POS Premium", POS_PRO: "VTA POS Pro", TRIAL: "Essai gratuit", FREE: "Essai gratuit", ESSENTIAL: "Essentiel", STARTER: "Essentiel", STANDARD: "Professionnel", PRO: "Professionnel", EXPERT: "Expert", ENTERPRISE: "Expert" };
   return labels[code ?? ""] ?? code ?? "Non défini";
 }
 

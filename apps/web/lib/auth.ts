@@ -198,7 +198,7 @@ export async function registerUser(payload: { firstName: string; lastName: strin
     body: JSON.stringify({ ...payload, firstName: payload.firstName.trim(), lastName: payload.lastName.trim(), email: payload.email.trim().toLowerCase(), phone: payload.phone?.trim() })
   });
   if (!response.ok) throw new Error(await readApiError(response));
-  const data = await response.json() as { pendingToken: string; email: string; message: string };
+  const data = await response.json() as { pendingToken: string; email: string; message: string; expiresAt?: string };
   if (!data.pendingToken || typeof data.pendingToken !== "string") throw new Error("Session d’inscription non reçue. Réessayez.");
   return data;
 }

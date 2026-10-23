@@ -198,6 +198,7 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
     const plan = await this.prisma.plan.findFirst({ where: { code: normalizedCode, isActive: true } });
     if (!plan) throw new BadRequestException("Plan introuvable ou inactif.");
     const subscription = await this.getSubscription(tenantId);
+    if (subscription.paymentStatus === "APPLE") throw new BadRequestException("Cet abonnement est géré par Apple. Modifiez-le depuis votre iPhone.");
     const currentPlanCode = subscription.planRecord?.code ?? this.legacyPlanCode(subscription.plan);
     if (currentPlanCode === plan.code && subscription.status === SubscriptionStatus.ACTIVE && this.buildEntitlements(subscription).isActive) {
       throw new BadRequestException("Ce plan est déjà actif.");
@@ -261,15 +262,27 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
 
   private async recalculateStatus(subscription: SubscriptionWithPlan) {
     const now = new Date();
-    const end = subscription.currentPeriodEnd ?? subscription.trialEndsAt ?? subscription.endsAt;
-    if (subscription.status === SubscriptionStatus.TRIALING && end && end.getTime() < now.getTime()) {
-      const updated = await this.prisma.tenantSubscription.update({
-        where: { id: subscription.id },
-        data: { status: SubscriptionStatus.EXPIRED, paymentStatus: "EXPIRED" },
-        include: { planRecord: { include: { features: { include: { feature: true } } } }, payments: { orderBy: { createdAt: "desc" }, take: 10 } }
+    const end = subscription.planRecord?.code === "POS_FREE" ? null : subscription.currentPeriodEnd ?? subscription.trialEndsAt ?? subscription.endsAt;
+    const trialPlan = subscription.planRecord?.code === "TRIAL" || (!subscription.planRecord && subscription.plan === SubscriptionPlan.FREE);
+    if (trialPlan && [SubscriptionStatus.TRIALING, SubscriptionStatus.EXPIRED].includes(subscription.status as typeof SubscriptionStatus.TRIALING) && end && end.getTime() <= now.getTime()) {
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const freePlan = await tx.plan.findUniqueOrThrow({ where: { code: "POS_FREE" } });
+        // Compare-and-set prevents a concurrent paid activation from being downgraded.
+        const changed = await tx.tenantSubscription.updateMany({
+          where: { id: subscription.id, planId: subscription.planId, status: subscription.status },
+          data: { planId: freePlan.id, plan: SubscriptionPlan.FREE, status: SubscriptionStatus.ACTIVE,
+            price: 0, currency: "USD", paymentStatus: "FREE", endsAt: null, currentPeriodEnd: null,
+            currentPeriodStart: now }
+        });
+        if (changed.count) {
+          await tx.tenant.updateMany({ where: { id: subscription.tenantId, status: { in: [TenantStatus.TRIAL, TenantStatus.EXPIRED] } }, data: { status: TenantStatus.ACTIVE } });
+          await tx.subscriptionEvent.create({ data: { tenantId: subscription.tenantId, subscriptionId: subscription.id,
+            eventType: "TRIAL_COMPLETED_FREE_STARTED", previousStatus: subscription.status, newStatus: SubscriptionStatus.ACTIVE,
+            metadata: { planCode: "POS_FREE", automaticCharge: false } } });
+        }
+        return tx.tenantSubscription.findUniqueOrThrow({ where: { id: subscription.id },
+          include: { planRecord: { include: { features: { include: { feature: true } } } }, payments: { orderBy: { createdAt: "desc" }, take: 10 } } });
       });
-      await this.prisma.tenant.update({ where: { id: subscription.tenantId }, data: { status: TenantStatus.EXPIRED } }).catch(() => undefined);
-      await this.prisma.subscriptionEvent.create({ data: { tenantId: subscription.tenantId, subscriptionId: subscription.id, eventType: "SUBSCRIPTION_EXPIRED", previousStatus: subscription.status, newStatus: SubscriptionStatus.EXPIRED } }).catch(() => undefined);
       this.invalidate(subscription.tenantId);
       return updated;
     }
@@ -285,13 +298,14 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
       enabled: entry.enabled,
       limit: entry.limit
     })) ?? (planFeatureMatrix[planCode] ?? []).map((key) => ({ key, name: key, category: "Legacy", enabled: true, limit: null }));
-    const end = subscription.currentPeriodEnd ?? subscription.trialEndsAt ?? subscription.endsAt;
+    const end = subscription.planRecord?.code === "POS_FREE" ? null : subscription.currentPeriodEnd ?? subscription.trialEndsAt ?? subscription.endsAt;
     const isActive = !inactiveStatuses.has(subscription.status) && (!end || end.getTime() >= Date.now());
     return {
       id: subscription.id,
       tenantId: subscription.tenantId,
       planCode,
       legacyPlan: subscription.plan,
+      billingProvider: subscription.paymentStatus === "APPLE" ? "APPLE" : "MANUAL",
       planName: subscription.planRecord?.name ?? planCode,
       status: subscription.status,
       isActive,
@@ -310,7 +324,7 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
   }
 
   private limitsForPlan(planCode: string) {
-    return planLimitMatrix[planCode] ?? planLimitMatrix.TRIAL;
+    return planLimitMatrix[planCode] ?? planLimitMatrix.POS_FREE;
   }
 
   private async buildVtaEnterpriseEntitlements(tenantId: string): Promise<CachedEntitlements> {
@@ -331,6 +345,7 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
       tenantId,
       planCode: "INTERNAL",
       legacyPlan: subscription?.plan ?? SubscriptionPlan.EXPERT,
+      billingProvider: "INTERNAL",
       planName: "VTA Enterprise",
       status: SubscriptionStatus.ACTIVE,
       isActive: true,
