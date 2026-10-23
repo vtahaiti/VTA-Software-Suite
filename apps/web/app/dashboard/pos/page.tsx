@@ -1,4 +1,5 @@
 "use client";
+import { IosSheet } from "@/components/ios-sheet";
 import Image from "next/image";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -777,7 +778,7 @@ export default function PosPage() {
                   </button>
                   {showMoreActions ? <div className="absolute right-0 z-30 mt-2 grid w-64 gap-2 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-xl">
                     {iosPos && <button type="button" onClick={() => { setShowCustomerPicker(value => !value); setShowMoreActions(false); }} className="rounded-lg px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50">Choisir un client</button>}
-                    <button type="button" onClick={() => { setShowCustomItemModal(true); setShowMoreActions(false); }} className="rounded-lg px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50">Article personnalisé</button>
+                    <button type="button" onClick={() => { setError(""); setShowCustomItemModal(true); setShowMoreActions(false); }} className="rounded-lg px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50">Article personnalisé</button>
                     <button type="button" onClick={() => { setShowExpertOptions(true); setShowMoreActions(false); }} className="rounded-lg px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50">Options avancées</button>
                   </div>
                   : null}
@@ -1028,7 +1029,7 @@ export default function PosPage() {
           </div>
         </div>
       ) : null}
-      {showCustomItemModal ? (
+      {showCustomItemModal && iosPos ? <IosSheet title="Article personnalisé" subtitle="Ajoutez une prestation ou un article ponctuel à cette vente." onClose={() => setShowCustomItemModal(false)}><form className="vm-settings-form" onSubmit={event => { event.preventDefault(); void addCustomItem(); }}><fieldset><label>Nom ou description<input required value={customItemForm.name} onChange={event => setCustomItemForm(current => ({...current,name:event.target.value}))} placeholder="Ex. Livraison à domicile"/></label><label>Type<select value={customItemForm.type} onChange={event => setCustomItemForm(current => ({...current,type:event.target.value as CustomItemType}))}><option value="SERVICE">Service</option><option value="CUSTOM_WORK">Travail personnalisé</option><option value="NON_STOCK_PRODUCT">Article sans suivi de stock</option><option value="OUT_OF_STOCK_PRODUCT">Produit ponctuel hors stock</option><option value="OTHER">Autre</option></select></label><div className="vm-custom-amounts"><label>Prix unitaire · HTG<input required type="number" inputMode="decimal" min="0" step="0.01" value={customItemForm.price} onChange={event => setCustomItemForm(current => ({...current,price:event.target.value}))} placeholder="0.00"/></label><label>Quantité<input required type="number" inputMode="numeric" min="1" step="1" value={customItemForm.quantity} onChange={event => setCustomItemForm(current => ({...current,quantity:event.target.value}))}/></label></div><details className="vm-permission-group"><summary>Remise et note<span aria-hidden="true">⌄</span></summary><div className="vm-custom-options"><label>Remise · HTG<input type="number" min="0" step="0.01" inputMode="decimal" value={customItemForm.discount} onChange={event => setCustomItemForm(current => ({...current,discount:event.target.value}))}/></label><label>Note<textarea rows={2} value={customItemForm.note} onChange={event => setCustomItemForm(current => ({...current,note:event.target.value}))}/></label></div></details><p className="vm-form-help">Sans mouvement de stock · taxe du panier : {Math.round(parseMoney(taxRate)*100)} %.</p>{error && <p role="alert" className="vm-field-error">{error}</p>}<button type="submit" className="vm-primary-button">Ajouter au panier</button></fieldset></form></IosSheet> : showCustomItemModal ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 p-0 sm:items-center sm:p-4">
           <div className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white text-slate-950 shadow-2xl dark:bg-slate-900 dark:text-slate-100 sm:rounded-2xl">
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5 dark:border-slate-800">

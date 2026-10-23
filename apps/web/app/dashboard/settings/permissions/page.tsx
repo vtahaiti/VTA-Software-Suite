@@ -2,6 +2,7 @@
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
 import { useEffect, useMemo, useState } from "react";
+import { IosPageHeading } from "@/components/ios-page-heading";
 import { getAccessToken } from "@/lib/auth";
 
 
@@ -19,6 +20,7 @@ export default function PermissionsSettingsPage() {
 
   async function load() {
     setError("");
+    try {
     const headers = { Authorization: "Bearer " + getAccessToken() };
     const [permissionsResponse, rolesResponse] = await Promise.all([
       fetch(apiUrl + "/permissions", { headers }),
@@ -26,19 +28,23 @@ export default function PermissionsSettingsPage() {
     ]);
     if (permissionsResponse.ok) setPermissions(await permissionsResponse.json());
     else setError("Impossible de charger les permissions.");
-    if (rolesResponse.ok) setRoles(await rolesResponse.json());
+    if (!rolesResponse.ok) throw new Error();
+    setRoles(await rolesResponse.json());
+    } catch { setError("Impossible de charger les permissions. Vérifiez votre connexion."); }
   }
 
   const categories = useMemo(() => [...new Set(permissions.map((permission) => permission.category))].sort(), [permissions]);
   const filtered = useMemo(() => permissions.filter((permission) => {
     const text = (permission.key + " " + permission.name + " " + (permission.description ?? "")).toLowerCase();
-    return (!query || text.includes(query.toLowerCase())) && (!category || permission.category === category);
+
+  return (!query || text.includes(query.toLowerCase())) && (!category || permission.category === category);
   }), [category, permissions, query]);
   const grouped = useMemo(() => filtered.reduce<Record<string, Permission[]>>((groups, permission) => {
     groups[permission.category] = [...(groups[permission.category] ?? []), permission];
     return groups;
   }, {}), [filtered]);
 
+    if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <div className="vm-screen vm-settings-screen"><IosPageHeading title="Permissions"/><p className="vm-form-help">Consultez les accès accordés à chaque rôle. Pour les modifier, ouvrez Rôles et accès.</p><label className="vm-search-label">Rechercher<input aria-label="Rechercher une permission" value={query} onChange={e => setQuery(e.target.value)} placeholder="Nom ou permission"/></label><label className="vm-search-label">Famille<select value={category} onChange={e => setCategory(e.target.value)}><option value="">Toutes les familles</option>{categories.map(item => <option key={item}>{item}</option>)}</select></label>{error ? <div role="alert" className="vm-settings-notice">{error}<button onClick={() => void load()}>Réessayer</button></div> : Object.entries(grouped).map(([group, items]) => <section key={group} className="vm-permission-catalogue"><h2>{group}</h2>{items.map(permission => <details key={permission.id} className="vm-permission-group"><summary>{permission.name}<span aria-hidden="true">⌄</span></summary>{permission.description && <p className="vm-form-help">{permission.description}</p>}<p className="vm-permission-key">{permission.key}</p>{roles.map(role => <div key={role.id} className="vm-permission-choice"><span>{displayRole(role.name)}</span><strong style={{color:role.permissions?.some(entry => entry.permission.key === permission.key) ? "#21865e" : "#8b95a8"}}>{role.permissions?.some(entry => entry.permission.key === permission.key) ? "Autorisé" : "Non accordé"}</strong></div>)}</details>)}</section>)}{!error && !filtered.length && <p role="status" className="vm-form-help">Aucune permission à afficher.</p>}</div>;
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">

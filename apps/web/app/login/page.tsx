@@ -4,14 +4,7 @@ import { LoginForm } from "./login-form";
 
 export default function LoginPage() {
   if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return (
-    <main className="min-h-screen bg-slate-50 px-4 py-5 text-slate-950 dark:bg-slate-950 dark:text-white">
-      <section className="mx-auto max-w-md">
-        <Link href="/" className="text-sm font-semibold text-[#0877f9]">← Retour au POS</Link>
-        <div className="mt-5 flex items-center gap-3"><img src="/vta-pos-app-icon.png" alt="" className="h-14 w-14 rounded-xl" /><div><h1 className="text-2xl font-bold">VTA POS</h1><p className="text-sm text-slate-500">Connectez votre entreprise</p></div></div>
-        <div className="mt-5 rounded-xl border bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><h2 className="text-xl font-bold">Se connecter</h2><p className="mt-2 text-sm text-slate-500">Utilisez le même compte que sur VTA ERP et Android.</p><LoginForm /></div>
-        <Link href="/account-deletion" className="mt-5 block text-center text-xs underline">Supprimer mon compte</Link>
-      </section>
-    </main>
+    <main className="vm-auth-screen"><section><div className="vm-auth-intro"><img src="/vta-pos-app-icon.png" alt="VTA POS"/><h1>Bienvenue</h1><p>Retrouvez votre boutique et vos ventes.</p></div><div className="vm-auth-card"><h2>Se connecter</h2><p className="vm-form-help">Votre compte VTA ERP fonctionne aussi sur iPhone et Android.</p><LoginForm/></div><Link href="/account-deletion" className="vm-auth-legal">Supprimer mon compte</Link></section></main>
   );
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-700 via-blue-900 to-slate-950 px-6 py-10 text-white">

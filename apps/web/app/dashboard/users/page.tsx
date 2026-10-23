@@ -1,6 +1,9 @@
 "use client";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
+import Link from "next/link";
+import { IosSheet } from "@/components/ios-sheet";
+import { IosPageHeading } from "@/components/ios-page-heading";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { PasswordVisibilityInput } from "@/components/password-visibility-input";
@@ -33,6 +36,9 @@ function generateTemporaryPassword() {
 }
 
 export default function UsersPage() {
+  const [adding, setAdding] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
+  const [query, setQuery] = useState("");
   const [users, setUsers] = useState<UserRow[]>([]);
   const [roles, setRoles] = useState<RoleRow[]>([]);
   const [stores, setStores] = useState<StoreRow[]>([]);
@@ -56,6 +62,7 @@ export default function UsersPage() {
         fetch(`${apiUrl}/stores`, { headers }).catch(() => null)
       ]);
 
+      if (!usersResponse.ok) throw new Error();
       if (usersResponse.ok) {
         const data = await usersResponse.json();
         setUsers(Array.isArray(data) ? data : []);
@@ -94,6 +101,7 @@ export default function UsersPage() {
       return;
     }
     setForm({ name: "", email: "", phone: "", temporaryPassword: "", role: "CAISSIER", storeId: "" });
+    setAdding(false);
     setMessage("Utilisateur actif ajouté. Il peut se connecter avec le mot de passe temporaire communiqué directement.");
     await load();
   }
@@ -150,6 +158,16 @@ export default function UsersPage() {
     );
   }
 
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <div className="vm-screen vm-settings-screen"><IosPageHeading title="Mon équipe"/><p className="vm-form-help">{activeCount} comptes actifs · gérez les accès de votre entreprise.</p><button className="vm-primary-button" onClick={() => { setMessage(""); setAdding(true); }}>+ Ajouter un membre</button><label className="vm-search-label">Rechercher<input value={query} onChange={e => setQuery(e.target.value)} placeholder="Nom ou adresse email"/></label>{message && !adding && !passwordTarget && <p role="status" className="vm-settings-notice">{message}</p>}<section className="vm-settings-cards">{users.filter(user => `${user.name} ${user.email}`.toLowerCase().includes(query.toLowerCase())).map(user => <button className="vm-role-row" key={user.id} onClick={() => { setSelectedUser(user); setRoleTargetId(null); setMessage(""); }}><span className="vm-role-badge">{user.name.slice(0,1)}</span><span><strong>{user.name}</strong><small>{user.email}</small><em>{roleLabels[normalizeRole(user.role)] ?? user.role} · {user.isActive ? "Actif" : "Désactivé"}</em></span><span aria-hidden="true">›</span></button>)}</section><Link href="/dashboard/settings/roles" className="vm-settings-notice">Rôles et permissions ›</Link><Link href="/dashboard/security" className="vm-form-help">Consulter l’historique des accès ›</Link>
+    {adding && <IosSheet title="Nouveau membre" onClose={() => setAdding(false)}><form onSubmit={submit} className="vm-settings-form"><fieldset><label>Nom complet<input required value={form.name} autoComplete="name" onChange={event => setForm({...form,name:event.target.value})}/></label><label>Email<input required type="email" autoCapitalize="none" autoComplete="email" value={form.email} onChange={event => setForm({...form,email:event.target.value})}/></label><label>Téléphone · facultatif<input type="tel" autoComplete="tel" value={form.phone} onChange={event => setForm({...form,phone:event.target.value})}/></label><div><PasswordVisibilityInput label="Mot de passe temporaire" required minLength={8} value={form.temporaryPassword} onChange={value => setForm({...form,temporaryPassword:value})} autoComplete="new-password"/><button type="button" className="vm-inline-action" onClick={() => setForm({...form,temporaryPassword:generateTemporaryPassword()})}>Générer un mot de passe</button></div><p className="vm-form-help">Communiquez-le directement à la personne. Elle pourra le modifier dans son profil.</p><label>Rôle<select value={form.role} onChange={event => setForm({...form,role:event.target.value})}>{availableRoles(roles).map(role => <option key={role.id} value={role.name}>{roleLabels[role.name] ?? role.name}</option>)}</select></label><label>Magasin<select value={form.storeId} onChange={event => setForm({...form,storeId:event.target.value})}><option value="">Tous les magasins autorisés</option>{stores.map(store => <option key={store.id} value={store.id}>{store.name}</option>)}</select></label>{message && <p role="status">{message}</p>}<button type="submit" className="vm-primary-button">Créer le membre</button></fieldset></form></IosSheet>}
+    {selectedUser && !passwordTarget && <IosSheet title={selectedUser.name} subtitle={selectedUser.email} onClose={() => setSelectedUser(null)}><div className="vm-settings-form"><p className="vm-form-help">{selectedUser.phone || "Aucun téléphone renseigné"}</p><label>Rôle<select value={normalizeRole(users.find(user => user.id === selectedUser.id)?.role ?? selectedUser.role)} onChange={event => void updateRole(selectedUser.id, event.target.value)}>{availableRoles(roles, selectedUser.role).map(role => <option key={role.id} value={role.name}>{roleLabels[role.name] ?? role.name}</option>)}</select></label><button className="vm-primary-button" onClick={() => { setPasswordTarget(selectedUser); setSelectedUser(null); setTemporaryPassword(""); }}>Mot de passe temporaire</button><button className="vm-settings-notice" disabled={selectedUser.id === currentUser?.id} onClick={() => { if (selectedUser.isActive) void disableUser(selectedUser.id); else void reactivateUser(selectedUser.id); setSelectedUser(null); }}>{selectedUser.isActive ? "Désactiver le compte" : "Réactiver le compte"}</button>{message && <p role="status">{message}</p>}</div></IosSheet>}
+    {passwordTarget && <IosSheet title="Mot de passe temporaire" subtitle={passwordTarget.name} onClose={() => setPasswordTarget(null)}><div className="vm-settings-form">          <form onSubmit={resetUserPassword} className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <PasswordVisibilityInput required minLength={8} maxLength={120} value={temporaryPassword} onChange={setTemporaryPassword} placeholder="Nouveau mot de passe temporaire" autoComplete="new-password" className="min-w-0 flex-1 rounded-lg py-2" />
+            <button type="button" onClick={() => setTemporaryPassword(generateTemporaryPassword())} className="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">Générer</button>
+            <button className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700">Enregistrer</button>
+            <button type="button" onClick={() => { setPasswordTarget(null); setTemporaryPassword(""); }} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">Annuler</button>
+          </form>{message && <p role="status">{message}</p>}</div></IosSheet>}
+  </div>;
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -167,9 +185,9 @@ export default function UsersPage() {
         <form onSubmit={submit} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Ajouter un utilisateur</h2>
           <div className="mt-4 space-y-3">
-            <input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Nom complet" className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-            <input required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="Email" className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
-            <input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="Téléphone" className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+            <input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} aria-label="Nom complet" placeholder="Nom complet" className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+            <input required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} aria-label="Email" autoCapitalize="none" placeholder="Email" className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+            <input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} aria-label="Téléphone" type="tel" placeholder="Téléphone" className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
                 <PasswordVisibilityInput required minLength={8} value={form.temporaryPassword} onChange={(value) => setForm({ ...form, temporaryPassword: value })} placeholder="Mot de passe temporaire (8 caractères min.)" autoComplete="new-password" className="min-w-0 flex-1 rounded-lg py-2" />

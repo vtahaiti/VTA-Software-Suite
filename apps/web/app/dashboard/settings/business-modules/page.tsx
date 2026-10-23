@@ -1,9 +1,12 @@
 "use client";
 
+import { IosPageHeading } from "@/components/ios-page-heading";
 import { useEffect, useMemo, useState } from "react";
 import { getBusinessCatalog, getTenantBusinessConfiguration, setBusinessModuleState, updateBusinessSelection, type BusinessCategory, type BusinessModule, type TenantBusinessConfiguration } from "@/lib/business-profiles";
 
 export default function BusinessModulesPage() {
+  const [loadError, setLoadError] = useState("");
+  const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<BusinessCategory[]>([]);
   const [catalogModules, setCatalogModules] = useState<BusinessModule[]>([]);
   const [configuration, setConfiguration] = useState<TenantBusinessConfiguration | null>(null);
@@ -17,6 +20,8 @@ export default function BusinessModulesPage() {
   }, []);
 
   async function load() {
+    setLoading(true); setLoadError("");
+    try {
     const [catalog, tenant] = await Promise.all([getBusinessCatalog(), getTenantBusinessConfiguration()]);
     setCategories(catalog.categories ?? []);
     setCatalogModules(catalog.modules ?? []);
@@ -24,6 +29,7 @@ export default function BusinessModulesPage() {
     setBusinessCategory(tenant?.businessCategory ?? catalog.categories?.[0]?.key ?? "commerce");
     setPrimaryActivity(tenant?.primaryActivity ?? catalog.categories?.[0]?.activities[0]?.name ?? "Boutique / Market");
     setSecondaryActivities(tenant?.secondaryActivities ?? []);
+    } catch { setLoadError("Impossible de charger votre activité. Réessayez."); } finally { setLoading(false); }
   }
 
   const selectedCategory = categories.find((category) => category.key === businessCategory) ?? categories[0];
@@ -50,7 +56,7 @@ export default function BusinessModulesPage() {
     try {
       setConfiguration(await updateBusinessSelection({ businessCategory, primaryActivity, secondaryActivities }));
       window.dispatchEvent(new CustomEvent("vta:business-profile-updated"));
-      setMessage("Activité mise à jour. La sidebar et le dashboard s'adaptent automatiquement.");
+      setMessage("Activité mise à jour. Vos menus sont actualisés.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Action impossible.");
     }
@@ -71,6 +77,7 @@ export default function BusinessModulesPage() {
     setSecondaryActivities((current) => current.includes(activity) ? current.filter((item) => item !== activity) : [...current, activity]);
   }
 
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <div className="vm-screen vm-settings-screen"><IosPageHeading title="Activité et modules"/><p className="vm-form-help">Adaptez votre boutique à votre activité.</p>{loading ? <p role="status">Chargement…</p> : loadError ? <div className="vm-settings-notice" role="alert">{loadError}<button onClick={() => void load()}>Réessayer</button></div> : <><section className="vm-settings-panel vm-settings-form"><label>Secteur<select value={businessCategory} onChange={event => changeCategory(event.target.value)}>{categories.map(category => <option key={category.key} value={category.key}>{category.name}</option>)}</select></label><label>Activité principale<select value={primaryActivity} onChange={event => setPrimaryActivity(event.target.value)}>{selectedCategory?.activities.map(activity => <option key={activity.name}>{activity.name}</option>)}</select></label>{businessCategory === "multi-activities" && <details className="vm-permission-group"><summary>Activités secondaires<span>⌄</span></summary>{selectedCategory?.activities.map(activity => <label className="vm-permission-choice" key={activity.name}><span>{activity.name}</span><input type="checkbox" checked={secondaryActivities.includes(activity.name)} onChange={() => toggleSecondary(activity.name)}/></label>)}</details>}<p className="vm-form-help">Le changement d’activité adapte vos menus et conserve vos données.</p><button className="vm-primary-button" onClick={() => void saveSelection()}>Enregistrer l’activité</button></section><section className="vm-permission-catalogue"><h2>Modules de votre boutique</h2><div className="vm-settings-cards">{visibleCatalogModules.map(module => <label key={module.key} className="vm-module-choice"><span><strong>{module.name}</strong><small>{module.description}</small></span><input type="checkbox" checked={activeModuleKeys.has(module.key)} onChange={event => void toggleModule(module.key, event.target.checked)}/></label>)}</div></section></>}{message && <p role="status" className="vm-settings-notice">{message}</p>}</div>;
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">

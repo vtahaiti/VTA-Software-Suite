@@ -164,7 +164,8 @@ export default function CompanySettingsPage() {
     }
   }
 
-  return <div className="space-y-5"><Header active="Entreprise" />
+  return <div className={process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? "vm-company-screen space-y-5" : "space-y-5"}><Header active="Entreprise" />
+    {waitingForSettings && <p role="status" className="vm-settings-notice">{msg || "Chargement de votre entreprise…"}</p>}
     <form onSubmit={submit} className="grid gap-4 rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2">
       <div className="md:col-span-2 flex flex-col gap-4 rounded-lg border border-dashed p-4 dark:border-slate-700 sm:flex-row sm:items-center">
         {logo && !logoFailed ? <img src={logo} alt={`Logo ${companyName}`} onError={() => setLogoFailed(true)} className="h-20 w-20 rounded-xl object-contain shadow-sm" /> : <div className="flex h-20 w-20 items-center justify-center rounded-xl text-xl font-bold text-white shadow-sm" style={{ backgroundColor: primaryColor }}>{initials(companyName, "ME")}</div>}
@@ -178,16 +179,16 @@ export default function CompanySettingsPage() {
           <p className="mt-1 text-xs text-slate-500">Si aucun logo n&apos;est configuré, les initiales de l&apos;entreprise sont affichées automatiquement.</p>
         </div>
       </div>
-      <Input label="Nom entreprise" value={companyName} onChange={(value) => update("companyName", value)} />
+      <fieldset className="vm-company-group"><legend>Identité et coordonnées</legend><Input label="Nom entreprise" value={companyName} onChange={(value) => update("companyName", value)} />
       <Input label="Téléphone" value={form.phone} onChange={(value) => update("phone", value)} />
       <Input label="Email" value={form.email} onChange={(value) => update("email", value)} />
       <Input label="Adresse" value={form.address} onChange={(value) => update("address", value)} />
       <Input label="Ville" value={form.city} onChange={(value) => update("city", value)} />
       <Input label="Pays" value={form.country} onChange={(value) => update("country", value)} />
       <Input label="WhatsApp" value={form.whatsapp} onChange={(value) => update("whatsapp", value)} />
-      <Input label="Numéro fiscal" value={form.taxNumber} onChange={(value) => update("taxNumber", value)} />
+      </fieldset><fieldset className="vm-company-group"><legend>Informations légales</legend><Input label="Numéro fiscal" value={form.taxNumber} onChange={(value) => update("taxNumber", value)} />
       <Input label="Patente (facultatif)" value={form.businessLicenseNumber} onChange={(value) => update("businessLicenseNumber", value)} />
-      <label className="grid gap-1">
+      </fieldset><fieldset className="vm-company-group"><legend>Coordonnées bancaires</legend><p className="vm-form-help vm-company-help">Facultatif · pour les documents de votre entreprise.</p><label className="grid gap-1">
         <span className="text-sm font-medium">Banque (facultatif)</span>
         <select
           value={customBank ? otherBankOption : (form.bankName ?? "")}
@@ -207,7 +208,7 @@ export default function CompanySettingsPage() {
         <Input label="Nom de la banque" value={form.bankName} onChange={(value) => update("bankName", value)} />
       ) : null}
       <Input label="N° compte bancaire (facultatif)" value={form.bankAccountNumber} onChange={(value) => update("bankAccountNumber", value)} />
-      <div className="md:col-span-2">
+      </fieldset><div className="md:col-span-2 vm-company-colors">
         <p className="mb-2 text-sm font-semibold">Couleur principale</p>
         <div className="flex flex-wrap gap-2">
           {colors.map(([label, value]) => <button type="button" key={value} onClick={() => update("primaryColor", value)} className={`rounded-full border px-3 py-2 text-sm font-semibold ${primaryColor === value ? "border-slate-950 dark:border-white" : "border-slate-200 dark:border-slate-700"}`}><span className="mr-2 inline-block h-3 w-3 rounded-full" style={{ backgroundColor: value }} />{label}</button>)}

@@ -1,12 +1,17 @@
 "use client";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
+import { IosSheet } from "@/components/ios-sheet";
+import { IosPageHeading } from "@/components/ios-page-heading";
 import { FormEvent, useEffect, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
 
 type Item = { id: string; name: string; symbol?: string; isActive: boolean; archivedAt?: string | null; _count?: { products?: number } };
 
 export function ReferenceManager({ title, endpoint, withSymbol = false, supportsArchive = false }: { title: string; endpoint: string; withSymbol?: boolean; supportsArchive?: boolean }) {
+  const [opened, setOpened] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [items, setItems] = useState<Item[]>([]);
   const [includeArchived, setIncludeArchived] = useState(false);
   const [editingId, setEditingId] = useState("");
@@ -17,9 +22,13 @@ export function ReferenceManager({ title, endpoint, withSymbol = false, supports
   useEffect(() => { void load(); }, [includeArchived]);
 
   async function load() {
+    setLoading(true); setLoadError("");
+    try {
     const params = supportsArchive && includeArchived ? "?includeArchived=true" : "";
     const response = await fetch(`${apiUrl}/products/${endpoint}${params}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
-    if (response.ok) setItems(await response.json());
+    if (!response.ok) throw new Error();
+    setItems(await response.json());
+    } catch { setLoadError("Chargement impossible. Vérifiez votre connexion."); } finally { setLoading(false); }
   }
 
   async function submit(event: FormEvent) {
@@ -32,6 +41,7 @@ export function ReferenceManager({ title, endpoint, withSymbol = false, supports
     });
     setMessage(response.ok ? (editingId ? "Catégorie modifiée." : "Catégorie créée.") : await readError(response));
     if (response.ok) {
+      setOpened(false);
       resetForm();
       await load();
     }
@@ -60,6 +70,7 @@ export function ReferenceManager({ title, endpoint, withSymbol = false, supports
   }
 
   function edit(item: Item) {
+    setOpened(true); setMessage(null);
     setEditingId(item.id);
     setName(item.name);
     setSymbol(item.symbol ?? "");
@@ -71,6 +82,7 @@ export function ReferenceManager({ title, endpoint, withSymbol = false, supports
     setSymbol("");
   }
 
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <div className="vm-screen vm-settings-screen"><IosPageHeading title={title}/><button className="vm-primary-button" onClick={() => { resetForm(); setMessage(null); setOpened(true); }}>+ Ajouter</button>{supportsArchive && <label className="vm-permission-choice"><span>Afficher les éléments archivés</span><input type="checkbox" checked={includeArchived} onChange={event => setIncludeArchived(event.target.checked)}/></label>}{loading ? <p role="status" className="vm-form-help">Chargement…</p> : loadError ? <div role="alert" className="vm-settings-notice">{loadError}<button onClick={() => void load()}>Réessayer</button></div> : <section className="vm-settings-cards">{items.map(item => <details key={item.id} className="vm-reference-item"><summary><span><strong>{item.name}</strong><small>{item.symbol || (supportsArchive ? `${item._count?.products ?? 0} produits` : "")}</small></span><em>{item.archivedAt ? "Archivé" : item.isActive ? "Actif" : "Inactif"}</em></summary><div><button onClick={() => edit(item)}>Modifier</button>{supportsArchive ? <button onClick={() => void (item.archivedAt ? restore(item.id) : archive(item.id))}>{item.archivedAt ? "Restaurer" : "Archiver"}</button> : <button onClick={() => void remove(item.id)}>Supprimer</button>}</div></details>)}{!items.length && <p className="vm-settings-notice">Aucun élément à afficher.</p>}</section>}{!opened && message && <p role="status" className="vm-settings-notice">{message}</p>}{opened && <IosSheet title={editingId ? "Modifier" : "Ajouter"} subtitle={title} onClose={() => setOpened(false)}><form onSubmit={submit} className="vm-settings-form"><fieldset><label>Nom<input required value={name} onChange={event => setName(event.target.value)}/></label>{withSymbol && <label>Symbole<input value={symbol} onChange={event => setSymbol(event.target.value)}/></label>}{message && <p role="status">{message}</p>}<button type="submit" className="vm-primary-button">Enregistrer</button></fieldset></form></IosSheet>}</div>;
   return (
     <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
