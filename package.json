@@ -8,6 +8,7 @@
     "packages/*"
   ],
   "scripts": {
+    "mobile:icons": "node scripts/generate-mobile-icons.cjs",
     "dev": "concurrently \"npm:dev:api\" \"npm:dev:web\"",
     "dev:web": "npm run dev --workspace=@vta/web",
     "dev:api": "npm run start:dev --workspace=@vta/api",
@@ -31,6 +32,7 @@
     "mobile:open": "npm run mobile:open --workspace=@vta/web",
     "mobile:open:ios": "npm run mobile:open:ios --workspace=@vta/web",
     "test:core-logic": "node scripts/core-logic-smoke.cjs",
+    "test:mobile-icons": "node scripts/mobile-icons.test.cjs",
     "test:vta-pos-mobile": "node scripts/vta-pos-mobile-smoke.cjs",
     "test:qa:functional": "node scripts/qa-functional-smoke.cjs",
     "test:business-rules": "node scripts/business-rules-smoke.cjs",
