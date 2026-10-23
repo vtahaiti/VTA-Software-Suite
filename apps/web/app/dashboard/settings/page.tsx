@@ -10,9 +10,9 @@ const sections = [
     description: "Logo, coordonnées, activité et informations principales."
   },
   {
-    title: "Activité et modules",
+    title: "Type d’entreprise et activité",
     href: "/dashboard/settings/business-modules",
-    description: "Adapter les menus visibles au secteur de l'entreprise."
+    description: "Secteur, type d’activité et modules de votre boutique."
   },
   {
     title: "Impression",

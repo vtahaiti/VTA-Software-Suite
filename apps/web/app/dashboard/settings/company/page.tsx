@@ -1,6 +1,7 @@
 "use client";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
+import { IosBusinessIdentity } from "@/components/ios-business-identity";
 import { IosPageHeading } from "@/components/ios-page-heading";
 import Link from "next/link";
 import { Camera } from "lucide-react";
@@ -165,6 +166,7 @@ export default function CompanySettingsPage() {
   }
 
   return <div className={process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" ? "vm-company-screen space-y-5" : "space-y-5"}><Header active="Entreprise" />
+    {process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" && <IosBusinessIdentity/>}
     {waitingForSettings && <p role="status" className="vm-settings-notice">{msg || "Chargement de votre entreprise…"}</p>}
     <form onSubmit={submit} className="grid gap-4 rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2">
       <div className="md:col-span-2 flex flex-col gap-4 rounded-lg border border-dashed p-4 dark:border-slate-700 sm:flex-row sm:items-center">

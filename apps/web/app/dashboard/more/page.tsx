@@ -17,10 +17,12 @@ export default function MorePage() {
   const [sections, setSections] = useState<BusinessMenuSection[]>(fallbackMenuSections);
   useEffect(() => {
     let active = true;
-    void getTenantBusinessConfiguration().then(config => {
+    const refresh = () => { void getTenantBusinessConfiguration().then(config => {
       if (active && config) setSections(config.expertMenuSections?.length ? config.expertMenuSections : config.menuSections);
-    }).catch(() => undefined);
-    return () => { active = false; };
+    }).catch(() => undefined); };
+    refresh();
+    window.addEventListener("vta:business-profile-updated", refresh);
+    return () => { active = false; window.removeEventListener("vta:business-profile-updated", refresh); };
   }, []);
   const user = getCurrentUser();
   const navigation = buildNavigation(user, sections);
