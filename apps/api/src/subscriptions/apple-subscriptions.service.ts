@@ -12,16 +12,18 @@ export class AppleSubscriptionsService {
   constructor(private readonly prisma: PrismaService, private readonly entitlements: SubscriptionEntitlementsService) {}
 
   private configuration() {
-    const required = ["APPLE_IAP_KEY_PATH", "APPLE_IAP_KEY_ID", "APPLE_IAP_ISSUER_ID", "APPLE_IAP_ROOT_CA_PATH", "APPLE_IAP_ENVIRONMENT"];
+    const required = ["APPLE_IAP_KEY_ID", "APPLE_IAP_ISSUER_ID", "APPLE_IAP_ENVIRONMENT"];
     if (process.env.APPLE_IAP_ENABLED !== "true" || required.some(key => !process.env[key])) return null;
+    if ((!process.env.APPLE_IAP_PRIVATE_KEY_BASE64 && !process.env.APPLE_IAP_KEY_PATH) ||
+        (!process.env.APPLE_IAP_ROOT_CA_BASE64 && !process.env.APPLE_IAP_ROOT_CA_PATH)) return null;
     const environment = process.env.APPLE_IAP_ENVIRONMENT === "Production" ? Environment.PRODUCTION
       : process.env.APPLE_IAP_ENVIRONMENT === "Sandbox" ? Environment.SANDBOX : null;
     if (!environment) return null;
     const bundleId = "com.vtaerp.pos";
     return {
       environment,
-      verifier: new SignedDataVerifier([readFileSync(process.env.APPLE_IAP_ROOT_CA_PATH!)], true, environment, bundleId, 6826297355),
-      client: new AppStoreServerAPIClient(readFileSync(process.env.APPLE_IAP_KEY_PATH!, "utf8"), process.env.APPLE_IAP_KEY_ID!, process.env.APPLE_IAP_ISSUER_ID!, bundleId, environment)
+      verifier: new SignedDataVerifier([process.env.APPLE_IAP_ROOT_CA_BASE64 ? Buffer.from(process.env.APPLE_IAP_ROOT_CA_BASE64, "base64") : readFileSync(process.env.APPLE_IAP_ROOT_CA_PATH!)], true, environment, bundleId, 6826297355),
+      client: new AppStoreServerAPIClient(process.env.APPLE_IAP_PRIVATE_KEY_BASE64 ? Buffer.from(process.env.APPLE_IAP_PRIVATE_KEY_BASE64, "base64").toString("utf8") : readFileSync(process.env.APPLE_IAP_KEY_PATH!, "utf8"), process.env.APPLE_IAP_KEY_ID!, process.env.APPLE_IAP_ISSUER_ID!, bundleId, environment)
     };
   }
 

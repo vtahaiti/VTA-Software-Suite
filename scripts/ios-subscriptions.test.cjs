@@ -38,14 +38,15 @@ test('Concurrent paid activation is not overwritten when a trial settles; free i
  const free=service.buildEntitlements(subscription({planRecord:{code:'POS_FREE',features:[]},status:'ACTIVE'}));assert.equal(free.isActive,true);assert.equal(free.daysRemaining,null);
 });
 const owner={id:'owner',tenantId:'tenant',role:'OWNER'},token=products.appleAccountToken('tenant');
-function apple({transaction={},status=1,existing=null,configured=true,signatureFails=false,trial=false}={}){
+function apple({transaction={},status=1,existing=null,configured=true,signatureFails=false,trial=false,secretEnv=false}={}){
  const calls=[],decoded={originalTransactionId:'original',transactionId:'transaction',productId:'com.vtaerp.pos.premium.monthly',appAccountToken:token,type:'Auto-Renewable Subscription',signedDate:Date.now(),purchaseDate:Date.now()-1000,expiresDate:Date.now()+3600000,...transaction};
  const env={APPLE_IAP_ENABLED:String(configured),APPLE_IAP_KEY_PATH:'key',APPLE_IAP_KEY_ID:'id',APPLE_IAP_ISSUER_ID:'issuer',APPLE_IAP_ROOT_CA_PATH:'cert',APPLE_IAP_ENVIRONMENT:'Sandbox'};
+ if(secretEnv){env.APPLE_IAP_PRIVATE_KEY_BASE64=Buffer.from('qa-private-key').toString('base64');env.APPLE_IAP_ROOT_CA_BASE64=Buffer.from('qa-public-root').toString('base64');delete env.APPLE_IAP_KEY_PATH;delete env.APPLE_IAP_ROOT_CA_PATH;}
  const tx={tenant:{findUniqueOrThrow:async()=>({status:'ACTIVE'}),update:async a=>calls.push({tenant:a})},appleSubscriptionPurchase:{findUnique:async()=>existing,upsert:async a=>calls.push({purchase:a})},plan:{findUniqueOrThrow:async a=>({id:a.where.code,monthlyPrice:10.99,currency:'USD'})},tenantSubscription:{findUniqueOrThrow:async()=>({id:'subscription',paymentStatus:existing?'APPLE':'TRIAL',planId:existing?'POS_PREMIUM':'TRIAL'}),update:async a=>calls.push({subscription:a})},subscriptionEvent:{create:async a=>calls.push({event:a})}};
  const prisma={$transaction:async callback=>callback(tx),appleSubscriptionPurchase:{findUnique:async()=>existing,findFirst:async()=>null}};
  const verifier={verifyAndDecodeTransaction:async()=>{if(signatureFails)throw Error('Bad JWS');return decoded;},verifyAndDecodeRenewalInfo:async()=>({gracePeriodExpiresDate:Date.now()+500000}),verifyAndDecodeNotification:async()=>({data:{signedTransactionInfo:'signed'}})};
  const library={Environment:{PRODUCTION:'Production',SANDBOX:'Sandbox'},Status:{ACTIVE:1,BILLING_GRACE_PERIOD:4},Type:{AUTO_RENEWABLE_SUBSCRIPTION:'Auto-Renewable Subscription'},SignedDataVerifier:class{constructor(){return verifier;}},AppStoreServerAPIClient:class{async getAllSubscriptionStatuses(){calls.push({appleLookup:true});return{data:[{lastTransactions:[{originalTransactionId:'original',status,signedTransactionInfo:'latest',signedRenewalInfo:'renewal'}]}]};}}};
- const exports={};vm.runInNewContext(transpile('apps/api/src/subscriptions/apple-subscriptions.service.ts'),{exports,Date,process:{env},require:key=>{
+ const exports={};vm.runInNewContext(transpile('apps/api/src/subscriptions/apple-subscriptions.service.ts'),{exports,Date,Buffer,process:{env},require:key=>{
  if(key==='@nestjs/common')return{Injectable:()=>c=>c,BadRequestException:Error,ForbiddenException:Error,ServiceUnavailableException:Error};
  if(key==='@prisma/client')return{SubscriptionPlan,SubscriptionStatus,TenantStatus,Prisma:{TransactionIsolationLevel:{Serializable:'Serializable'}}};
  if(key==='@apple/app-store-server-library')return library;
@@ -112,4 +113,8 @@ test('The official Apple verifier rejects fabricated signed transactions',async(
  const {SignedDataVerifier,Environment}=require('@apple/app-store-server-library');
  const verifier=new SignedDataVerifier([],false,Environment.PRODUCTION,'com.vtaerp.pos',6826297355);
  await assert.rejects(verifier.verifyAndDecodeTransaction('fabricated.payload.signature'));
+});
+
+test('Deployment secret values work without requiring private key files',async()=>{
+ const b=apple({secretEnv:true});const catalog=await b.service.catalog(owner);assert.equal(catalog.configured,true);await b.service.verify(owner,'signed');assert.ok(b.calls.some(call=>call.subscription));
 });
