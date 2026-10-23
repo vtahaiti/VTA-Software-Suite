@@ -27,6 +27,7 @@ html[data-capacitor="true"] body {
 
 /* CSS owns iOS safe areas; UIKit must not add a second content inset. */
 html[data-capacitor-platform="ios"] {
+  color-scheme: only light;
   -webkit-text-size-adjust: 100%;
   overscroll-behavior: none;
 }
