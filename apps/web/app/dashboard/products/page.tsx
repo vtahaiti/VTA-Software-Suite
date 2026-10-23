@@ -208,7 +208,7 @@ export default function ProductsPage() {
       <div className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 md:block">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="bg-slate-50 text-slate-500 dark:bg-slate-950">
-            <tr><th className="p-3">Produit</th><th className="p-3">{isRestaurant ? "Type" : "Catégorie"}</th><th className="p-3">Prix</th><th className="p-3">Stock</th><th className="p-3">Actions</th></tr>
+            <tr><th className="p-3">Produit</th><th className="p-3">{isRestaurant ? "Type" : "Catégorie"}</th><th className="p-3">Prix</th><th className="p-3">Quantité</th><th className="p-3">Actions</th></tr>
           </thead>
           <tbody>{items.map((product) => <tr key={product.id} className="border-t border-slate-100 dark:border-slate-800">
             <td className="p-3"><div className="flex items-center gap-3"><ProductThumb product={product} /><div><p className="font-semibold">{product.name}</p><MissingCostHint product={product} /></div></div></td>

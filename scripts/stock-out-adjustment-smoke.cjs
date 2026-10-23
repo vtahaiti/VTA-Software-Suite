@@ -35,8 +35,8 @@ for (const reason of requiredReasons) {
 assert(dto.includes("STOCK_OUT_REASONS"), "controlled stock out reasons are centralized");
 assert(service.includes("!dto.reason") && service.includes("STOCK_OUT_REASONS.includes(dto.reason)"), "stock out requires a controlled reason");
 assert(service.includes("InventoryMovementType.OUT") && service.includes("-dto.quantity"), "stock out writes an OUT movement with negative stock delta");
-assert(service.includes("afterQty < 0") && service.includes("Stock insuffisant"), "stock out blocks quantities above available stock");
-assert(service.includes("beforeQty: stock.quantity"), "movement audit stores stock before");
+assert(service.includes("quantity: { gte: -delta }") && service.includes("Stock insuffisant"), "stock out blocks quantities above available stock atomically");
+assert(service.includes("beforeQty: updated.quantity - delta"), "movement audit stores stock before from the committed atomic update");
 assert(service.includes("afterQty"), "movement audit stores stock after");
 assert(service.includes("userId: dto.userId"), "movement audit stores acting user");
 assert(service.includes("reason: dto.reason ?? dto.note"), "movement audit stores controlled reason");

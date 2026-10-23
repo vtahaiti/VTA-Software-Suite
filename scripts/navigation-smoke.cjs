@@ -9,14 +9,14 @@ const shellSource = fs.readFileSync(path.join(root, "apps/web/components/protect
 
 const expectedRoutes = {
   "Nouvelle vente": "/dashboard/pos",
-  "Ventes en attente": "/dashboard/sales/in-progress",
-  "Historique des ventes": "/dashboard/sales/completed",
+  "Ventes en attente / Commandes ouvertes": "/dashboard/sales/in-progress",
+  "Historique": "/dashboard/sales/completed",
   Produits: "/dashboard/products",
   "Catégories": "/dashboard/products/categories",
   Achats: "/dashboard/purchases",
   Fournisseurs: "/dashboard/suppliers",
   Entreprise: "/dashboard/settings/company",
-  POS: "/dashboard/settings/pos",
+  Impression: "/dashboard/settings/pos",
   Facturation: "/dashboard/settings/invoicing",
   Emails: "/dashboard/settings/emails"
 };

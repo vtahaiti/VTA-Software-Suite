@@ -2,7 +2,7 @@
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { getAccessToken } from "@/lib/auth";
 import { getTenantBusinessConfiguration, isRestaurantBusiness, type TenantBusinessConfiguration } from "@/lib/business-profiles";
@@ -61,6 +61,7 @@ export default function InventoryPage() {
   const [transferForm, setTransferForm] = useState<TransferForm>(emptyTransferForm);
   const [business, setBusiness] = useState<TenantBusinessConfiguration | null>(null);
   const [handledRequestedAction, setHandledRequestedAction] = useState(false);
+  const inventorySearchRef = useRef<HTMLInputElement | null>(null);
 
   const summary = useMemo(() => {
     const tracked = stocks.filter((stock) => isStockTracked(stock));
@@ -256,7 +257,7 @@ export default function InventoryPage() {
       {message ? <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">{message}</p> : null}
 
       <section className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-[1fr_auto]">
-        <div className="flex items-center gap-2 rounded-xl bg-slate-100 px-3"><Search className="h-5 w-5 shrink-0 text-slate-500" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Rechercher un produit..." className="min-w-0 flex-1 bg-transparent py-3 outline-none" /><button type="button" className="vta-native-only vta-native-flex h-9 w-9 items-center justify-center rounded-lg bg-white text-[#182858] shadow-sm" aria-label="Scanner un produit"><ScanLine className="h-5 w-5" /></button></div>
+        <div className="flex items-center gap-2 rounded-xl bg-slate-100 px-3"><Search className="h-5 w-5 shrink-0 text-slate-500" /><input ref={inventorySearchRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Rechercher un produit..." className="min-w-0 flex-1 bg-transparent py-3 outline-none" /><button type="button" onClick={() => inventorySearchRef.current?.focus()} className="vta-native-only vta-native-flex h-9 w-9 items-center justify-center rounded-lg bg-white text-[#182858] shadow-sm" aria-label="Activer la recherche pour lire un code-barres"><ScanLine className="h-5 w-5" /></button></div>
         <label className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-3 text-sm font-semibold dark:border-slate-700">
           <input type="checkbox" checked={showNonStock} onChange={(event) => setShowNonStock(event.target.checked)} />
           Afficher les articles non suivis

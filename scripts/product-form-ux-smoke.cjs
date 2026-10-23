@@ -12,7 +12,7 @@ const editPage = read("apps/web/app/dashboard/products/[id]/edit/page.tsx");
 const posPage = read("apps/web/app/dashboard/pos/page.tsx");
 
 assert(createPage.includes("<ProductForm />"), "La création doit utiliser ProductForm.");
-assert(editPage.includes("<ProductForm productId={params.id}"), "La modification doit utiliser le même ProductForm.");
+assert(/<ProductForm\s+productId=\{(?:params\.id|id)\}\s*\/>/.test(editPage), "La modification doit utiliser le même ProductForm.");
 
 for (const forbidden of [
   "Code disponible dans la fiche",
