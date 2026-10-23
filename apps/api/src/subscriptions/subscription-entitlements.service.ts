@@ -1,3 +1,4 @@
+import { nextMonthlyPeriodEnd } from "./subscription-period";
 import { BadRequestException, ForbiddenException, Injectable, OnModuleInit } from "@nestjs/common";
 import { Prisma, SubscriptionPlan, SubscriptionStatus, TenantStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
@@ -84,7 +85,7 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
   async createTrialSubscription(tx: Prisma.TransactionClient, tenantId: string, actorUserId?: string) {
     const plan = await tx.plan.findUnique({ where: { code: "TRIAL" } });
     const now = new Date();
-    const trialEndsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const trialEndsAt = nextMonthlyPeriodEnd(now);
     const subscription = await tx.tenantSubscription.create({
       data: {
         tenantId,
@@ -103,7 +104,7 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
       }
     });
     await tx.subscriptionEvent.create({
-      data: { tenantId, subscriptionId: subscription.id, actorUserId, eventType: "TRIAL_STARTED", newStatus: SubscriptionStatus.TRIALING, metadata: { planCode: "TRIAL", trialDays: 30 } }
+      data: { tenantId, subscriptionId: subscription.id, actorUserId, eventType: "TRIAL_STARTED", newStatus: SubscriptionStatus.TRIALING, metadata: { planCode: "TRIAL", trialMonths: 1, trialEndsAt: trialEndsAt.toISOString() } }
     });
     return subscription;
   }
@@ -192,13 +193,13 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
     await this.ensureCatalogOnce();
     const normalizedCode = planCode.trim().toUpperCase();
     if (!normalizedCode || normalizedCode === "TRIAL" || normalizedCode === "FREE") {
-      throw new BadRequestException("Choisissez un plan payant valide.");
+      throw new BadRequestException("Choisissez un plan valide.");
     }
     const plan = await this.prisma.plan.findFirst({ where: { code: normalizedCode, isActive: true } });
     if (!plan) throw new BadRequestException("Plan introuvable ou inactif.");
     const subscription = await this.getSubscription(tenantId);
     const currentPlanCode = subscription.planRecord?.code ?? this.legacyPlanCode(subscription.plan);
-    if (currentPlanCode === plan.code && subscription.status === SubscriptionStatus.ACTIVE) {
+    if (currentPlanCode === plan.code && subscription.status === SubscriptionStatus.ACTIVE && this.buildEntitlements(subscription).isActive) {
       throw new BadRequestException("Ce plan est déjà actif.");
     }
     const pendingRequest = await this.getPendingPlanRequest(tenantId);

@@ -21,9 +21,10 @@ const bluetoothPlugin = read("apps/web/android/app/src/main/java/com/vtaerp/comm
 const printSettings = read("apps/web/app/dashboard/settings/pos/page.tsx");
 const iosInfo = read("apps/web/ios/App/App/Info.plist");
 const iosProject = read("apps/web/ios/App/App.xcodeproj/project.pbxproj");
-const iosPodfile = read("apps/web/ios/App/Podfile");
 const iosPrivacy = read("apps/web/ios/App/App/PrivacyInfo.xcprivacy");
 const iosDelegate = read("apps/web/ios/App/App/AppDelegate.swift");
+const iosConfig = read("apps/web/capacitor.ios.config.ts");
+const iosBluetoothPlugin = read("apps/web/ios/App/App/VtaBluetoothPrinterPlugin.swift");
 
 assert(capacitor.includes('appId: "com.vtaerp.commerce"'), "L'appId Android existant doit rester stable");
 assert(capacitor.includes('appName: "VTA POS"'), "Le nom natif doit être VTA POS");
@@ -32,15 +33,18 @@ assert(manifest.includes('"name": "VTA POS"'), "Le manifeste installable doit ut
 assert(androidStrings.includes(">VTA POS<"), "Le libellé Android doit utiliser VTA POS");
 assert(iosInfo.includes("VTA POS"), "Le libellé iOS doit utiliser VTA POS");
 assert(iosInfo.includes("UIDesignRequiresCompatibility") && iosInfo.includes("NSCameraUsageDescription"), "iOS doit préparer iPadOS 26 et l'usage caméra du scanner");
-assert(iosPodfile.includes("platform :ios, '15.0'") && !iosProject.includes("IPHONEOS_DEPLOYMENT_TARGET = 13.0"), "La cible iOS minimale doit être iOS 15");
-assert(iosProject.includes("PrivacyInfo.xcprivacy in Resources"), "Le manifeste de confidentialité doit être inclus dans le bundle iOS");
+assert(iosProject.includes("IPHONEOS_DEPLOYMENT_TARGET = 15.0") && !iosProject.includes("IPHONEOS_DEPLOYMENT_TARGET = 13.0"), "La cible iOS minimale doit être iOS 15");
+const privacyReference = iosProject.match(/([A-Z0-9]{24}) = \{isa = PBXFileReference;[^}]*path = PrivacyInfo\.xcprivacy/)?.[1];
+assert(privacyReference && iosProject.includes(`fileRef = ${privacyReference};`), "Le manifeste de confidentialité doit être inclus dans le bundle iOS");
 assert(iosPrivacy.includes("NSPrivacyAccessedAPICategoryFileTimestamp") && iosPrivacy.includes("C617.1") && iosPrivacy.includes("NSPrivacyAccessedAPICategoryUserDefaults") && iosPrivacy.includes("CA92.1"), "Le manifeste iOS doit déclarer les API à raison requise");
 assert(iosDelegate.includes("@main") && !iosDelegate.includes("@UIApplicationMain"), "Le point d'entrée iOS doit utiliser la syntaxe Swift moderne");
+assert(iosConfig.includes('appId: "com.vtaerp.pos"') && iosConfig.includes('webDir: "ios-bundle"'), "iOS doit utiliser son bundle local et son identifiant VTA POS");
+assert(iosBluetoothPlugin.includes("CBCentralManager") && iosBluetoothPlugin.includes("EscPosRaster"), "iOS doit inclure le pilote BLE ESC/POS natif");
 assert(androidManifest.includes("android.permission.BLUETOOTH_CONNECT"), "Android récent doit demander la permission Bluetooth requise");
 assert(mainActivity.includes("registerPlugin(VtaBluetoothPrinterPlugin.class)"), "Le plugin d'impression Bluetooth doit être enregistré");
 assert(bluetoothPlugin.includes("sendBitmapOverBluetooth") && bluetoothPlugin.includes("GS v 0"), "L'impression directe doit envoyer un ticket raster ESC/POS");
 assert(bluetoothPlugin.includes("Settings.ACTION_BLUETOOTH_SETTINGS") && bluetoothPlugin.includes("BLUETOOTH_DISABLED"), "Le plugin doit ouvrir les réglages Bluetooth et signaler un Bluetooth désactivé");
-assert(printSettings.includes("Configurer Bluetooth") && printSettings.includes("Voir les appareils Bluetooth appairés") && printSettings.includes("Imprimer un ticket de test"), "La configuration Bluetooth doit être accessible à l'utilisateur");
+assert(printSettings.includes("Configurer Bluetooth Android") && printSettings.includes("Rechercher les imprimantes Bluetooth") && printSettings.includes("Imprimer un ticket de test"), "La configuration Bluetooth doit être accessible à l'utilisateur");
 assert(shell.includes("NativeMobileNav"), "La navigation mobile doit être montée dans le shell protégé");
 for (const label of ["Accueil", "Caisse", "Stock", "Plus"]) assert(nav.includes(label), `Navigation mobile manquante: ${label}`);
 assert(nav.includes("canAccessHref"), "La navigation mobile doit respecter le RBAC");

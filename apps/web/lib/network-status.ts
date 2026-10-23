@@ -1,4 +1,5 @@
 "use client";
+import { networkTimeout } from "@/lib/network-timeout";
 
 import { useEffect, useState } from "react";
 import { fetchApi } from "@/lib/api-url";
@@ -20,7 +21,7 @@ export function useNetworkStatus() {
       }
 
       try {
-        const response = await fetchApi("/health", { cache: "no-store" });
+        const response = await fetchApi("/health", { cache: "no-store", signal: networkTimeout(5000) });
         if (isMounted) setIsOnline(response.ok);
       } catch {
         if (isMounted) setIsOnline(false);

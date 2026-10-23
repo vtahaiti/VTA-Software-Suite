@@ -54,6 +54,7 @@
     "test:inventory-v1": "node scripts/inventory-v1-smoke.cjs",
     "test:orders-deposits": "node scripts/orders-deposits-smoke.cjs",
     "test:users-management": "node scripts/users-management-smoke.cjs",
+    "test:pos-plans": "node --test scripts/pos-plans.test.cjs",
     "test:subscriptions": "node scripts/subscription-entitlements-smoke.cjs",
     "test:subscription-notifications": "node scripts/subscription-notifications-smoke.cjs",
     "test:production-priority": "node scripts/production-priority-smoke.cjs",
@@ -80,10 +81,14 @@
     "test:deleted-tenant-reregistration": "node scripts/deleted-tenant-reregistration-smoke.cjs",
     "test:web-api-url": "node scripts/web-api-url-smoke.cjs",
     "test:security-hardening": "node scripts/security-hardening-smoke.cjs",
-    "repair:deleted-tenant-users": "node scripts/repair-deleted-tenant-users.cjs"
+    "repair:deleted-tenant-users": "node scripts/repair-deleted-tenant-users.cjs",
+    "test:ios-runtime": "node --test scripts/ios-runtime.test.cjs",
+    "test:ios-offline": "node --test scripts/ios-offline.test.cjs scripts/offline-idempotency.test.cjs scripts/receipt-logo.test.cjs",
+    "test:ios-escpos": "node scripts/test-ios-escpos.cjs"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
+    "fake-indexeddb": "^6.2.6",
     "prisma": "^5.22.0"
   },
   "dependencies": {

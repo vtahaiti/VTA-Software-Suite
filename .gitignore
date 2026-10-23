@@ -154,3 +154,6 @@ key.properties
 *.aab
 *.jks
 *.keystore
+
+/apps/ios-export/
+/apps/web/ios-bundle/

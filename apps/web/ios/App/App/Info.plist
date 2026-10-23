@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>fr</string>
 	<key>CFBundleDisplayName</key>
-        <string>VTA POS</string>
+	<string>VTA POS</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -24,6 +24,8 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>VTA POS utilise Bluetooth pour rechercher votre imprimante de tickets et imprimer vos ventes, même sans Internet.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>VTA POS utilise la caméra uniquement pour lire les codes-barres des produits.</string>
 	<key>UILaunchStoryboardName</key>

@@ -6,7 +6,7 @@ export type PairedPrinter = { name: string; address: string };
 export type DefaultPrinter = { configured: boolean; address?: string; name?: string };
 
 type VtaBluetoothPrinterPlugin = {
-  isAvailable(): Promise<{ available: boolean; enabled?: boolean }>;
+  isAvailable(): Promise<{ available: boolean }>;
   openBluetoothSettings(): Promise<void>;
   listPaired(): Promise<{ devices: PairedPrinter[] }>;
   getDefaultPrinter(): Promise<DefaultPrinter>;
@@ -18,17 +18,22 @@ type VtaBluetoothPrinterPlugin = {
 const BluetoothPrinter = registerPlugin<VtaBluetoothPrinterPlugin>("VtaBluetoothPrinter");
 
 export async function isBluetoothPrintSupported() {
-  if (typeof window === "undefined") return { available: false, enabled: undefined };
+  if (typeof window === "undefined") return false;
   try {
     const { Capacitor } = await import("@capacitor/core");
-    if (!Capacitor.isNativePlatform()) return { available: false, enabled: undefined };
-    return await BluetoothPrinter.isAvailable();
+    if (!Capacitor.isNativePlatform() || !Capacitor.isPluginAvailable("VtaBluetoothPrinter")) return false;
+    const { available } = await BluetoothPrinter.isAvailable();
+    return available;
   } catch {
-    return { available: false, enabled: undefined };
+    return false;
   }
 }
 
 export async function openBluetoothSettings() {
+  const { Capacitor } = await import("@capacitor/core");
+  if (Capacitor.getPlatform() !== "android" || !Capacitor.isPluginAvailable("VtaBluetoothPrinter")) {
+    throw new Error("BLUETOOTH_SETTINGS_UNAVAILABLE");
+  }
   await BluetoothPrinter.openBluetoothSettings();
 }
 
@@ -54,6 +59,9 @@ export async function clearDefaultBluetoothPrinter() {
 }
 
 /** Imprime directement sur l'imprimante Bluetooth par defaut, sans boite de dialogue. */
-export async function printTicketOverBluetooth(html: string, widthDots = 576) {
-  return BluetoothPrinter.printTicket({ html, widthDots });
+export async function printTicketOverBluetooth(html: string, widthDots = 576, address?: string) {
+  if (!html.trim()) throw new Error("Ticket vide.");
+  if (widthDots !== 384 && widthDots !== 576) throw new Error("Largeur de ticket invalide.");
+  const prepared = /<img\b/i.test(html) ? await (await import("@/lib/receipt-images")).prepareReceiptImages(html) : html;
+  return BluetoothPrinter.printTicket({ html: prepared, widthDots, ...(address ? { address } : {}) });
 }

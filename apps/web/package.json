@@ -9,11 +9,14 @@
     "start": "next start -p 3000",
     "lint": "next lint",
     "mobile:add:android": "npx cap add android",
-    "mobile:add:ios": "npx cap add ios",
     "mobile:sync": "npx cap sync android",
-    "mobile:sync:ios": "npx cap sync ios",
     "mobile:open": "npx cap open android",
-    "mobile:open:ios": "npx cap open ios"
+    "mobile:sync:ios": "npm run ios:sync",
+    "mobile:open:ios": "npm run ios:open",
+    "ios:add": "node ../../scripts/ios-cap.cjs add ios --packagemanager SPM",
+    "ios:sync": "node ../../scripts/build-ios-web.cjs && node ../../scripts/ios-cap.cjs sync ios",
+    "ios:open": "node ../../scripts/ios-cap.cjs open ios",
+    "ios:build": "node ../../scripts/build-ios-web.cjs"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.2",

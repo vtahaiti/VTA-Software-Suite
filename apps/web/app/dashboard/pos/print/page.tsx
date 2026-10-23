@@ -78,7 +78,7 @@ export default function PosTicketPrintPage() {
           format: width === "58" ? "58" : "80",
           widthDots: width === "58" ? 384 : 576
         });
-        setStatus(result.status === "printed-bluetooth" ? "Ticket envoyé à l'imprimante Bluetooth." : "Dialogue d'impression Android ouvert.");
+        setStatus(result.status === "printed-bluetooth" ? "Ticket envoyé à l'imprimante Bluetooth." : result.status === "cancelled" ? "Impression annulée." : "Document transmis au service d’impression.");
       } catch {
         setError("Impossible d'imprimer. Essayez le partage PDF.");
       }

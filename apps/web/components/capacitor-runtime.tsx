@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { iosEmbeddedRoutes } from "@/lib/ios-embedded-routes";
 
 const ALLOWED_WEBVIEW_ORIGINS = new Set([
   "https://vtaerp.com",
@@ -29,6 +30,9 @@ export function CapacitorRuntime() {
         import("@capacitor/browser")
       ]);
 
+      if (disposed) return;
+
+      if (Capacitor.getPlatform() === "android") {
       const backButtonHandle = await App.addListener("backButton", ({ canGoBack }) => {
         const openDialog = document.querySelector('[role="dialog"], [aria-modal="true"]');
         const expandedMenu = document.querySelector('[aria-expanded="true"]');
@@ -48,9 +52,12 @@ export function CapacitorRuntime() {
         }
       });
 
+      if (disposed) { await backButtonHandle.remove(); return; }
       removeBackButtonListener = () => {
         void backButtonHandle.remove();
       };
+
+      }
 
       const appUrlOpenHandle = await App.addListener("appUrlOpen", ({ url }) => {
         try {
@@ -63,6 +70,7 @@ export function CapacitorRuntime() {
         }
       });
 
+      if (disposed) { await appUrlOpenHandle.remove(); return; }
       removeAppUrlOpenListener = () => {
         void appUrlOpenHandle.remove();
       };
@@ -74,7 +82,7 @@ export function CapacitorRuntime() {
         }
 
         const anchor = target.closest<HTMLAnchorElement>("a[href]");
-        if (!anchor || anchor.target === "_blank" || anchor.hasAttribute("download")) {
+        if (!anchor || anchor.hasAttribute("download")) {
           return;
         }
 
@@ -100,6 +108,15 @@ export function CapacitorRuntime() {
           return;
         }
 
+        if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" && nextUrl.origin === window.location.origin) {
+          const route = nextUrl.pathname.replace(/\/$/, "") || "/";
+          if (!iosEmbeddedRoutes.includes(route)) {
+            event.preventDefault();
+            if (!navigator.onLine) window.alert("Ce document nécessite une connexion Internet. Le point de vente reste disponible hors ligne.");
+            else void Browser.open({ url: `https://vtaerp.com${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}` });
+          }
+          return;
+        }
         if (!ALLOWED_WEBVIEW_ORIGINS.has(nextUrl.origin)) {
           event.preventDefault();
           void Browser.open({ url: nextUrl.toString() });

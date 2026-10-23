@@ -27,6 +27,7 @@ export class UsersController {
     return this.users.create(request.user.tenantId, dto);
   }
 
+  @RequiresFeature("ROLES_PERMISSIONS")
   @Patch(":id/role")
   @Permissions("roles.assign", "users.update")
   updateRole(@Req() request: AuthenticatedRequest, @Param("id") id: string, @Body() dto: UpdateUserRoleDto) {

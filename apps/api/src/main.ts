@@ -23,6 +23,7 @@ function buildCorsOrigins() {
       "https://vtaerp.com",
       "https://www.vtaerp.com",
       "https://admin.vtaerp.com",
+      "capacitor://localhost",
       ...configuredOrigins
     ])
   );

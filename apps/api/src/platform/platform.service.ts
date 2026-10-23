@@ -1,3 +1,4 @@
+import { nextMonthlyPeriodEnd } from "../subscriptions/subscription-period";
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { AuditAction, NotificationStatus, NotificationType, Prisma, SubscriptionPlan, SubscriptionStatus, TenantStatus } from "@prisma/client";
 import { AuthService } from "../auth/auth.service";
@@ -20,6 +21,9 @@ const CUSTOMER_VISIBLE_STATUSES: TenantStatus[] = [TenantStatus.ACTIVE, TenantSt
 const BILLABLE_SUBSCRIPTION_STATUSES: SubscriptionStatus[] = [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING];
 const BLOCKING_TENANT_STATUSES: TenantStatus[] = [TenantStatus.PAUSED, TenantStatus.SUSPENDED, TenantStatus.EXPIRED, TenantStatus.DELETED];
 const PLAN_CODES_TO_LEGACY: Record<string, SubscriptionPlan> = {
+  POS_FREE: SubscriptionPlan.FREE,
+  POS_BASIC: SubscriptionPlan.ESSENTIAL,
+  POS_PREMIUM: SubscriptionPlan.STANDARD,
   TRIAL: SubscriptionPlan.FREE,
   FREE: SubscriptionPlan.FREE,
   ESSENTIAL: SubscriptionPlan.ESSENTIAL,
@@ -347,6 +351,9 @@ export class PlatformService {
       if (!planRecord) throw new BadRequestException("Plan demandé introuvable ou inactif.");
       const previous = await tx.tenantSubscription.findUnique({ where: { tenantId: request.tenantId }, include: { planRecord: true } });
       const now = new Date();
+      const periodEnd = planRecord.code === "POS_BASIC" || planRecord.code === "POS_PREMIUM"
+        ? nextMonthlyPeriodEnd(now)
+        : null;
       const legacyPlan = PLAN_CODES_TO_LEGACY[planRecord.code] ?? SubscriptionPlan.ESSENTIAL;
       const updated = await tx.tenantSubscription.upsert({
         where: { tenantId: request.tenantId },
@@ -356,11 +363,12 @@ export class PlatformService {
           status: SubscriptionStatus.ACTIVE,
           price: planRecord.monthlyPrice,
           currency: planRecord.currency,
-          paymentStatus: "MANUAL_CONFIRMED",
+          paymentStatus: planRecord.code === "POS_FREE" ? "FREE" : "MANUAL_CONFIRMED",
           startedAt: previous?.startedAt ?? now,
           currentPeriodStart: now,
-          currentPeriodEnd: null,
-          endsAt: null,
+          trialEndsAt: null,
+          currentPeriodEnd: periodEnd,
+          endsAt: periodEnd,
           suspendedAt: null,
           canceledAt: null
         },
@@ -371,9 +379,12 @@ export class PlatformService {
           status: SubscriptionStatus.ACTIVE,
           price: planRecord.monthlyPrice,
           currency: planRecord.currency,
-          paymentStatus: "MANUAL_CONFIRMED",
+          paymentStatus: planRecord.code === "POS_FREE" ? "FREE" : "MANUAL_CONFIRMED",
           startedAt: now,
-          currentPeriodStart: now
+          currentPeriodStart: now,
+          trialEndsAt: null,
+          currentPeriodEnd: periodEnd,
+          endsAt: periodEnd
         }
       });
       await tx.subscriptionEvent.update({
@@ -759,7 +770,7 @@ export class PlatformService {
   private isActivePaidSubscription(subscription: PlatformSubscription) {
     if (!subscription || subscription.status !== SubscriptionStatus.ACTIVE) return false;
     const planCode = "planRecord" in subscription && subscription.planRecord?.code ? subscription.planRecord.code : this.planCodeFor(subscription.plan);
-    return planCode !== "TRIAL" && planCode !== "FREE";
+    return planCode !== "TRIAL" && planCode !== "FREE" && planCode !== "POS_FREE";
   }
 
   private serializeSubscription(subscription: PlatformSubscription) {

@@ -2,6 +2,7 @@
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 
 import Link from "next/link";
+import { bluetoothPrintError, buildBluetoothTestTicketHtml, receiptPrintOptions } from "@/lib/receipt-print-options";
 
 import { FormEvent, useEffect, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
@@ -33,7 +34,10 @@ export default function PosSettingsPage() {
   const [receiptWidth, setReceiptWidth] = useState<ReceiptPreviewWidth>("80");
   const [msg, setMsg] = useState("");
   const [saving, setSaving] = useState(false);
-  const [bluetoothStatus, setBluetoothStatus] = useState<{ available: boolean; enabled?: boolean }>({ available: false });
+  const [testWidth, setTestWidth] = useState<"58" | "80">("80");
+  const [nativePrinting, setNativePrinting] = useState(false);
+  const [nativePlatform, setNativePlatform] = useState<"web" | "ios" | "android">("web");
+  const [bluetoothSupported, setBluetoothSupported] = useState(false);
   const [pairedPrinters, setPairedPrinters] = useState<PairedPrinter[]>([]);
   const [defaultPrinter, setDefaultPrinter] = useState<DefaultPrinter>({ configured: false });
   const [bluetoothMsg, setBluetoothMsg] = useState("");
@@ -43,11 +47,16 @@ export default function PosSettingsPage() {
   useEffect(() => {
     fetchWithAuth(`${apiUrl}/settings/pos`)
       .then((response) => response.ok ? response.json() : null)
-      .then((data) => data && setForm(toPosForm(data)));
+      .then((data) => data && setForm(toPosForm(data))).catch(() => undefined);
     void getReceiptPrintSettings().then((settings) => setReceiptWidth(settings.width)).catch(() => undefined);
-    void isBluetoothPrintSupported().then((status) => {
-      setBluetoothStatus(status);
-      if (status.available) void getDefaultBluetoothPrinter().then(setDefaultPrinter);
+    void import("@capacitor/core").then(({ Capacitor }) => {
+      setNativePrinting(Capacitor.isNativePlatform());
+      const platform = Capacitor.getPlatform();
+      setNativePlatform(platform === "ios" || platform === "android" ? platform : "web");
+    });
+    void isBluetoothPrintSupported().then((supported) => {
+      setBluetoothSupported(supported);
+      if (supported) void getDefaultBluetoothPrinter().then(setDefaultPrinter);
     });
   }, []);
 
@@ -55,29 +64,20 @@ export default function PosSettingsPage() {
     setBluetoothMsg("");
     setBluetoothLoading(true);
     try {
-      const status = await isBluetoothPrintSupported();
-      setBluetoothStatus(status);
       const devices = await listPairedBluetoothPrinters();
-      setBluetoothStatus({ available: true, enabled: true });
       setPairedPrinters(devices);
-      if (devices.length === 0) setBluetoothMsg("Aucun appareil Bluetooth appairé. Associez d'abord l'imprimante dans les réglages Bluetooth d'Android.");
+      if (devices.length === 0) setBluetoothMsg(nativePlatform === "ios" ? "Aucun appareil détecté. Sur iPhone, allumez une imprimante BLE compatible et relancez la recherche." : "Aucun appareil appairé. Utilisez « Configurer Bluetooth » pour associer l’imprimante dans Android.");
     } catch (error) {
       const code = error instanceof Error ? error.message : "";
-      if (code.includes("BLUETOOTH_DISABLED")) {
-        setBluetoothStatus({ available: true, enabled: false });
-        setPairedPrinters([]);
-        setBluetoothMsg("Bluetooth est désactivé. Activez-le dans les réglages Android, puis revenez ici.");
-      } else if (code.includes("BLUETOOTH_PERMISSION_DENIED")) {
-        setBluetoothMsg("Autorisation Bluetooth refusée. Autorisez VTA POS dans les réglages Android puis réessayez.");
-      } else {
-        setBluetoothMsg("Impossible de lister les appareils Bluetooth. Vérifiez que le Bluetooth est activé et l'autorisation accordée.");
-      }
+      if (code.includes("BLUETOOTH_DISABLED")) setBluetoothMsg("Bluetooth est désactivé. Activez-le dans les réglages Android puis revenez ici.");
+      else if (code.includes("BLUETOOTH_PERMISSION_DENIED")) setBluetoothMsg("Autorisation Bluetooth refusée. Autorisez VTA POS dans les réglages du téléphone puis réessayez.");
+      else setBluetoothMsg("Impossible de lister les appareils Bluetooth. Vérifiez que le Bluetooth est activé et l'autorisation accordée.");
     } finally {
       setBluetoothLoading(false);
     }
   }
 
-  async function configureBluetooth() {
+  async function configureAndroidBluetooth() {
     setBluetoothMsg("");
     try {
       await openBluetoothSettings();
@@ -87,15 +87,19 @@ export default function PosSettingsPage() {
   }
 
   async function selectPrinter(printer: PairedPrinter) {
-    await setDefaultBluetoothPrinter(printer);
-    setDefaultPrinter({ configured: true, address: printer.address, name: printer.name });
-    setBluetoothMsg(`"${printer.name || printer.address}" définie comme imprimante par défaut.`);
+    try {
+      await setDefaultBluetoothPrinter(printer);
+      setDefaultPrinter({ configured: true, address: printer.address, name: printer.name });
+      setBluetoothMsg(`"${printer.name || printer.address}" définie comme imprimante par défaut. Imprimez un ticket de test pour confirmer la compatibilité.`);
+    } catch (error) { setBluetoothMsg(bluetoothPrintError(error)); }
   }
 
   async function removeDefaultPrinter() {
-    await clearDefaultBluetoothPrinter();
-    setDefaultPrinter({ configured: false });
-    setBluetoothMsg("Imprimante Bluetooth par défaut retirée.");
+    try {
+      await clearDefaultBluetoothPrinter();
+      setDefaultPrinter({ configured: false });
+      setBluetoothMsg("Imprimante Bluetooth par défaut retirée.");
+    } catch (error) { setBluetoothMsg(bluetoothPrintError(error)); }
   }
 
   async function testBluetoothPrint() {
@@ -103,19 +107,11 @@ export default function PosSettingsPage() {
     setBluetoothMsg("");
     setBluetoothTestPrinting(true);
     try {
-      const widthDots = receiptWidth === "58" ? 384 : 576;
-      const contentWidthMm = receiptWidth === "58" ? 58 : 72;
-      await printTicketOverBluetooth(buildBluetoothTestTicketHtml(contentWidthMm), widthDots);
-      setBluetoothMsg("Ticket de test envoyé à l'imprimante.");
+      const { widthDots } = receiptPrintOptions(testWidth);
+      await printTicketOverBluetooth(buildBluetoothTestTicketHtml(testWidth), widthDots, defaultPrinter.address);
+      setBluetoothMsg("Ticket de test envoyé. Confirmez sur le papier que les accents, les montants et la coupe sont corrects.");
     } catch (error) {
-      const code = error instanceof Error ? error.message : "";
-      if (code === "CONNECTION_FAILED") {
-        setBluetoothMsg("Connexion Bluetooth impossible. Vérifiez que l'imprimante est allumée, à portée, et non connectée à un autre appareil.");
-      } else if (code === "RENDER_FAILED") {
-        setBluetoothMsg("Impossible de préparer le ticket à imprimer. Réessayez.");
-      } else {
-        setBluetoothMsg("Impression impossible. Vérifiez que l'imprimante est allumée et à portée.");
-      }
+      setBluetoothMsg(bluetoothPrintError(error));
     } finally {
       setBluetoothTestPrinting(false);
     }
@@ -172,31 +168,36 @@ export default function PosSettingsPage() {
         </div>
       </form>
 
-      {bluetoothStatus.available ? (
+      {nativePrinting ? (
         <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
           <p className="text-sm font-semibold">Imprimante Bluetooth (impression directe, sans boîte de dialogue)</p>
           <p className="mt-1 text-sm text-slate-500">
-            Appuyez sur « Configurer Bluetooth » pour associer l&apos;imprimante dans Android, revenez dans VTA POS, puis choisissez-la une seule fois. Les tickets s&apos;imprimeront ensuite automatiquement dessus.
+            Sur iPhone, recherchez une imprimante BLE ESC/POS compatible, puis sélectionnez-la ici. Sur Android, associez-la d’abord dans les réglages Bluetooth. Le modèle 2Connect POS80-01 V10 doit être confirmé par un ticket de test.
           </p>
 
-          {bluetoothStatus.enabled === false ? <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200">Bluetooth est actuellement désactivé.</p> : null}
+          {nativePlatform === "android" ? <button type="button" onClick={() => void configureAndroidBluetooth()} className="mt-3 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white">Configurer Bluetooth Android</button> : null}
 
-          <button type="button" onClick={() => void configureBluetooth()} className="mt-4 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white">
-            Configurer Bluetooth
-          </button>
-
+          {!bluetoothSupported ? <div className="mt-3 rounded-md bg-amber-50 p-3 text-sm text-amber-900">
+            <p>Bluetooth n’est pas disponible. Vérifiez l’autorisation de VTA POS dans les réglages du téléphone et la version de l’app installée.</p>
+            <button type="button" onClick={() => { void isBluetoothPrintSupported().then(setBluetoothSupported); }} className="mt-2 rounded-md border px-3 py-2 font-semibold">Vérifier Bluetooth</button>
+          </div> : null}
+          <label className="mt-4 block text-sm font-semibold">Papier du ticket de test
+            <select value={testWidth} onChange={event => setTestWidth(event.target.value === "58" ? "58" : "80")} disabled={bluetoothTestPrinting} className="ml-3 rounded-md border bg-white px-3 py-2 text-slate-900">
+              <option value="80">80 mm · 2Connect POS80-01 V10</option><option value="58">58 mm</option>
+            </select>
+          </label>
           {defaultPrinter.configured ? (
             <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm dark:border-emerald-900 dark:bg-emerald-950">
               <span className="font-semibold text-emerald-800 dark:text-emerald-200">Imprimante par défaut : {defaultPrinter.name || defaultPrinter.address}</span>
-              <button type="button" onClick={() => void removeDefaultPrinter()} className="rounded-md border border-emerald-300 px-2 py-1 text-xs font-semibold text-emerald-800 dark:border-emerald-800 dark:text-emerald-200">Retirer</button>
-              <button type="button" onClick={() => void testBluetoothPrint()} disabled={bluetoothTestPrinting} className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{bluetoothTestPrinting ? "Impression..." : "Imprimer un ticket de test"}</button>
+              <button type="button" onClick={() => void removeDefaultPrinter()} disabled={bluetoothTestPrinting} className="rounded-md border border-emerald-300 px-2 py-1 text-xs font-semibold text-emerald-800 dark:border-emerald-800 dark:text-emerald-200">Retirer</button>
+              <button type="button" onClick={() => void testBluetoothPrint()} disabled={!bluetoothSupported || bluetoothTestPrinting} className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{bluetoothTestPrinting ? "Impression..." : "Imprimer un ticket de test"}</button>
             </div>
           ) : (
             <p className="mt-3 text-sm text-amber-700 dark:text-amber-300">Aucune imprimante Bluetooth configurée pour l&apos;instant.</p>
           )}
 
-          <button type="button" onClick={() => void refreshPairedPrinters()} disabled={bluetoothLoading} className="ml-0 mt-3 rounded-md border px-4 py-2 text-sm font-semibold sm:ml-2 sm:mt-4 disabled:cursor-not-allowed disabled:opacity-60">
-            {bluetoothLoading ? "Recherche..." : "Voir les appareils Bluetooth appairés"}
+          <button type="button" onClick={() => void refreshPairedPrinters()} disabled={!bluetoothSupported || bluetoothLoading || bluetoothTestPrinting} className="mt-4 rounded-md border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60">
+            {bluetoothLoading ? "Recherche..." : "Rechercher les imprimantes Bluetooth"}
           </button>
 
           {pairedPrinters.length > 0 ? (
@@ -204,7 +205,7 @@ export default function PosSettingsPage() {
               {pairedPrinters.map((printer) => (
                 <li key={printer.address} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm dark:border-slate-800">
                   <span>{printer.name || "Appareil sans nom"} <span className="text-slate-500">({printer.address})</span></span>
-                  <button type="button" onClick={() => void selectPrinter(printer)} className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white">Définir par défaut</button>
+                  <button type="button" onClick={() => void selectPrinter(printer)} disabled={bluetoothTestPrinting || bluetoothLoading} className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white">Définir par défaut</button>
                 </li>
               ))}
             </ul>
@@ -212,29 +213,9 @@ export default function PosSettingsPage() {
 
           {bluetoothMsg ? <p className="mt-3 text-sm text-slate-500">{bluetoothMsg}</p> : null}
         </div>
-      ) : (
-        <div className="rounded-lg border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-sm font-semibold">Impression Bluetooth directe indisponible</p>
-          <p className="mt-1 text-sm text-slate-500">Cette fonction apparaît uniquement dans l&apos;application Android VTA POS sur un appareil équipé de Bluetooth. L&apos;impression système/PDF reste disponible.</p>
-        </div>
-      )}
+      ) : null}
     </div>
   );
-}
-
-function buildBluetoothTestTicketHtml(contentWidthMm: number) {
-  return `<!doctype html><html><head><meta charset="utf-8"><style>
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; }
-    body { width: ${contentWidthMm}mm; margin: 0 auto; padding: 2mm; font-family: Consolas, "Courier New", monospace; font-size: 13px; font-weight: 700; }
-    .center { text-align: center; } .line { border-top: 1px dashed #000; margin: 6px 0; }
-  </style></head><body>
-    <div class="center">TEST IMPRESSION BLUETOOTH</div>
-    <div class="line"></div>
-    <div>Si vous lisez ceci sur le papier,</div>
-    <div>la connexion Bluetooth fonctionne.</div>
-    <div class="line"></div>
-  </body></html>`;
 }
 
 function toPosForm(data: Partial<PosForm>): PosForm {

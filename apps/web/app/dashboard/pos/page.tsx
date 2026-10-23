@@ -5,11 +5,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { clearSession, getAccessToken, getCurrentUser } from "@/lib/auth";
 import { fetchWithAuth } from "@/lib/api-client";
 import { CompanyBranding, getCompanyBranding } from "@/lib/company-branding";
-import { getOfflinePosContext, getOfflineProducts, getPendingOfflineSales, saveOfflinePosContext, saveOfflineProducts, saveOfflineSale, updateOfflineProductStock } from "@/lib/offline-db";
+import { getOfflinePosContext, getOfflineProducts, getPendingOfflineSales, saveOfflinePosContext, saveOfflineProducts, commitOfflineSale, getOfflineSales, getOfflineTaxRate, saveOfflineTaxRate, getOfflineReceiptBranding } from "@/lib/offline-db";
 import { syncOfflineSalesNow } from "@/lib/offline-sync";
 import { useNetworkStatus } from "@/lib/network-status";
 import { getTenantBusinessConfiguration, isRestaurantBusiness, type TenantBusinessConfiguration } from "@/lib/business-profiles";
 import { getReceiptPrintSettings, openPrintPreview } from "@/lib/print";
+import { storedReceiptPrintOptions } from "@/lib/receipt-print-options";
+import { networkTimeout } from "@/lib/network-timeout";
+import { addOfflineProduct } from "@/lib/offline-cart";
+import { prepareOfflineCatalog } from "@/lib/offline-preparation";
+import { prepareReceiptBranding } from "@/lib/receipt-branding";
+import { buildOfflineReceipt } from "@/lib/offline-receipt";
+import { printReceiptSmart, isNativePrintAvailable } from "@/lib/native-print";
+import { printHtmlContent } from "@/lib/print";
 import { Info, MoreHorizontal, Plus, ScanLine, Trash2, X } from "lucide-react";
 
 
@@ -37,6 +45,7 @@ const POS_PRODUCT_PAGE_SIZE = 24;
 
 export default function PosPage() {
   const { isOnline } = useNetworkStatus();
+  const [offlineTaxReady, setOfflineTaxReady] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [productTotal, setProductTotal] = useState(0);
   const [productPage, setProductPage] = useState(1);
@@ -94,16 +103,20 @@ export default function PosPage() {
 
   const loadProducts = useCallback(async (pageToLoad = 1, append = false) => {
     setIsLoadingProducts(true);
+    const owner = getCurrentUser();
+    const sameOwner = () => { const user = getCurrentUser(); return user?.id === owner?.id && user?.tenantId === owner?.tenantId; };
     try {
+      if (!isOnline) throw new Error("Hors ligne");
       const params = new URLSearchParams({ search: query, limit: String(POS_PRODUCT_PAGE_SIZE), page: String(pageToLoad) });
       if (warehouseId) params.set("warehouseId", warehouseId);
-      const response = await fetchWithAuth(`${apiUrl}/pos/products?${params.toString()}`);
+      const response = await fetchWithAuth(`${apiUrl}/pos/products?${params.toString()}`, { signal: networkTimeout(5000) });
       if (response.ok) {
         const data = await response.json() as { items: Product[]; meta?: { page?: number; total?: number } };
+        if (!sameOwner()) return;
         const nextItems = data.items ?? [];
         setProducts((current) => {
           const merged = append ? mergeProductsById(current, nextItems) : nextItems;
-          void saveOfflineProducts(merged);
+          void saveOfflineProducts(merged, warehouseId);
           return merged;
         });
         setProductPage(data.meta?.page ?? pageToLoad);
@@ -115,20 +128,22 @@ export default function PosPage() {
       const detail = Array.isArray(body?.message) ? body?.message[0] : body?.message;
       throw new Error(detail ?? "Impossible de charger les produits du POS.");
     } catch (error) {
-      const cachedProducts = await getOfflineProducts();
+      if (!sameOwner()) return;
+      const cachedProducts = await getOfflineProducts(warehouseId);
       const normalizedQuery = query.trim().toLowerCase();
       const fallbackProducts = normalizedQuery ? cachedProducts.filter((product) => product.name.toLowerCase().includes(normalizedQuery) || product.sku.toLowerCase().includes(normalizedQuery) || product.primaryBarcode?.includes(normalizedQuery)) : cachedProducts;
       setProducts(fallbackProducts);
       setProductPage(1);
       setProductTotal(fallbackProducts.length);
-      setError(error instanceof Error ? error.message : "Impossible de charger les produits du POS.");
+      setError(fallbackProducts.length ? "" : "Aucun produit disponible hors ligne. Connectez-vous pour préparer le catalogue.");
     } finally {
       setIsLoadingProducts(false);
     }
-  }, [query, warehouseId]);
+  }, [query, warehouseId, isOnline]);
 
   const loadRefs = useCallback(async () => {
-    const response = await fetchWithAuth(`${apiUrl}/pos/context`).catch(() => null);
+    const owner = getCurrentUser();
+    const response = navigator.onLine ? await fetchWithAuth(`${apiUrl}/pos/context`, { signal: networkTimeout(5000) }).catch(() => null) : null;
     if (!response?.ok) {
       const cachedContext = await getOfflinePosContext();
       if (cachedContext) {
@@ -148,6 +163,7 @@ export default function PosPage() {
       return;
     }
     const data = await response.json() as { stores: Store[]; warehouses: Warehouse[]; sessions: CashSession[]; history: SaleHistory[]; customers: Customer[] };
+    if (getCurrentUser()?.id !== owner?.id || getCurrentUser()?.tenantId !== owner?.tenantId) return;
     setStores(data.stores ?? []);
     setStoreId((current) => current || data.stores?.[0]?.id || "");
     setWarehouses(data.warehouses ?? []);
@@ -161,13 +177,25 @@ export default function PosPage() {
   }, []);
 
   useEffect(() => { void loadRefs(); }, [loadRefs]);
-  useEffect(() => { const token = getAccessToken(); if (token) void getCompanyBranding(token).then(setBranding).catch(() => undefined); void getTenantBusinessConfiguration().then(setBusiness).catch(() => undefined); void getReceiptPrintSettings().then((settings) => { setReceiptFormat(settings.width); setAutoPrintReceipt(settings.autoPrintReceipt); }).catch(() => undefined);
-    void fetchWithAuth(`${apiUrl}/settings/invoicing`)
-      .then((response) => response.ok ? response.json() : null)
-      .then((settings) => {
-        if (settings?.taxEnabled && settings?.defaultTaxRate !== undefined) setTaxRate(String(Number(settings.defaultTaxRate) / 100)); else setTaxRate("0");
-      })
-      .catch(() => undefined); }, []);
+  useEffect(() => { const token = getAccessToken(); const brandingOwner = getCurrentUser(); if (token) void getCompanyBranding(token).then(async next => {
+      if (getCurrentUser()?.id !== brandingOwner?.id || getCurrentUser()?.tenantId !== brandingOwner?.tenantId) return;
+      setBranding(next);
+      if (next) {
+        const prepared = await prepareReceiptBranding(next, token);
+        if (prepared.logoUnavailable) setSyncMessage("Logo non préparé pour les tickets hors ligne. Reconnectez-vous pour le télécharger.");
+      }
+    }).catch(() => undefined); void getTenantBusinessConfiguration().then(setBusiness).catch(() => undefined); void getReceiptPrintSettings().then((settings) => { setReceiptFormat(settings.width); setAutoPrintReceipt(settings.autoPrintReceipt); }).catch(() => undefined);
+    void (async () => {
+      const cached = await getOfflineTaxRate().catch(() => null);
+      if (cached !== null) { setTaxRate(String(cached)); setOfflineTaxReady(true); }
+      const response = await fetchWithAuth(`${apiUrl}/settings/invoicing`).catch(() => null);
+      if (!response?.ok) return;
+      const settings = await response.json();
+      const rate = settings?.taxEnabled && settings?.defaultTaxRate !== undefined ? Number(settings.defaultTaxRate) / 100 : 0;
+      if (!Number.isFinite(rate) || rate < 0) return;
+      await saveOfflineTaxRate(rate);
+      setTaxRate(String(rate)); setOfflineTaxReady(true);
+    })().catch(() => undefined); }, []);
   useEffect(() => {
     const isRestaurant = isRestaurantBusiness(business?.businessProfileType, business?.primaryActivity);
     if (!isRestaurant) return;
@@ -185,7 +213,7 @@ export default function PosPage() {
     async function restoreDraft() {
     const draft = loadPosDraft();
     if (!draft) return;
-    if (!draft.heldSaleId) {
+    if (!draft.heldSaleId && navigator.onLine && process.env.NEXT_PUBLIC_IOS_EMBEDDED !== "1") {
       clearPosDraft();
       if (!cancelled) setMessage("Ancienne vente locale nettoyée: aucune vente en attente serveur associée.");
       return;
@@ -245,6 +273,14 @@ export default function PosPage() {
   }, [loadProducts]);
   useEffect(() => { void refreshPendingCount(); }, []);
   useEffect(() => {
+    if (!warehouseId || !isOnline) return;
+    const controller = new AbortController();
+    void prepareOfflineCatalog(warehouseId, controller.signal).then(count => {
+      if (!controller.signal.aborted && count !== undefined) setSyncMessage(`${count} produits prêts pour les ventes hors ligne dans ce dépôt.`);
+    }).catch(() => { if (!controller.signal.aborted) setSyncMessage("Catalogue hors ligne incomplet. Gardez Internet pour terminer la préparation."); });
+    return () => controller.abort();
+  }, [warehouseId, isOnline]);
+  useEffect(() => {
     if (isOnline) void synchronizeOfflineSales(false);
     // Synchronize once when connectivity returns; the function reads current state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -253,8 +289,11 @@ export default function PosPage() {
   async function syncCart(endpoint: "add" | "update" | "remove" | "calculate", extra: Record<string, unknown> = {}) {
     setError("");
     const payload = { ...cartPayload(), ...extra };
+    const localItems = endpoint === "add"
+      ? addOfflineProduct(payload.items as CartPayloadItem[], String(extra.productId ?? ""), Number(extra.quantity ?? 1))
+      : payload.items as CartPayloadItem[];
     if (!isOnline) {
-      setCart(calculateLocalCart(payload.items as CartPayloadItem[], products, parseMoney(payload.taxRate), parseMoney(payload.discount)));
+      setCart(calculateLocalCart(localItems, products, parseMoney(payload.taxRate), parseMoney(payload.discount)));
       return;
     }
     try {
@@ -269,7 +308,7 @@ export default function PosPage() {
       }
       setCart(await response.json() as Cart);
     } catch {
-      setCart(calculateLocalCart(payload.items as CartPayloadItem[], products, parseMoney(payload.taxRate), parseMoney(payload.discount)));
+      setCart(calculateLocalCart(localItems, products, parseMoney(payload.taxRate), parseMoney(payload.discount)));
       setMessage("Mode hors ligne active. Le panier utilise le stock local.");
     }
   }
@@ -339,6 +378,7 @@ export default function PosPage() {
   }
 
   async function checkout() {
+    if (isLoading) return;
     setError("");
     setMessage("");
     setLastSale(null);
@@ -381,9 +421,14 @@ export default function PosPage() {
       payments: paymentPayload,
       note: orderContextLabel || heldSaleNote || undefined
     };
-    if (!isOnline) {
-      await saveLocalSale(payload, paidAmount);
-      setIsLoading(false);
+    if (!isOnline || (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1" && !heldSaleId)) {
+      if (!offlineTaxReady) { setIsLoading(false); setError("Connectez-vous une fois pour préparer les paramètres de taxes avant une vente locale."); return; }
+      try {
+        if (heldSaleId) throw new Error("La finalisation d’une vente serveur en attente nécessite Internet. Votre brouillon reste sauvegardé.");
+        await saveLocalSale(payload, paidAmount);
+        if (isOnline) await synchronizeOfflineSales(false);
+      } catch (error) { setError(error instanceof Error ? error.message : "Enregistrement local impossible."); }
+      finally { setIsLoading(false); }
       return;
     }
     const finalizeKey = heldSaleId ? (heldSaleFinalizeKey || makeClientId()) : undefined;
@@ -395,7 +440,7 @@ export default function PosPage() {
     }).catch(() => null);
     setIsLoading(false);
     if (!response) {
-      await saveLocalSale(payload, paidAmount);
+      setError("Réponse serveur perdue. Vérifiez l’historique avant de réessayer pour éviter un doublon. Le panier reste sauvegardé.");
       return;
     }
     if (!response.ok) {
@@ -539,15 +584,26 @@ export default function PosPage() {
         return;
       }
     }
-    const localId = `offline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    await saveOfflineSale({ localId, status: "PENDING", createdOfflineAt: new Date().toISOString(), payload, total: cart.total, message: "Vente en attente de synchronisation" });
-    for (const item of cart.items) if (item.productId && item.stockTracked !== false) await updateOfflineProductStock(item.productId, -item.quantity);
+    const saleOwner = getCurrentUser();
+    const sameOwner = () => getCurrentUser()?.id === saleOwner?.id && getCurrentUser()?.tenantId === saleOwner?.tenantId;
+    const localId = `offline-${crypto.randomUUID()}`;
+    const createdOfflineAt = new Date().toISOString();
+    let receiptBranding = await getOfflineReceiptBranding().catch(() => null);
+    if (!sameOwner()) throw new Error("Session modifiée avant l’enregistrement de la vente.");
+    if (branding && receiptBranding?.logoSource !== branding.logoUrl) {
+      const token = getAccessToken();
+      if (token) receiptBranding = await prepareReceiptBranding(branding, token);
+    }
+    if (!sameOwner()) throw new Error("Session modifiée avant l’enregistrement de la vente.");
+    const receiptHtml = buildOfflineReceipt({ localId, logoDataUrl: receiptBranding?.logoDataUrl, company: branding?.companyName ?? receiptBranding?.companyName ?? getCurrentUser()?.tenant ?? "VTA POS", width: receiptFormat, createdAt: createdOfflineAt, items: cart.items, subtotal: cart.subtotal, discount: cart.discount, tax: cart.tax, total: cart.total, received: amount });
+    await commitOfflineSale({ localId, status: "PENDING", createdOfflineAt, payload, total: cart.total, receiptHtml, receiptWidth: receiptFormat, message: "Vente en attente de synchronisation" });
     setProducts((current) => current.map((product) => {
       const line = cart.items.find((item) => item.productId === product.id);
       return line && product.stockTracked !== false ? { ...product, availableStock: Math.max(0, product.availableStock - line.quantity) } : product;
     }));
     setLastSale({ id: localId, total: cart.total, receipt: { number: localId, content: `Ticket local ${localId}` }, invoice: { documentNumber: "En attente", total: cart.total } });
     setMessage(`Vente enregistrée localement. Montant payé: ${formatMoney(amount)}. Le stock sera confirmé à la synchronisation.`);
+    if (receiptBranding?.logoUnavailable || (branding?.logoUrl && !receiptBranding?.logoDataUrl)) setSyncMessage("Vente sauvegardée. Le logo n’était pas préparé sur cet appareil ; ce ticket local conserve le nom du commerce.");
     clearPosDraft();
     setHeldSaleId(undefined);
     setCart(emptyCart);
@@ -555,6 +611,10 @@ export default function PosPage() {
     setOrderDiscount("0");
     setCustomerId("");
     await refreshPendingCount();
+    if (autoPrintReceipt) {
+      try { await printReceiptSmart({ html: receiptHtml, format: receiptFormat === "58" ? "58" : "80", widthDots: receiptFormat === "58" ? 384 : 576 }); }
+      catch { setMessage("Vente sauvegardée. Impression indisponible ; vous pouvez réimprimer le ticket local."); }
+    }
   }
 
   async function refreshPendingCount() {
@@ -728,6 +788,7 @@ export default function PosPage() {
             </div>
           </section>
 
+          <a href="/offline" className="mb-3 inline-block rounded-lg border px-3 py-2 text-sm font-semibold">Ventes locales · synchronisation et réimpression</a>
           <StatusMessages error={error} message={message} syncMessage={syncMessage} />
 
           {business?.businessProfileType === "windows-aluminium" ? (
@@ -1197,7 +1258,7 @@ function CartPanel(props: CartPanelProps) {
 
         {props.lastSale ? (
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-            <p className="font-bold">Dernière vente confirmée</p>
+            <p className="font-bold">{props.lastSale.id.startsWith("offline-") ? "Dernière vente locale" : "Dernière vente confirmée"}</p>
             <p>Reçu: {props.lastSale.receipt?.number ?? "--"}</p>
             <p>Facture: {props.lastSale.invoice?.documentNumber ?? "--"}</p>
             <button type="button" onClick={() => props.printSale(props.lastSale!)} className="mt-2 inline-flex rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">Imprimer ticket</button>
@@ -1569,6 +1630,13 @@ function customTypeBadge(type?: CustomItemType) {
 
 async function printSaleReceipt(sale: SaleResponse) {
   try {
+    if (sale.id.startsWith("offline-")) {
+      const local = (await getOfflineSales()).find(item => item.localId === sale.id);
+      if (!local?.receiptHtml) throw new Error("Ticket local introuvable.");
+      if (await isNativePrintAvailable()) await printReceiptSmart({ html: local.receiptHtml, ...storedReceiptPrintOptions(local) });
+      else await printHtmlContent(local.receiptHtml, { title: "Ticket local", format: storedReceiptPrintOptions(local).format });
+      return;
+    }
     const settings = await getReceiptPrintSettings();
     await openPrintPreview(`/sales/${sale.id}/receipt?width=${settings.width}`, { width: settings.width });
   } catch (error) {

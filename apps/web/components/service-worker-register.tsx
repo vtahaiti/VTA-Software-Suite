@@ -7,6 +7,7 @@ const versionStorageKey = "vta_web_client_version";
 
 export function ServiceWorkerRegister() {
   useEffect(() => {
+    if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return;
     if (!("serviceWorker" in navigator) || process.env.NODE_ENV !== "production") return;
     void refreshStaleClientCache();
     navigator.serviceWorker.register("/sw.js").then((registration) => {

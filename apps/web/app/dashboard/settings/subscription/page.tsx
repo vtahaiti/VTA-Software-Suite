@@ -126,6 +126,10 @@ export default function SubscriptionSettingsPage() {
   return (
     <div className="space-y-5">
       <Header active="Abonnement" />
+      <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-5 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">
+        <h2 className="text-xl font-bold">Le premier mois, tous les plans sont gratuits</h2>
+        <p className="mt-2 text-sm">Chaque nouvelle entreprise bénéficie d’un mois d’essai avec toutes les fonctionnalités. Ensuite, choisissez Gratuit, Basique à 6 USD/mois ou Premium à 10 USD/mois. Aucun prélèvement automatique.</p>
+      </section>
 
       {loading ? <LoadingState /> : null}
       {!loading && error ? <ErrorState message={error} onRetry={() => void load()} /> : null}
@@ -142,7 +146,7 @@ export default function SubscriptionSettingsPage() {
                 </div>
                 <div className="rounded-lg bg-slate-50 px-4 py-3 text-right dark:bg-slate-950">
                   <p className="text-2xl font-bold">{formatMoney(price, currency)}</p>
-                  <p className="text-xs text-slate-500">par mois</p>
+                  <p className="text-xs text-slate-500">par mois et par entreprise</p>
                 </div>
               </div>
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -150,14 +154,14 @@ export default function SubscriptionSettingsPage() {
                 <Info label="Jours restants" value={typeof subscription?.daysRemaining === "number" ? subscription.daysRemaining : "Non défini"} />
                 <Info label="Prochain renouvellement" value={formatDate(subscription?.currentPeriodEnd ?? subscription?.trialEndsAt)} />
               </div>
-              {pendingRequest ? <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">Demande en attente : {pendingRequest.requestedPlanName || labelPlan(pendingRequest.requestedPlanCode)}. Les fonctionnalités payantes commenceront après confirmation par VTA Commerce.</div> : null}
+              {pendingRequest ? <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">Demande en attente : {pendingRequest.requestedPlanName || labelPlan(pendingRequest.requestedPlanCode)}. Le nouveau plan commencera après confirmation par VTA Commerce.</div> : null}
               {limits ? <LimitsPanel limits={limits} usage={usage} /> : null}
               {actionMessage ? <div className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-100">{actionMessage}</div> : null}
               <div className="mt-5 flex flex-wrap gap-2">
                 {plans.filter((plan) => plan.code && plan.code !== planCode && plan.code !== "TRIAL").map((plan) => (
                   <button key={plan.code} type="button" disabled={Boolean(pendingRequest)} onClick={() => void requestPlan(plan.code)} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Demander {plan.name ?? labelPlan(plan.code)}</button>
                 ))}
-                <button type="button" className="rounded-md border px-4 py-2 text-sm font-semibold" onClick={() => setActionMessage("Le renouvellement est validé par VTA Commerce après confirmation du paiement.")}>Renouveler</button>
+                <button type="button" className="rounded-md border px-4 py-2 text-sm font-semibold" disabled={Boolean(pendingRequest)} onClick={() => { if (planCode.startsWith("POS_") && !isActive) void requestPlan(planCode); else setActionMessage("Le renouvellement est validé par VTA Commerce après confirmation du paiement."); }}>Renouveler</button>
                 <button className="rounded-md border px-4 py-2 text-sm font-semibold opacity-60" title="Disponible après paiement validé">Télécharger le reçu</button>
               </div>
               <p className="mt-3 text-xs text-slate-500">Le paiement automatique n’est pas activé. Les renouvellements restent validés par VTA Commerce ou par le futur fournisseur de paiement configuré.</p>
@@ -176,8 +180,9 @@ export default function SubscriptionSettingsPage() {
 
           <section className="rounded-lg border bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <p className="text-sm font-semibold text-brand-600">Comparaison des plans</p>
-            <h2 className="text-2xl font-bold">Choisir le bon niveau</h2>
-            <div className="mt-4 grid gap-3 lg:grid-cols-3">
+            <h2 className="text-2xl font-bold">VTA POS : Gratuit, Basique ou Premium</h2>
+            <p className="mt-2 text-sm text-slate-500">Un plan gratuit sans expiration et deux plans en USD, par mois et par entreprise. Produits et ventes sans limite. Les offres ERP restent disponibles ci-dessous.</p>
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
               {plans.filter((plan) => plan.code !== "TRIAL").map((plan) => (
                 <div key={plan.code} className="rounded-lg border p-4 dark:border-slate-800">
                   <div className="flex items-start justify-between gap-3">
@@ -187,6 +192,10 @@ export default function SubscriptionSettingsPage() {
                     </div>
                     <p className="whitespace-nowrap text-sm font-bold">{formatMoney(plan.monthlyPrice ?? 0, plan.currency ?? "HTG")}</p>
                   </div>
+                  <p className="mt-1 text-xs text-slate-500">{plan.code === "POS_FREE" ? "Sans expiration" : "par mois et par entreprise"} · {plan.code?.startsWith("POS_") ? "VTA POS" : "VTA Commerce ERP"}</p>
+                  <ul className="mt-3 space-y-1 text-sm text-slate-600 dark:text-slate-300">
+                    {plan.features?.filter((feature) => feature.enabled).map((feature) => <li key={feature.key}>{feature.name ?? feature.key}</li>)}
+                  </ul>
                   {plan.limits ? <div className="mt-3 grid gap-1 text-xs text-slate-600 dark:text-slate-300">
                     {limitRows(plan.limits).map((row) => <span key={row.label}>{row.label} : {row.max}</span>)}
                   </div> : null}
@@ -279,7 +288,7 @@ function formatDate(value?: string | null) {
 }
 
 function labelPlan(code?: string | null) {
-  const labels: Record<string, string> = { TRIAL: "Essai gratuit", FREE: "Essai gratuit", ESSENTIAL: "Essentiel", STARTER: "Essentiel", STANDARD: "Professionnel", PRO: "Professionnel", EXPERT: "Expert", ENTERPRISE: "Expert" };
+  const labels: Record<string, string> = { POS_FREE: "VTA POS Gratuit", POS_BASIC: "VTA POS Basique", POS_PREMIUM: "VTA POS Premium", TRIAL: "Essai gratuit", FREE: "Essai gratuit", ESSENTIAL: "Essentiel", STARTER: "Essentiel", STANDARD: "Professionnel", PRO: "Professionnel", EXPERT: "Expert", ENTERPRISE: "Expert" };
   return labels[code ?? ""] ?? code ?? "Non défini";
 }
 
