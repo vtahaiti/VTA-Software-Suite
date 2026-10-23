@@ -22,6 +22,10 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Pour prendre une photo de profil lorsque vous le demandez.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Pour choisir votre photo de profil lorsque vous le demandez.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>VTA POS utilise Bluetooth pour rechercher votre imprimante de tickets et imprimer vos ventes, même sans Internet.</string>
 	<key>UILaunchStoryboardName</key>

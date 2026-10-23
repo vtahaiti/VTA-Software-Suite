@@ -1,5 +1,6 @@
 "use client";
 import { IosPersonalInformation, IosPasswordForm, IosAccountDeletion } from "@/components/ios-account-forms";
+import { IosProfilePhoto } from "@/components/ios-profile-photo";
 import { IosProfile } from "@/components/ios-profile";
 import { canAccessHref } from "@/lib/role-access";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
@@ -7,7 +8,7 @@ import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 import { FormEvent, useEffect, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
 import { initials, resolveAssetUrl } from "@/lib/company-branding";
-import { clearSession, getCurrentUser, logout } from "@/lib/auth";
+import { clearSession, getCurrentUser, logout, updateStoredUser } from "@/lib/auth";
 import { getOfflineSales } from "@/lib/offline-db";
 import { formatRole } from "@/lib/format";
 
@@ -167,7 +168,7 @@ export default function DashboardProfilePage() {
         {deleteMessage ? <p role="alert" className="text-sm text-red-700">{deleteMessage}</p> : null}
         <button disabled={deleting || !deletePassword || deleteConfirmation !== "SUPPRIMER"} className="rounded-md bg-red-700 px-4 py-3 font-semibold text-white disabled:opacity-50">{deleting ? "Suppression…" : "Supprimer définitivement mon compte"}</button>
       </form>);
-  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <IosProfile name={profile.name} email={profile.email} role={displayRole(profile.role)} company={companyName} photo={photo} initials={initials(profile.name, "U")} identity={<IosPersonalInformation name={profile.name} jobTitle={formatProfileJobTitle(profile.profile?.jobTitle)} phone={profile.profile?.phone ?? ""} language={profile.profile?.language ?? "fr"} email={profile.email} role={displayRole(profile.role)} company={companyName} saving={saving} message={message} onName={value => setProfile({ ...profile, name:value })} onJobTitle={value => setProfile({ ...profile, profile:{ ...profile.profile,jobTitle:value } })} onPhone={value => setProfile({ ...profile, profile:{ ...profile.profile,phone:value } })} onLanguage={value => setProfile({ ...profile, profile:{ ...profile.profile,language:value } })} onSubmit={submit}/>} password={<IosPasswordForm current={currentPassword} next={newPassword} confirmation={confirmPassword} onCurrent={setCurrentPassword} onNext={setNewPassword} onConfirmation={setConfirmPassword} saving={changingPassword} message={passwordMessage} onSubmit={submitPasswordChange}/>} deletion={<IosAccountDeletion password={deletePassword} confirmation={deleteConfirmation} onPassword={setDeletePassword} onConfirmation={setDeleteConfirmation} hasPending={hasPending} discardPending={discardPending} onDiscardPending={setDiscardPending} message={deleteMessage} deleting={deleting} onSubmit={deleteAccount}/>} canManageCompany={canAccessHref(getCurrentUser(), "/dashboard/settings/company")} onLogout={() => { void logout().then(() => { window.location.href = "/"; }); }} />;
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <IosProfile name={profile.name} email={profile.email} role={displayRole(profile.role)} company={companyName} photo={photo} initials={initials(profile.name, "U")} photoEditor={<IosProfilePhoto photo={photo} initials={initials(profile.name, "U")} onSaved={url => { setProfile(current => current ? {...current,profile:{...current.profile,photoUrl:url}} : current); const user = getCurrentUser(); if (user) updateStoredUser({...user,photoUrl:url}); }}/>} identity={<IosPersonalInformation name={profile.name} jobTitle={formatProfileJobTitle(profile.profile?.jobTitle)} phone={profile.profile?.phone ?? ""} language={profile.profile?.language ?? "fr"} email={profile.email} role={displayRole(profile.role)} company={companyName} saving={saving} message={message} onName={value => setProfile({ ...profile, name:value })} onJobTitle={value => setProfile({ ...profile, profile:{ ...profile.profile,jobTitle:value } })} onPhone={value => setProfile({ ...profile, profile:{ ...profile.profile,phone:value } })} onLanguage={value => setProfile({ ...profile, profile:{ ...profile.profile,language:value } })} onSubmit={submit}/>} password={<IosPasswordForm current={currentPassword} next={newPassword} confirmation={confirmPassword} onCurrent={setCurrentPassword} onNext={setNewPassword} onConfirmation={setConfirmPassword} saving={changingPassword} message={passwordMessage} onSubmit={submitPasswordChange}/>} deletion={<IosAccountDeletion password={deletePassword} confirmation={deleteConfirmation} onPassword={setDeletePassword} onConfirmation={setDeleteConfirmation} hasPending={hasPending} discardPending={discardPending} onDiscardPending={setDiscardPending} message={deleteMessage} deleting={deleting} onSubmit={deleteAccount}/>} canManageCompany={canAccessHref(getCurrentUser(), "/dashboard/settings/company")} onLogout={() => { void logout().then(() => { window.location.href = "/"; }); }} />;
 
   return (
     <div className="space-y-6">
