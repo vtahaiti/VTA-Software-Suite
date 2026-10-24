@@ -71,3 +71,7 @@ Le build 17 est en cours de test externe/interne, avec notifications automatique
 Image API vta-pos-api:3ac1e30 déployée sur QA puis ERP après sauvegarde. Le vrai compte QA Basique peut lire produits/stock/rapports essentiels mais ne peut pas appeler fournisseurs, achats, rôles, audit, transferts, alertes ou exports avancés. Création de boutique/dépôt/caisse refusée au plafond; deux créations utilisateur simultanées pour la dernière place donnent 201 et 403. Compte synthétique supplémentaire désactivé après test. QA conserve 42 migrations; ERP 55.
 
 Achat Sandbox Basique validé par Apple puis par l’API (POS_BASIC ACTIVE, APPLE). La restauration StoreKit / 2 n’est toujours pas validée; la mise en œuvre des quotas ne change pas ce statut.
+
+## Build 18 — TestFlight actif
+
+Le build 18 ajoute la lecture du plan pour les membres sans permission de gestion des paramètres. 44 tests passent. Archive signée, API /pos-sandbox, sandbox.localhost et nom VTA POS Test vérifiés, transfert Apple réussi. Export/sync source et généré normaux restaurés. API 6638b3e active QA/ERP; profils supplémentaires soumis à MULTI_ACTIVITY, refus Basique vérifié. Groupes interne (1) et externe (4) ajoutés; état externe « En cours de test » confirmé, notifications automatiques activées. Restauration StoreKit / 2 toujours ouverte.

@@ -29,8 +29,16 @@ Création/réactivation d’utilisateurs, boutiques, dépôts et caisses : compt
 
 ## Validation
 
-Types API/web vérifiés et 43 tests réussis, dont matrice Gratuit/Basique/Premium/Pro/Essai, expiration du cache, contrôle API même pour Owner, quotas et conflits concurrents. Vérification visuelle dans l’aperçu iOS connecté au vrai compte QA Basique.
+Types API/web vérifiés et 44 tests réussis, dont matrice Gratuit/Basique/Premium/Pro/Essai, expiration du cache, contrôle API même pour Owner, quotas et conflits concurrents. Vérification visuelle dans l’aperçu iOS connecté au vrai compte QA Basique.
 
 Image API vta-pos-api:3ac1e30 déployée sur QA puis ERP après sauvegarde. Refus HTTP 403 FEATURE_NOT_INCLUDED pour fournisseurs/achats/rôles/audit/transferts/alertes/exports/profits avec le compte QA Basique; accès produits, stock et rapports essentiels HTTP 200. Création supplémentaire de boutique/dépôt/caisse : HTTP 403 SUBSCRIPTION_LIMIT_REACHED. Test réel de deux créations simultanées pour la dernière place utilisateur : HTTP 201 et 403; compte synthétique créé puis désactivé après test. Les rapports avancés restent vides et marqués locked. Aucun test d’achat d’un autre plan n’est revendiqué.
 
 Build 1.0 (17) signé, transféré et en cours de test externe/interne dans TestFlight. Build réservé au compte QA et au serveur Sandbox. Source/configuration iOS de production restaurées. La vérification visuelle porte sur l’aperçu connecté QA, pas sur l’écran physique du build 17. Les paiements production restent désactivés et l’échec de restauration StoreKit / 2 reste ouvert.
+
+## Compléments du 24 octobre 2026
+
+L’API 6638b3e est déployée sur QA et ERP, avec /version vérifié et /health/ready HTTP 200 (42 et 55 migrations respectivement). Ajouter un profil d’activité exige MULTI_ACTIVITY; un appel direct du compte QA Basique retourne 403 FEATURE_NOT_INCLUDED. L’inscription initiale conserve son parcours existant.
+
+Les membres ayant dashboard.view peuvent consulter Mon abonnement sans recevoir de permission de facturation, de paramètres entreprise ou de rôles. La gestion et l’achat restent soumis aux contrôles serveur du responsable. Le build 18 inclut cet ajustement; les 44 tests passent.
+
+Build 1.0 (18) transféré et activé sur TestFlight interne/externe, notifications automatiques activées. Archive Sandbox contrôlée, configuration iOS normale restaurée après archivage.

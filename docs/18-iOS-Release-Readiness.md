@@ -1,6 +1,12 @@
 # VTA POS — corrections de préparation iOS
 
-## Dernier état — 24 octobre 2026, build 17 Sandbox
+## Dernier état — build 18 activé sur TestFlight
+
+Archive arm64 1.0 (18) signée Shelton et transférée avec succès. Build activé dans les groupes interne (1 testeur) et externe (4 testeurs), état « En cours de test » confirmé et notifications automatiques activées. API /pos-sandbox, sandbox.localhost et nom VTA POS Test vérifiés dans l’archive; configuration normale restaurée par export/sync après archivage. Les membres peuvent lire Mon abonnement avec dashboard.view sans obtenir les droits de gestion de facturation. Les 44 tests passent.
+
+API 6638b3e déployée QA et ERP et contrôlée via /version et /health/ready (HTTP 200). Elle ajoute le contrôle MULTI_ACTIVITY sur les profils supplémentaires; le compte QA Basique reçoit bien HTTP 403. Bases, volumes et réseaux conservés; réseaux DB internes. Apple reste activé en QA Sandbox seulement. Restauration StoreKit / 2 non validée; aucune validation native visuelle du build 18 revendiquée.
+
+## État précédent — 24 octobre 2026, build 17 Sandbox
 
 Le build 1.0 (17) est activé dans TestFlight interne/externe (« En cours de test »), API /pos-sandbox, compte QA dédié. Mon abonnement apparaît sur Accueil et Plus; la comparaison expose fonctionnalités et plafonds des quatre plans. Types API/web et 43 tests passent. Les écrans sont contrôlés dans l’aperçu iOS connecté au vrai compte QA Basique; pas de validation visuelle native du build 17 revendiquée.
 
