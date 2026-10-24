@@ -119,7 +119,23 @@ public class VtaSubscriptionsPlugin: CAPPlugin, CAPBridgedPlugin {
             do {
                 try await AppStore.sync()
                 call.resolve(["transactions": try await transactions()])
-            } catch { call.reject("La restauration Apple a échoué. Réessayez.") }
+            } catch {
+                let failure = error as NSError
+                // Never log userInfo: Apple errors can contain account or receipt data.
+                NSLog("[VTA StoreKit] restore failed: %@ %ld", failure.domain, failure.code)
+                if let storeError = error as? StoreKitError {
+                    switch storeError {
+                    case .userCancelled:
+                        call.reject("Restauration annulée dans la fenêtre Apple. Aucun abonnement n’a été modifié.", "APPLE_RESTORE_CANCELLED")
+                        return
+                    case .networkError:
+                        call.reject("Connexion à l’App Store impossible. Vérifiez Internet puis relancez la restauration.", "APPLE_RESTORE_NETWORK")
+                        return
+                    default: break
+                    }
+                }
+                call.reject("Apple n’a pas pu restaurer les achats. Référence : \(failure.domain) / \(failure.code). Réessayez et communiquez cette référence si le problème persiste.", "APPLE_RESTORE_FAILED")
+            }
         }
     }
     @objc func finish(_ call: CAPPluginCall) {
