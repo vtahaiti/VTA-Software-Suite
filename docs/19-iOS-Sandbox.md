@@ -54,10 +54,12 @@ Les boutons d’abonnement expliquent désormais leur état désactivé (propri�
 
 Le build 15 est désormais en cours de test sur TestFlight (groupe externe 4 testeurs, groupe interne 1). Archive signée vérifiée : API QA sur /pos-sandbox, sandbox.localhost, nom VTA POS Test. La compilation/lancement du simulateur réussit et les écrans accueil/connexion sont contrôlés. Le parcours StoreKit reste non validé. La configuration source/générée normale a été restaurée après ces essais.
 
-## Diagnostic de restauration — build 16 en préparation
+## Diagnostic de restauration — build 16 sur TestFlight
 
 Le propriétaire confirme les offres Apple actives sur le build 15 et rapporte un achat Basique réussi. Le contrôle indépendant du compte QA retourne toutefois POS_FREE / MANUAL; la transaction et son activation serveur ne sont donc pas validées. Le compte de production utilisé ensuite ne correspond pas au compte synthétique QA.
 
 La restauration sur téléphone retourne le message générique natif « La restauration Apple a échoué. Réessayez. ». Ce message provient du bloc AppStore.sync()/lecture des transactions, avant vérification API. La cause Apple exacte reste inconnue. Le correctif distingue StoreKitError.userCancelled et networkError, et fournit domaine/code pour les autres erreurs; aucun userInfo, identifiant Apple, reçu ou mot de passe n’est journalisé. Aucun droit payant n’est accordé sur la seule base d’un message utilisateur ou d’une erreur de synchronisation.
 
 Compilation simulateur Xcode et 20 tests d’abonnements/droits d’achat réussis. Un nouveau test sur téléphone reste nécessaire; ce changement améliore le diagnostic et ne constitue pas une preuve de réparation de StoreKit.
+
+Archive signée du build 16 contrôlée (VTA POS Test, API /pos-sandbox, sandbox.localhost), transfert Apple réussi et état « En cours de test » confirmé dans le groupe externe (4 testeurs). Groupe interne ajouté (1 testeur); notifications automatiques activées. Configuration production source/générée rétablie. Aucun achat/restauration serveur validé à cette étape.
