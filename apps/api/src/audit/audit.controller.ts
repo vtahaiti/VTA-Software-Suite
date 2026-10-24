@@ -1,10 +1,13 @@
-﻿import { Controller, Get, Header, Param, Query, Req, UseGuards } from "@nestjs/common";
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
+import { Controller, Get, Header, Param, Query, Req, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
 import { AuditLogsService, type AuditQuery } from "../audit-logs/audit-logs.service";
 
-@UseGuards(JwtAuthGuard)
+@RequiresFeature("ADVANCED_AUDIT")
+@UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("audit")
 export class AuditController {
   constructor(private readonly auditLogs: AuditLogsService) {}

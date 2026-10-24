@@ -7,7 +7,7 @@ import { AppleSubscriptions, confirmAppleTransaction, subscriptionRequest, type 
 
 type Subscription = { planCode: string; planName: string; status: string; isActive: boolean; trialEndsAt?: string; currentPeriodEnd?: string; billingProvider?: string; limits?: Record<string, number>; usage?: Record<string, number>; featureDetails?: Array<{ key: string; name: string }> };
 type Catalog = { configured: boolean; canManage: boolean; canPurchase: boolean; trialActive: boolean; appAccountToken: string; products: Array<{ id: string; planCode: string }> };
-type Plan = { code: string; name: string; description: string; monthlyPrice: number; currency: string };
+type Plan = { code: string; name: string; description: string; monthlyPrice: number; currency: string; features?: Array<{ key: string; name: string }>; limits?: Record<string, number> };
 const date = (value?: string) => value ? new Date(value).toLocaleDateString("fr-HT") : "Sans expiration";
 
 export function IosSubscriptions() {
@@ -89,6 +89,7 @@ export function IosSubscriptions() {
       {catalog?.trialActive && <section className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950"><h2 className="font-bold">Votre premier mois est offert</h2><p className="mt-2">Toutes les fonctionnalités sont disponibles pendant l’essai. À la fin, votre entreprise passe au plan Gratuit. Aucun prélèvement sans achat confirmé auprès d’Apple.</p></section>}
       {!catalog?.configured && <p className="rounded-2xl border bg-white p-4 text-sm text-slate-600">{catalog?.canManage === false ? "Seul le propriétaire peut modifier l’abonnement. Votre accès actuel reste utilisable selon votre plan." : "Les achats Apple ne sont pas encore disponibles. Votre accès actuel reste utilisable selon votre plan."}</p>}
       {priceMessage && <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><p>{priceMessage}</p><button className="mt-3 min-h-11 font-semibold disabled:opacity-40" disabled={busy} onClick={() => void action(async () => { await refresh(); })}>Recharger les offres Apple</button></div>}
+      <p className="text-sm text-slate-600">Chaque plan débloque uniquement les fonctionnalités et limites indiquées. Le rôle de chaque membre détermine ensuite ses permissions. Vos données sont conservées si vous changez de plan.</p>
       <section className="space-y-3" aria-label="Plans VTA POS">
         {plans.map(plan => {
           const product = catalog?.products.find(item => item.planCode === plan.code);
@@ -101,6 +102,8 @@ export function IosSubscriptions() {
             <p className="mt-3 text-lg font-bold">{plan.code === "POS_FREE" ? "Gratuit" : price ?? new Intl.NumberFormat("fr-HT", { style: "currency", currency: plan.currency || "USD" }).format(Number(plan.monthlyPrice))}</p>
             <p className="text-xs text-slate-500">{plan.code === "POS_FREE" ? "Sans expiration" : "par mois · pour cette entreprise"}</p>
             {plan.code !== "POS_FREE" && !price && <p className="mt-2 text-xs text-slate-500">Tarif de référence. Le prix dans votre devise sera confirmé par Apple avant tout achat.</p>}
+            {plan.limits && <dl className="ios-plan-limits">{Object.entries({ users: "Utilisateurs actifs", stores: "Boutiques", warehouses: "Dépôts", cashRegisters: "Caisses" }).map(([key, label]) => <div key={key}><dt>{label}</dt><dd>{plan.limits?.[key] ?? "—"}</dd></div>)}</dl>}
+            <details className="ios-plan-inclusions"><summary>Fonctionnalités incluses ({plan.features?.length ?? 0})</summary><ul>{plan.features?.map(feature => <li key={feature.key}>{feature.name}</li>)}</ul></details>
             {product && <button className="mt-4 min-h-11 w-full rounded-xl bg-brand-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-40" disabled={offer.disabled} onClick={() => void buy(product.id)}>{offer.label}</button>}
           </article>;
         })}

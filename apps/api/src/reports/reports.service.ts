@@ -428,7 +428,11 @@ export class ReportsService {
     };
   }
 
-  async dashboard(tenantId: string, query: ReportQueryDto) {
+  async dashboard(tenantId: string, query: ReportQueryDto, advanced = true) {
+    if (!advanced) {
+      const locked = { summary: {}, items: [], locked: true };
+      return { sales: await this.sales(tenantId, { ...query, page: 1, limit: 5 }), products: locked, inventory: locked, customers: locked, purchases: locked, profit: locked };
+    }
     const [sales, products, inventory, customers, purchases, profit] = await Promise.all([
       this.sales(tenantId, { ...query, page: 1, limit: 5 }),
       this.products(tenantId, { ...query, page: 1, limit: 5 }),

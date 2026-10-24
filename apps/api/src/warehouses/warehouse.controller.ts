@@ -1,3 +1,5 @@
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
@@ -5,7 +7,8 @@ import { Permissions } from "../rbac/decorators/permissions.decorator";
 import { CreateWarehouseDto } from "./dto/create-warehouse.dto";
 import { UpdateWarehouseDto } from "./dto/update-warehouse.dto";
 import { WarehouseService } from "./warehouse.service";
-@UseGuards(JwtAuthGuard)
+@RequiresFeature("POS")
+@UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("warehouses")
 export class WarehouseController{constructor(private readonly service:WarehouseService){}
  @Get() @Permissions("inventory.view") findAll(@Req() req:AuthenticatedRequest){return this.service.findAll(req.user.tenantId)}

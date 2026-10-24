@@ -1,3 +1,5 @@
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { Body, Controller, Get, Param, Post, Req, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
@@ -14,7 +16,8 @@ function hasBroadVisibility(user: AuthenticatedRequest["user"]) {
   return roles.some((role) => broadVisibilityRoles.has(role));
 }
 
-@UseGuards(JwtAuthGuard)
+@RequiresFeature("POS")
+@UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("cash-registers")
 export class CashRegisterController {
   constructor(private readonly service: CashRegisterService) {}

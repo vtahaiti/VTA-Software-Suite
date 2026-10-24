@@ -1,3 +1,5 @@
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
@@ -5,7 +7,8 @@ import { Permissions } from "../rbac/decorators/permissions.decorator";
 import { CreateNotificationDto } from "./dto/create-notification.dto";
 import { NotificationsService } from "./notifications.service";
 
-@UseGuards(JwtAuthGuard)
+@RequiresFeature("NOTIFICATIONS")
+@UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("notifications")
 export class NotificationsController {
   constructor(private readonly notifications: NotificationsService) {}

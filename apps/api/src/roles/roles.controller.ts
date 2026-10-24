@@ -1,3 +1,5 @@
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
@@ -5,7 +7,8 @@ import { Permissions } from "../rbac/decorators/permissions.decorator";
 import { CreateRoleDto } from "./dto/create-role.dto";
 import { UpdateRoleDto } from "./dto/update-role.dto";
 import { RolesService } from "./roles.service";
-@UseGuards(JwtAuthGuard)
+@RequiresFeature("ROLES_PERMISSIONS")
+@UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("roles")
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}

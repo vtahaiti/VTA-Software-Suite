@@ -1,3 +1,4 @@
+import { SubscriptionEntitlementsService } from "../subscriptions/subscription-entitlements.service";
 import { createHash } from "node:crypto";
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InventoryMovementType, PaymentMethod, Prisma, SaleStatus, SalesDocumentStatus } from "@prisma/client";
@@ -12,7 +13,7 @@ type SaleProduct = Prisma.ProductGetPayload<{ include: { variants: true; stocks:
 
 @Injectable()
 export class SalesService {
-  constructor(private readonly prisma: PrismaService, private readonly stock: StockService) {}
+  constructor(private readonly prisma: PrismaService, private readonly stock: StockService, private readonly subscriptions: SubscriptionEntitlementsService) {}
 
   async findAll(tenantId: string, query: SaleQueryDto, user?: Pick<AuthUser, "id" | "role" | "roles" | "permissions">) {
     const page = query.page ?? 1;
@@ -88,6 +89,8 @@ export class SalesService {
 
   async create(tenantId: string, dto: CreateSaleDto, userId?: string, paymentCreatedById = userId, offlineSaleId?: string) {
     if (!dto.items?.length) throw new BadRequestException("Panier vide");
+    await this.subscriptions.assertFeature(tenantId, "POS");
+    if ((dto.payments?.length ?? 0) > 1 || dto.payments?.some(payment => payment.method === "MIXED")) await this.subscriptions.assertFeature(tenantId, "MULTI_PAYMENT");
 
     const result = await this.prisma.$transaction(async (tx) => {
       if (dto.customerId) {

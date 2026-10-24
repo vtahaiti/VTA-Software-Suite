@@ -165,6 +165,28 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
     }
   }
 
+  // Count and write in the same serializable transaction. A cached usage count
+  // or a controller-only check lets concurrent requests exceed the last slot.
+  async withResourceLimit<T>(tenantId: string, key: SubscriptionLimitKey, write: (tx: Prisma.TransactionClient) => Promise<T>, consumesSlot: boolean | ((tx: Prisma.TransactionClient) => Promise<boolean>) = true): Promise<T> {
+    const entitlements = await this.getEntitlements(tenantId);
+    if (!entitlements.isActive) throw new ForbiddenException({ code: "SUBSCRIPTION_INACTIVE", message: "Votre abonnement n'est pas actif." });
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const result = await this.prisma.$transaction(async tx => {
+          if (typeof consumesSlot === "function" ? await consumesSlot(tx) : consumesSlot) {
+            const usage = await this.getUsage(tenantId, tx);
+            if (usage[key] >= entitlements.limits[key]) throw new ForbiddenException({ code: "SUBSCRIPTION_LIMIT_REACHED", limitKey: key, planCode: entitlements.planCode, limit: entitlements.limits[key], used: usage[key], message: "La limite de votre plan est atteinte. Consultez Mon abonnement pour comparer les plans." });
+          }
+          return write(tx);
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+        this.invalidate(tenantId);
+        return result;
+      } catch (error) {
+        if (attempt >= 2 || !error || typeof error !== "object" || !("code" in error) || error.code !== "P2034") throw error;
+      }
+    }
+  }
+
   invalidate(tenantId: string) {
     this.cache.delete(tenantId);
   }
@@ -365,8 +387,8 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
     };
   }
 
-  private async getUsage(tenantId: string) {
-    const tenant = await this.prisma.tenant.findUnique({
+  private async getUsage(tenantId: string, db: Prisma.TransactionClient = this.prisma) {
+    const tenant = await db.tenant.findUnique({
       where: { id: tenantId },
       select: { businessProfileType: true, primaryActivity: true, businessCategory: true }
     });
@@ -374,10 +396,10 @@ export class SubscriptionEntitlementsService implements OnModuleInit {
       ? { tenantId, isActive: true, code: { notIn: [...RESTAURANT_SYSTEM_WAREHOUSE_CODES] } }
       : { tenantId, isActive: true };
     const [users, stores, warehouses, cashRegisters] = await Promise.all([
-      this.prisma.user.count({ where: { tenantId, isActive: true } }),
-      this.prisma.store.count({ where: { tenantId, status: "ACTIVE" } }),
-      this.prisma.warehouse.count({ where: warehouseWhere }),
-      this.prisma.cashRegister.count({ where: { tenantId, isActive: true } })
+      db.user.count({ where: { tenantId, isActive: true } }),
+      db.store.count({ where: { tenantId, status: { not: "CLOSED" } } }),
+      db.warehouse.count({ where: warehouseWhere }),
+      db.cashRegister.count({ where: { tenantId, isActive: true } })
     ]);
     return { users, stores, warehouses, cashRegisters };
   }

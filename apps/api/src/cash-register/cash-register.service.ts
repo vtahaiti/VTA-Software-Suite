@@ -1,3 +1,4 @@
+import { SubscriptionEntitlementsService } from "../subscriptions/subscription-entitlements.service";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { CashMovementType, CashSessionStatus, PaymentMethod, Prisma } from "@prisma/client";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
@@ -6,7 +7,7 @@ import { CloseCashSessionDto, CreateCashMovementDto, CreateCashRegisterDto, Open
 
 @Injectable()
 export class CashRegisterService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly subscriptions: SubscriptionEntitlementsService) {}
 
   registers(tenantId: string) {
     return this.prisma.cashRegister.findMany({ where: { tenantId }, include: { sessions: { orderBy: { openedAt: "desc" }, take: 1 } }, orderBy: { name: "asc" } });
@@ -14,7 +15,7 @@ export class CashRegisterService {
 
   async createRegister(tenantId: string, dto: CreateCashRegisterDto) {
     try {
-      return await this.prisma.cashRegister.create({ data: { tenantId, name: dto.name, code: dto.code ?? this.code(dto.name), isActive: dto.isActive ?? true } });
+      return await this.subscriptions.withResourceLimit(tenantId, "cashRegisters", tx => tx.cashRegister.create({ data: { tenantId, name: dto.name, code: dto.code ?? this.code(dto.name), isActive: dto.isActive ?? true } }), dto.isActive !== false);
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") throw new BadRequestException("Code caisse déjà existant");
       throw error;

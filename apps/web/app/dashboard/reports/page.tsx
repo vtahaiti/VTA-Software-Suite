@@ -3,7 +3,7 @@ import { IosReports } from "@/components/ios-reports";
 import { apiBaseUrl as apiUrl } from "@/lib/api-url";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getAccessToken } from "@/lib/auth";
+import { fetchWithAuth } from "@/lib/api-client";
 import { businessDateKey, formatBusinessDateTime } from "@/lib/business-timezone";
 import { pluralize } from "@/lib/format";
 
@@ -12,6 +12,7 @@ type Primitive = string | number | boolean | null | undefined;
 type ReportRow = Record<string, Primitive>;
 type ReportSummary = Record<string, Primitive | Array<Record<string, Primitive>>>;
 type ReportSection = {
+  locked?: boolean;
   summary: ReportSummary;
   items?: ReportRow[];
   recentMovements?: ReportRow[];
@@ -19,11 +20,11 @@ type ReportSection = {
 };
 type ReportsDashboard = {
   sales: ReportSection;
-  products: ReportSection;
-  inventory: ReportSection;
-  customers: ReportSection;
-  purchases: ReportSection;
-  profit: ReportSection;
+  products: ReportSection | null;
+  inventory: ReportSection | null;
+  customers: ReportSection | null;
+  purchases: ReportSection | null;
+  profit: ReportSection | null;
 };
 type Column = { key: string; label: string; format?: "money" | "date" | "status" | "boolean" };
 
@@ -142,9 +143,7 @@ export default function ReportsPage() {
     if (dateTo) params.set("dateTo", dateTo);
 
     try {
-      const response = await fetch(`${apiUrl}/reports/dashboard?${params}`, {
-        headers: { Authorization: `Bearer ${getAccessToken()}` }
-      });
+      const response = await fetchWithAuth(`${apiUrl}/reports/dashboard?${params}`);
       if (!response.ok) throw new Error("Impossible de charger les rapports.");
       setReports((await response.json()) as ReportsDashboard);
     } catch (requestError) {
@@ -158,14 +157,16 @@ export default function ReportsPage() {
     void loadReports();
   }, [loadReports]);
 
+  const availableSections = sections.filter(section => reports?.[section.key] && !reports[section.key]?.locked);
+
   function prepareExport() {
     if (!reports) {
       window.alert("Chargez d'abord les rapports avant d'exporter.");
       return;
     }
     const lines: string[] = [];
-    for (const section of sections) {
-      const rows = reports[section.key].items ?? [];
+    for (const section of availableSections) {
+      const rows = reports[section.key]?.items ?? [];
       lines.push(csvField(section.title));
       lines.push(section.columns.map((column) => csvField(column.label)).join(","));
       if (rows.length === 0) {
@@ -190,18 +191,16 @@ export default function ReportsPage() {
     URL.revokeObjectURL(url);
   }
 
-  const cards = reports
-    ? [
-        { label: "Ventes", value: formatMoney(numberValue(reports.sales.summary.total)), detail: pluralize(numberValue(reports.sales.summary.count), "vente") },
-        { label: "Produits", value: numberValue(reports.products.summary.count).toString(), detail: `${pluralize(numberValue(reports.products.summary.active), "produit")} actifs` },
-        { label: "Stock faible", value: numberValue(reports.inventory.summary.lowStock).toString(), detail: `${numberValue(reports.inventory.summary.available)} unit\u00e9s disponibles` },
-        { label: "Clients", value: numberValue(reports.customers.summary.count).toString(), detail: `${formatMoney(numberValue(reports.customers.summary.currentBalance))} solde` },
-        { label: "Achats", value: formatMoney(numberValue(reports.purchases.summary.total)), detail: pluralize(numberValue(reports.purchases.summary.count), "bon") },
-        { label: "Profit brut", value: formatProfitValue(reports.profit.summary), detail: formatProfitDetail(reports.profit.summary) }
-      ]
-    : [];
+  const cards = reports ? [
+    { label: "Ventes", value: formatMoney(numberValue(reports.sales.summary.total)), detail: pluralize(numberValue(reports.sales.summary.count), "vente") },
+    ...(reports.products && !reports.products.locked ? [{ label: "Produits", value: numberValue(reports.products.summary.count).toString(), detail: `${pluralize(numberValue(reports.products.summary.active), "produit")} actifs` }] : []),
+    ...(reports.inventory && !reports.inventory.locked ? [{ label: "Stock faible", value: numberValue(reports.inventory.summary.lowStock).toString(), detail: `${numberValue(reports.inventory.summary.available)} unités disponibles` }] : []),
+    ...(reports.customers && !reports.customers.locked ? [{ label: "Clients", value: numberValue(reports.customers.summary.count).toString(), detail: `${formatMoney(numberValue(reports.customers.summary.currentBalance))} solde` }] : []),
+    ...(reports.purchases && !reports.purchases.locked ? [{ label: "Achats", value: formatMoney(numberValue(reports.purchases.summary.total)), detail: pluralize(numberValue(reports.purchases.summary.count), "bon") }] : []),
+    ...(reports.profit && !reports.profit.locked ? [{ label: "Profit brut", value: formatProfitValue(reports.profit.summary), detail: formatProfitDetail(reports.profit.summary) }] : [])
+  ] : [];
 
-  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <IosReports cards={cards} dateFrom={dateFrom} dateTo={dateTo} onFrom={setDateFrom} onTo={setDateTo} loading={isLoading} error={error} retry={() => void loadReports()} onExport={prepareExport} onPrint={() => window.print()} sections={sections.map(section => ({ key: section.key, title: section.title, content: reports ? <ReportTable config={section} report={reports[section.key]} /> : null }))} />;
+  if (process.env.NEXT_PUBLIC_IOS_EMBEDDED === "1") return <IosReports cards={cards} dateFrom={dateFrom} dateTo={dateTo} onFrom={setDateFrom} onTo={setDateTo} loading={isLoading} error={error} retry={() => void loadReports()} onExport={prepareExport} onPrint={() => window.print()} sections={availableSections.map(section => ({ key: section.key, title: section.title, content: reports ? <ReportTable config={section} report={reports[section.key]!} /> : null }))} />;
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:flex-row lg:items-center">
@@ -252,8 +251,8 @@ export default function ReportsPage() {
 
         {!isLoading && reports ? (
           <div className="grid gap-5">
-            {sections.map((section) => (
-              <ReportTable key={section.key} config={section} report={reports[section.key]} />
+            {availableSections.map((section) => (
+              <ReportTable key={section.key} config={section} report={reports[section.key]!} />
             ))}
           </div>
         ) : null}

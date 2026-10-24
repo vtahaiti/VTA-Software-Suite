@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
+import { IosSubscriptionCard } from "./ios-plan-access";
 import { BarChart3, ShoppingCart, Package, Users, ReceiptText, ChevronRight, AlertTriangle } from "lucide-react";
 
 type HomeSummary = {
@@ -34,6 +35,7 @@ export function IosHome({ name, summary, loading, error }: { name: string; summa
   }, []);
   return <div className="ios-home">
     <div className="ios-page-intro"><h1>Bonjour, {name.split(" ")[0] || "à vous"}</h1><p>Voici un aperçu de votre activité.</p></div>
+    <IosSubscriptionCard/>
     {error && <div role="alert" className="ios-notice"><AlertTriangle size={18} /><span>{error}</span><button onClick={() => window.location.reload()}>Réessayer</button></div>}
     <section className="ios-revenue" aria-busy={loading} aria-label="Ventes du jour"><BarChart3 size={26} /><div><p>Ventes du jour</p><strong>{available ? money(summary.kpis.revenueToday) : "— HTG"}</strong></div></section>
     <div className="ios-home-metrics"><Link href="/dashboard/sales/completed"><ShoppingCart size={22} /><div><strong>{value(summary.kpis.salesToday)}</strong><span>ventes aujourd’hui</span></div><ChevronRight size={16} /></Link><Link href="/dashboard/inventory"><Package size={22} /><div><strong>{value(summary.kpis.lowStock)}</strong><span>stock faible</span></div><ChevronRight size={16} /></Link></div>

@@ -1,3 +1,5 @@
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { Body, Controller, Get, Header, Param, Patch, Post, Query, Req, Res, StreamableFile, UseGuards } from "@nestjs/common";
 import type { Response } from "express";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
@@ -7,7 +9,8 @@ import { Permissions } from "../rbac/decorators/permissions.decorator";
 import { CreateInvoicePaymentDto, CreateSalesDocumentDto, SalesDocumentQueryDto, UpdateSalesDocumentDto } from "./dto/sales-document.dto";
 import { InvoicesService } from "./invoices.service";
 
-@UseGuards(JwtAuthGuard)
+@RequiresFeature("SALES_HISTORY")
+@UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("invoices")
 export class InvoicesController {
   constructor(private readonly service: InvoicesService, private readonly printService: InvoicePrintService) {}
@@ -16,11 +19,13 @@ export class InvoicesController {
   @Permissions("invoice.read")
   findAll(@Req() req: AuthenticatedRequest, @Query() query: SalesDocumentQueryDto) { return this.service.findAll(req.user.tenantId, query); }
 
+  @RequiresFeature("LETTER_REPORT_PRINTING")
   @Get(":id/print")
   @Header("Content-Type", "text/html; charset=utf-8")
   @Permissions("invoice.print")
   print(@Req() req: AuthenticatedRequest, @Param("id") id: string, @Query("format") format?: "a4" | "letter") { return this.printService.renderInvoice(req.user.tenantId, id, format ?? "letter"); }
 
+  @RequiresFeature("LETTER_REPORT_PRINTING")
   @Get(":id/pdf")
   @Permissions("invoice.print")
   async pdf(@Req() req: AuthenticatedRequest, @Param("id") id: string, @Res({ passthrough: true }) response: Response) {

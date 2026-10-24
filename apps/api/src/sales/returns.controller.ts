@@ -1,10 +1,13 @@
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { Body, Controller, Get, Post, Req, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
 import { CreateReturnDto } from "./dto/create-return.dto";
 import { ReturnsService } from "./returns.service";
-@UseGuards(JwtAuthGuard)
+@RequiresFeature("SALES_HISTORY")
+@UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("sales-returns")
 export class ReturnsController { constructor(private readonly service: ReturnsService) {}
   @Get() @Permissions("return.read") findAll(@Req() req: AuthenticatedRequest) { return this.service.findAll(req.user.tenantId); }

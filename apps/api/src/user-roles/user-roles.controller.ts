@@ -1,10 +1,13 @@
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { Body, Controller, Post, Req, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
 import { AssignUserRoleDto } from "./dto/assign-user-role.dto";
 import { UserRolesService } from "./user-roles.service";
-@UseGuards(JwtAuthGuard)
+@RequiresFeature("ROLES_PERMISSIONS")
+@UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("user-roles")
 export class UserRolesController {
   constructor(private readonly userRolesService: UserRolesService) {}

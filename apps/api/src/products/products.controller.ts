@@ -42,6 +42,7 @@ export class ProductsController {
   findByBarcode(@Req() request: AuthenticatedRequest, @Param("barcode") barcode: string) {
     return this.productsService.findByBarcode(request.user.tenantId, barcode);
   }
+  @RequiresFeature("IMPORT_EXPORT")
   @Get("export")
   @Header("Content-Type", "application/vnd.ms-excel")
   @Header("Content-Disposition", "attachment; filename=products.xls")
@@ -50,6 +51,7 @@ export class ProductsController {
     return this.productsService.exportExcel(request.user.tenantId);
   }
 
+  @RequiresFeature("IMPORT_EXPORT")
   @Get("export/csv")
   @Header("Content-Type", "text/csv; charset=utf-8")
   @Header("Content-Disposition", "attachment; filename=products.csv")
@@ -58,6 +60,7 @@ export class ProductsController {
     return this.productsService.exportCsv(request.user.tenantId);
   }
 
+  @RequiresFeature("IMPORT_EXPORT")
   @Get("export/pdf")
   @Header("Content-Type", "application/pdf")
   @Header("Content-Disposition", "attachment; filename=products.pdf")
@@ -66,12 +69,14 @@ export class ProductsController {
     return this.productsService.exportPdf(request.user.tenantId);
   }
 
+  @RequiresFeature("IMPORT_EXPORT")
   @Post("import")
   @Permissions("products.import")
   importCsv(@Req() request: AuthenticatedRequest, @Body() dto: ImportProductsDto) {
     return this.productsService.importCsv(request.user.tenantId, dto.csv);
   }
 
+  @RequiresFeature("IMPORT_EXPORT")
   @Post("import/excel")
   @Permissions("products.import")
   importExcel(@Req() request: AuthenticatedRequest, @Body() dto: ImportProductsDto) {

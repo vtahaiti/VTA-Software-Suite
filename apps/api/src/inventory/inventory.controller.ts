@@ -25,6 +25,7 @@ export class InventoryController {
   @Permissions("inventory.audit")
   movements(@Req() req: AuthenticatedRequest, @Query() query: Parameters<InventoryService["movements"]>[1]) { return this.service.movements(req.user.tenantId, query); }
 
+  @RequiresFeature("LOW_STOCK_ALERTS")
   @Get("alerts")
   @Permissions("inventory.low_stock.view")
   alerts(@Req() req: AuthenticatedRequest) { return this.service.alerts(req.user.tenantId); }
@@ -57,18 +58,22 @@ export class InventoryController {
   @Permissions("inventory.view")
   scan(@Req() req: AuthenticatedRequest, @Param("code") code: string) { return this.service.scan(req.user.tenantId, code); }
 
+  @RequiresFeature("STOCK_TRANSFERS")
   @Get("transfers")
   @Permissions("inventory.transfer")
   transfers(@Req() req: AuthenticatedRequest) { return this.service.transfers(req.user.tenantId); }
 
+  @RequiresFeature("STOCK_TRANSFERS")
   @Post("transfers")
   @Permissions("inventory.transfer")
   createTransfer(@Req() req: AuthenticatedRequest, @Body() dto: CreateTransferDto) { return this.service.createTransfer(req.user.tenantId, dto); }
 
+  @RequiresFeature("STOCK_TRANSFERS")
   @Post("transfers/:id/receive")
   @Permissions("inventory.transfer")
   receive(@Req() req: AuthenticatedRequest, @Param("id") id: string) { return this.service.receiveTransfer(req.user.tenantId, id); }
 
+  @RequiresFeature("STOCK_TRANSFERS")
   @Post("transfers/:id/cancel")
   @Permissions("inventory.transfer")
   cancel(@Req() req: AuthenticatedRequest, @Param("id") id: string) { return this.service.cancelTransfer(req.user.tenantId, id); }
@@ -77,18 +82,21 @@ export class InventoryController {
   @Permissions("reports.inventory")
   reports(@Req() req: AuthenticatedRequest) { return this.service.reports(req.user.tenantId); }
 
+  @RequiresFeature("IMPORT_EXPORT")
   @Get("export/csv")
   @Header("Content-Type", "text/csv; charset=utf-8")
   @Header("Content-Disposition", "attachment; filename=inventory.csv")
   @Permissions("export.inventory")
   exportCsv(@Req() req: AuthenticatedRequest) { return this.service.exportCsv(req.user.tenantId); }
 
+  @RequiresFeature("IMPORT_EXPORT")
   @Get("export/excel")
   @Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
   @Header("Content-Disposition", "attachment; filename=inventory.xlsx")
   @Permissions("export.inventory")
   exportExcel(@Req() req: AuthenticatedRequest) { return this.service.exportExcel(req.user.tenantId); }
 
+  @RequiresFeature("IMPORT_EXPORT")
   @Get("export/pdf")
   @Header("Content-Type", "application/pdf")
   @Header("Content-Disposition", "attachment; filename=inventory.pdf")

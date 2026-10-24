@@ -1,3 +1,5 @@
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { Body, Controller, Get, Header, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
@@ -7,7 +9,8 @@ import { CreateSaleDto } from "./dto/create-sale.dto";
 import { SaleQueryDto } from "./dto/sale-query.dto";
 import { SalesService } from "./sales.service";
 
-@UseGuards(JwtAuthGuard)
+@RequiresFeature("SALES_HISTORY")
+@UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("sales")
 export class SalesController {
   constructor(private readonly service: SalesService, private readonly printService: InvoicePrintService) {}

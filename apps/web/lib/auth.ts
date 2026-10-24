@@ -39,7 +39,7 @@ export function hasValidOfflineSession() {
   return validatedAt > 0 && age >= 0 && age <= offlineAccessDurationMs;
 }
 
-const tenantScopedLocalStoragePrefixes = ["vta_pos_draft_"];
+const tenantScopedLocalStoragePrefixes = ["vta_pos_draft_", "vta_plan_access_"];
 const tenantScopedLocalStorageKeys = ["vta_pending_pos_print"];
 const offlineDbName = "vta-commerce-offline";
 

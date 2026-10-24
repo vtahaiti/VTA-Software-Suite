@@ -5,13 +5,14 @@ import { Permissions } from "../rbac/decorators/permissions.decorator";
 import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
 import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { ReportQueryDto } from "./dto/report-query.dto";
+import { SubscriptionEntitlementsService } from "../subscriptions/subscription-entitlements.service";
 import { ReportsService } from "./reports.service";
 
 @RequiresFeature("BASIC_REPORTS")
 @UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("reports")
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) {}
+  constructor(private readonly reportsService: ReportsService, private readonly subscriptions: SubscriptionEntitlementsService) {}
 
   @Get("sales")
   @Permissions("reports.sales")
@@ -19,30 +20,35 @@ export class ReportsController {
     return this.reportsService.sales(request.user.tenantId, query);
   }
 
+  @RequiresFeature("ADVANCED_REPORTS")
   @Get("products")
   @Permissions("reports.products")
   products(@Req() request: AuthenticatedRequest, @Query() query: ReportQueryDto) {
     return this.reportsService.products(request.user.tenantId, query);
   }
 
+  @RequiresFeature("ADVANCED_REPORTS")
   @Get("top-products")
   @Permissions("reports.products")
   topProducts(@Req() request: AuthenticatedRequest, @Query() query: ReportQueryDto) {
     return this.reportsService.topProducts(request.user.tenantId, query);
   }
 
+  @RequiresFeature("ADVANCED_REPORTS")
   @Get("inventory")
   @Permissions("reports.inventory")
   inventory(@Req() request: AuthenticatedRequest, @Query() query: ReportQueryDto) {
     return this.reportsService.inventory(request.user.tenantId, query);
   }
 
+  @RequiresFeature("ADVANCED_REPORTS")
   @Get("customers")
   @Permissions("reports.customers")
   customers(@Req() request: AuthenticatedRequest, @Query() query: ReportQueryDto) {
     return this.reportsService.customers(request.user.tenantId, query);
   }
 
+  @RequiresFeature("ADVANCED_REPORTS")
   @Get("purchases")
   @Permissions("reports.purchases")
   purchases(@Req() request: AuthenticatedRequest, @Query() query: ReportQueryDto) {
@@ -58,7 +64,7 @@ export class ReportsController {
 
   @Get("dashboard")
   @Permissions("reports.read")
-  dashboard(@Req() request: AuthenticatedRequest, @Query() query: ReportQueryDto) {
-    return this.reportsService.dashboard(request.user.tenantId, query);
+  async dashboard(@Req() request: AuthenticatedRequest, @Query() query: ReportQueryDto) {
+    return this.reportsService.dashboard(request.user.tenantId, query, await this.subscriptions.hasFeature(request.user.tenantId, "ADVANCED_REPORTS"));
   }
 }

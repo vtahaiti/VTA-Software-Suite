@@ -14,12 +14,15 @@ export const AppleSubscriptions = registerPlugin<{
   addListener(event: "transactionUpdated" | "purchaseIntent", listener: () => void): Promise<PluginListenerHandle>;
 }>("VtaSubscriptions");
 
-export async function subscriptionRequest<T>(path: string, body?: object): Promise<T> {
+export class SubscriptionRequestError extends Error {
+  constructor(message: string, public readonly status: number) { super(message); }
+}
+export async function subscriptionRequest<T>(path: string, body?: object, signal?: AbortSignal): Promise<T> {
   const response = await fetchWithAuth(`${apiBaseUrl}/subscription/${path}`, body ? {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
-  } : undefined);
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal
+  } : { signal });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(Array.isArray(payload.message) ? payload.message[0] : payload.message ?? "Abonnement indisponible. Réessayez.");
+  if (!response.ok) throw new SubscriptionRequestError(Array.isArray(payload.message) ? payload.message[0] : payload.message ?? "Abonnement indisponible. Réessayez.", response.status);
   return payload;
 }
 

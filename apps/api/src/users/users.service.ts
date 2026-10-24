@@ -1,3 +1,4 @@
+import { SubscriptionEntitlementsService } from "../subscriptions/subscription-entitlements.service";
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { AuthService } from "../auth/auth.service";
 import { hashPassword } from "../auth/password-hashing";
@@ -8,7 +9,7 @@ import { tenantRolePresets } from "./tenant-role-presets";
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService, private readonly authService: AuthService) {}
+  constructor(private readonly prisma: PrismaService, private readonly authService: AuthService, private readonly subscriptions: SubscriptionEntitlementsService) {}
 
   async findAll(tenantId: string) {
     await this.ensureTenantRolePresets(tenantId);
@@ -37,18 +38,19 @@ export class UsersService {
     if (existing) throw new ConflictException("Un utilisateur existe déjà avec cet email dans cette entreprise.");
 
     const role = await this.roleOrFail(tenantId, dto.role);
-    const user = await this.prisma.user.create({
+    const password = await hashPassword(dto.temporaryPassword);
+    const user = await this.subscriptions.withResourceLimit(tenantId, "users", tx => tx.user.create({
       data: {
         tenantId,
         email,
         name: dto.name.trim(),
-        password: await hashPassword(dto.temporaryPassword),
+        password,
         isActive: true,
         roles: { create: { roleId: role.id } },
         profile: { create: { phone: dto.phone, jobTitle: this.roleJobTitle(dto.role), language: "fr" } }
       },
       include: { roles: { include: { role: true } } }
-    });
+    }));
 
     if (dto.storeId) {
       const store = await this.prisma.store.findFirst({ where: { id: dto.storeId, tenantId } });
@@ -95,7 +97,7 @@ export class UsersService {
   async reactivate(tenantId: string, userId: string) {
     const user = await this.userOrFail(tenantId, userId);
     this.assertNotPlatformUser(user);
-    await this.prisma.user.update({ where: { id: user.id }, data: { isActive: true } });
+    await this.subscriptions.withResourceLimit(tenantId, "users", tx => tx.user.update({ where: { id: user.id }, data: { isActive: true } }), async tx => !(await tx.user.findFirst({ where: { id: user.id, tenantId } }))?.isActive);
     await this.prisma.storeUser.updateMany({ where: { tenantId, userId: user.id }, data: { isActive: true } });
     return { success: true };
   }

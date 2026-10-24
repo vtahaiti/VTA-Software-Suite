@@ -1,9 +1,12 @@
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { Controller, Get, Param, Post, Req, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
 import { ReceiptService } from "./receipt.service";
-@UseGuards(JwtAuthGuard)
+@RequiresFeature("THERMAL_PRINTING")
+@UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("receipts")
 export class ReceiptController{constructor(private readonly service:ReceiptService){}
  @Get("sale/:saleId") @Permissions("sales.view") findBySale(@Req() req:AuthenticatedRequest, @Param("saleId") saleId:string){return this.service.findBySale(req.user.tenantId, saleId)}

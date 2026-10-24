@@ -1,3 +1,5 @@
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { Body, Controller, Get, Param, Post, Res, Req, UseGuards } from "@nestjs/common";
 import { AuditAction } from "@prisma/client";
 import type { Response } from "express";
@@ -9,7 +11,8 @@ import { AuditLogsService } from "../audit-logs/audit-logs.service";
 import { ExportService } from "./export.service";
 import { ImportService } from "./import.service";
 
-@UseGuards(JwtAuthGuard)
+@RequiresFeature("IMPORT_EXPORT")
+@UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("import-export")
 export class ImportExportController {
   constructor(private readonly importer: ImportService, private readonly exporter: ExportService, private readonly auditLogs: AuditLogsService) {}

@@ -1,9 +1,12 @@
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
 import { StoresService } from "./stores.service";
-@UseGuards(JwtAuthGuard)
+@RequiresFeature("POS")
+@UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
 @Controller("stores")
 export class StoresController { constructor(private readonly stores: StoresService) {}
   @Get("dashboard") @Permissions("store.read") dashboard(@Req() req: AuthenticatedRequest){ return this.stores.dashboard(req.user.tenantId); }

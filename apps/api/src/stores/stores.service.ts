@@ -1,3 +1,4 @@
+import { SubscriptionEntitlementsService } from "../subscriptions/subscription-entitlements.service";
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, StoreStatus, StoreTransferStatus, WarehouseStatus } from "@prisma/client";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
@@ -7,7 +8,7 @@ type PageQuery = { search?: string; page?: string; limit?: string };
 
 @Injectable()
 export class StoresService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly subscriptions: SubscriptionEntitlementsService) {}
 
   async dashboard(tenantId: string) {
     const [stores, warehouses, stocks, salesByStore] = await Promise.all([
@@ -34,11 +35,11 @@ export class StoresService {
   }
 
   async createStore(tenantId: string, dto: any) {
-    try { return await this.prisma.store.create({ data: { tenantId, code: dto.code ?? this.code(dto.name), name: dto.name, phone: dto.phone, email: dto.email, country: dto.country, city: dto.city, address: dto.address, status: dto.status ?? StoreStatus.ACTIVE } }); }
+    try { return await this.subscriptions.withResourceLimit(tenantId, "stores", tx => tx.store.create({ data: { tenantId, code: dto.code ?? this.code(dto.name), name: dto.name, phone: dto.phone, email: dto.email, country: dto.country, city: dto.city, address: dto.address, status: dto.status ?? StoreStatus.ACTIVE } }), dto.status !== StoreStatus.CLOSED); }
     catch (error) { if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException("Code magasin deja existant"); throw error; }
   }
 
-  async updateStore(tenantId: string, id: string, dto: any) { await this.ensureStore(tenantId, id); return this.prisma.store.update({ where: { id }, data: dto }); }
+  async updateStore(tenantId: string, id: string, dto: any) { await this.ensureStore(tenantId, id); return this.subscriptions.withResourceLimit(tenantId, "stores", tx => tx.store.update({ where: { id }, data: dto }), async tx => dto.status !== undefined && dto.status !== StoreStatus.CLOSED && (await tx.store.findFirst({ where: { id, tenantId } }))?.status === StoreStatus.CLOSED); }
   async closeStore(tenantId: string, id: string) { await this.ensureStore(tenantId, id); return this.prisma.store.update({ where: { id }, data: { status: StoreStatus.CLOSED } }); }
 
   async findWarehouses(tenantId: string, query: PageQuery) {
@@ -50,11 +51,11 @@ export class StoresService {
 
   async createWarehouse(tenantId: string, dto: any) {
     await this.ensureStore(tenantId, dto.storeId);
-    try { return await this.prisma.warehouse.create({ data: { tenantId, storeId: dto.storeId, code: dto.code ?? this.code(dto.name), name: dto.name, description: dto.description, address: dto.address, status: dto.status ?? WarehouseStatus.ACTIVE, isActive: dto.status !== WarehouseStatus.INACTIVE } }); }
+    try { return await this.subscriptions.withResourceLimit(tenantId, "warehouses", tx => tx.warehouse.create({ data: { tenantId, storeId: dto.storeId, code: dto.code ?? this.code(dto.name), name: dto.name, description: dto.description, address: dto.address, status: dto.status ?? WarehouseStatus.ACTIVE, isActive: dto.status !== WarehouseStatus.INACTIVE && dto.status !== WarehouseStatus.CLOSED } }), dto.status !== WarehouseStatus.INACTIVE && dto.status !== WarehouseStatus.CLOSED); }
     catch (error) { if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException("Code depot deja existant"); throw error; }
   }
 
-  async updateWarehouse(tenantId: string, id: string, dto: any) { await this.ensureWarehouse(tenantId, id); return this.prisma.warehouse.update({ where: { id }, data: dto }); }
+  async updateWarehouse(tenantId: string, id: string, dto: any) { await this.ensureWarehouse(tenantId, id); return this.subscriptions.withResourceLimit(tenantId, "warehouses", tx => tx.warehouse.update({ where: { id }, data: dto }), async tx => dto.isActive === true && !(await tx.warehouse.findFirst({ where: { id, tenantId } }))?.isActive); }
 
   async stock(tenantId: string) {
     const rows = await this.prisma.warehouseStock.findMany({ where: { tenantId }, include: { store: true, warehouse: true, product: true }, orderBy: { updatedAt: "desc" } });
