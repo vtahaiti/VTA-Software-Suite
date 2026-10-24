@@ -1,6 +1,12 @@
 # VTA POS — corrections de préparation iOS
 
-## Dernier état — build 18 activé sur TestFlight
+## Dernier état — build 19, comptes entreprise réels
+
+À la demande du propriétaire, le build 1.0 (19) conserve tous les correctifs du build 18 et utilise l’API normale https://api.vtaerp.com, localhost et le nom VTA POS. Ces valeurs ont été contrôlées dans l’archive arm64 signée Shelton. Export/sync et trois tests du choix d’environnement réussis. API production /version 6638b3e et /health/ready HTTP 200 (55 migrations).
+
+Aucun compte ni mot de passe modifié. La connexion effective au compte entreprise reste à confirmer par son propriétaire. Les achats Apple production restent désactivés et la restauration StoreKit / 2 non validée. Transfert Apple réussi et build activé sur TestFlight interne (1 testeur) et externe (4 testeurs), « En cours de test » confirmé; notifications automatiques activées.
+
+## Historique — build 18 activé sur TestFlight
 
 Archive arm64 1.0 (18) signée Shelton et transférée avec succès. Build activé dans les groupes interne (1 testeur) et externe (4 testeurs), état « En cours de test » confirmé et notifications automatiques activées. API /pos-sandbox, sandbox.localhost et nom VTA POS Test vérifiés dans l’archive; configuration normale restaurée par export/sync après archivage. Les membres peuvent lire Mon abonnement avec dashboard.view sans obtenir les droits de gestion de facturation. Les 44 tests passent.
 
