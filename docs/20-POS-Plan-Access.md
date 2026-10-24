@@ -29,7 +29,7 @@ Création/réactivation d’utilisateurs, boutiques, dépôts et caisses : compt
 
 ## Validation
 
-Types API/web vérifiés et 43 tests réussis, dont matrice Gratuit/Basique/Premium/Pro/Essai, expiration du cache, contrôle API même pour Owner, quotas et conflits concurrents. Vérification visuelle dans l’aperçu iOS connecté au vrai compte QA Basique. 
+Types API/web vérifiés et 43 tests réussis, dont matrice Gratuit/Basique/Premium/Pro/Essai, expiration du cache, contrôle API même pour Owner, quotas et conflits concurrents. Vérification visuelle dans l’aperçu iOS connecté au vrai compte QA Basique.
 
 Image API vta-pos-api:3ac1e30 déployée sur QA puis ERP après sauvegarde. Refus HTTP 403 FEATURE_NOT_INCLUDED pour fournisseurs/achats/rôles/audit/transferts/alertes/exports/profits avec le compte QA Basique; accès produits, stock et rapports essentiels HTTP 200. Création supplémentaire de boutique/dépôt/caisse : HTTP 403 SUBSCRIPTION_LIMIT_REACHED. Test réel de deux créations simultanées pour la dernière place utilisateur : HTTP 201 et 403; compte synthétique créé puis désactivé après test. Les rapports avancés restent vides et marqués locked. Aucun test d’achat d’un autre plan n’est revendiqué.
 
