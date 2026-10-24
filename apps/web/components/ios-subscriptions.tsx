@@ -24,10 +24,12 @@ export function IosSubscriptions() {
       subscriptionRequest<Subscription>("me"), subscriptionRequest<Catalog>("apple/catalog"), subscriptionRequest<Plan[]>("plans")
     ]);
     setSubscription(current); setCatalog(available); setPlans(offers.filter(plan => plan.code.startsWith("POS_")));
-    if (available.configured) {
+    // Reading StoreKit prices does not require enabling server-side purchases.
+    // Keep the plan catalogue visible if Apple's storefront is unavailable.
+    try {
       const products = await AppleSubscriptions.products();
       setPrices(Object.fromEntries(products.products.map(product => [product.id, product.price])));
-    }
+    } catch { setPrices({}); }
     return available;
   }, []);
   const confirm = useCallback(async (transactions: AppleTransaction[], token: string) => {
@@ -91,8 +93,9 @@ export function IosSubscriptions() {
           return <article key={plan.code} className="rounded-2xl border bg-white p-4">
             <div className="flex items-center justify-between gap-3"><h2 className="font-bold">{plan.name}</h2>{current && <span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">Actuel</span>}</div>
             <p className="mt-2 text-sm text-slate-600">{plan.description}</p>
-            <p className="mt-3 text-lg font-bold">{plan.code === "POS_FREE" ? "Gratuit" : price ?? "Prix Apple indisponible"}</p>
+            <p className="mt-3 text-lg font-bold">{plan.code === "POS_FREE" ? "Gratuit" : price ?? new Intl.NumberFormat("fr-HT", { style: "currency", currency: plan.currency || "USD" }).format(Number(plan.monthlyPrice))}</p>
             <p className="text-xs text-slate-500">{plan.code === "POS_FREE" ? "Sans expiration" : "par mois · pour cette entreprise"}</p>
+            {plan.code !== "POS_FREE" && !price && <p className="mt-2 text-xs text-slate-500">Tarif de référence. Le prix dans votre devise sera confirmé par Apple avant tout achat.</p>}
             {product && <button className="mt-4 min-h-11 w-full rounded-xl bg-brand-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-40" disabled={busy || current || !catalog?.canPurchase || !price || subscription.billingProvider === "APPLE"} onClick={() => void buy(product.id)}>{current ? "Plan actuel" : catalog?.trialActive ? "Disponible après votre essai" : subscription.billingProvider === "APPLE" ? "Modifier avec Apple ci-dessous" : "S’abonner avec Apple"}</button>}
           </article>;
         })}

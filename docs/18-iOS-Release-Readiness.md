@@ -1,5 +1,12 @@
 # VTA POS — corrections de préparation iOS
 
+## Affichage des tarifs — build 14
+
+Le build 13 est désormais en cours de test dans les groupes interne et externe. Le build 14 corrige les prix absents : la lecture StoreKit ne dépend plus du drapeau serveur d’activation des achats. Les prix localisés Apple priment; en leur absence, les tarifs USD du catalogue sont visibles et explicitement présentés comme tarifs de référence. Aucun achat n’est autorisé sans prix Apple et autorisation serveur. Une indisponibilité StoreKit ne masque plus le catalogue.
+
+Export production, sync iOS et archive Xcode 1.0 (14) réussis. Archive signée contrôlée (API production, localhost, nouveau composant). 21 tests abonnements/UI passent; rendu du composant réel vérifié avec paiements désactivés et prix Apple localisés.
+
+
 ## État actuel — 23 octobre 2026, build 13
 
 Les diagnostics 404 et les références au seul build 1 ci-dessous sont historiques. Le build 12 Sandbox est désormais en cours de test externe et une notification Apple TEST a été livrée avec SUCCESS (24 octobre 01:18:53 UTC). Le build 13 rétablit la connexion normale à https://api.vtaerp.com et capacitor://localhost : les comptes VTA ERP existants doivent être utilisés. Le compte QA de revue du build 12 appartient uniquement à QA et ne fonctionne pas sur ce build de production.
