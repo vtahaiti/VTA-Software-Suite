@@ -43,3 +43,13 @@ Le build TestFlight de test doit rester présenté comme Sandbox. Le prochain bu
 ## Retour aux comptes réels — build 13
 
 Le build 12 QA ne reconnaît pas les identifiants de production. À la demande du propriétaire, le build 13 est archivé avec l’API production, l’origine localhost et le nom VTA POS vérifiés dans l’archive signée. Le bundle production et la configuration native avaient été restaurés avant cette archive. Aucun compte ni mot de passe de production modifié. Les paiements de production restent désactivés jusqu’à validation appropriée.
+
+## Accès QA sur le domaine API
+
+Après des erreurs iPhone NSURLError -1005 intermittentes sur le domaine sslip.io, les nouveaux bundles Sandbox utilisent `https://api.vtaerp.com/pos-sandbox`. Le hostname local reste sandbox.localhost. La configuration normale reste https://api.vtaerp.com avec localhost.
+
+Le fichier dynamique distinct `/data/coolify/proxy/dynamic/vta-pos-qa-api-alias.yaml` ajoute uniquement Host(api.vtaerp.com) et PathPrefix(/pos-sandbox/), avec suppression du préfixe vers le service QA existant, Cache-Control no-store et X-VTA-Environment Sandbox. Les routeurs existants, les bases et les ports restent inchangés; les contrôles JWT/entreprise du serveur QA restent obligatoires. Trois connexions successives via cet accès renvoient 201, les catalogues Apple 200 configured/canPurchase=true, les abonnements anonymes 401. La production reste prête avec 55 migrations et QA avec 42. Le contrôle iPhone de cet accès reste à confirmer.
+
+Les boutons d’abonnement expliquent désormais leur état désactivé (propriétaire, essai, configuration, offre Apple absente), et les offres Apple peuvent être rechargées. Le journal natif rapporte uniquement le nombre de produits ou le domaine/code d’erreur, sans données de transaction ni secrets. Les 23 tests de droits d’achat, abonnements et UI passent.
+
+Le build 15 est désormais en cours de test sur TestFlight (groupe externe 4 testeurs, groupe interne 1). Archive signée vérifiée : API QA sur /pos-sandbox, sandbox.localhost, nom VTA POS Test. La compilation/lancement du simulateur réussit et les écrans accueil/connexion sont contrôlés. Le parcours StoreKit reste non validé. La configuration source/générée normale a été restaurée après ces essais.

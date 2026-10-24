@@ -1,6 +1,6 @@
 const environments = Object.freeze({
   production: Object.freeze({ name: 'production', apiUrl: 'https://api.vtaerp.com', hostname: 'localhost', displayName: 'VTA POS' }),
-  sandbox: Object.freeze({ name: 'sandbox', apiUrl: 'https://zdbbps30oh7g8h05dpvxcgdx.2.24.112.55.sslip.io', hostname: 'sandbox.localhost', displayName: 'VTA POS Test' })
+  sandbox: Object.freeze({ name: 'sandbox', apiUrl: 'https://api.vtaerp.com/pos-sandbox', hostname: 'sandbox.localhost', displayName: 'VTA POS Test' })
 });
 
 function iosBuildEnvironment(env = process.env) {

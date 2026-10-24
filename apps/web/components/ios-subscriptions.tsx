@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { IosPageHeading } from "./ios-page-heading";
+import { appleOfferState } from "@/lib/apple-offer-state";
 import { AppleSubscriptions, confirmAppleTransaction, subscriptionRequest, type AppleTransaction } from "@/lib/apple-subscriptions";
 
 type Subscription = { planCode: string; planName: string; status: string; isActive: boolean; trialEndsAt?: string; currentPeriodEnd?: string; billingProvider?: string; limits?: Record<string, number>; usage?: Record<string, number>; featureDetails?: Array<{ key: string; name: string }> };
@@ -14,6 +15,7 @@ export function IosSubscriptions() {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [prices, setPrices] = useState<Record<string, string>>({});
+  const [priceMessage, setPriceMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -29,7 +31,8 @@ export function IosSubscriptions() {
     try {
       const products = await AppleSubscriptions.products();
       setPrices(Object.fromEntries(products.products.map(product => [product.id, product.price])));
-    } catch { setPrices({}); }
+      setPriceMessage(available.products.some(offer => !products.products.some(product => product.id === offer.id)) ? "Certaines offres Apple ne sont pas disponibles pour le moment. Les tarifs de référence restent affichés; aucun achat ne peut démarrer sans offre Apple." : "");
+    } catch { setPrices({}); setPriceMessage("Les prix Apple n’ont pas pu être chargés. Vérifiez votre connexion puis réessayez. Les tarifs de référence restent affichés."); }
     return available;
   }, []);
   const confirm = useCallback(async (transactions: AppleTransaction[], token: string) => {
@@ -85,18 +88,20 @@ export function IosSubscriptions() {
       </section>
       {catalog?.trialActive && <section className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950"><h2 className="font-bold">Votre premier mois est offert</h2><p className="mt-2">Toutes les fonctionnalités sont disponibles pendant l’essai. À la fin, votre entreprise passe au plan Gratuit. Aucun prélèvement sans achat confirmé auprès d’Apple.</p></section>}
       {!catalog?.configured && <p className="rounded-2xl border bg-white p-4 text-sm text-slate-600">{catalog?.canManage === false ? "Seul le propriétaire peut modifier l’abonnement. Votre accès actuel reste utilisable selon votre plan." : "Les achats Apple ne sont pas encore disponibles. Votre accès actuel reste utilisable selon votre plan."}</p>}
+      {priceMessage && <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><p>{priceMessage}</p><button className="mt-3 min-h-11 font-semibold disabled:opacity-40" disabled={busy} onClick={() => void action(async () => { await refresh(); })}>Recharger les offres Apple</button></div>}
       <section className="space-y-3" aria-label="Plans VTA POS">
         {plans.map(plan => {
           const product = catalog?.products.find(item => item.planCode === plan.code);
           const price = product ? prices[product.id] : null;
           const current = plan.code === subscription.planCode;
+          const offer = appleOfferState({ busy, current, canManage: catalog?.canManage === true, trialActive: catalog?.trialActive === true, appleManaged: subscription.billingProvider === "APPLE", configured: catalog?.configured === true, canPurchase: catalog?.canPurchase === true, priceAvailable: Boolean(price) });
           return <article key={plan.code} className="rounded-2xl border bg-white p-4">
             <div className="flex items-center justify-between gap-3"><h2 className="font-bold">{plan.name}</h2>{current && <span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">Actuel</span>}</div>
             <p className="mt-2 text-sm text-slate-600">{plan.description}</p>
             <p className="mt-3 text-lg font-bold">{plan.code === "POS_FREE" ? "Gratuit" : price ?? new Intl.NumberFormat("fr-HT", { style: "currency", currency: plan.currency || "USD" }).format(Number(plan.monthlyPrice))}</p>
             <p className="text-xs text-slate-500">{plan.code === "POS_FREE" ? "Sans expiration" : "par mois · pour cette entreprise"}</p>
             {plan.code !== "POS_FREE" && !price && <p className="mt-2 text-xs text-slate-500">Tarif de référence. Le prix dans votre devise sera confirmé par Apple avant tout achat.</p>}
-            {product && <button className="mt-4 min-h-11 w-full rounded-xl bg-brand-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-40" disabled={busy || current || !catalog?.canPurchase || !price || subscription.billingProvider === "APPLE"} onClick={() => void buy(product.id)}>{current ? "Plan actuel" : catalog?.trialActive ? "Disponible après votre essai" : subscription.billingProvider === "APPLE" ? "Modifier avec Apple ci-dessous" : "S’abonner avec Apple"}</button>}
+            {product && <button className="mt-4 min-h-11 w-full rounded-xl bg-brand-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-40" disabled={offer.disabled} onClick={() => void buy(product.id)}>{offer.label}</button>}
           </article>;
         })}
       </section>

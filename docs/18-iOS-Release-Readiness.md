@@ -1,5 +1,14 @@
 # VTA POS — corrections de préparation iOS
 
+## Dernier état — build 15 Sandbox
+
+Le build 1.0 (15), VTA POS Test, est téléversé et activé dans les groupes TestFlight interne et externe (« En cours de test »). Il utilise https://api.vtaerp.com/pos-sandbox, un compte QA dédié et sandbox.localhost. Le build 14 reste le build de connexion aux entreprises réelles. La configuration générée et Info.plist de travail ont été restaurés en production après les essais.
+
+Les erreurs iPhone intermittentes -1005 ont conduit à ajouter un alias HTTPS vers le serveur QA existant, sans modification des contrôles JWT ni des routeurs existants. Trois connexions par cet accès réussissent et les abonnements anonymes restent rejetés. Le contrôle final de connexion/StoreKit sur iPhone avec le build 15 reste à faire.
+
+Les boutons d’achat expliquent désormais leur état désactivé; un bouton permet de recharger les offres. 26 tests passent; export/sync Sandbox, archive signée arm64 et compilation/lancement sur simulateur réussissent. Les écrans accueil et connexion ont été vus sur le simulateur; aucun achat ni restauration StoreKit validé. Les paiements de production restent désactivés. Les notes de revue des trois abonnements sont préparées; captures d’écran finales et première soumission avec une version App Store restent requises.
+
+
 ## Affichage des tarifs — build 14
 
 Le build 13 est désormais en cours de test dans les groupes interne et externe. Le build 14 corrige les prix absents : la lecture StoreKit ne dépend plus du drapeau serveur d’activation des achats. Les prix localisés Apple priment; en leur absence, les tarifs USD du catalogue sont visibles et explicitement présentés comme tarifs de référence. Aucun achat n’est autorisé sans prix Apple et autorisation serveur. Une indisponibilité StoreKit ne masque plus le catalogue.

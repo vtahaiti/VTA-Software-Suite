@@ -53,10 +53,15 @@ public class VtaSubscriptionsPlugin: CAPPlugin, CAPBridgedPlugin {
         Task { @MainActor in
             do {
                 let products = try await Product.products(for: Array(productIDs))
+                NSLog("[VTA StoreKit] products returned: %ld", products.count)
                 call.resolve(["products": products.filter { $0.subscription?.subscriptionPeriod.unit == .month && $0.subscription?.subscriptionPeriod.value == 1 }.map {
                     ["id": $0.id, "name": $0.displayName, "price": $0.displayPrice]
                 }])
-            } catch { call.reject("Impossible de charger les prix Apple. Réessayez avec une connexion Internet.") }
+            } catch {
+                let failure = error as NSError
+                NSLog("[VTA StoreKit] product lookup failed: %@ %ld", failure.domain, failure.code)
+                call.reject("Impossible de charger les prix Apple. Réessayez avec une connexion Internet.")
+            }
         }
     }
 
