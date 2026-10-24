@@ -49,7 +49,7 @@ test('Inactive subscriptions fail before any write, retries are bounded, unrelat
 });
 test('The API guard blocks paid operations for lower plans even for an owner with role permissions',async()=>{
  const Guard=load('apps/api/src/subscriptions/subscription-feature.guard.ts',key=>key==='@nestjs/common'?{Injectable:()=>c=>c}:{}).SubscriptionFeatureGuard;
- for(const code of ['POS_FREE','POS_BASIC','POS_PREMIUM','POS_PRO','TRIAL'])for(const feature of ['INVENTORY','PURCHASES','ROLES_PERMISSIONS','IMPORT_EXPORT','STOCK_TRANSFERS','ADVANCED_AUDIT']){
+ for(const code of ['POS_FREE','POS_BASIC','POS_PREMIUM','POS_PRO','TRIAL'])for(const feature of ['INVENTORY','PURCHASES','ROLES_PERMISSIONS','IMPORT_EXPORT','STOCK_TRANSFERS','ADVANCED_AUDIT','MULTI_ACTIVITY']){
   let checked=false;
   const guard=new Guard({getAllAndOverride:()=>feature},{assertFeature:async(tenant,key)=>{checked=true;assert.equal(tenant,'business-a');if(!catalogue.planFeatureMatrix[code].includes(key))throw new Forbidden({code:'FEATURE_NOT_INCLUDED',message:'locked'});}});
   const context={getHandler:()=>null,getClass:()=>null,switchToHttp:()=>({getRequest:()=>({user:{tenantId:'business-a',role:'OWNER',roles:['OWNER'],permissions:['*']}})})};

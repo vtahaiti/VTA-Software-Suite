@@ -3,6 +3,8 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
 import { BusinessProfilesService } from "./business-profiles.service";
+import { RequiresFeature } from "../subscriptions/requires-feature.decorator";
+import { SubscriptionFeatureGuard } from "../subscriptions/subscription-feature.guard";
 import { ActivateBusinessProfileDto, ToggleBusinessModuleDto, UpdateBusinessSelectionDto } from "./dto/business-profiles.dto";
 
 @Controller("business-profiles")
@@ -35,7 +37,8 @@ export class BusinessProfilesController {
     return this.service.assignBusinessSelection(request.user.tenantId, dto.businessCategory, dto.primaryActivity, dto.secondaryActivities ?? []);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @RequiresFeature("MULTI_ACTIVITY")
+  @UseGuards(JwtAuthGuard, SubscriptionFeatureGuard)
   @Post("tenant/profiles")
   @Permissions("business.update")
   activateProfile(@Req() request: AuthenticatedRequest, @Body() dto: ActivateBusinessProfileDto) {
