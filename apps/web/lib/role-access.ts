@@ -3,6 +3,9 @@ import type { AuthUser } from "@/lib/auth";
 const adminRoles = new Set(["OWNER", "Owner", "ADMIN", "Admin", "Administrator", "PlatformAdmin"]);
 
 const routePermissions: Array<{ prefix: string; permissions: string[]; roles?: string[]; exact?: boolean }> = [
+  // Members may read their business plan; the Apple/API purchase endpoints
+  // still require the owner. Do not redirect the visible plan card in a loop.
+  { prefix: "/dashboard/settings/subscription", permissions: ["dashboard.view"] },
   { prefix: "/dashboard/profile", permissions: ["dashboard.view"] },
   { prefix: "/dashboard/notifications", permissions: ["notifications.read"] },
   { prefix: "/dashboard/pos", permissions: ["pos.sell"], roles: ["CAISSIER", "Cashier"] },

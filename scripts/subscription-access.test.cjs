@@ -57,3 +57,9 @@ test('The API guard blocks paid operations for lower plans even for an owner wit
   assert.equal(checked,true);
  }
 });
+test('Staff can read their business plan without gaining settings or role management permissions',()=>{
+ const roles=load('apps/web/lib/role-access.ts');const cashier={role:'CAISSIER',roles:['CAISSIER'],permissions:['dashboard.view','pos.sell']};
+ assert.equal(roles.canAccessHref(cashier,'/dashboard/settings/subscription'),true);
+ assert.equal(roles.canAccessHref(cashier,'/dashboard/settings/roles'),false);
+ assert.equal(roles.canAccessHref(cashier,'/dashboard/settings/company'),false);
+});
