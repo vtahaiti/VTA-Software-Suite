@@ -2,6 +2,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { addDynamicPages, adaptClientNavigation } = require('./ios-export-routes.cjs');
+const { iosBuildEnvironment } = require('./ios-build-environment.cjs');
+const buildEnvironment = iosBuildEnvironment();
 const root = path.resolve(__dirname, '..');
 const web = path.join(root, 'apps/web');
 const target = path.join(root, 'apps/ios-export');
@@ -36,9 +38,10 @@ const tsconfig = JSON.parse(fs.readFileSync(path.join(web, 'tsconfig.json')));
 fs.writeFileSync(path.join(target, 'tsconfig.json'), JSON.stringify(tsconfig));
 fs.writeFileSync(path.join(target, 'next.config.mjs'), `export default { output: 'export', trailingSlash: true, images: { unoptimized: true }, transpilePackages: ['@vta/ui'], eslint: { ignoreDuringBuilds: true } };\n`);
 const result = spawnSync(process.execPath, [path.join(root, 'node_modules/next/dist/bin/next'), 'build'], {
-  cwd: target, stdio: 'inherit', env: { ...process.env, NEXT_PUBLIC_API_URL: 'https://api.vtaerp.com', NEXT_PUBLIC_IOS_EMBEDDED: '1', NEXT_TELEMETRY_DISABLED: '1' }
+  cwd: target, stdio: 'inherit', env: { ...process.env, NEXT_PUBLIC_API_URL: buildEnvironment.apiUrl, NEXT_PUBLIC_IOS_SANDBOX: buildEnvironment.name === 'sandbox' ? '1' : '0', NEXT_PUBLIC_IOS_EMBEDDED: '1', NEXT_TELEMETRY_DISABLED: '1' }
 });
 if (result.status !== 0) process.exit(result.status ?? 1);
 fs.rmSync(path.join(web, 'ios-bundle'), { recursive: true, force: true });
 fs.cpSync(path.join(target, 'out'), path.join(web, 'ios-bundle'), { recursive: true });
-console.log('Embedded iOS bundle ready in apps/web/ios-bundle');
+fs.writeFileSync(path.join(web, 'ios-bundle/vta-build-environment.json'), JSON.stringify(buildEnvironment));
+console.log(`Embedded iOS bundle ready: ${buildEnvironment.displayName} (${buildEnvironment.apiUrl})`);

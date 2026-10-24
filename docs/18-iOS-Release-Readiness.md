@@ -1,5 +1,12 @@
 # VTA POS — corrections de préparation iOS
 
+## État actuel — 23 octobre 2026, build 13
+
+Les diagnostics 404 et les références au seul build 1 ci-dessous sont historiques. Le build 12 Sandbox est désormais en cours de test externe et une notification Apple TEST a été livrée avec SUCCESS (24 octobre 01:18:53 UTC). Le build 13 rétablit la connexion normale à https://api.vtaerp.com et capacitor://localhost : les comptes VTA ERP existants doivent être utilisés. Le compte QA de revue du build 12 appartient uniquement à QA et ne fonctionne pas sur ce build de production.
+
+Archive 1.0 (13) créée dans Xcode et contrôlée dans le produit signé : nom VTA POS, API de production, hostname localhost. API publique prête HTTP 200 avec 55 migrations. Les 43 tests iOS principaux et les 3 contrôles de choix d’environnement passent. Les achats Apple restent désactivés côté production; achat/restauration sur téléphone et imprimante physique restent à valider. Aucun mot de passe utilisateur modifié.
+
+
 Date de vérification : 23 octobre 2026.
 
 ## Comportement livré

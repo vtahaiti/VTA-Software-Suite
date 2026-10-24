@@ -17,6 +17,7 @@ export function PosWelcome() {
       <div><p className="mb-1 text-sm font-extrabold tracking-tight"><span className="text-[#0877f9]">VTA</span> POS</p><h1 className="text-2xl font-bold tracking-tight text-[#111b3c]">Nouvelle vente</h1></div>
       <nav className="flex gap-2" aria-label="Accès au compte"><Link href="/login" className="rounded-lg border px-3 py-2 text-sm font-semibold">Se connecter</Link><Link href="/signup" className="rounded-lg bg-[#0877f9] px-3 py-2 text-sm font-semibold text-white">Créer un compte</Link></nav>
     </header>
+    {process.env.NEXT_PUBLIC_IOS_SANDBOX === "1" && <p role="status" className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm font-semibold text-amber-900">VTA POS Test · Environnement Sandbox · Données séparées de votre entreprise réelle</p>}
     <div className="mx-auto grid max-w-7xl gap-4 p-4 md:grid-cols-[1fr_340px]">
       <section className="min-w-0 space-y-4" aria-labelledby="catalog-title">
         <div><h2 id="catalog-title" className="text-xl font-bold">Produits</h2><p className="mt-1 text-sm text-slate-500">Connectez-vous pour charger le catalogue de votre entreprise.</p></div>
