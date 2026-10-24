@@ -63,3 +63,11 @@ La restauration sur téléphone retourne le message générique natif « La rest
 Compilation simulateur Xcode et 20 tests d’abonnements/droits d’achat réussis. Un nouveau test sur téléphone reste nécessaire; ce changement améliore le diagnostic et ne constitue pas une preuve de réparation de StoreKit.
 
 Archive signée du build 16 contrôlée (VTA POS Test, API /pos-sandbox, sandbox.localhost), transfert Apple réussi et état « En cours de test » confirmé dans le groupe externe (4 testeurs). Groupe interne ajouté (1 testeur); notifications automatiques activées. Configuration production source/générée rétablie. Aucun achat/restauration serveur validé à cette étape.
+
+## Build 17 — visibilité et application des plans
+
+Le build 17 est en cours de test externe/interne, avec notifications automatiques. Archive arm64 signée Shelton, version, nom VTA POS Test, API /pos-sandbox et sandbox.localhost contrôlés. Export/sync normaux restaurés. La page Abonnement expose les fonctionnalités et quatre quotas par plan; Accueil/Plus présentent une carte dédiée et les autres écrans un accès compact.
+
+Image API vta-pos-api:3ac1e30 déployée sur QA puis ERP après sauvegarde. Le vrai compte QA Basique peut lire produits/stock/rapports essentiels mais ne peut pas appeler fournisseurs, achats, rôles, audit, transferts, alertes ou exports avancés. Création de boutique/dépôt/caisse refusée au plafond; deux créations utilisateur simultanées pour la dernière place donnent 201 et 403. Compte synthétique supplémentaire désactivé après test. QA conserve 42 migrations; ERP 55.
+
+Achat Sandbox Basique validé par Apple puis par l’API (POS_BASIC ACTIVE, APPLE). La restauration StoreKit / 2 n’est toujours pas validée; la mise en œuvre des quotas ne change pas ce statut.

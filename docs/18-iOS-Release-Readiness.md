@@ -1,6 +1,14 @@
 # VTA POS — corrections de préparation iOS
 
-## Dernier état — build 15 Sandbox
+## Dernier état — 24 octobre 2026, build 17 Sandbox
+
+Le build 1.0 (17) est activé dans TestFlight interne/externe (« En cours de test »), API /pos-sandbox, compte QA dédié. Mon abonnement apparaît sur Accueil et Plus; la comparaison expose fonctionnalités et plafonds des quatre plans. Types API/web et 43 tests passent. Les écrans sont contrôlés dans l’aperçu iOS connecté au vrai compte QA Basique; pas de validation visuelle native du build 17 revendiquée.
+
+L’achat Sandbox Basique précédent est désormais confirmé indépendamment par l’API : POS_BASIC ACTIVE, billingProvider APPLE. La restauration reste en échec StoreKit.StoreKitError / 2 et non validée. Les achats production restent désactivés; ce build QA n’est pas le build des comptes entreprise réels.
+
+Les contrôles API de fonctionnalités et quotas (création/réactivation Serializable) sont déployés sur QA et ERP, image vta-pos-api:3ac1e30. QA : refus des fonctions Premium/Pro et des quotas boutique/dépôt/caisse vérifiés; concurrence dernière place utilisateur : une réussite, un refus, compte synthétique créé puis désactivé. Health ready 200, production 55 migrations et QA 42. Sauvegarde préalable ERP, bases/volumes/réseaux inchangés; aucune nouvelle migration. Configuration iOS normale restaurée après archivage. Voir docs/20-POS-Plan-Access.md.
+
+## Historique — build 15 Sandbox
 
 Le build 1.0 (15), VTA POS Test, est téléversé et activé dans les groupes TestFlight interne et externe (« En cours de test »). Il utilise https://api.vtaerp.com/pos-sandbox, un compte QA dédié et sandbox.localhost. Le build 14 reste le build de connexion aux entreprises réelles. La configuration générée et Info.plist de travail ont été restaurés en production après les essais.
 

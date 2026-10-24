@@ -29,4 +29,8 @@ Création/réactivation d’utilisateurs, boutiques, dépôts et caisses : compt
 
 ## Validation
 
-Types API/web vérifiés, tests de matrice Gratuit/Basique/Premium/Pro/Essai, expiration du cache, contrôle API même pour Owner, quotas et conflits concurrents. Vérification visuelle dans l’aperçu iOS connecté au vrai compte QA Basique. Déploiement QA et build TestFlight à confirmer séparément avant d’annoncer leur disponibilité.
+Types API/web vérifiés et 43 tests réussis, dont matrice Gratuit/Basique/Premium/Pro/Essai, expiration du cache, contrôle API même pour Owner, quotas et conflits concurrents. Vérification visuelle dans l’aperçu iOS connecté au vrai compte QA Basique. 
+
+Image API vta-pos-api:3ac1e30 déployée sur QA puis ERP après sauvegarde. Refus HTTP 403 FEATURE_NOT_INCLUDED pour fournisseurs/achats/rôles/audit/transferts/alertes/exports/profits avec le compte QA Basique; accès produits, stock et rapports essentiels HTTP 200. Création supplémentaire de boutique/dépôt/caisse : HTTP 403 SUBSCRIPTION_LIMIT_REACHED. Test réel de deux créations simultanées pour la dernière place utilisateur : HTTP 201 et 403; compte synthétique créé puis désactivé après test. Les rapports avancés restent vides et marqués locked. Aucun test d’achat d’un autre plan n’est revendiqué.
+
+Build 1.0 (17) signé, transféré et en cours de test externe/interne dans TestFlight. Build réservé au compte QA et au serveur Sandbox. Source/configuration iOS de production restaurées. La vérification visuelle porte sur l’aperçu connecté QA, pas sur l’écran physique du build 17. Les paiements production restent désactivés et l’échec de restauration StoreKit / 2 reste ouvert.
